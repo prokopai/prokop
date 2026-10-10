@@ -1,12 +1,15 @@
 /**
- * bun run clips [--clip <name>]... [--theme <mode-scheme>] [--out <dir>] [--port <n>] [--home <dir>] [--keep]
+ * bun run clips [--clip <name>]... [--theme <filter>]... [--out <dir>] [--port <n>] [--home <dir>] [--keep]
  *
- * For each clip, boots the same isolated sandbox instance as
+ * For each clip and theme, boots the same isolated sandbox instance as
  * `bun run screenshots`, builds the world around it, and records it as
  * `<clip>.<mode>-<scheme>.{webm,mp4,webp,gif}`.
  *
- * One theme per run (default dark-neutral): each clip plays its turn live
- * once, in real time.
+ * --theme accepts a mode (`dark`), a scheme (`ocean`), or both (`dark-ocean`).
+ * Default: dark-neutral only. Each recording plays its turn live, in real
+ * time, so all 10 themes (`--theme dark --theme light`) take a while.
+ *
+ * A failed recording is reported and skipped; the run exits 1 at the end.
  */
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +30,7 @@ const CLIPS: Clip[] = [commandApprovalClip, multiSessionClip, mobileClip, gitWor
 const { values } = parseArgs({
   options: {
     clip: { type: 'string', multiple: true },
-    theme: { type: 'string', default: 'dark-neutral' },
+    theme: { type: 'string', multiple: true, default: ['dark-neutral'] },
     out: { type: 'string', default: join(import.meta.dir, 'out/clips') },
     port: { type: 'string', default: '18742' },
     home: { type: 'string' },
@@ -41,8 +44,8 @@ if (clips.length === 0) {
   process.exit(1);
 }
 
-const theme = THEMES.find((candidate) => themeName(candidate) === values.theme);
-if (!theme) {
+const themes = THEMES.filter((theme) => values.theme.some((filter) => [theme.mode, theme.scheme, themeName(theme)].includes(filter)));
+if (themes.length === 0) {
   console.error(`Unknown theme. Available: ${THEMES.map(themeName).join(', ')}`);
   process.exit(1);
 }
@@ -65,36 +68,40 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 const browser = await chromium.launch({ channel: 'chrome' });
-let failed = false;
+const failures: string[] = [];
 try {
-  // A fresh instance per clip: the world holds every story except the clip's
-  // live ones, so the sidebar around the recording stays full.
+  // A fresh instance per recording: playing a clip uses up its story (edits,
+  // commits), and the world holds every other story, so the sidebar stays full.
   for (const clip of clips) {
-    if (instance) await instance.stop();
-    instance = await startInstance(Number(values.port), values.home);
-    const demo = new Demo(instance.url);
-    await demo.connect();
-    const name = `${clip.name}.${themeName(theme)}`;
-    process.stdout.write(`${name}: world ... `);
-    const world = await buildClipWorld(demo, instance.home, clip.live);
-    // Clips send their turns from the recorded client, which must hold session control.
-    await demo.disconnect();
-    process.stdout.write('recording ... ');
-    const ctx: ClipContext = { instance, browser, demo, world };
-    const recording = await clip.record(ctx, theme, videoDir).catch(async (error: unknown) => {
-      const failedPage = lastPage();
-      if (failedPage && !failedPage.isClosed()) {
-        await failedPage.screenshot({ path: join(values.out, `${name}.failed.png`) });
-        console.error(`Saved ${name}.failed.png`);
+    for (const theme of themes) {
+      const name = `${clip.name}.${themeName(theme)}`;
+      const startedAt = Date.now();
+      process.stdout.write(`${name}: world ... `);
+      try {
+        if (instance) await instance.stop();
+        instance = await startInstance(Number(values.port), values.home);
+        const demo = new Demo(instance.url);
+        await demo.connect();
+        const world = await buildClipWorld(demo, instance.home, clip.live);
+        // Clips send their turns from the recorded client, which must hold session control.
+        await demo.disconnect();
+        process.stdout.write('recording ... ');
+        const ctx: ClipContext = { instance, browser, demo, world };
+        const recording = await clip.record(ctx, theme, videoDir);
+        const files = await encode(recording, values.out, name);
+        console.log(`ok (${files.length} files, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
+      } catch (error) {
+        failures.push(name);
+        const failedPage = lastPage();
+        if (failedPage && !failedPage.isClosed()) {
+          await failedPage.screenshot({ path: join(values.out, `${name}.failed.png`) }).catch(() => undefined);
+          await failedPage.context().close().catch(() => undefined);
+          console.error(`failed, saved ${name}.failed.png`);
+        }
+        console.error(error);
       }
-      throw error;
-    });
-    const files = await encode(recording, values.out, name);
-    console.log(`ok (${files.length} files)`);
+    }
   }
-} catch (error) {
-  failed = true;
-  console.error(error);
 } finally {
   await browser.close();
   if (values.keep && instance) {
@@ -103,4 +110,9 @@ try {
     await instance?.stop();
   }
 }
-if (failed) process.exit(1);
+const total = clips.length * themes.length;
+console.log(`Recorded ${total - failures.length}/${total} to ${values.out}`);
+if (failures.length > 0) {
+  console.error(`Failed: ${failures.join(', ')}`);
+  process.exit(1);
+}
