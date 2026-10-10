@@ -56,20 +56,25 @@ function toModelUsage(usage: SandboxUsage = { inputTokens: 10, outputTokens: 20 
   };
 }
 
-function pushReasoning(chunks: unknown[], reasoning: string): void {
+/** Paced output streams one word (with its trailing whitespace) per delta. */
+function toDeltas(text: string, paced: boolean): string[] {
+  return paced ? text.split(/(?<=\s)/) : [text];
+}
+
+function pushReasoning(chunks: unknown[], reasoning: string, paced: boolean): void {
   const id = randomUUID();
   chunks.push(
     { type: 'reasoning-start', id },
-    { type: 'reasoning-delta', id, delta: reasoning },
+    ...toDeltas(reasoning, paced).map((delta) => ({ type: 'reasoning-delta', id, delta })),
     { type: 'reasoning-end', id },
   );
 }
 
-function pushText(chunks: unknown[], text: string): void {
+function pushText(chunks: unknown[], text: string, paced: boolean): void {
   const id = randomUUID();
   chunks.push(
     { type: 'text-start', id },
-    { type: 'text-delta', id, delta: text },
+    ...toDeltas(text, paced).map((delta) => ({ type: 'text-delta', id, delta })),
     { type: 'text-end', id },
   );
 }
@@ -209,9 +214,15 @@ export class SandboxLanguageModel {
     }
 
     const chunks: unknown[] = [];
+    const { pacing } = response;
+    const paced = pacing !== undefined;
 
     switch (response.type) {
       case 'text': {
+        if (paced) {
+          pushText(chunks, response.content, true);
+          break;
+        }
         const textId = randomUUID();
         const splitAt = Math.max(1, Math.floor(response.content.length / 2));
         const textChunks = response.content.length > 1
@@ -226,14 +237,14 @@ export class SandboxLanguageModel {
       }
 
       case 'reasoning': {
-        pushReasoning(chunks, response.reasoning);
-        pushText(chunks, response.text);
+        pushReasoning(chunks, response.reasoning, paced);
+        pushText(chunks, response.text, paced);
         break;
       }
 
       case 'tool-call': {
-        if (response.reasoning) pushReasoning(chunks, response.reasoning);
-        if (response.text) pushText(chunks, response.text);
+        if (response.reasoning) pushReasoning(chunks, response.reasoning, paced);
+        if (response.text) pushText(chunks, response.text, paced);
         chunks.push({
           type: 'tool-call',
           toolCallId: response.toolCallId ?? randomUUID(),
@@ -244,8 +255,8 @@ export class SandboxLanguageModel {
       }
 
       case 'multi-tool-call': {
-        if (response.reasoning) pushReasoning(chunks, response.reasoning);
-        if (response.text) pushText(chunks, response.text);
+        if (response.reasoning) pushReasoning(chunks, response.reasoning, paced);
+        if (response.text) pushText(chunks, response.text, paced);
         for (const call of response.calls) {
           chunks.push({
             type: 'tool-call',
@@ -265,7 +276,11 @@ export class SandboxLanguageModel {
       usage: toModelUsage(response.usage),
     });
 
-    return simulateReadableStream({ chunks });
+    return simulateReadableStream({
+      chunks,
+      initialDelayInMs: pacing?.initialDelayMs,
+      chunkDelayInMs: pacing?.chunkDelayMs,
+    });
   }
 
   private responseToGenerateResult(response: SandboxResponse): {

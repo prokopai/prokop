@@ -64,13 +64,10 @@ export class Demo {
   }
 
   /**
-   * Sends a user message and waits until every scripted step ran and the
-   * session is idle. `until` stops earlier and leaves the session running:
-   * - `running`: at the model call after the last step, which stays pending.
-   * - `ask`: at the permission ask the last step's tool raises, left unanswered.
+   * Queues the model's answers for the session's next turn without sending a
+   * message, so a recorded client can type and send it.
    */
-  async runTurn(sessionId: string, prompt: string, steps: Step[], options: { until?: 'idle' | 'running' | 'ask'; timeoutMs?: number } = {}): Promise<void> {
-    const { until = 'idle', timeoutMs = 60_000 } = options;
+  async queueSteps(sessionId: string, steps: Step[]): Promise<void> {
     const queued: Rule[] = steps.map((response, index) => ({
       label: `${sessionId} step ${index + 1}`,
       match: { mode: 'stream', sessionId },
@@ -80,6 +77,17 @@ export class Demo {
     const existing = await this.rules();
     // Session-scoped rules go first so the catch-all generate rule cannot shadow them.
     await this.setRules([...queued, ...existing]);
+  }
+
+  /**
+   * Sends a user message and waits until every scripted step ran and the
+   * session is idle. `until` stops earlier and leaves the session running:
+   * - `running`: at the model call after the last step, which stays pending.
+   * - `ask`: at the permission ask the last step's tool raises, left unanswered.
+   */
+  async runTurn(sessionId: string, prompt: string, steps: Step[], options: { until?: 'idle' | 'running' | 'ask'; timeoutMs?: number } = {}): Promise<void> {
+    const { until = 'idle', timeoutMs = 60_000 } = options;
+    await this.queueSteps(sessionId, steps);
 
     let rejection: string | null = null;
     const onRejected = (message: { sessionId?: string; reason?: string; message?: string }) => {

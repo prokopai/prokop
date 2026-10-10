@@ -190,6 +190,28 @@ describe('SandboxLanguageModel', () => {
     });
   });
 
+  test('paced responses stream word by word with delays', async () => {
+    const startedAt = Date.now();
+    const chunks = await collectStreamChunks({
+      type: 'tool-call',
+      reasoning: 'check it',
+      text: 'Running the suite.',
+      toolName: 'shell',
+      args: { command: 'bun test' },
+      toolCallId: 'tool-1',
+      pacing: { initialDelayMs: 20, chunkDelayMs: 5 },
+    }) as Array<Record<string, unknown>>;
+
+    expect(chunks.map((chunk) => chunk.type)).toEqual([
+      'reasoning-start', 'reasoning-delta', 'reasoning-delta', 'reasoning-end',
+      'text-start', 'text-delta', 'text-delta', 'text-delta', 'text-end',
+      'tool-call', 'finish',
+    ]);
+    expect(chunks.filter((chunk) => chunk.type === 'text-delta').map((chunk) => chunk.delta)).toEqual(['Running ', 'the ', 'suite.']);
+    // 20ms before the first chunk, then 5ms before each of the other 10.
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(65);
+  });
+
   test('converts multi-tool-call responses into multiple tool-call deltas', async () => {
     const chunks = await collectStreamChunks({
       type: 'multi-tool-call',

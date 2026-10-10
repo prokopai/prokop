@@ -1,12 +1,10 @@
 /** A short, finished question-and-answer session. */
-import { repoPath, type WorldSetup } from './types';
+import { repoPath, type Story } from './types';
 
-export async function explainSlugs({ demo, workspaceId }: WorldSetup): Promise<string> {
-  const title = 'How are slugs generated?';
-  const { session } = await demo.rest.sessions.create({ workspaceId, title });
-  await demo.scriptTitle(session.id, title);
-
-  await demo.runTurn(session.id, 'How are slugs generated, and how likely is a collision?', [
+export const explainSlugs: Story = {
+  title: 'How are slugs generated?',
+  prompt: 'How are slugs generated, and how likely is a collision?',
+  steps: [
     {
       type: 'tool-call',
       toolName: 'read-file',
@@ -22,7 +20,5 @@ export async function explainSlugs({ demo, workspaceId }: WorldSetup): Promise<s
       ].join('\n'),
       usage: { inputTokens: 13_380, outputTokens: 118 },
     },
-  ]);
-
-  return session.id;
-}
+  ],
+};

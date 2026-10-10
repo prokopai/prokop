@@ -2,20 +2,15 @@
  * A finished bug-fix turn. The agent greps, reads, edits two files, and runs
  * the real test suite. Its edits stay uncommitted for the Changes panel.
  */
-import { REPO_DISPLAY_PATH, repoPath, type WorldSetup } from './types';
-
-const PROMPT = 'Expired links still redirect. Someone reported a 30-day campaign link that still works two months later. Can you fix it and add a test?';
+import { REPO_DISPLAY_PATH, repoPath as file, type Story } from './types';
 
 /** Visible once the final reply rendered. */
 export const FIX_EXPIRED_LINKS_READY = 'Want it to include';
 
-export async function fixExpiredLinks({ demo, workspaceId }: WorldSetup): Promise<string> {
-  const file = repoPath;
-  const title = 'Fix expired links still redirecting';
-  const { session } = await demo.rest.sessions.create({ workspaceId, title });
-  await demo.scriptTitle(session.id, title);
-
-  await demo.runTurn(session.id, PROMPT, [
+export const fixExpiredLinks: Story = {
+  title: 'Fix expired links still redirecting',
+  prompt: 'Expired links still redirect. Someone reported a 30-day campaign link that still works two months later. Can you fix it and add a test?',
+  steps: [
     {
       type: 'tool-call',
       reasoning: 'The store sets expiresAt when a link is created, so the bug is likely that nothing on the redirect path reads it. Confirm where expiresAt is used before touching anything.',
@@ -112,7 +107,5 @@ export async function fixExpiredLinks({ demo, workspaceId }: WorldSetup): Promis
       ].join('\n'),
       usage: { inputTokens: 18_860, outputTokens: 164 },
     },
-  ]);
-
-  return session.id;
-}
+  ],
+};

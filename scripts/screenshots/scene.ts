@@ -43,8 +43,14 @@ export function lastPage(): Page | null {
   return lastOpenedPage;
 }
 
-/** Opens the client in a fresh context with the theme preset, and returns the page plus its client-side server id. */
-export async function openClient(ctx: SceneContext, theme: Theme, viewport = DESKTOP): Promise<{ page: Page; serverId: string }> {
+/** What opening the client needs; clips run against a different world. */
+export type ClientContext = Pick<SceneContext, 'instance' | 'browser'>;
+
+/**
+ * Opens the client in a fresh context with the theme preset, and returns the page plus its client-side server id.
+ * `recordVideoDir` records the page as a webm at viewport size.
+ */
+export async function openClient(ctx: ClientContext, theme: Theme, viewport = DESKTOP, recordVideoDir?: string): Promise<{ page: Page; serverId: string }> {
   const phone = viewport.width < 768;
   const context = await ctx.browser.newContext({
     viewport,
@@ -52,6 +58,10 @@ export async function openClient(ctx: SceneContext, theme: Theme, viewport = DES
     isMobile: phone,
     hasTouch: phone,
     colorScheme: theme.mode,
+    // Video records at CSS size; phone video at 1x is too small to read, so take it at 2x.
+    recordVideo: recordVideoDir
+      ? { dir: recordVideoDir, size: phone ? { width: viewport.width * 2, height: viewport.height * 2 } : viewport }
+      : undefined,
   });
   await context.addInitScript(({ settings, clientId }) => {
     localStorage.setItem('prokopai-theme-settings', settings);
@@ -68,8 +78,8 @@ export async function openClient(ctx: SceneContext, theme: Theme, viewport = DES
 }
 
 /** Opens a session and waits until `readyText` (e.g. part of the last reply) is visible. */
-export async function openSession(ctx: SceneContext, theme: Theme, sessionId: string, readyText: string, viewport = DESKTOP): Promise<Page> {
-  const { page, serverId } = await openClient(ctx, theme, viewport);
+export async function openSession(ctx: ClientContext, theme: Theme, sessionId: string, readyText: string, viewport = DESKTOP, recordVideoDir?: string): Promise<Page> {
+  const { page, serverId } = await openClient(ctx, theme, viewport, recordVideoDir);
   await page.goto(`${ctx.instance.url}/server/${serverId}/workspace/session/${sessionId}`);
   await page.getByText(readyText).first().waitFor();
   return page;
@@ -86,11 +96,12 @@ export interface WorkspaceOptions {
   /** Texts that must be visible before the scene continues. */
   readyTexts: string[];
   viewport?: { width: number; height: number };
+  recordVideoDir?: string;
 }
 
 /** Opens the workspace with a preset pane layout and docks. */
-export async function openWorkspace(ctx: SceneContext, theme: Theme, options: WorkspaceOptions): Promise<Page> {
-  const { page, serverId } = await openClient(ctx, theme, options.viewport);
+export async function openWorkspace(ctx: ClientContext, theme: Theme, options: WorkspaceOptions): Promise<Page> {
+  const { page, serverId } = await openClient(ctx, theme, options.viewport, options.recordVideoDir);
   const layout = JSON.stringify(workspaceLayout(serverId, options.columns, options.rightActive));
   const docks = options.bottomSize ? JSON.stringify({ version: 1, sizes: { left: 256, right: 540, bottom: options.bottomSize } }) : null;
   // Before any client code runs, so the stores load these instead of their defaults.

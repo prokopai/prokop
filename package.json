@@ -35,6 +35,7 @@
     "test:browser": "bun test ./packages/browser/src",
     "sandbox": "bun packages/sandbox-cli/src/cli.ts",
     "screenshots": "bun scripts/screenshots/run.ts",
+    "clips": "bun scripts/screenshots/record.ts",
     "test:engine": "bun test ./packages/server/tests/engine"
   },
   "devDependencies": {

@@ -2,15 +2,13 @@
  * A finished follow-up in its own worktree: the stats endpoint reports
  * whether a link expired. Edits stay uncommitted on the worktree branch.
  */
-import type { WorldSetup } from './types';
+import type { Story } from './types';
 
-export async function statsExpiredFlag({ demo, workspaceId }: WorldSetup, worktreeId: string): Promise<string> {
-  const title = 'Add expired flag to link stats';
-  const { session } = await demo.rest.sessions.create({ workspaceId, title });
-  await demo.rest.sessions.bindWorktree(session.id, worktreeId);
-  await demo.scriptTitle(session.id, title);
-
-  await demo.runTurn(session.id, 'Have the stats endpoint include `expired` so the dashboard can grey out dead links.', [
+export const statsExpiredFlag: Story = {
+  title: 'Add expired flag to link stats',
+  prompt: 'Have the stats endpoint include `expired` so the dashboard can grey out dead links.',
+  worktree: 'stats-expired-flag',
+  steps: [
     {
       type: 'tool-call',
       toolName: 'read-file',
@@ -81,7 +79,5 @@ export async function statsExpiredFlag({ demo, workspaceId }: WorldSetup, worktr
       ].join('\n'),
       usage: { inputTokens: 15_690, outputTokens: 92 },
     },
-  ]);
-
-  return session.id;
-}
+  ],
+};

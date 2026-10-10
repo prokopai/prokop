@@ -29,10 +29,22 @@ export interface SandboxUsage {
   outputTokens: number;
 }
 
+/**
+ * Streams reasoning and text word by word with delays, so a recording shows
+ * the reply being written. Without it, a response arrives at once.
+ */
+export interface SandboxPacing {
+  /** Wait before the first chunk, like a model's time to first token. */
+  initialDelayMs?: number;
+  /** Wait between chunks. */
+  chunkDelayMs: number;
+}
+
 export interface TextResponse {
   type: 'text';
   content: string;
   usage?: SandboxUsage;
+  pacing?: SandboxPacing;
 }
 
 /** Optional reasoning and text stream before the tool calls, like a real model's progress note. */
@@ -40,6 +52,7 @@ interface ToolCallPreamble {
   reasoning?: string;
   text?: string;
   usage?: SandboxUsage;
+  pacing?: SandboxPacing;
 }
 
 export interface ToolCallResponse extends ToolCallPreamble {
@@ -69,6 +82,7 @@ export interface ReasoningResponse {
   reasoning: string;
   text: string;
   usage?: SandboxUsage;
+  pacing?: SandboxPacing;
 }
 
 export type SandboxResponse =
