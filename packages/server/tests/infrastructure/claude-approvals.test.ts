@@ -231,6 +231,39 @@ test('unclassified SDK tools run without a risk ask, with or without a controlle
   expect(requests).toHaveLength(0);
 });
 
+test('an ask waits for an offline controller and can be answered after reconnecting', async () => {
+  const pushed: string[] = [];
+  installHarnessNotificationPort({ notifyTerminalMessage: () => {},
+    notifyPermissionRequired: (requestId) => { pushed.push(requestId); } });
+  try {
+    const approvals = new ClaudeApprovals(() => 2000);
+    const { requests, delivery } = fixture();
+    const controller = new AbortController();
+    // The controller's window drops; control itself survives the disconnect.
+    unregisterConnection(socket);
+    const wait = approvals.request('session', 'ws', root, delivery, controller.signal)('Bash',
+      { command: 'rm -rf build' }, options(controller.signal));
+    const ask = requests[0]!;
+    expect(approvals.hasLiveRequest(ask.requestId)).toBe(true);
+    expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ status: 'pending' });
+    expect(pushed).toEqual([ask.requestId]);
+    // Answers need a connected controller.
+    expect(await approvals.resolve(ask.toolCallId, { type: 'permission', grant: 'once' }, ask.requestId)).toBe(true);
+    expect(await wait).toMatchObject({ behavior: 'deny', message: 'Claude permission denied' });
+
+    const retry = approvals.request('session', 'ws', root, delivery, controller.signal)('Bash',
+      { command: 'rm -rf build' }, options(controller.signal));
+    socket = {};
+    connection = registerConnection(socket);
+    handleClientRegistration(connection, { type: 'client.register', client: { clientId: 'controller',
+      clientType: 'web', displayName: 'controller', interactionMode: 'human', capabilities: [] } }, () => {});
+    expect(await approvals.resolve(requests[1]!.toolCallId, { type: 'permission', grant: 'once' }, requests[1]!.requestId)).toBe(true);
+    expect(await retry).toMatchObject({ behavior: 'allow' });
+  } finally {
+    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
+  }
+});
+
 test('a waiting ask pushes a permission notification, except in learning review sessions', async () => {
   const pushed: Array<[string, string]> = [];
   installHarnessNotificationPort({ notifyTerminalMessage: () => {},

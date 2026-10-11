@@ -86,8 +86,11 @@ export class ClaudeApprovals {
         }
       }
       if (shouldAutoApproveAsk(ask, session.permissionMode ?? 'standard')) return { behavior: 'allow' };
-      if (!isControlled(sessionId) || getControllerConnections(sessionId).length === 0) {
-        return denied('Claude tool requires a connected controller');
+      // Nobody owns the session (scheduled or API runs): no one can answer.
+      // An owner whose window is briefly offline keeps the ask, which is
+      // stored and shown when they reconnect, like Codex approvals.
+      if (!isControlled(sessionId)) {
+        return denied('Claude tool requires a session controller');
       }
       const childId = options.toolUseID ? childForTool?.(options.toolUseID) : null;
       if (childId && (getSession(childId)?.parentId == null || getSession(childId)?.harness !== 'claude-cli')) {
