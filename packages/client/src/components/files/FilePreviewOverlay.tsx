@@ -27,6 +27,7 @@ import { useFileGitDiffQuery } from '@/hooks/queries';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ImagePreview from './ImagePreview';
+import { useMarkdownFileImages } from './markdownFileImages';
 
 interface FilePreviewOverlayProps {
   workspaceId: string | undefined;
@@ -71,6 +72,13 @@ export default function FilePreviewOverlay({
     target?.root,
     open && !!target && !!workspaceId,
   );
+
+  const markdownImages = useMarkdownFileImages({
+    sdkClient,
+    workspaceId,
+    path: target?.path ?? '',
+    root: target?.root,
+  });
 
   const diffRefreshing = diffQuery.isFetching && !diffQuery.isLoading;
   const isRefreshing = refreshing || diffRefreshing;
@@ -167,7 +175,7 @@ export default function FilePreviewOverlay({
             value="preview"
             className="mt-0 h-full overflow-y-auto overscroll-contain p-4 sm:p-6 chat-transcript-scrollbar"
           >
-            <MarkdownRenderer>{data.content}</MarkdownRenderer>
+            <MarkdownRenderer allowHtml overrides={markdownImages}>{data.content}</MarkdownRenderer>
           </TabsContent>
           <TabsContent value="source" className="mt-0 h-full">
             <FileCodeView

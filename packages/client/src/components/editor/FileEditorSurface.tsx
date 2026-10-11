@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { resolveKeybinding, resolvePlatformBinding } from '@/lib/keybindings';
 import { cn } from '@/lib/utils';
 import ImagePreview from '@/components/files/ImagePreview';
+import { useMarkdownFileImages } from '@/components/files/markdownFileImages';
 import { useKeybindingStore } from '@/stores/keybindingStore';
 
 interface FileEditorSurfaceProps {
@@ -573,6 +574,13 @@ function ActiveFileBody({
     diffEnabled,
   );
 
+  const markdownImages = useMarkdownFileImages({
+    sdkClient,
+    workspaceId: doc.identity.workspaceId,
+    path: normalizedPath,
+    root: normalizedRoot,
+  });
+
   const gitDiff = useMemo<PierreEditorGitDiff | null>(() => {
     if (!diffData?.diffAvailable || diffData.hunks.length === 0) return null;
     return {
@@ -708,7 +716,7 @@ function ActiveFileBody({
       <div className="min-h-0 flex-1 overflow-hidden">
         {isMd && mdView === 'preview' ? (
           <div className="h-full overflow-auto p-4 chat-transcript-scrollbar">
-            <MarkdownRenderer>{doc.content}</MarkdownRenderer>
+            <MarkdownRenderer allowHtml overrides={markdownImages}>{doc.content}</MarkdownRenderer>
           </div>
         ) : isSvg && mdView === 'preview' ? (
           // Unsaved edits included; <img> never runs the SVG's scripts.

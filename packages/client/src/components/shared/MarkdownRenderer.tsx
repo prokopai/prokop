@@ -2,7 +2,9 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Components } from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import type { Components, ExtraProps } from 'react-markdown';
 import { Highlight, themes } from 'prism-react-renderer';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -82,17 +84,75 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
   );
 });
 
+type HastElement = NonNullable<ExtraProps['node']>;
+
+const ALIGN_CLASSES: Record<string, string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+  justify: 'text-justify',
+};
+
+/** Raw HTML `align` (README-style `<p align="center">`) as a text-align class. */
+function alignClass(node: HastElement | undefined): string | undefined {
+  const align = node?.properties.align;
+  return typeof align === 'string' ? ALIGN_CLASSES[align.toLowerCase()] : undefined;
+}
+
+function firstSrcsetUrl(srcSet: unknown): string | undefined {
+  const value = Array.isArray(srcSet) ? srcSet.join(',') : typeof srcSet === 'string' ? srcSet : '';
+  return value.split(',')[0]?.trim().split(/\s+/)[0] || undefined;
+}
+
+/**
+ * GitHub-style READMEs swap screenshots with
+ * `<source media="(prefers-color-scheme: dark)">`. That media query follows
+ * the OS, so pick the source for the app's theme and render a single image.
+ */
+function pictureImageProps(node: HastElement | undefined, mode: 'dark' | 'light'): ComponentProps<'img'> | null {
+  const elements = (node?.children ?? []).filter((child): child is HastElement => child.type === 'element');
+  const img = elements.find((child) => child.tagName === 'img');
+  const themed = elements.find((child) => {
+    if (child.tagName !== 'source') return false;
+    const media = child.properties.media;
+    return typeof media === 'string' && new RegExp(`prefers-color-scheme:\\s*${mode}`).test(media);
+  });
+  const src = (themed && firstSrcsetUrl(themed.properties.srcSet)) ?? img?.properties.src;
+  if (typeof src !== 'string') return null;
+  const props = img?.properties ?? {};
+  return {
+    src,
+    alt: typeof props.alt === 'string' ? props.alt : undefined,
+    title: typeof props.title === 'string' ? props.title : undefined,
+    width: typeof props.width === 'string' || typeof props.width === 'number' ? props.width : undefined,
+    height: typeof props.height === 'string' || typeof props.height === 'number' ? props.height : undefined,
+  };
+}
+
+function DefaultMarkdownImage({ node: _node, className, ...props }: ComponentProps<'img'> & ExtraProps) {
+  // Inline like GitHub so badge rows and align="center" work; preflight makes images block.
+  return <img {...props} className={cn('inline max-w-full', className)} />;
+}
+
 export interface MarkdownRendererProps {
   children: string;
   className?: string;
   inverted?: boolean;
+  /**
+   * Render raw HTML in the markdown (README-style `<p align>`, `<picture>`,
+   * `<img width>`), sanitized to GitHub's allowlist. Leave off for streamed
+   * agent output, where partial tags would flicker.
+   */
+  allowHtml?: boolean;
   /** Replace individual element renderers, e.g. to sanitize links in untrusted content. */
   overrides?: Components;
 }
 
 type ComponentProps<T extends ElementType> = ComponentPropsWithoutRef<T>;
 
-export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, overrides }: MarkdownRendererProps) {
+const HTML_REHYPE_PLUGINS = [rehypeRaw, rehypeSanitize];
+
+export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, allowHtml = false, overrides }: MarkdownRendererProps) {
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === 'dark';
 
@@ -137,8 +197,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
         </a>
       );
     },
-    p({ children }: ComponentProps<'p'>) {
-      return <p className="last:mb-0 leading-relaxed break-words">{children}</p>;
+    p({ node, children }: ComponentProps<'p'> & ExtraProps) {
+      return <p className={cn('last:mb-0 leading-relaxed break-words', alignClass(node))}>{children}</p>;
     },
     ul({ children }: ComponentProps<'ul'>) {
       return <ul className="list-outside list-disc pl-8">{children}</ul>;
@@ -150,14 +210,21 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       const isNested = className?.includes('nested');
       return <li className={cn('leading-snug', isNested && 'ml-8')}>{children}</li>;
     },
-    h1({ children }: ComponentProps<'h1'>) {
-      return <h1 className="text-lg font-semibold mb-1.5 mt-3 first:mt-0">{children}</h1>;
+    h1({ node, children }: ComponentProps<'h1'> & ExtraProps) {
+      return <h1 className={cn('text-lg font-semibold mb-1.5 mt-3 first:mt-0', alignClass(node))}>{children}</h1>;
     },
-    h2({ children }: ComponentProps<'h2'>) {
-      return <h2 className="text-base font-semibold mb-1.5 mt-2.5 first:mt-0">{children}</h2>;
+    h2({ node, children }: ComponentProps<'h2'> & ExtraProps) {
+      return <h2 className={cn('text-base font-semibold mb-1.5 mt-2.5 first:mt-0', alignClass(node))}>{children}</h2>;
     },
-    h3({ children }: ComponentProps<'h3'>) {
-      return <h3 className="text-sm font-semibold mb-1 mt-2 first:mt-0">{children}</h3>;
+    h3({ node, children }: ComponentProps<'h3'> & ExtraProps) {
+      return <h3 className={cn('text-sm font-semibold mb-1 mt-2 first:mt-0', alignClass(node))}>{children}</h3>;
+    },
+    img: DefaultMarkdownImage,
+    picture({ node, children }: ComponentProps<'picture'> & ExtraProps) {
+      const image = pictureImageProps(node, resolvedMode);
+      if (!image) return <picture>{children}</picture>;
+      const Img = (overrides?.img ?? DefaultMarkdownImage) as ElementType;
+      return <Img {...image} />;
     },
     blockquote({ children }: ComponentProps<'blockquote'>) {
       return (
@@ -199,12 +266,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       );
     },
     ...overrides,
-  }), [inverted, codeTheme, overrides]);
+  }), [inverted, codeTheme, overrides, resolvedMode]);
 
   return (
     <div className={cn('w-full markdown-render overflow-x-auto break-words', className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={allowHtml ? HTML_REHYPE_PLUGINS : undefined}
         components={components}
       >
         {children}
