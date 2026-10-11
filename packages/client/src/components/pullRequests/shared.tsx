@@ -220,22 +220,46 @@ export function displayPath(path: string): string {
   return path.replace(/^\/+/, '');
 }
 
-export function CopyCommand({ command }: { command: string }) {
+/** Icon-only when `children` is absent; then `label` names it for assistive technology. */
+export function CopyButton({
+  text,
+  label,
+  disabled,
+  children,
+}: {
+  text: string | (() => string);
+  label: string;
+  disabled?: boolean;
+  children?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size={children ? 'xs' : 'icon-xs'}
+      className="shrink-0 text-muted-foreground"
+      aria-label={children ? undefined : label}
+      title={label}
+      disabled={disabled}
+      onClick={() => {
+        void navigator.clipboard?.writeText(typeof text === 'string' ? text : text()).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      {copied ? <Check className="text-success" /> : <Copy />}
+      {children}
+    </Button>
+  );
+}
+
+export function CopyCommand({ command }: { command: string }) {
   return (
     <div className="flex items-start gap-1 rounded-md border bg-muted/50 p-2">
       <pre className="min-w-0 flex-1 overflow-x-auto font-mono text-xs leading-5">{command}</pre>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        aria-label="Copy command"
-        onClick={() => {
-          void navigator.clipboard?.writeText(command).then(() => setCopied(true));
-        }}
-      >
-        {copied ? <Check /> : <Copy />}
-      </Button>
+      <CopyButton text={command} label="Copy command" />
     </div>
   );
 }

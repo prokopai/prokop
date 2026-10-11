@@ -24,7 +24,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import { cn } from '@/lib/utils';
+import { commentMarkdown, openThreads, reviewMarkdown } from './reviewMarkdown';
 import {
+  CopyButton,
   detailQuery,
   displayPath,
   draftKey,
@@ -174,9 +176,23 @@ export function PullRequestDetailView({
             <Overview key={`${pr.head}:${pr.targetBranch}`} ctx={ctx} pr={pr} act={act} busy={pending} />
           </TabsContent>
           <TabsContent value="activity" className="flex flex-col gap-3">
+            {conversations > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                <CopyButton
+                  text={() => reviewMarkdown(pr, 'open')}
+                  label="Copy unresolved review threads as markdown"
+                  disabled={!openThreads(pr).length}
+                >
+                  Copy unresolved ({openThreads(pr).length})
+                </CopyButton>
+                <CopyButton text={() => reviewMarkdown(pr, 'all')} label="Copy all comments as markdown">
+                  Copy all
+                </CopyButton>
+              </div>
+            )}
             {pr.comments.map((c) => (
               <article key={`${c.id}:${c.createdAt}`} className="rounded-md border p-3">
-                <CommentMeta name={c.author.name} createdAt={c.createdAt} />
+                <CommentMeta name={c.author.name} createdAt={c.createdAt} copy={commentMarkdown(c)} />
                 <Markdown body={c.body} />
               </article>
             ))}
@@ -222,17 +238,20 @@ export function Markdown({ body }: { body: string }) {
   );
 }
 
-function CommentMeta({ name, createdAt }: { name: string; createdAt: string }) {
+function CommentMeta({ name, createdAt, copy }: { name: string; createdAt: string; copy: string }) {
   return (
-    <p className="mb-1 text-xs text-muted-foreground">
-      <span className="font-medium text-foreground">{name}</span>
-      {createdAt && (
-        <time dateTime={createdAt} title={new Date(createdAt).toLocaleString()}>
-          {' · '}
-          {relativeTime(createdAt)}
-        </time>
-      )}
-    </p>
+    <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+      <p className="min-w-0 flex-1">
+        <span className="font-medium text-foreground">{name}</span>
+        {createdAt && (
+          <time dateTime={createdAt} title={new Date(createdAt).toLocaleString()}>
+            {' · '}
+            {relativeTime(createdAt)}
+          </time>
+        )}
+      </p>
+      <CopyButton text={copy} label={`Copy ${name}'s comment as markdown`} />
+    </div>
   );
 }
 
@@ -814,7 +833,7 @@ export function Thread({
         <>
           {thread.comments.map((c) => (
             <div key={c.id}>
-              <CommentMeta name={c.author.name} createdAt={c.createdAt} />
+              <CommentMeta name={c.author.name} createdAt={c.createdAt} copy={commentMarkdown(c, thread)} />
               <Markdown body={c.body} />
             </div>
           ))}

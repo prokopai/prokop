@@ -281,6 +281,52 @@ test('closed pull requests offer no pipeline actions', async () => {
   expect(await screen.findByText('test')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Re-run: test' })).not.toBeInTheDocument();
 });
+test('review feedback copies as markdown, all of it or one comment', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal('navigator', { clipboard: { writeText } });
+  try {
+    detail.mockResolvedValue({
+      ...pr,
+      threads: [
+        {
+          id: 'T_1',
+          path: 'src/a.ts',
+          line: 4,
+          resolved: false,
+          outdated: false,
+          canResolve: true,
+          comments: [{ id: '1', author: { id: 'b', name: 'bob' }, body: 'Why **this**?', createdAt: '2026-10-08' }],
+        },
+      ],
+    });
+    show();
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /Activity/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy unresolved (1)' }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        '## Review comments on #7: Fix login\n\n### src/a.ts:4\n\n**bob:**\n\nWhy **this**?\n',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: "Copy bob's comment as markdown" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenLastCalledWith('### src/a.ts:4\n\n**bob:**\n\nWhy **this**?\n'),
+    );
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+test('copying unresolved feedback is unavailable when every thread is resolved', async () => {
+  detail.mockResolvedValue({
+    ...pr,
+    comments: [{ id: '1', author: { id: 'c', name: 'carol' }, body: 'Thanks', createdAt: '2026-10-08' }],
+  });
+  show();
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: /Activity/ }));
+  fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
+  expect(await screen.findByRole('button', { name: 'Copy unresolved (0)' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Copy all' })).toBeEnabled();
+});
 test('creation uses a published source and explicit target without calling Git push', async () => {
   const onCreated = vi.fn();
   render(
