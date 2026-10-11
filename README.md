@@ -8,7 +8,7 @@
 <h1 align="center">Coding agents that get to know you.</h1>
 
 <p align="center">
-  Prokop is an open-source coding workspace where your agents keep their own memory and skills, search their earlier sessions, and, if you let them, learn from finished work. You keep working with the same coworker instead of briefing a stranger every session. With Claude Code, Codex, or Prokop's own runtime, on your machine.
+  Prokop is an open-source coding workspace where your agents keep their own memory and skills, search their earlier sessions, and learn from finished work. You keep working with the same coworker instead of briefing a stranger every session. With Claude Code, Codex, or Prokop's own runtime, on your machine.
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ Your agents build up context over time, and you decide where it lives.
 - **Per agent.** Each agent you chat with has its own memory and skills that follow it into every project, so your preferences and ways of working carry over.
 - **Per project.** Each workspace keeps its own memory and skills, apart from any one agent. Worktrees of a project share its memory.
 - **Across sessions.** Agents search earlier conversations, in the current session, the project, or everything they have worked on, to recall what was decided and why.
-- **Over time.** Turn on learning and Prokop reviews finished conversations from any runtime during quiet periods, keeping what is worth keeping in project or agent memory and skills. No prompt to write, no job to schedule. Every review is in a history you can check, and reviews run on the Prokop runtime can be undone change by change.
+- **Over time.** Each agent reviews its finished conversations from any runtime during quiet periods and keeps what is worth keeping in its memory. Turn on workspace learning to keep shared project memory current too, and **Improve skills** to let either refine skills. No prompt to write, no job to schedule. Every review is in a history you can check, and reviews run on the Prokop runtime can be undone change by change. You can turn agent learning off or exclude any project or session.
 
 It is all plain Markdown on disk (`MEMORY.md`, `USER.md`, `SKILL.md`) that you can read and edit, and agents are managed in **Settings → Agents**. Learning edits files, not model weights.
 
