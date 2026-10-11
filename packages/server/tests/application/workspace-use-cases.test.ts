@@ -165,6 +165,9 @@ function makeFakes(state: FakeState) {
       return options.workspaceId === 'limited' ? null : 't-new';
     },
     get: (sessionId) => (sessionId === 't-new' ? { id: 't-new' } : sessionId === 't-1' ? { id: 't-1' } : null),
+    rename: (sessionId, workspaceId, title) => (
+      sessionId === 't-1' && workspaceId === 'ws-1' ? { id: 't-1', title } : null
+    ),
     destroyById: (sessionId) => {
       state.log.push(`destroyTerminal:${sessionId}`);
     },
@@ -405,6 +408,13 @@ describe('workspace application use cases', () => {
     expect(application.getTerminal('missing-terminal')).toBeNull();
     application.destroyTerminal('t-new');
     expect(state.log).toContain('destroyTerminal:t-new');
+
+    expect(application.renameTerminal('ws-1', 't-1', 'dev server')).toEqual({
+      kind: 'ok',
+      session: { id: 't-1', title: 'dev server' },
+    });
+    expect(application.renameTerminal('missing', 't-1', 'x')).toEqual({ kind: 'missing' });
+    expect(application.renameTerminal('limited', 't-1', 'x')).toEqual({ kind: 'not_found' });
   });
 
   test('session listing use cases validate cursors and limits', () => {

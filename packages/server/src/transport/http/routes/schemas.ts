@@ -308,6 +308,10 @@ export const createTerminalSchema = z.object({
   managedWorktreeId: z.string().min(1).optional(),
 }).strict();
 
+export const renameTerminalSchema = z.object({
+  title: z.string().trim().min(1),
+}).strict();
+
 export const pinMessageSchema = z.object({
   sessionId: z.string().min(1, { message: 'sessionId is required' }),
   messageId: z.string().min(1, { message: 'messageId is required' }),

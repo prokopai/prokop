@@ -42,7 +42,8 @@ export function TerminalView({ cachedTerminal, visible = true }: TerminalViewPro
     };
     frame = requestAnimationFrame(fit);
     const dock = container.closest('[data-view-group]') ?? container.closest('[data-terminal-panel]');
-    if (dock?.contains(document.activeElement)) terminal.focus();
+    const active = document.activeElement;
+    if (dock?.contains(active) && !active?.closest('[data-terminal-rename]')) terminal.focus();
     const observer = new ResizeObserver(() => {
       if (timer !== null) clearTimeout(timer);
       timer = setTimeout(() => {

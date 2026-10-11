@@ -13,6 +13,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionPaneRegistry } from '@/contexts/SessionPaneRegistryContext';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useWorkspaceFocusStore } from '@/stores/workspaceFocusStore';
+import type { TerminalPanelHandle } from '@/components/layout/TerminalPanel';
 
 function focusedWorkspaceGroup(): HTMLElement | undefined {
   const groupId = useWorkspaceFocusStore.getState().groupId;
@@ -22,7 +23,7 @@ function focusedWorkspaceGroup(): HTMLElement | undefined {
 
 export interface AppKeyboardHandlersConfig {
   sidebarRef: React.RefObject<AppSidebarHandle | null>;
-  terminalPanelRef: React.RefObject<{ focus: () => void } | null>;
+  terminalPanelRef: React.RefObject<TerminalPanelHandle | null>;
   filesPanelRef: React.RefObject<{ focus: () => void } | null>;
   chatInputRef: React.RefObject<{ focus: () => void } | null>;
   activeWorkspace: Workspace | null;
@@ -247,12 +248,15 @@ export function useAppKeyboardHandlers({
     onToggleAutoFollow: handleToggleAutoFollow,
     onFocusTab: handleFocusTab,
     onCycleTab: handleCycleTab,
+    onCycleTerminal: (direction) => terminalPanelRef.current?.cycleTab(direction),
+    onNewTerminal: () => terminalPanelRef.current?.newTerminal(),
+    onCloseTerminal: () => terminalPanelRef.current?.closeActiveTerminal(),
   });
 }
 
 export interface AppKeyboardHandlersMountProps {
   sidebarRef: React.RefObject<AppSidebarHandle | null>;
-  terminalPanelRef: React.RefObject<{ focus: () => void } | null>;
+  terminalPanelRef: React.RefObject<TerminalPanelHandle | null>;
   filesPanelRef: React.RefObject<{ focus: () => void } | null>;
   chatInputRef: React.RefObject<{ focus: () => void } | null>;
   handleInterruptSession: () => void;

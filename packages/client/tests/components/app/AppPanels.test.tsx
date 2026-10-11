@@ -10,7 +10,12 @@ vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 vi.mock('@/components/layout/TerminalPanel', () => ({
   TerminalPanel: forwardRef<TerminalPanelHandle, { isOpen: boolean }>(function Terminal({ isOpen }, ref) {
     useEffect(() => { mocks.mount(); return mocks.unmount; }, []);
-    useImperativeHandle(ref, () => ({ focus: mocks.focus }), []);
+    useImperativeHandle(ref, () => ({
+      focus: mocks.focus,
+      cycleTab: vi.fn(),
+      newTerminal: vi.fn(),
+      closeActiveTerminal: vi.fn(),
+    }), []);
     return <div data-testid="terminal" data-open={isOpen} />;
   }),
 }));

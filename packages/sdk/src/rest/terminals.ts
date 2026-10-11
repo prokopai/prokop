@@ -3,6 +3,7 @@ import type {
   ListTerminalSessionsResponse,
   CreateTerminalSessionResponse,
   GetTerminalSessionResponse,
+  RenameTerminalSessionResponse,
   DeleteTerminalSessionResponse,
 } from '../types/rest-responses';
 
@@ -43,6 +44,20 @@ export class TerminalsRestNamespace {
   async get(workspaceId: string, sessionId: string, options?: GetOptions): Promise<GetTerminalSessionResponse> {
     return this.http.get(
       `/workspaces/${encodeURIComponent(workspaceId)}/terminals/${encodeURIComponent(sessionId)}`,
+      { signal: options?.signal },
+    );
+  }
+
+  /** Renames a terminal. Subscribers receive a title_changed event. */
+  async rename(
+    workspaceId: string,
+    sessionId: string,
+    title: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<RenameTerminalSessionResponse> {
+    return this.http.patch(
+      `/workspaces/${encodeURIComponent(workspaceId)}/terminals/${encodeURIComponent(sessionId)}`,
+      { title },
       { signal: options?.signal },
     );
   }

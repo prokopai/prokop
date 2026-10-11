@@ -30,6 +30,7 @@ interface TerminalInput {
   sessionId?: string;
   command?: string;
   cwd?: string;
+  title?: string;
   timeoutMs?: number | null;
   fromOffset?: number;
   raw?: boolean;
@@ -171,7 +172,7 @@ A terminal session is a REAL shell that stays alive between commands: same worki
 The user sees every session you create in their terminal panel and can watch or kill it at any time.
 
 Actions:
-- "create": Start a new session. Returns sessionId. Optional cwd (defaults to workspace root).
+- "create": Start a new session. Returns sessionId. Optional cwd (defaults to workspace root) and title (the name on the user's terminal tab, e.g. "dev server").
 - "send": Run a command in a session and wait for it to finish. Returns output and exit code. State (cwd, env, daemons) persists across sends.
 - "output": Read what a session has printed since a byte offset. For checking on a long-running process.
 - "list": List all sessions in the workspace with status.
@@ -209,6 +210,10 @@ Rules:
       cwd: {
         type: 'string',
         description: 'Working directory for the new session (create action). Defaults to workspace root.',
+      },
+      title: {
+        type: 'string',
+        description: 'Short name shown on the user\'s terminal tab (create action), e.g. "dev server" or "tests". Defaults to the folder name.',
       },
       timeoutMs: {
         type: ['number', 'null'],
@@ -274,6 +279,8 @@ async function handleCreate(input: TerminalInput, ctx: ToolContext): Promise<Too
     workspaceId: ctx.workspaceId ?? resolvedCwd,
     origin: 'agent',
     agentEnv: sessionTempEnvironment(ctx.fs.tempDir),
+    title: input.title,
+    ownerSessionId: ctx.sessionId,
   });
 
   if (!sessionId) {
@@ -284,6 +291,7 @@ async function handleCreate(input: TerminalInput, ctx: ToolContext): Promise<Too
     success: true,
     result: {
       sessionId,
+      title: manager.getSession(sessionId)?.title,
       cwd: resolvedCwd,
       hint: 'Session is visible in the user terminal panel. Use send to run commands.',
     },

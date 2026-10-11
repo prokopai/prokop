@@ -31,7 +31,10 @@ interface PendingAssignment {
   reserved: boolean;
 }
 
-const CATEGORIES = ['Navigation', 'Chat', 'Panes', 'Editor'] as const;
+const CATEGORIES = ['Navigation', 'Chat', 'Tabs', 'Terminal', 'Editor'] as const;
+const CATEGORY_NOTES: Partial<Record<(typeof CATEGORIES)[number], string>> = {
+  Terminal: 'Work while the terminal or its tabs have focus.',
+};
 const ESCAPE_SEQUENCE_TIMEOUT_MS = 500;
 
 export function KeybindsPanel() {
@@ -181,6 +184,9 @@ export function KeybindsPanel() {
           <h3 id={`keybindings-${category}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {category}
           </h3>
+          {CATEGORY_NOTES[category] && (
+            <p className="text-xs text-muted-foreground">{CATEGORY_NOTES[category]}</p>
+          )}
           <div className="divide-y rounded-md border">
             {KEYBINDING_COMMANDS.filter((command) => command.category === category).map((command) => {
               const binding = resolveKeybinding(command.id, overrides);

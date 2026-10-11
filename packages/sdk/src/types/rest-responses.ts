@@ -505,6 +505,13 @@ export interface CreateTerminalSessionResponse {
 export type GetTerminalSessionResponse = TerminalSessionInfo;
 
 /**
+ * PATCH /api/workspaces/:id/terminals/:sessionId
+ */
+export interface RenameTerminalSessionResponse {
+  session: TerminalSessionInfo;
+}
+
+/**
  * DELETE /api/workspaces/:id/terminals/:sessionId
  */
 export interface DeleteTerminalSessionResponse {

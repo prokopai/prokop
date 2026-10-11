@@ -102,6 +102,8 @@ export interface WorkspaceTerminalPort {
     managedWorktreeId?: string;
   }): string | null;
   get(sessionId: string): WorkspaceTerminalSession | null;
+  /** Null when the session is missing or belongs to another workspace. */
+  rename(sessionId: string, workspaceId: string, title: string): WorkspaceTerminalSession | null;
   destroyById(sessionId: string): void;
   destroyForWorkspace(workspacePath: string): void;
 }

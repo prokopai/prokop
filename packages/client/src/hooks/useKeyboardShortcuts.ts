@@ -23,6 +23,9 @@ export interface KeyboardShortcutsConfig {
   onToggleAutoFollow: () => void;
   onFocusTab: (index: number) => void;
   onCycleTab: (direction: -1 | 1) => void;
+  onCycleTerminal: (direction: -1 | 1) => void;
+  onNewTerminal: () => void;
+  onCloseTerminal: () => void;
 }
 
 function isModalDialogOpen(): boolean {
@@ -62,8 +65,21 @@ function isChatInputFocused(): boolean {
   );
 }
 
+/** The shell itself has focus (xterm's hidden textarea), not the tab strip. */
+export function isTerminalInputFocused(): boolean {
+  return Boolean(document.activeElement?.closest?.('[data-terminal-panel] .xterm'));
+}
+
+function isTerminalPanelFocused(): boolean {
+  return Boolean(document.activeElement?.closest?.('[data-terminal-panel]'));
+}
+
 function shouldIgnoreGlobalEvent(event: KeyboardEvent): boolean {
   return event.isComposing || event.repeat || isModalDialogOpen();
+}
+
+function shouldIgnoreTerminalEvent(event: KeyboardEvent): boolean {
+  return shouldIgnoreGlobalEvent(event) || !isTerminalPanelFocused();
 }
 
 function useCommandHotkey(
@@ -113,11 +129,12 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig): void {
     config.onStopStreaming();
   });
 
+  // Escape belongs to the shell (vim, fzf, less) while the terminal has focus.
   useCommandHotkey('chat.focusInput', overrides, (event) => {
     if (isChatInputFocused()) return;
     event.preventDefault();
     config.onFocusChatInput();
-  });
+  }, (event) => shouldIgnoreGlobalEvent(event) || isTerminalInputFocused());
 
   useCommandHotkey('dock.closeFocused', overrides, () => config.onCloseFocusedDock());
   useCommandHotkey('dock.focusLeft', overrides, () => config.onFocusLeftDock());
@@ -138,4 +155,8 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig): void {
   useCommandHotkey('tab.focus.9', overrides, () => config.onFocusTab(8));
   useCommandHotkey('tab.focusPrevious', overrides, () => config.onCycleTab(-1));
   useCommandHotkey('tab.focusNext', overrides, () => config.onCycleTab(1));
+  useCommandHotkey('terminal.previous', overrides, () => config.onCycleTerminal(-1), shouldIgnoreTerminalEvent);
+  useCommandHotkey('terminal.next', overrides, () => config.onCycleTerminal(1), shouldIgnoreTerminalEvent);
+  useCommandHotkey('terminal.new', overrides, () => config.onNewTerminal(), shouldIgnoreTerminalEvent);
+  useCommandHotkey('terminal.close', overrides, () => config.onCloseTerminal(), shouldIgnoreTerminalEvent);
 }

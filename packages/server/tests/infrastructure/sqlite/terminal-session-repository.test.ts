@@ -20,6 +20,7 @@ function createRunning(id: string, workspaceId: string, overrides: Partial<{ cwd
     pid: overrides.pid ?? 12345,
     cols: 80,
     rows: 24,
+    title: 'main',
   });
 }
 
@@ -45,6 +46,7 @@ describe('terminal session SQLite repository (exact pre-slice SQL)', () => {
       pid: 4242,
       cols: 120,
       rows: 40,
+      title: 'main',
     });
 
     const row = repository.getTerminalSession('term-1');
@@ -94,6 +96,7 @@ describe('terminal session SQLite repository (exact pre-slice SQL)', () => {
       pid: 4242,
       cols: 120,
       rows: 40,
+      title: 'main',
       managedWorktreeId: 'worktree-1',
     });
 
@@ -220,6 +223,7 @@ describe('terminal session SQLite repository (exact pre-slice SQL)', () => {
       pid: 99,
       cols: 80,
       rows: 24,
+      title: 'main',
     });
 
     const row = port.getTerminalSession('term-adapter') as TerminalSessionRow;

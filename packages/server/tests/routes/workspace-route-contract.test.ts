@@ -46,6 +46,9 @@ function makeFakeApplication(overrides: Partial<WorkspaceApplication> = {}): Wor
     listTerminals: () => ({ kind: 'ok', sessions: [{ id: 't-1' }] }),
     createTerminal: () => ({ kind: 'ok', session: { id: 't-1' } }),
     getTerminal: (sessionId) => (sessionId === 't-1' ? { id: 't-1' } : null),
+    renameTerminal: (_id, sessionId, title) => (
+      sessionId === 't-1' ? { kind: 'ok', session: { id: 't-1', title } } : { kind: 'not_found' }
+    ),
     destroyTerminal: () => {},
     countSessions: (id) => id === 'ws-1' ? { kind: 'ok', counts: { active: 4, archived: 12, scheduled: 6 } } : { kind: 'missing' },
     listSessions: () => ({ kind: 'ok', sessions: [makeSession()] }),
@@ -295,6 +298,20 @@ describe('workspace route contract', () => {
     const getMissing = await app.request('/api/workspaces/ws-1/terminals/missing');
     expect(getMissing.status).toBe(404);
     expect(await json(getMissing)).toEqual({ error: 'not_found', message: 'Terminal session not found' });
+
+    const rename = (sessionId: string, body: unknown) => app.request(`/api/workspaces/ws-1/terminals/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const renamed = await rename('t-1', { title: '  dev server ' });
+    expect(renamed.status).toBe(200);
+    expect(await json(renamed)).toEqual({ session: { id: 't-1', title: 'dev server' } });
+    expect((await rename('t-1', { title: '   ' })).status).toBe(400);
+    expect((await rename('t-1', { title: 'x', extra: true })).status).toBe(400);
+    const renameMissing = await rename('missing', { title: 'x' });
+    expect(renameMissing.status).toBe(404);
+    expect(await json(renameMissing)).toEqual({ error: 'not_found', message: 'Terminal session not found' });
 
     const destroy = await app.request('/api/workspaces/ws-1/terminals/t-1', { method: 'DELETE' });
     expect(destroy.status).toBe(200);

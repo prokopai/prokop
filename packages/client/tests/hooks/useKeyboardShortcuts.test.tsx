@@ -19,6 +19,9 @@ function createConfig(): KeyboardShortcutsConfig {
     onToggleAutoFollow: vi.fn(),
     onFocusTab: vi.fn(),
     onCycleTab: vi.fn(),
+    onCycleTerminal: vi.fn(),
+    onNewTerminal: vi.fn(),
+    onCloseTerminal: vi.fn(),
   };
 }
 
@@ -95,6 +98,54 @@ describe('useKeyboardShortcuts', () => {
     expect(config.onCycleTab).toHaveBeenCalledWith(-1);
     press(document.body, '9', 'Digit9', { altKey: true });
     expect(config.onFocusTab).toHaveBeenLastCalledWith(8);
+  });
+
+  test('terminal commands fire only while the terminal panel has focus', () => {
+    const config = createConfig();
+    render(
+      <>
+        <Harness config={config} />
+        <div data-terminal-panel="">
+          <div className="xterm"><textarea aria-label="Terminal input" /></div>
+        </div>
+      </>,
+    );
+
+    press(document.body, 't', 'KeyT', { altKey: true, shiftKey: true });
+    expect(config.onNewTerminal).not.toHaveBeenCalled();
+
+    const shell = document.querySelector<HTMLTextAreaElement>('[aria-label="Terminal input"]')!;
+    shell.focus();
+    press(shell, 't', 'KeyT', { altKey: true, shiftKey: true });
+    press(shell, 'w', 'KeyW', { altKey: true, shiftKey: true });
+    press(shell, ']', 'BracketRight', { ctrlKey: true, shiftKey: true });
+    press(shell, '[', 'BracketLeft', { ctrlKey: true, shiftKey: true });
+    expect(config.onNewTerminal).toHaveBeenCalledTimes(1);
+    expect(config.onCloseTerminal).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(config.onCycleTerminal).mock.calls).toEqual([[1], [-1]]);
+
+    // Dock tab keys keep switching dock tabs even from inside the shell.
+    press(shell, '2', 'Digit2', { altKey: true });
+    expect(config.onFocusTab).toHaveBeenCalledWith(1);
+  });
+
+  test('Escape stays in the shell instead of jumping to the chat input', () => {
+    const config = createConfig();
+    render(
+      <>
+        <Harness config={config} />
+        <div data-terminal-panel="">
+          <div className="xterm"><textarea aria-label="Terminal input" /></div>
+        </div>
+      </>,
+    );
+    const shell = document.querySelector<HTMLTextAreaElement>('[aria-label="Terminal input"]')!;
+    shell.focus();
+    const event = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true });
+    shell.dispatchEvent(event);
+
+    expect(config.onFocusChatInput).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
   });
 
   test('stops streaming once on double Escape in the chat input', () => {

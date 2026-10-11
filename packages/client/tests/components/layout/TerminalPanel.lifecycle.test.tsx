@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createRef } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
-import { TerminalPanel } from '@/components/layout/TerminalPanel';
+import { TerminalPanel, type TerminalPanelHandle } from '@/components/layout/TerminalPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
 
 const mocks = vi.hoisted(() => ({
@@ -31,7 +32,10 @@ vi.mock('@/hooks/useTerminal', async (original) => {
   };
 });
 
-function createClient() {
+type SessionFixture = { id: string; title: string; status: string; cwd: string; shell: string; origin?: string; ownerSessionId?: string };
+
+function createClient(initialSessions?: (workspaceId: string) => SessionFixture[]) {
+  const eventListeners = new Map<string, (...args: unknown[]) => void>();
   const eventConnections: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
   const connections: Array<{
     dispose: ReturnType<typeof vi.fn>;
@@ -39,14 +43,22 @@ function createClient() {
     output?: (bytes: Uint8Array) => void;
   }> = [];
   const subscribeEvents = vi.fn(async (workspaceId: string) => {
-    const conn = { on: vi.fn(), dispose: vi.fn() };
+    const conn = {
+      on: vi.fn((event: string, listener: (...args: unknown[]) => void) => { eventListeners.set(event, listener); }),
+      dispose: vi.fn(),
+    };
     eventConnections.push(conn);
-    return { conn, initialSessions: [{ id: `${workspaceId}-terminal`, title: 'Shell', status: 'running', cwd: '/work', shell: 'zsh' }] };
+    return {
+      conn,
+      initialSessions: initialSessions?.(workspaceId)
+        ?? [{ id: `${workspaceId}-terminal`, title: 'Shell', status: 'running', cwd: '/work', shell: 'zsh' }],
+    };
   });
-  const connect = vi.fn(async ({ sessionId }: { sessionId: string }) => {
+  const connect = vi.fn(async ({ sessionId, workspaceId }: { sessionId: string; workspaceId: string }) => {
+    const title = initialSessions?.(workspaceId).find((session) => session.id === sessionId)?.title ?? 'Shell';
     const conn: typeof connections[number] & Record<string, unknown> = {
       dispose: vi.fn(), close: vi.fn(), removeAllListeners: vi.fn(), resize: vi.fn(),
-      session: { sessionId, title: 'Shell', cwd: '/work', cols: 80, rows: 24, status: 'running' },
+      session: { sessionId, title, cwd: '/work', cols: 80, rows: 24, status: 'running' },
       on: (event: string, listener: (bytes: Uint8Array) => void) => {
         if (event === 'output') conn.output = listener;
       },
@@ -55,11 +67,13 @@ function createClient() {
     return conn;
   });
   const deleteTerminal = vi.fn(async () => {});
+  const renameTerminal = vi.fn(async () => ({}));
   const client = {
     terminal: { subscribeEvents, connect },
-    http: { terminals: { create: vi.fn(), delete: deleteTerminal } },
+    http: { terminals: { create: vi.fn(), delete: deleteTerminal, rename: renameTerminal } },
   } as unknown as ProkopaiClient;
-  return { client, subscribeEvents, connect, deleteTerminal, eventConnections, connections };
+  const emit = (event: string, ...args: unknown[]) => act(() => { eventListeners.get(event)?.(...args); });
+  return { client, subscribeEvents, connect, deleteTerminal, renameTerminal, emit, eventConnections, connections };
 }
 
 describe('terminal view lifetime', () => {
@@ -148,5 +162,135 @@ describe('terminal view lifetime', () => {
     expect(sdk.deleteTerminal).toHaveBeenCalledWith('w1', 'w1-terminal');
     expect(sdk.connections[0].close).toHaveBeenCalledOnce();
     expect(mocks.instances[0].dispose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('terminal tabs', () => {
+  beforeEach(() => {
+    mocks.instances.length = 0;
+    useConnectionStore.setState({ connected: true });
+  });
+  afterEach(() => {
+    cleanup();
+    useConnectionStore.setState(useConnectionStore.getInitialState());
+  });
+
+  const twoTabs = () => [
+    { id: 'api', title: 'api', status: 'running', cwd: '/work/api', shell: 'zsh' },
+    { id: 'dev', title: 'dev server', status: 'running', cwd: '/work', shell: 'zsh', origin: 'agent', ownerSessionId: 'chat-1' },
+  ];
+
+  function renderPanel(sdk: ReturnType<typeof createClient>, ref?: React.Ref<TerminalPanelHandle>) {
+    return render(
+      <TerminalPanel
+        ref={ref}
+        workspaceId="w1"
+        workspacePath="/work"
+        workspaceName="Work"
+        additionalPaths={[]}
+        sdkClient={sdk.client}
+        onClose={vi.fn()}
+        isOpen
+        keepAlive
+      />,
+    );
+  }
+
+  test('tabs show their own names and mark terminals the agent started', async () => {
+    const sdk = createClient(twoTabs);
+    renderPanel(sdk);
+    const tabs = await screen.findAllByRole('tab');
+
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['api', 'dev server']);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Started by an agent')).toBeInTheDocument();
+    expect(tabs[1].getAttribute('title')).toContain('Started by an agent');
+  });
+
+  test('arrow keys move between tabs and Enter opens the shell', async () => {
+    const sdk = createClient(twoTabs);
+    renderPanel(sdk);
+    const [api, dev] = await screen.findAllByRole('tab');
+    await waitFor(() => expect(sdk.connect).toHaveBeenCalledOnce());
+
+    api.focus();
+    fireEvent.keyDown(api, { key: 'ArrowRight' });
+    expect(dev).toHaveFocus();
+    expect(api).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.keyDown(dev, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByRole('tab', { name: /dev server/ })).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Terminal input' })).toHaveFocus());
+  });
+
+  test('F2 renames through the server and Escape cancels', async () => {
+    const sdk = createClient(twoTabs);
+    renderPanel(sdk);
+    const [api] = await screen.findAllByRole('tab');
+
+    api.focus();
+    fireEvent.keyDown(api, { key: 'F2' });
+    // The shell mounting after the rename opened must not steal its focus.
+    await waitFor(() => expect(sdk.connect).toHaveBeenCalledOnce());
+    await screen.findByTestId('terminal-output');
+    expect(screen.getByRole('textbox', { name: 'Terminal name' })).toHaveFocus();
+    const input = screen.getByRole('textbox', { name: 'Terminal name' });
+    fireEvent.change(input, { target: { value: 'ignored' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(sdk.renameTerminal).not.toHaveBeenCalled();
+    expect(api).toHaveFocus();
+
+    fireEvent.doubleClick(api);
+    const renameInput = screen.getByRole('textbox', { name: 'Terminal name' });
+    fireEvent.change(renameInput, { target: { value: '  backend  ' } });
+    fireEvent.keyDown(renameInput, { key: 'Enter' });
+
+    expect(sdk.renameTerminal).toHaveBeenCalledWith('w1', 'api', 'backend');
+    expect(screen.getAllByRole('tab')[0].textContent).toBe('backend');
+  });
+
+  test('a terminal the agent opens does not take over the active tab', async () => {
+    const sdk = createClient(() => [twoTabs()[0]]);
+    renderPanel(sdk);
+    await screen.findByRole('tab', { name: /api/ });
+
+    sdk.emit('created', { id: 'agent-1', title: 'tests', status: 'running', cwd: '/work', shell: 'zsh', origin: 'agent', ownerSessionId: 'chat-1' });
+    sdk.emit('created', { id: 'user-2', title: 'work', status: 'running', cwd: '/work', shell: 'zsh', origin: 'user' });
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['api', 'tests', 'work']);
+    expect(tabs[2]).toHaveAttribute('aria-selected', 'true');
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
+  });
+
+  test('switching from inside a shell focuses the next shell', async () => {
+    const sdk = createClient(twoTabs);
+    const ref = createRef<TerminalPanelHandle>();
+    renderPanel(sdk, ref);
+    await screen.findAllByRole('tab');
+    await waitFor(() => expect(sdk.connect).toHaveBeenCalledOnce());
+    const first = await screen.findByRole('textbox', { name: 'Terminal input' });
+    first.focus();
+
+    act(() => ref.current!.cycleTab(1));
+
+    await waitFor(() => expect(sdk.connect).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      const shell = screen.getByRole('textbox', { name: 'Terminal input' });
+      expect(shell).not.toBe(first);
+      expect(shell).toHaveFocus();
+    });
+  });
+
+  test('the handle cycles tabs and wraps around', async () => {
+    const sdk = createClient(twoTabs);
+    const ref = createRef<TerminalPanelHandle>();
+    renderPanel(sdk, ref);
+    await screen.findAllByRole('tab');
+
+    act(() => ref.current!.cycleTab(1));
+    await waitFor(() => expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true'));
+    act(() => ref.current!.cycleTab(1));
+    await waitFor(() => expect(screen.getAllByRole('tab')[0]).toHaveAttribute('aria-selected', 'true'));
   });
 });

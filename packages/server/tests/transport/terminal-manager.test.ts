@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { basename, join } from 'path';
 import type { ServerWebSocket } from 'bun';
 import { TerminalManager } from '@/transport/terminal/manager';
 import { TerminalEventManager } from '@/transport/terminal/event-manager';
@@ -337,6 +337,7 @@ describe('terminal manager (PTY/transport ownership)', () => {
         pid: pty.pid,
         cols: 100,
         rows: 30,
+        title: basename(cwd),
       },
     ]);
     expect(events.map((event) => event.type)).toEqual(['created']);
@@ -347,7 +348,7 @@ describe('terminal manager (PTY/transport ownership)', () => {
       cwd,
       cols: 100,
       rows: 30,
-      title: 'main',
+      title: basename(cwd),
       status: 'running',
       exitCode: null,
       inAlternateScreen: false,
@@ -545,6 +546,41 @@ describe('terminal manager (PTY/transport ownership)', () => {
     const titleFrame = sent.find((frame) => decodeFrame(frame).opcode === OPCODES.TITLE);
     expect(new TextDecoder().decode(decodeFrame(titleFrame!).payload)).toBe('{"title":"renamed"}');
     expect(manager.getSession(id)?.title).toBe('renamed');
+  });
+
+  test('default titles name the folder and number repeats within a workspace', () => {
+    const cwd = makeTempDir();
+    const { manager } = makeManager(new RecordingStore());
+    const folder = basename(cwd);
+
+    const first = manager.createSessionDetached({ cwd, workspaceId: 'w1' })!;
+    const second = manager.createSessionDetached({ cwd, workspaceId: 'w1' })!;
+    const third = manager.createSessionDetached({ cwd, workspaceId: 'w1' })!;
+    const otherWorkspace = manager.createSessionDetached({ cwd, workspaceId: 'w2' })!;
+
+    expect(manager.getSession(first)?.title).toBe(folder);
+    expect(manager.getSession(second)?.title).toBe(`${folder} 2`);
+    expect(manager.getSession(third)?.title).toBe(`${folder} 3`);
+    expect(manager.getSession(otherWorkspace)?.title).toBe(folder);
+  });
+
+  test('renameSession persists the title and refuses other workspaces and blank titles', () => {
+    const cwd = makeTempDir();
+    const store = new RecordingStore();
+    const titles: Array<{ id: string; title: string }> = [];
+    (store as TerminalSessionStorePort).updateTerminalSessionTitle = (id, title) => { titles.push({ id, title }); };
+    const { manager, eventManager } = makeManager(store);
+    const events = subscribeEvents(eventManager, 'w1');
+    const id = manager.createSessionDetached({ cwd, workspaceId: 'w1' })!;
+
+    expect(manager.renameSession(id, 'w2', 'nope')).toBeNull();
+    expect(manager.renameSession(id, 'w1', '   ')).toBeNull();
+    expect(manager.renameSession(id, 'w1', '  api   tests ')).toMatchObject({ id, title: 'api tests' });
+
+    expect(titles).toEqual([{ id, title: 'api tests' }]);
+    expect(events.filter((event) => event.type === 'title_changed')).toEqual([
+      { type: 'title_changed', sessionId: id, title: 'api tests' },
+    ]);
   });
 
   test('destroy ordering is exact and a double destroy is idempotent', () => {

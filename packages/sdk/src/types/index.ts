@@ -330,6 +330,7 @@ export type {
   ListTerminalSessionsResponse,
   CreateTerminalSessionResponse,
   GetTerminalSessionResponse,
+  RenameTerminalSessionResponse,
   DeleteTerminalSessionResponse,
   GetMcpStatusResponse,
   ConnectMcpServerResponse,

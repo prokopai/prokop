@@ -75,6 +75,11 @@ export type WorkspaceTerminalCreateResult =
   | { kind: 'invalid_path' }
   | { kind: 'limit' };
 
+export type WorkspaceTerminalRenameResult =
+  | { kind: 'ok'; session: WorkspaceTerminalSession }
+  | { kind: 'missing' }
+  | { kind: 'not_found' };
+
 export type WorkspaceSessionListResult =
   | { kind: 'ok'; sessions: ReturnType<WorkspaceSessionListingPort['listByWorkspace']> }
   | { kind: 'missing' };
@@ -116,6 +121,7 @@ export interface WorkspaceApplication {
     managedWorktreeId?: string,
   ): WorkspaceTerminalCreateResult;
   getTerminal(sessionId: string): WorkspaceTerminalSession | null;
+  renameTerminal(id: string, sessionId: string, title: string): WorkspaceTerminalRenameResult;
   destroyTerminal(sessionId: string): void;
 
   countSessions(id: string): { kind: 'ok'; counts: SessionCategoryCounts } | { kind: 'missing' };
@@ -351,6 +357,14 @@ export function createWorkspaceApplication(deps: WorkspaceApplicationDeps): Work
 
     getTerminal(sessionId) {
       return deps.terminals.get(sessionId);
+    },
+
+    renameTerminal(id, sessionId, title) {
+      if (!deps.repository.get(id)) {
+        return { kind: 'missing' };
+      }
+      const session = deps.terminals.rename(sessionId, id, title);
+      return session ? { kind: 'ok', session } : { kind: 'not_found' };
     },
 
     destroyTerminal(sessionId) {

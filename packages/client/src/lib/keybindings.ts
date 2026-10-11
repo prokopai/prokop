@@ -19,15 +19,19 @@ export type KeybindingCommandId =
   | 'tab.focus.9'
   | 'tab.focusPrevious'
   | 'tab.focusNext'
+  | 'terminal.previous'
+  | 'terminal.next'
+  | 'terminal.new'
+  | 'terminal.close'
   | 'editor.save'
   | 'editor.close';
 
-export type KeybindingContext = 'global' | 'chat' | 'editor';
+export type KeybindingContext = 'global' | 'chat' | 'terminal' | 'editor';
 
 export interface KeybindingCommand {
   id: KeybindingCommandId;
   label: string;
-  category: 'Navigation' | 'Chat' | 'Tabs' | 'Editor';
+  category: 'Navigation' | 'Chat' | 'Tabs' | 'Terminal' | 'Editor';
   defaultBinding: string;
   context: KeybindingContext;
   allowInInputs?: boolean;
@@ -61,6 +65,10 @@ export const KEYBINDING_COMMANDS = [
   { id: 'tab.focus.9', label: 'Focus tab 9', category: 'Tabs', defaultBinding: 'alt+9', context: 'global', allowInInputs: true },
   { id: 'tab.focusPrevious', label: 'Focus previous tab', category: 'Tabs', defaultBinding: 'alt+shift+left', context: 'global', allowInInputs: true },
   { id: 'tab.focusNext', label: 'Focus next tab', category: 'Tabs', defaultBinding: 'alt+shift+right', context: 'global', allowInInputs: true },
+  { id: 'terminal.previous', label: 'Previous terminal', category: 'Terminal', defaultBinding: 'ctrl+shift+bracketleft', context: 'terminal', allowInInputs: true },
+  { id: 'terminal.next', label: 'Next terminal', category: 'Terminal', defaultBinding: 'ctrl+shift+bracketright', context: 'terminal', allowInInputs: true },
+  { id: 'terminal.new', label: 'New terminal', category: 'Terminal', defaultBinding: 'alt+shift+t', context: 'terminal', allowInInputs: true },
+  { id: 'terminal.close', label: 'Close terminal', category: 'Terminal', defaultBinding: 'alt+shift+w', context: 'terminal', allowInInputs: true },
   { id: 'editor.save', label: 'Save active file', category: 'Editor', defaultBinding: 'mod+s', context: 'editor', allowInInputs: true },
   { id: 'editor.close', label: 'Close active file', category: 'Editor', defaultBinding: 'mod+w', context: 'editor', allowInInputs: true },
 ] as const satisfies readonly KeybindingCommand[];
@@ -160,6 +168,8 @@ export function resolveKeybinding(
 const KEY_LABELS: Record<string, string> = {
   alt: 'Alt',
   backquote: '`',
+  bracketleft: '[',
+  bracketright: ']',
   ctrl: 'Ctrl',
   down: '↓',
   enter: 'Enter',

@@ -95,6 +95,10 @@ export function createProkopWorkspaceTerminalPort(): WorkspaceTerminalPort {
     get: (sessionId) => getTerminalManager().getSession(sessionId) as unknown as ReturnType<
       WorkspaceTerminalPort['get']
     >,
+    rename: (sessionId, workspaceId, title) =>
+      getTerminalManager().renameSession(sessionId, workspaceId, title) as unknown as ReturnType<
+        WorkspaceTerminalPort['rename']
+      >,
     destroyById: (sessionId) => getTerminalManager().destroySessionById(sessionId),
     destroyForWorkspace: (workspacePath) =>
       getTerminalManager().destroySessionsForWorkspace(workspacePath),

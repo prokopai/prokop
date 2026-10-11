@@ -36,6 +36,7 @@ export interface CreateTerminalSessionInput {
   pid: number;
   cols: number;
   rows: number;
+  title: string;
   managedWorktreeId?: string;
 }
 

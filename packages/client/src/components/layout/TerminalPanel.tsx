@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
-import { X, Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
+import { Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
 import { TerminalView } from './TerminalView';
+import { TerminalTabStrip, type TerminalTab } from './TerminalTabStrip';
 import {
   useTerminalConnection,
   createTerminalInstance,
@@ -37,14 +38,11 @@ import { useWorktreesQuery } from '@/hooks/queries';
 
 export interface TerminalPanelHandle {
   focus: () => void;
-}
-
-interface TerminalTab {
-  serverSessionId: string;
-  title: string;
-  status: TerminalStatus;
-  cwd: string;
-  shell: string;
+  /** Opens the previous or next terminal tab and focuses its shell. */
+  cycleTab: (direction: -1 | 1) => void;
+  /** Opens a terminal in the active tab's folder (or the default root). */
+  newTerminal: () => void;
+  closeActiveTerminal: () => void;
 }
 
 interface TerminalPanelProps {
@@ -125,6 +123,8 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
             status: s.status === 'exited' ? 'exited' : existing?.status ?? 'disconnected',
             cwd: s.cwd,
             shell: s.shell,
+            origin: s.origin ?? 'user',
+            ownerSessionId: s.ownerSessionId,
           };
         }));
 
@@ -168,8 +168,13 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
             status: 'disconnected',
             cwd: event.session.cwd,
             shell: event.session.shell,
+            origin: event.session.origin ?? 'user',
+            ownerSessionId: event.session.ownerSessionId,
           }];
         });
+        // Terminals the agent opens appear as tabs without taking over the
+        // one you are using.
+        if (event.session.origin === 'agent' && tabsRef.current.length > 0) break;
         if (workspaceId) {
           activeTabByWorkspaceRef.current.set(workspaceId, event.session.id);
         }
@@ -535,17 +540,79 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
     }
   }, [activeTabServerId]);
 
+  // Switching tabs unmounts the focused xterm, so focus would fall to the
+  // page. Focus the new shell once its xterm is opened.
+  const focusAfterSwitchRef = useRef(false);
+  useEffect(() => {
+    if (!activeTabServerId) {
+      focusAfterSwitchRef.current = false;
+      return;
+    }
+    if (!focusAfterSwitchRef.current) return;
+    const cached = terminalCacheRef.current.get(activeTabServerId);
+    if (!cached?.isOpened) return;
+    focusAfterSwitchRef.current = false;
+    if (document.activeElement?.closest('[data-terminal-rename]')) return;
+    cached.terminal.focus();
+  }, [activeTabServerId, connectionTarget]);
+
+  const activateTab = useCallback((serverSessionId: string) => {
+    focusAfterSwitchRef.current = true;
+    selectTerminalTab(serverSessionId);
+    if (serverSessionId === activeTabServerId) {
+      focusAfterSwitchRef.current = false;
+      focusActiveTerminal();
+    }
+  }, [selectTerminalTab, activeTabServerId, focusActiveTerminal]);
+
+  const renameTab = useCallback(async (serverSessionId: string, title: string) => {
+    if (!workspaceId || !sdkClient) return;
+    const previous = tabsRef.current.find(t => t.serverSessionId === serverSessionId)?.title;
+    setTabs(prev => prev.map(t => t.serverSessionId === serverSessionId ? { ...t, title } : t));
+    try {
+      await sdkClient.http.terminals.rename(workspaceId, serverSessionId, title);
+    } catch (err) {
+      console.error('[TerminalPanel] Failed to rename terminal:', err);
+      if (previous !== undefined) {
+        setTabs(prev => prev.map(t => t.serverSessionId === serverSessionId ? { ...t, title: previous } : t));
+      }
+    }
+  }, [workspaceId, sdkClient]);
+
   useImperativeHandle(ref, () => ({
     focus: focusActiveTerminal,
-  }), [focusActiveTerminal]);
+    cycleTab: (direction) => {
+      const current = tabsRef.current;
+      if (current.length < 2) return;
+      const index = current.findIndex(t => t.serverSessionId === activeTabServerId);
+      activateTab(current[(Math.max(0, index) + direction + current.length) % current.length].serverSessionId);
+    },
+    newTerminal: () => {
+      const activeCwd = tabsRef.current.find(t => t.serverSessionId === activeTabServerId)?.cwd;
+      const roots = [
+        workspacePath,
+        ...additionalPaths,
+        ...(worktrees.data ?? []).filter(w => w.state === 'available').map(w => w.path),
+      ];
+      focusAfterSwitchRef.current = true;
+      void addTab(activeCwd && roots.includes(activeCwd) ? activeCwd : undefined);
+    },
+    closeActiveTerminal: () => {
+      if (!activeTabServerId) return;
+      focusAfterSwitchRef.current = true;
+      void closeTab(activeTabServerId);
+    },
+  }), [focusActiveTerminal, activateTab, activeTabServerId, workspacePath, additionalPaths, worktrees.data, addTab, closeTab]);
 
   useEffect(() => {
     if (!isOpen || !activeTabServerId) return;
     const timer = setTimeout(() => {
       // A session/workspace switch can replace the terminal in an open dock.
-      // Visibility alone must not reclaim focus from the user's current dock.
+      // Visibility alone must not reclaim focus from the user's current dock,
+      // nor from a tab being renamed.
       const panel = panelRef.current;
       const owner = panel?.closest('[data-view-group]') ?? panel;
+      if (document.activeElement?.closest('[data-terminal-rename]')) return;
       if (owner?.contains(document.activeElement)) focusActiveTerminal();
     }, 300);
     return () => clearTimeout(timer);
@@ -564,19 +631,8 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
     );
   }
 
-  const shortName = workspaceName || workspacePath.split('/').pop() || 'ws';
   const activeTab = tabs.find(t => t.serverSessionId === activeTabServerId);
-    
   const activeCached = activeTabServerId ? terminalCacheRef.current.get(activeTabServerId) : null;
-
-  const statusIndicator = (status: TerminalStatus) => {
-    switch (status) {
-      case 'connecting': return 'bg-warning';
-      case 'connected': return 'bg-success';
-      case 'disconnected': return 'bg-muted-foreground';
-      case 'exited': return 'bg-error';
-    }
-  };
 
   const terminalRoots = [
     ...(sessionWorktree ? [{
@@ -642,32 +698,16 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
     );
   };
 
-  const renderTabs = () => (
-    <div className="flex items-center gap-0.5 overflow-x-auto px-1 min-h-[32px]">
-      {tabs.map(tab => (
-        <div
-          key={tab.serverSessionId}
-          className={cn(
-            'group flex items-center gap-1.5 px-2 py-1 text-xs rounded-sm whitespace-nowrap border border-transparent',
-            tab.serverSessionId === activeTabServerId
-              ? 'bg-muted text-foreground'
-              : 'text-muted-foreground hover:bg-muted'
-          )}
-          onClick={() => selectTerminalTab(tab.serverSessionId)}
-        >
-          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusIndicator(tab.status))} />
-          <span>{shortName} {tab.title}</span>
-          <button
-            aria-label={`Close terminal ${tab.title}`}
-            className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity ml-0.5"
-            onClick={(e) => { e.stopPropagation(); closeTab(tab.serverSessionId); }}
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      ))}
-      {renderAddTerminalMenu()}
-    </div>
+  const renderTabs = (compact: boolean) => (
+    <TerminalTabStrip
+      tabs={tabs}
+      activeId={activeTabServerId}
+      compact={compact}
+      onActivate={activateTab}
+      onClose={closeTab}
+      onRename={renameTab}
+      trailing={renderAddTerminalMenu()}
+    />
   );
 
   const renderTerminalContent = () => (
@@ -705,7 +745,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
           <SheetHeader className="sr-only">
             <SheetTitle>Terminal</SheetTitle>
           </SheetHeader>
-          {renderTabs()}
+          {renderTabs(false)}
           {renderTerminalContent()}
         </SheetContent>
       </Sheet>
@@ -717,31 +757,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
       {/* Header with inline tabs; the panel itself toggles from the app header like the other panels */}
       <div className="flex items-center gap-1 bg-sidebar px-2 py-1 shrink-0">
         <TerminalIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-        <div className="flex items-center gap-0.5 overflow-x-auto flex-1 min-h-0">
-          {tabs.map(tab => (
-            <div
-              key={tab.serverSessionId}
-              className={cn(
-                'group flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-sm whitespace-nowrap border border-transparent',
-                tab.serverSessionId === activeTabServerId
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              )}
-              onClick={() => selectTerminalTab(tab.serverSessionId)}
-            >
-              <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusIndicator(tab.status))} />
-              <span>{shortName} {tab.title}</span>
-              <button
-                aria-label={`Close terminal ${tab.title}`}
-                className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity ml-0.5"
-                onClick={(e) => { e.stopPropagation(); closeTab(tab.serverSessionId); }}
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-          {renderAddTerminalMenu()}
-        </div>
+        {renderTabs(true)}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar">

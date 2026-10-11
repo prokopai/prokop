@@ -17,6 +17,9 @@ export interface TerminalSessionInfo {
    * by older servers, treat as 'user'. */
   origin?: 'user' | 'agent';
   managedWorktreeId?: string;
+  /** Chat session whose agent created this terminal. Set only for
+   * 'agent' terminals. */
+  ownerSessionId?: string;
 }
 
 export interface TerminalSessionInit {

@@ -6,6 +6,7 @@ import type { WorkspaceApplication } from '@/application/workspaces';
 import { BadRequestError, NotFoundError } from '@/application/http-errors';
 import {
   createTerminalSchema,
+  renameTerminalSchema,
   createWorkspaceSchema,
   updateWorkspaceSettingsSchema,
   pinMessageSchema,
@@ -139,6 +140,28 @@ export function registerWorkspaceRoutes(app: Hono, application: WorkspaceApplica
       throw new NotFoundError('Terminal session not found');
     }
     return c.json(session);
+  });
+
+  // PATCH /api/workspaces/:id/terminals/:sessionId - Rename a terminal session
+  app.patch('/api/workspaces/:id/terminals/:sessionId', async (c) => {
+    const rawBody = await c.req.json().catch(() => ({}));
+    const parsedBody = renameTerminalSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      throw new BadRequestError('Terminal title must not be blank');
+    }
+
+    const result = application.renameTerminal(
+      c.req.param('id'),
+      c.req.param('sessionId'),
+      parsedBody.data.title,
+    );
+    if (result.kind === 'missing') {
+      throw new NotFoundError('Workspace not found');
+    }
+    if (result.kind === 'not_found') {
+      throw new NotFoundError('Terminal session not found');
+    }
+    return c.json({ session: result.session });
   });
 
   // DELETE /api/workspaces/:id/terminals/:sessionId - Kill and destroy a terminal session

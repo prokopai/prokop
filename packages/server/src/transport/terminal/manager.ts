@@ -1,4 +1,5 @@
 import { existsSync, statSync } from 'fs';
+import { basename } from 'path';
 import { readEnvInt } from '@/infrastructure/runtime/env-compat';
 import type { ServerWebSocket } from 'bun';
 
@@ -37,6 +38,16 @@ interface TerminalSession {
   bufferBytes: number;
   inAlternateScreen: boolean;
   managedWorktreeId?: string;
+  ownerSessionId?: string;
+}
+
+/** Longest title accepted from users and the terminal tool. */
+export const MAX_TERMINAL_TITLE_LENGTH = 80;
+
+/** Collapses whitespace and caps the length; blank means "no title". */
+export function normalizeTerminalTitle(title: string | undefined): string | null {
+  const trimmed = title?.replace(/\s+/g, ' ').trim() ?? '';
+  return trimmed ? trimmed.slice(0, MAX_TERMINAL_TITLE_LENGTH) : null;
 }
 
 function getDefaultShell(): string {
@@ -168,6 +179,7 @@ export class TerminalManager {
     agentEnv?: Record<string, string>;
     title?: string;
     managedWorktreeId?: string;
+    ownerSessionId?: string;
   }): string | null {
     const { cwd } = options;
     if (!cwd || !existsSync(cwd)) return null;
@@ -175,9 +187,6 @@ export class TerminalManager {
     if (!stat.isDirectory()) return null;
     const result = this.spawnSession(options);
     if (!result) return null;
-    if (options.title) {
-      this.setTitle(result.sessionId, options.title);
-    }
     return result.sessionId;
   }
 
@@ -192,6 +201,8 @@ export class TerminalManager {
       agentEnv?: Record<string, string>;
       initialClient?: TerminalSocket;
       managedWorktreeId?: string;
+      title?: string;
+      ownerSessionId?: string;
     }
   ): { sessionId: string; session: TerminalSession } | null {
     const { cwd, workspaceId, cols = 80, rows = 24, initialClient } = options;
@@ -208,6 +219,7 @@ export class TerminalManager {
 
     const sessionId = crypto.randomUUID();
     const now = Date.now();
+    const title = normalizeTerminalTitle(options.title) ?? this.defaultTitle(workspaceId, cwd);
 
     try {
       const pty = spawn(shell, [], {
@@ -259,7 +271,7 @@ export class TerminalManager {
         cwd,
         currentCwd: cwd,
         shell,
-        title: 'main',
+        title,
         workspaceId,
         origin,
         clients: initialClient ? new Set([initialClient]) : new Set(),
@@ -273,6 +285,7 @@ export class TerminalManager {
         bufferBytes: 0,
         inAlternateScreen: false,
         managedWorktreeId: options.managedWorktreeId,
+        ownerSessionId: options.ownerSessionId,
       };
 
       this.sessions.set(sessionId, session);
@@ -289,6 +302,7 @@ export class TerminalManager {
         pid: pty.pid,
         cols,
         rows,
+        title,
         managedWorktreeId: options.managedWorktreeId,
       });
 
@@ -404,10 +418,35 @@ export class TerminalManager {
     }
   }
 
+  /** Default tab name: the folder the shell starts in, numbered when that
+   * name is already used in the workspace ("api", "api 2"). */
+  private defaultTitle(workspaceId: string, cwd: string): string {
+    const base = basename(cwd) || cwd;
+    const taken = new Set<string>();
+    for (const session of this.sessions.values()) {
+      if (session.workspaceId === workspaceId) taken.add(session.title);
+    }
+    if (!taken.has(base)) return base;
+    let index = 2;
+    while (taken.has(`${base} ${index}`)) index++;
+    return `${base} ${index}`;
+  }
+
+  /** Renames a session of the workspace. Returns null when the session is
+   * missing, belongs to another workspace, or the title is blank. */
+  renameSession(sessionId: string, workspaceId: string, title: string): TerminalSessionInfo | null {
+    const session = this.sessions.get(sessionId);
+    const normalized = normalizeTerminalTitle(title);
+    if (!session || session.workspaceId !== workspaceId || !normalized) return null;
+    this.setTitle(sessionId, normalized);
+    return this.getSessionInfo(session);
+  }
+
   setTitle(sessionId: string, title: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     session.title = title;
+    this.store.updateTerminalSessionTitle(sessionId, title);
     this.eventManager.broadcastSessionInfo(session.workspaceId, this.getSessionInfo(session), 'title_changed');
     const payload = new TextEncoder().encode(JSON.stringify({ title }));
     const frame = encodeFrame(OPCODES.TITLE, payload);
@@ -545,6 +584,7 @@ export class TerminalManager {
       inAlternateScreen: session.inAlternateScreen,
       origin: session.origin,
       managedWorktreeId: session.managedWorktreeId,
+      ownerSessionId: session.ownerSessionId,
     };
   }
 
@@ -552,22 +592,7 @@ export class TerminalManager {
     const result: TerminalSessionInfo[] = [];
     for (const session of this.sessions.values()) {
       if (session.cwd === workspacePath) {
-        result.push({
-          id: session.id,
-          pid: session.pty.pid,
-          shell: session.shell,
-          cwd: session.cwd,
-          cols: session.cols,
-          rows: session.rows,
-          title: session.title,
-          status: session.status,
-          exitCode: session.exitCode,
-          createdAt: session.createdAt,
-          lastActivityAt: session.lastActivityAt,
-          activeClientCount: session.clients.size,
-          inAlternateScreen: session.inAlternateScreen,
-          origin: session.origin,
-        });
+        result.push(this.getSessionInfo(session));
       }
     }
     return result;

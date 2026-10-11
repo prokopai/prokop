@@ -96,6 +96,9 @@ export function createTerminalInstance(options?: CreateTerminalOptions): { termi
   const webLinksAddon = new WebLinksAddon();
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(webLinksAddon);
+  // App shortcuts run on document capture and prevent the default; such a
+  // key was handled by the app and must not also reach the shell.
+  terminal.attachCustomKeyEventHandler((event) => !event.defaultPrevented);
 
   return { terminal, fitAddon };
 }
@@ -222,6 +225,9 @@ export function useTerminalConnection(
         }
 
         const element = replayTerminal.element;
+        // Hiding blurs the focused xterm (a tab switch focuses it before the
+        // replay arrives), so focus returns with the reveal.
+        const restoreFocus = Boolean(element?.contains(document.activeElement));
         if (element) {
           element.style.visibility = 'hidden';
         }
@@ -235,6 +241,11 @@ export function useTerminalConnection(
           }
           if (connectionGenerationRef.current === generation && element) {
             element.style.visibility = '';
+            // Only reclaim focus the hide dropped, never focus moved elsewhere.
+            const dropped = !document.activeElement || document.activeElement === document.body;
+            if (restoreFocus && dropped) {
+              replayTerminal.focus();
+            }
           }
         };
 

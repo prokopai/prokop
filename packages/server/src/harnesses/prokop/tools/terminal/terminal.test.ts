@@ -176,6 +176,19 @@ describe('terminal tool: actions', () => {
     expect(ours!.status).toBe('running');
   });
 
+  test('create names the tab and records the chat session that owns it', async () => {
+    const { ctx } = makeWorkspaceCtx();
+    const created = await execute({ action: 'create', title: '  dev   server ' }, ctx);
+    const { sessionId, title } = created.result as { sessionId: string; title: string };
+
+    expect(title).toBe('dev server');
+    expect(getTerminalManager().getSession(sessionId)).toMatchObject({
+      title: 'dev server',
+      origin: 'agent',
+      ownerSessionId: 'test-session-123',
+    });
+  });
+
   test('send waits for the sentinel marker and returns exit code and output', async () => {
     const { ctx } = makeWorkspaceCtx();
     const sessionId = await createSession(ctx);

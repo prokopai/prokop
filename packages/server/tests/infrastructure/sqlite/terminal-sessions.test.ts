@@ -36,6 +36,7 @@ describe('terminal-sessions store', () => {
       pid: 12345,
       cols: 80,
       rows: 24,
+      title: 'main',
     });
   }
 
