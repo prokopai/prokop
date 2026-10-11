@@ -363,9 +363,39 @@ describe('scheduling HTTP use cases', () => {
     const fakes = makeFakes();
     const application = makeApplication(fakes);
 
-    expect(application.deleteJob('job-1')).toBe(true);
-    expect(application.deleteJob('missing')).toBe(false);
+    expect(application.deleteJob('job-1', 'ws-1')).toBe(true);
+    expect(application.deleteJob('missing', 'ws-1')).toBe(false);
     expect(application.deleteJobsByWorkspace('ws-1')).toBe(2);
+  });
+
+  test('deleteJob deletes the run sessions after the job', () => {
+    const fakes = makeFakes();
+    const runs: Record<string, string[]> = { 'ws-1:job-1': ['run-1', 'run-2'], 'ws-2:orphan': ['run-3'] };
+    const application = createSchedulingHttpApplication({
+      repository: fakes.repository,
+      workspaces: fakes.workspaces,
+      execution: fakes.execution,
+      runs: {
+        listRunSessionIds: (workspaceId, jobId) => runs[`${workspaceId}:${jobId}`] ?? [],
+        deleteSession: (id) => {
+          fakes.log.push(`deleteSession:${id}`);
+          return true;
+        },
+      },
+    });
+
+    // The job's own workspace scopes its runs, not the route's.
+    expect(application.deleteJob('job-1', 'ws-other')).toBe(true);
+    expect(fakes.log.filter((entry) => entry.startsWith('delete'))).toEqual([
+      'delete:job-1',
+      'deleteSession:run-1',
+      'deleteSession:run-2',
+    ]);
+
+    // Runs left behind by an already-deleted job are still removable.
+    expect(application.deleteJob('orphan', 'ws-2')).toBe(true);
+    expect(fakes.log).toContain('deleteSession:run-3');
+    expect(application.deleteJob('orphan', 'ws-1')).toBe(false);
   });
 });
 

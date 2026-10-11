@@ -49,6 +49,7 @@ interface WorkspaceSessionContentProps {
   activeSessions: Session[];
   archivedSessions: Session[];
   scheduledJobs: ScheduledJob[];
+  scheduledJobsLoaded?: boolean;
   scheduledSessionsByJob: Map<string, Session[]>;
   pendingScheduledJobIds?: ReadonlySet<string>;
   childrenMap: ChildrenMap;
@@ -88,6 +89,7 @@ export function WorkspaceSessionContent({
   activeSessions,
   archivedSessions,
   scheduledJobs,
+  scheduledJobsLoaded,
   scheduledSessionsByJob,
   pendingScheduledJobIds,
   childrenMap,
@@ -426,6 +428,7 @@ export function WorkspaceSessionContent({
       {/* Scheduled Jobs */}
       <ScheduledJobsSection
         jobs={scheduledJobs}
+        jobsLoaded={scheduledJobsLoaded}
         category={categories?.scheduled}
         sessionCount={categories?.counts?.scheduled}
         sessionsByJob={scheduledSessionsByJob}

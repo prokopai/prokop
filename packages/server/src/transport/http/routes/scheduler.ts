@@ -81,7 +81,7 @@ export function registerSchedulerRoutes(app: Hono, application: SchedulingHttpAp
 
   app.delete('/api/workspaces/:workspaceId/scheduled-jobs/:jobId', async (c) => {
     const jobId = c.req.param('jobId');
-    const deleted = application.deleteJob(jobId);
+    const deleted = application.deleteJob(jobId, c.req.param('workspaceId'));
     if (!deleted) {
       throw new NotFoundError('Scheduled job not found');
     }

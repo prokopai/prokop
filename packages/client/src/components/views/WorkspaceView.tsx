@@ -277,6 +277,7 @@ function WorkspaceSidebar() {
       activeSessions={activeSessions}
       archivedSessions={archivedSessions}
       scheduledJobs={scheduledJobs ?? []}
+      scheduledJobsLoaded={scheduledJobs !== undefined}
       scheduledSessionsByJob={sidebarData.scheduledSessionsByJob}
       pendingScheduledJobIds={pendingScheduledJobIds}
       childrenMap={sidebarData.childrenMap}

@@ -7,6 +7,7 @@ import type {
 import type {
   ScheduledJobExecutionPort,
   ScheduledJobRepositoryPort,
+  ScheduledJobRunSessionsPort,
   ScheduledJobWorkspacePort,
 } from '@/application/ports/scheduling';
 import { getHeadlessExecutionPort } from '@/application/ports/headless-execution';
@@ -21,6 +22,8 @@ export interface SchedulingApplicationDeps {
   repository: ScheduledJobRepositoryPort;
   workspaces: ScheduledJobWorkspacePort;
   execution: ScheduledJobExecutionPort;
+  /** Run sessions removed together with their job; absent wiring keeps them. */
+  runs?: ScheduledJobRunSessionsPort;
   /** Test seam for the create-time headless support check; production reads
    * the installed headless port and defaults to prokop when uninstalled. */
   headlessSupport?: { supportedHarnesses(): SessionHarness[] };
@@ -40,7 +43,9 @@ export interface SchedulingHttpApplication {
   getJob(id: string): ScheduledJob | null;
   createJob(workspaceId: string, input: CreateScheduledJobInput): SchedulingCreateResult;
   updateJob(id: string, updates: UpdateScheduledJobInput): ScheduledJob | null;
-  deleteJob(id: string): boolean;
+  /** Deletes the job and every session its runs created. Also cleans up the
+   * runs of an already-deleted job, scoped to `workspaceId`. */
+  deleteJob(id: string, workspaceId: string): boolean;
   pauseJob(id: string): ScheduledJob | null;
   resumeJob(id: string): ScheduledJob | null;
   triggerJob(id: string): ScheduledJob | null;
@@ -95,8 +100,13 @@ export function createSchedulingHttpApplication(
       return deps.repository.update(id, updates);
     },
 
-    deleteJob(id) {
-      return deps.repository.delete(id);
+    deleteJob(id, workspaceId) {
+      const job = deps.repository.get(id);
+      // Job first, so the ticker cannot start another run while its runs go.
+      const deleted = deps.repository.delete(id);
+      const runIds = deps.runs?.listRunSessionIds(job?.workspaceId ?? workspaceId, id) ?? [];
+      for (const sessionId of runIds) deps.runs?.deleteSession(sessionId);
+      return deleted || runIds.length > 0;
     },
 
     pauseJob(id) {

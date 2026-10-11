@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Clock,
   ChevronRight,
@@ -38,6 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useNow } from '@/hooks/useNow';
 import type { SessionCategories } from '@/hooks/useSessionCategories';
 import { SessionCategoryStatus } from './SessionCategoryStatus';
@@ -46,6 +47,9 @@ interface ScheduledJobsSectionProps {
   category?: SessionCategories['scheduled'];
   sessionCount?: number;
   jobs: ScheduledJob[];
+  /** False while the job list is loading or failed, so runs of jobs not yet
+   * known are not shown as runs of a deleted job. */
+  jobsLoaded?: boolean;
   sessionsByJob: Map<string, Session[]>;
   pendingJobIds?: ReadonlySet<string>;
   currentSessionId: string | null;
@@ -54,6 +58,7 @@ interface ScheduledJobsSectionProps {
   onPauseJob: (jobId: string) => void;
   onResumeJob: (jobId: string) => void;
   onTriggerJob: (jobId: string) => void;
+  /** Deletes the job and its run sessions; also used for runs of a deleted job. */
   onDeleteJob: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }
@@ -70,10 +75,15 @@ function relativeTime(iso: string, now: number): string {
   return 'just now';
 }
 
+function runTitle(session: Session | undefined): string | undefined {
+  return session?.title?.replace(/^\[Scheduled\]\s*/, '');
+}
+
 export function ScheduledJobsSection({
   category,
   sessionCount,
   jobs,
+  jobsLoaded = true,
   sessionsByJob,
   pendingJobIds,
   currentSessionId,
@@ -86,6 +96,10 @@ export function ScheduledJobsSection({
   onOpenSession,
 }: ScheduledJobsSectionProps) {
   const now = useNow(30_000);
+  const [pendingDelete, setPendingDelete] = useState<{ jobId: string; name: string } | null>(null);
+  const deletedJobRuns = jobsLoaded
+    ? [...sessionsByJob.entries()].filter(([jobId]) => !jobs.some(job => job.id === jobId))
+    : [];
 
   const getNextRunLabel = useCallback(
     (job: ScheduledJob) => {
@@ -115,186 +129,244 @@ export function ScheduledJobsSection({
     return null;
   };
 
+  const renderRunCount = (runs: Session[]) => (
+    <CollapsibleTrigger asChild>
+      <button
+        type="button"
+        className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 transition-colors"
+        title={`${runs.length} run${runs.length === 1 ? '' : 's'}`}
+      >
+        <div className="flex items-center gap-0.5">
+          <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/job-collapsible:rotate-90" />
+          <Badge variant="secondary" className="text-[10px] px-1 py-0">{runs.length}</Badge>
+        </div>
+      </button>
+    </CollapsibleTrigger>
+  );
+
+  const renderRuns = (runs: Session[]) => (
+    <CollapsibleContent>
+      <div className="ml-4 border-l border-border pl-1 space-y-0.5 mb-1">
+        {runs.map((session) => (
+          <SidebarMenuButton
+            key={session.id}
+            isActive={currentSessionId === session.id}
+            onClick={() => onOpenSession(session.id)}
+            className="text-xs h-7"
+          >
+            <MessageSquare className="size-3 shrink-0 text-muted-foreground" />
+            <span className="truncate">{runTitle(session) ?? 'Run'}</span>
+            <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+              {relativeTime(session.updatedAt, now)}
+            </span>
+          </SidebarMenuButton>
+        ))}
+      </div>
+    </CollapsibleContent>
+  );
+
   return (
-    <Collapsible open={category?.open} onOpenChange={category?.onOpenChange} className="group/collapsible">
-      <SidebarGroup>
-        <SidebarGroupLabel asChild>
-          <CollapsibleTrigger asChild>
-            <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-              <span>Scheduled</span>
-              <span className="text-[10px] tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
-              <span className="flex-1" />
-              <div className="flex items-center">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      title="Scheduled jobs"
-                      aria-label="Scheduled jobs"
-                    >
-                      <MoreHorizontal className="size-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCreateJob(); }}>
-                      <Plus className="size-4" />
-                      New scheduled job
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </SidebarGroupLabel>
-        <CollapsibleContent>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {jobs.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  No scheduled jobs.
+    <>
+      <Collapsible open={category?.open} onOpenChange={category?.onOpenChange} className="group/collapsible">
+        <SidebarGroup>
+          <SidebarGroupLabel asChild>
+            <CollapsibleTrigger asChild>
+              <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                <span>Scheduled</span>
+                <span className="text-[10px] tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
+                <span className="flex-1" />
+                <div className="flex items-center">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        title="Scheduled jobs"
+                        aria-label="Scheduled jobs"
+                      >
+                        <MoreHorizontal className="size-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCreateJob(); }}>
+                        <Plus className="size-4" />
+                        New scheduled job
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              )}
-              {jobs.map((job) => {
-                const runs = sessionsByJob.get(job.id) ?? [];
-                const isMutating = pendingJobIds?.has(job.id) ?? false;
-                return (
-                  <Collapsible key={job.id} className="group/job-collapsible">
-                    <SidebarMenuItem>
-                      <div className="flex items-center w-full rounded-md hover:bg-sidebar-accent transition-colors">
-                        <CollapsibleTrigger asChild>
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 min-w-0 flex-1 px-2 py-1.5 text-left"
-                            onClick={() => onEditJob(job)}
-                          >
-                            <Clock className="size-4 shrink-0 text-muted-foreground" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-medium truncate">{job.name}</span>
-                                {getStateIcon(job.state)}
-                                {job.notificationsEnabled && (
-                                  <Bell
-                                    className="size-3 shrink-0 text-muted-foreground"
-                                    role="img"
-                                    aria-label="Notifications enabled"
-                                  />
+              </div>
+            </CollapsibleTrigger>
+          </SidebarGroupLabel>
+          <CollapsibleContent>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {jobs.length === 0 && deletedJobRuns.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    No scheduled jobs.
+                  </div>
+                )}
+                {jobs.map((job) => {
+                  const runs = sessionsByJob.get(job.id) ?? [];
+                  const isMutating = pendingJobIds?.has(job.id) ?? false;
+                  return (
+                    <Collapsible key={job.id} className="group/job-collapsible">
+                      <SidebarMenuItem>
+                        <div className="flex items-center w-full rounded-md hover:bg-sidebar-accent transition-colors">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 min-w-0 flex-1 px-2 py-1.5 text-left"
+                              onClick={() => onEditJob(job)}
+                            >
+                              <Clock className="size-4 shrink-0 text-muted-foreground" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium truncate">{job.name}</span>
+                                  {getStateIcon(job.state)}
+                                  {job.notificationsEnabled && (
+                                    <Bell
+                                      className="size-3 shrink-0 text-muted-foreground"
+                                      role="img"
+                                      aria-label="Notifications enabled"
+                                    />
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {job.scheduleDisplay} . {getNextRunLabel(job)}
+                                </div>
+                                {job.lastError && (
+                                  <div className="text-xs text-destructive truncate flex items-center gap-1 mt-0.5">
+                                    <AlertCircle className="size-3 shrink-0" />
+                                    <span className="truncate">{job.lastError}</span>
+                                  </div>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {job.scheduleDisplay} . {getNextRunLabel(job)}
-                              </div>
-                              {job.lastError && (
-                                <div className="text-xs text-destructive truncate flex items-center gap-1 mt-0.5">
-                                  <AlertCircle className="size-3 shrink-0" />
-                                  <span className="truncate">{job.lastError}</span>
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                        </CollapsibleTrigger>
-                        <div className="flex items-center gap-1 shrink-0 pr-1">
-                          {runs.length > 0 && (
-                            <CollapsibleTrigger asChild>
-                              <button
-                                type="button"
-                                className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 transition-colors"
-                                title={`${runs.length} run${runs.length === 1 ? '' : 's'}`}
-                              >
-                                <div className="flex items-center gap-0.5">
-                                  <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/job-collapsible:rotate-90" />
-                                  <Badge variant="secondary" className="text-[10px] px-1 py-0">{runs.length}</Badge>
-                                </div>
-                              </button>
-                            </CollapsibleTrigger>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                disabled={isMutating}
-                                className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 opacity-0 group-hover/job-collapsible:opacity-100 transition-opacity disabled:opacity-100"
-                                title={isMutating ? 'Updating job' : 'Job actions'}
-                              >
-                                {isMutating ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <MoreHorizontal className="size-3.5" />
+                            </button>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-1 shrink-0 pr-1">
+                            {runs.length > 0 && renderRunCount(runs)}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={isMutating}
+                                  className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 opacity-0 group-hover/job-collapsible:opacity-100 transition-opacity disabled:opacity-100"
+                                  title={isMutating ? 'Updating job' : 'Job actions'}
+                                >
+                                  {isMutating ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="size-3.5" />
+                                  )}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-40">
+                                <DropdownMenuItem onClick={() => onEditJob(job)}>
+                                  <Pencil className="size-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                {job.state === 'active' && (
+                                  <DropdownMenuItem disabled={isMutating} onClick={() => onPauseJob(job.id)}>
+                                    <Pause className="size-4" />
+                                    Pause
+                                  </DropdownMenuItem>
                                 )}
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="min-w-40">
-                              <DropdownMenuItem onClick={() => onEditJob(job)}>
-                                <Pencil className="size-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              {job.state === 'active' && (
-                                <DropdownMenuItem disabled={isMutating} onClick={() => onPauseJob(job.id)}>
-                                  <Pause className="size-4" />
-                                  Pause
+                                {(job.state === 'paused' || job.state === 'completed') && (
+                                  <DropdownMenuItem disabled={isMutating} onClick={() => onResumeJob(job.id)}>
+                                    <Play className="size-4" />
+                                    Resume
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem disabled={isMutating} onClick={() => onTriggerJob(job.id)}>
+                                  <Zap className="size-4" />
+                                  Trigger now
                                 </DropdownMenuItem>
-                              )}
-                              {(job.state === 'paused' || job.state === 'completed') && (
-                                <DropdownMenuItem disabled={isMutating} onClick={() => onResumeJob(job.id)}>
-                                  <Play className="size-4" />
-                                  Resume
+                                <DropdownMenuItem
+                                  onClick={() => setPendingDelete({ jobId: job.id, name: job.name })}
+                                  disabled={isMutating}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem disabled={isMutating} onClick={() => onTriggerJob(job.id)}>
-                                <Zap className="size-4" />
-                                Trigger now
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => onDeleteJob(job.id)}
-                                disabled={isMutating}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="size-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                      </div>
-                    </SidebarMenuItem>
-                    <CollapsibleContent>
-                      <div className="ml-4 border-l border-border pl-1 space-y-0.5 mb-1">
-                        {runs.map((session) => (
-                          <SidebarMenuButton
-                            key={session.id}
-                            isActive={currentSessionId === session.id}
-                            onClick={() => onOpenSession(session.id)}
-                            className="text-xs h-7"
-                          >
-                            <MessageSquare className="size-3 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{session.title?.replace(/^\[Scheduled\]\s*/, '') ?? 'Run'}</span>
-                            <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
-                              {relativeTime(session.updatedAt, now)}
-                            </span>
-                          </SidebarMenuButton>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </SidebarMenu>
-            <SidebarMenu>
-              {[...sessionsByJob.entries()].filter(([jobId]) => !jobs.some(job => job.id === jobId)).flatMap(([, runs]) => runs).map(session => (
-                <SidebarMenuItem key={session.id}>
-                  <SidebarMenuButton isActive={currentSessionId === session.id} onClick={() => onOpenSession(session.id)}>
-                    <MessageSquare />
-                    <span className="truncate">{session.title ?? 'Scheduled session'}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-            <SessionCategoryStatus category={category} />
-          </SidebarGroupContent>
-        </CollapsibleContent>
-      </SidebarGroup>
-    </Collapsible>
+                      </SidebarMenuItem>
+                      {renderRuns(runs)}
+                    </Collapsible>
+                  );
+                })}
+                {deletedJobRuns.map(([jobId, runs]) => {
+                  const name = runTitle(runs[0]) || 'Deleted job';
+                  const isMutating = pendingJobIds?.has(jobId) ?? false;
+                  return (
+                    <Collapsible key={jobId} className="group/job-collapsible">
+                      <SidebarMenuItem>
+                        <div className="flex items-center w-full rounded-md hover:bg-sidebar-accent transition-colors">
+                          <CollapsibleTrigger asChild>
+                            <button type="button" className="flex items-center gap-2 min-w-0 flex-1 px-2 py-1.5 text-left">
+                              <Clock className="size-4 shrink-0 text-muted-foreground/50" />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium truncate text-muted-foreground">{name}</div>
+                                <div className="text-xs text-muted-foreground truncate">Job deleted</div>
+                              </div>
+                            </button>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-1 shrink-0 pr-1">
+                            {renderRunCount(runs)}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={isMutating}
+                                  className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 opacity-0 group-hover/job-collapsible:opacity-100 transition-opacity disabled:opacity-100"
+                                  title={isMutating ? 'Deleting runs' : 'Run actions'}
+                                >
+                                  {isMutating ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="size-3.5" />
+                                  )}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-40">
+                                <DropdownMenuItem
+                                  onClick={() => setPendingDelete({ jobId, name })}
+                                  disabled={isMutating}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete runs
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </SidebarMenuItem>
+                      {renderRuns(runs)}
+                    </Collapsible>
+                  );
+                })}
+              </SidebarMenu>
+              <SessionCategoryStatus category={category} />
+            </SidebarGroupContent>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+      <ConfirmationDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        title={`Delete "${pendingDelete?.name ?? ''}"?`}
+        description="This permanently deletes the scheduled job and every session its runs created. This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => { if (pendingDelete) onDeleteJob(pendingDelete.jobId); }}
+      />
+    </>
   );
 }

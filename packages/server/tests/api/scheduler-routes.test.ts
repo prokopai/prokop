@@ -3,7 +3,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { createApp } from '@/transport/http/app';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { setupTestDataDir, resetTestDataDir } from '#tests/test-dir';
-import { seedWorkspace } from '#tests/seed';
+import { seedSession, seedWorkspace } from '#tests/seed';
+import { getSession } from '@/infrastructure/sqlite/session-store';
 
 interface SchedulerResponse {
   jobs: unknown[];
@@ -286,6 +287,43 @@ describe('Scheduler Routes', () => {
       });
 
       expect(res.status).toBe(404);
+    });
+
+    test('deletes the job together with its run sessions', async () => {
+      seedWorkspace({ id: 'ws1' });
+      const createRes = await app.request('/api/workspaces/ws1/scheduled-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Nightly',
+          prompt: 'Do something',
+          scheduleKind: 'interval',
+          scheduleConfig: { type: 'interval', intervalMinutes: 60 },
+        }),
+      });
+      const jobId = (await json(createRes)).job.id;
+      const run = seedSession('ws1', { metadata: { scheduledJobId: jobId } });
+      const otherRun = seedSession('ws1', { metadata: { scheduledJobId: 'other-job' } });
+      const ordinary = seedSession('ws1');
+
+      const res = await app.request(`/api/workspaces/ws1/scheduled-jobs/${jobId}`, { method: 'DELETE' });
+
+      expect(res.status).toBe(200);
+      expect(getSession(run.id)).toBeNull();
+      expect(getSession(otherRun.id)).not.toBeNull();
+      expect(getSession(ordinary.id)).not.toBeNull();
+    });
+
+    test('deletes runs left behind by an already-deleted job', async () => {
+      seedWorkspace({ id: 'ws1' });
+      const orphan = seedSession('ws1', { metadata: { scheduledJobId: 'gone' } });
+
+      const res = await app.request('/api/workspaces/ws1/scheduled-jobs/gone', { method: 'DELETE' });
+
+      expect(res.status).toBe(200);
+      expect(getSession(orphan.id)).toBeNull();
+      const again = await app.request('/api/workspaces/ws1/scheduled-jobs/gone', { method: 'DELETE' });
+      expect(again.status).toBe(404);
     });
   });
 

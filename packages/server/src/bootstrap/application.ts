@@ -385,6 +385,13 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       getWorkspace,
     },
     execution: schedulingExecution,
+    runs: {
+      listRunSessionIds: (workspaceId, jobId) => repository
+        .listSessionsByWorkspace(workspaceId, { category: 'scheduled' })
+        .filter((session) => session.metadata?.scheduledJobId === jobId)
+        .map((session) => session.id),
+      deleteSession: (id) => http.deleteSession(id),
+    },
     isHarnessDisabled: harnessSettings.isDisabled,
   });
 

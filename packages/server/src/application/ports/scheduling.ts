@@ -43,6 +43,13 @@ export interface ScheduledJobExecutionPort {
   trigger(job: ScheduledJob): void;
 }
 
+/** Sessions a job's runs created. Deleting a job deletes them through this
+ * port, so the session delete side effects (events, attachments) still run. */
+export interface ScheduledJobRunSessionsPort {
+  listRunSessionIds(workspaceId: string, jobId: string): string[];
+  deleteSession(id: string): boolean;
+}
+
 export interface ScheduledRunSessionPort {
   createSession(
     session: Omit<Session, 'createdAt' | 'updatedAt'> & { createdAt?: string; updatedAt?: string },
