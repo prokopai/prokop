@@ -98,6 +98,13 @@ These clips, and the one at the top, are recorded from a real Prokop instance. O
 
 Pick the runtime per session in the model picker. The first message locks it; you can still change model and effort.
 
+**Switch runtimes, keep the agent.** Told once on Claude Code, applied on Codex: the preference goes into the agent's own memory, not into either CLI. Unlike the clips above, nothing here is scripted. Both are real runs on the CLIs' own logins, with the waits for the model cut out.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/runtimes-dark.webp">
+  <img src="docs/readme/runtimes-light.webp" alt="Two sessions of the same agent side by side. On Claude Code you say not to mock Date in tests and it saves that to the agent's memory. On Codex you ask for tests for overdue invoices, and it adds a now parameter instead of mocking Date; the tests pass" width="900">
+</picture>
+
 | Runtime | Runs on | You need |
 |---|---|---|
 | **Prokop** | The built-in runtime | A provider: OpenRouter, DeepSeek, MiniMax, Z.AI (Coding Plan), or Codex (ChatGPT) sign-in |

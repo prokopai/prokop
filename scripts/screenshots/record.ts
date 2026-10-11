@@ -26,12 +26,13 @@ import { guideOverview } from './clips/guide-overview';
 import { memoryClip } from './clips/memory';
 import { mobileClip } from './clips/mobile';
 import { multiSessionClip } from './clips/multi-session';
+import { runtimesClip } from './clips/runtimes';
 import { REPO_ROOT, startInstance, type Instance } from './instance';
 import { lastPage, THEMES, themeName } from './scene';
 import { Demo } from './script';
 import { buildClipWorld } from './world';
 
-const CLIPS: Clip[] = [memoryClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider];
+const CLIPS: Clip[] = [memoryClip, runtimesClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider];
 
 const { values } = parseArgs({
   options: {

@@ -30,7 +30,8 @@ const LINKSHELF_HISTORY: History = [
 const INVOICER_HISTORY: History = [
   {
     message: 'Invoice model with amount formatting',
-    paths: ['package.json', 'tsconfig.json', 'README.md', 'src/invoice.ts', 'test/invoice.test.ts'],
+    // AGENTS.md also keeps Codex from searching the folders above the repo for one.
+    paths: ['package.json', 'tsconfig.json', 'README.md', 'AGENTS.md', 'src/invoice.ts', 'test/invoice.test.ts'],
     date: '2026-10-05T14:20:00+02:00',
   },
 ];

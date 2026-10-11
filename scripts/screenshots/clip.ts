@@ -36,8 +36,38 @@ export interface Clip {
 export class ScreenRecorder {
   private readonly frames: Array<{ path: string; at: number }> = [];
   private readonly writes: Array<Promise<unknown>> = [];
+  /** Seconds cut out by pauses so far; frame times are shifted back by it. */
+  private cut = 0;
+  private pausedAt: number | null = null;
+  /** The newest frame while paused, shown again when recording resumes. */
+  private held: Buffer | null = null;
 
   private constructor(private readonly session: CDPSession, readonly dir: string) {}
+
+  private keep(data: Buffer, at: number): void {
+    const path = join(this.dir, `${String(this.frames.length).padStart(5, '0')}.png`);
+    this.frames.push({ path, at: at - this.cut });
+    this.writes.push(Bun.write(path, data));
+  }
+
+  /** Cuts the time until `resume` out of the clip, such as a model thinking. */
+  pause(): void {
+    this.pausedAt ??= Date.now() / 1000;
+  }
+
+  resume(): void {
+    if (this.pausedAt === null) return;
+    const now = Date.now() / 1000;
+    this.cut += now - this.pausedAt;
+    this.pausedAt = null;
+    // The screencast sends frames only on change, so restate what is on screen now.
+    if (this.held) this.keep(this.held, now);
+    this.held = null;
+  }
+
+  get paused(): boolean {
+    return this.pausedAt !== null;
+  }
 
   /** Starts recording once fonts are ready; the clip begins with this frame. */
   static async start(page: Page, dir: string): Promise<ScreenRecorder> {
@@ -47,9 +77,9 @@ export class ScreenRecorder {
     const session = await page.context().newCDPSession(page);
     const recorder = new ScreenRecorder(session, dir);
     session.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
-      const path = join(dir, `${String(recorder.frames.length).padStart(5, '0')}.png`);
-      recorder.frames.push({ path, at: metadata.timestamp ?? Date.now() / 1000 });
-      recorder.writes.push(Bun.write(path, Buffer.from(data, 'base64')));
+      const frame = Buffer.from(data, 'base64');
+      if (recorder.paused) recorder.held = frame;
+      else recorder.keep(frame, metadata.timestamp ?? Date.now() / 1000);
       void session.send('Page.screencastFrameAck', { sessionId }).catch(() => undefined);
     });
     const viewport = page.viewportSize()!;
@@ -59,7 +89,8 @@ export class ScreenRecorder {
 
   /** Stops recording and returns each frame with how long it stays on screen. */
   async stop(): Promise<Array<{ path: string; seconds: number }>> {
-    const endedAt = Date.now() / 1000;
+    this.resume();
+    const endedAt = Date.now() / 1000 - this.cut;
     await this.session.send('Page.stopScreencast');
     await Promise.all(this.writes);
     await this.session.detach();
@@ -90,7 +121,8 @@ export async function stageStory(ctx: ClipContext, story: Story, extraSteps: Ste
  * it. Only visible composers count; the board keeps hidden views mounted.
  */
 export async function sendPrompt(page: Page, prompt: string, pane = 0, { tapSend = false } = {}): Promise<void> {
-  const composer = page.getByPlaceholder(/Type a message/).filter({ visible: true }).nth(pane);
+  // Claude Code and Codex sessions read "Message Claude CLI …" and "Message Codex CLI …".
+  const composer = page.getByPlaceholder(/^(Type a message|Message \w+ CLI)/).filter({ visible: true }).nth(pane);
   // Clicking an inactive pane activates it first; settle before typing into the element itself.
   await composer.click();
   await page.waitForTimeout(300);
