@@ -42,7 +42,8 @@ function resolveEffectivePath(path: string, depth: number): string {
       return resolvePath(realpathSync(ancestor), relative(ancestor, path));
     } catch (error: unknown) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'ELOOP') throw error;
+      // A too-long name cannot exist either; walk up like a missing one.
+      if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'ELOOP' && code !== 'ENAMETOOLONG') throw error;
       // realpath fails for dangling links. Resolve the link itself before
       // walking upward, otherwise a missing outside target looks contained.
       let link: string | undefined;
@@ -50,7 +51,7 @@ function resolveEffectivePath(path: string, depth: number): string {
         if (lstatSync(ancestor).isSymbolicLink()) link = readlinkSync(ancestor);
       } catch (statError: unknown) {
         const statCode = (statError as NodeJS.ErrnoException).code;
-        if (statCode !== 'ENOENT' && statCode !== 'ENOTDIR') throw statError;
+        if (statCode !== 'ENOENT' && statCode !== 'ENOTDIR' && statCode !== 'ENAMETOOLONG') throw statError;
       }
       if (link !== undefined) {
         return resolveEffectivePath(resolvePath(dirname(ancestor), link, relative(ancestor, path)), depth + 1);

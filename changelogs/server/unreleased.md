@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- **Multi-line shell commands get the right permission check**: A command whose lines were separate commands was checked as one, so `ls` followed by `rm -rf ~` on the next line was not caught as destructive and could run without asking in Full mode. Each line is now checked as its own command, like commands joined with `;`. Heredoc bodies, such as a Python script passed with `python3 - <<'EOF'`, are treated as input instead of commands and paths, so a long script line no longer makes the permission check fail with "name too long". A heredoc fed to a shell (`bash <<'EOF'`) is still checked as the script it runs. If a command ever cannot be analyzed, Prokop now asks you instead of failing the tool call.
+
 - **Deleting a scheduled job deletes its runs**: Deleting a scheduled job left every session its runs created in the Scheduled list, with no job to manage them and no way to delete them. Deleting a job now also deletes those sessions, after a confirmation. Runs already left behind by a deleted job show under the job's name, marked "Job deleted", with a "Delete runs" action that removes them.
 
 - **Claude Code questions wait for your answer**: When Claude asked a multiple-choice question with its AskUserQuestion tool, Prokop let the tool run with no answer, so Claude carried on without your choice. The question now shows as a question card in the conversation, like questions from Prokop agents, and Claude continues with the options you pick (one, or several for multi-select questions). It appears at every permission mode, including Full. Sessions with no controlling window, such as scheduled runs, refuse the question right away.

@@ -1,4 +1,7 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { analyzeCommand, classifyShellCommand, commandSegmentSpans, decide, type CommandAnalyzeContext } from '@/domains/permissions';
 
 /**
@@ -290,5 +293,71 @@ describe('shell asks carry highlights and pipeline stages', () => {
     expect(ask.highlights?.map(({ start, end }) => shown.slice(start, end))).toContain('rm -rf');
     expect(ask.commandSegments?.map(({ start, end }) => shown.slice(start, end)))
       .toEqual(['ls', 'xargs rm -rf']);
+  });
+});
+
+describe('multi-line scripts', () => {
+  test('a newline separates commands like ;', () => {
+    expect(isCatastrophic('ls\nrm -rf ~')).toBe(true);
+    expect(concernsOf('git status\ngit reset --hard')).toContain('destructive');
+    expect(concernsOf('rm -rf \\\n  build')).toContain('destructive');
+    const command = 'ls\necho done';
+    expect(commandSegmentSpans(command).map(({ start, end }) => command.slice(start, end))).toEqual(['ls', 'echo done']);
+  });
+
+  test('comments are not commands, operands, or redirects', () => {
+    expect(concernsOf('ls # -> /etc/passwd')).toEqual([]);
+    expect(concernsOf('# rm -rf ~\nls')).toEqual([]);
+    expect(isCatastrophic('echo a#b\nrm -rf ~')).toBe(true);
+  });
+
+  test('heredoc bodies are stdin data, not words', () => {
+    expect(concernsOf("cat <<'EOF'\nrm -rf ~ > /etc/hosts\nEOF")).toEqual([]);
+    expect(concernsOf("python3 - <<'EOF'\n# a -> b\nprint(1)\nEOF\ngit status")).toEqual([]);
+    expect(concernsOf('cat <<-EOF\n\trm -rf ~\n\tEOF')).toEqual([]);
+    // The command after the heredoc still runs and is analyzed.
+    expect(isCatastrophic("cat <<'EOF' > notes.txt\nhello\nEOF\nrm -rf ~")).toBe(true);
+  });
+
+  test('unquoted heredocs run their substitutions', () => {
+    expect(concernsOf('cat <<EOF\n$(rm -rf build)\nEOF')).toContain('destructive');
+    expect(concernsOf("cat <<'EOF'\n$(rm -rf build)\nEOF")).toEqual([]);
+  });
+
+  test('a heredoc fed to a shell is its script', () => {
+    expect(isCatastrophic("bash <<'EOF'\nrm -rf ~\nEOF")).toBe(true);
+    expect(isCatastrophic("sudo sh <<'EOF'\nrm -rf /\nEOF")).toBe(true);
+    expect(concernsOf("zsh <<'EOF'\necho hi\nEOF")).toEqual([]);
+  });
+
+  test('here-strings are stdin text, not paths', () => {
+    expect(concernsOf('grep x <<< /etc/hosts')).toEqual([]);
+    expect(concernsOf('grep x <<< "$(rm -rf build)"')).toContain('destructive');
+  });
+});
+
+describe('analysis never fails the permission request', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'jean2-analyze-'));
+  const real: CommandAnalyzeContext = { roots: [dir], cwd: dir, home: '/Users/cherry' };
+  afterAll(() => {
+    chmodSync(join(dir, 'locked'), 0o755);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a line longer than a file name is not a crash', () => {
+    // An agent's python heredoc with a long replace() line joined into one
+    // 300+ character "operand", and realpath threw ENAMETOOLONG.
+    const command = `python3 - <<'EOF'\ns=s.replace("""${'x'.repeat(300)}""","""y""",1)\nEOF`;
+    expect(analyzeCommand(command, real).concerns).toEqual([]);
+    expect(analyzeCommand(`cat ${'x'.repeat(300)}`, real).concerns).toEqual([]);
+  });
+
+  test('an unexpected analyzer error asks a human in every mode', () => {
+    mkdirSync(join(dir, 'locked'));
+    chmodSync(join(dir, 'locked'), 0o000);
+    const classified = classifyShellCommand('cat locked/file', dir, dir)!;
+    expect(classified.finding.catastrophic).toBe(true);
+    expect(classified.finding.evidence[0]).toStartWith('command could not be analyzed:');
+    expect(decide('full', classified.finding)).toBe('ask');
   });
 });

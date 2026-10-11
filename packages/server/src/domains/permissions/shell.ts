@@ -17,7 +17,7 @@
 
 import { homedir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
-import { analyzeCommand, commandSegmentSpans } from './command/analyze';
+import { analyzeCommand, commandSegmentSpans, type CommandAnalyzeContext } from './command/analyze';
 import { unwrapShellCommand } from './command/shell-wrapper';
 import type { Concern, Finding } from './concerns';
 import {
@@ -83,6 +83,23 @@ export interface ShellClassification {
   ask: ConcernsPermissionAsk;
 }
 
+/** An analyzer failure must not fail the tool call: the command goes to a
+ * human in every mode, with the failure as its evidence. */
+function analyzeOrAskHuman(command: string, ctx: CommandAnalyzeContext): Finding {
+  try {
+    return analyzeCommand(command, ctx);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      concerns: ['opaque'],
+      catastrophic: true,
+      evidence: [`command could not be analyzed: ${message}`.slice(0, 300)],
+      resolvedPaths: [],
+      highlights: [],
+    };
+  }
+}
+
 /**
  * Classify a shell command. Undefined means malformed input (the caller
  * denies); a ShellClassification is returned for every valid command — the
@@ -110,7 +127,7 @@ export function classifyShellCommand(
   const effective = unwrapShellCommand(command) ?? command;
 
   const roots = typeof root === 'string' ? [root] : root;
-  const analyzed = analyzeCommand(effective, {
+  const analyzed = analyzeOrAskHuman(effective, {
     roots, readRoots: options?.readRoots, isWithinRoots: options?.isWithinRoots, cwd, home: homedir(),
   });
   const finding: Finding = options?.cwdOutsideRoots && !analyzed.concerns.includes('escape')

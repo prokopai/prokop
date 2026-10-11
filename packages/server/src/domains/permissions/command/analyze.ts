@@ -56,25 +56,61 @@ export interface CommandAnalyzeContext {
 
 // ── Tokenization ────────────────────────────────────────────────────────────
 
-type TokenKind = 'word' | 'single' | 'double' | 'substitution' | 'operator';
+/** `heredoc` is a here-document body: stdin data, never words or paths. */
+type TokenKind = 'word' | 'single' | 'double' | 'substitution' | 'operator' | 'heredoc';
 
 interface Token {
   kind: TokenKind;
   text: string;
   inner: string;
   joined?: boolean;
+  /** Heredoc with an unquoted delimiter: its `$(...)` and backticks run. */
+  expands?: boolean;
   /** Offsets of `text` in the tokenized input. */
   start: number;
   end: number;
 }
 
 const OPERATOR_STARTS = new Set(['&', '|', ';', '<', '>']);
-const SEGMENT_OPERATORS = new Set(['&&', '||', '|', ';', '&']);
+const SEGMENT_OPERATORS = new Set(['&&', '||', '|', ';', '&', '\n']);
+
+interface PendingHeredoc {
+  delimiter: string;
+  stripTabs: boolean;
+  expands: boolean;
+}
+
+/** Reads the delimiter after `<<`/`<<-`. Any quoting makes the body literal. */
+function readHeredocDelimiter(input: string, start: number): { delimiter: string; quoted: boolean; end: number } {
+  let j = start;
+  while (input[j] === ' ' || input[j] === '\t') j += 1;
+  let delimiter = '';
+  let quoted = false;
+  while (j < input.length && !/\s/.test(input[j]!) && !OPERATOR_STARTS.has(input[j]!)) {
+    const ch = input[j]!;
+    if (ch === "'" || ch === '"') {
+      const close = input.indexOf(ch, j + 1);
+      const stop = close === -1 ? input.length : close;
+      delimiter += input.slice(j + 1, stop);
+      quoted = true;
+      j = stop + 1;
+    } else if (ch === '\\') {
+      delimiter += input[j + 1] ?? '';
+      quoted = true;
+      j += 2;
+    } else {
+      delimiter += ch;
+      j += 1;
+    }
+  }
+  return { delimiter, quoted, end: j };
+}
 
 function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   const n = input.length;
   let i = 0;
+  let heredocs: PendingHeredoc[] = [];
   const add = (token: Pick<Token, 'kind' | 'text' | 'inner'>): void => {
     const previous = tokens.at(-1);
     tokens.push({ ...token, start: i, end: i + token.text.length,
@@ -83,9 +119,58 @@ function tokenize(input: string): Token[] {
   };
   while (i < n) {
     const ch = input[i]!;
+    if (ch === '\n') {
+      // Bodies of heredocs opened on this line follow it, before the next command.
+      let next = i + 1;
+      for (const heredoc of heredocs) {
+        const bodyStart = next;
+        let bodyEnd = n;
+        while (next < n) {
+          const lineEnd = input.indexOf('\n', next);
+          const stop = lineEnd === -1 ? n : lineEnd;
+          const line = input.slice(next, stop);
+          if ((heredoc.stripTabs ? line.replace(/^\t+/, '') : line) === heredoc.delimiter) {
+            bodyEnd = next;
+            next = stop;
+            break;
+          }
+          next = stop + 1;
+        }
+        const body = input.slice(bodyStart, Math.min(bodyEnd, n));
+        tokens.push({ kind: 'heredoc', text: body, inner: body, expands: heredoc.expands,
+          start: bodyStart, end: bodyStart + body.length });
+      }
+      heredocs = [];
+      add({ kind: 'operator', text: '\n', inner: '\n' });
+      i = Math.max(i + 1, next);
+      continue;
+    }
+    if (ch === '\\' && input[i + 1] === '\n') {
+      i += 2;
+      continue;
+    }
     if (/\s/.test(ch)) {
       i += 1;
       continue;
+    }
+    if (ch === '#' && (i === 0 || /\s/.test(input[i - 1]!) || OPERATOR_STARTS.has(input[i - 1]!))) {
+      const lineEnd = input.indexOf('\n', i);
+      i = lineEnd === -1 ? n : lineEnd;
+      continue;
+    }
+    if (input.startsWith('<<<', i)) {
+      add({ kind: 'operator', text: '<<<', inner: '<<<' });
+      i += 3;
+      continue;
+    }
+    if (input.startsWith('<<', i)) {
+      const stripTabs = input[i + 2] === '-';
+      const { delimiter, quoted, end } = readHeredocDelimiter(input, i + (stripTabs ? 3 : 2));
+      if (delimiter) {
+        heredocs.push({ delimiter, stripTabs, expands: !quoted });
+        i = end;
+        continue;
+      }
     }
     if (OPERATOR_STARTS.has(ch)) {
       const two = input.slice(i, i + 2);
@@ -352,12 +437,16 @@ function parseXargs(words: readonly CommandWord[]): { command: number | null; ar
 
 function collectWords(tokens: Token[]): CommandWord[] {
   const words: CommandWord[] = [];
-  let pending: CommandWord['redirect'] | 'descriptor' = 'none';
+  let pending: CommandWord['redirect'] | 'descriptor' | 'herestring' = 'none';
+  let inHereString = false;
   for (const token of tokens) {
+    if (token.kind === 'heredoc') continue;
     if (token.kind === 'operator') {
+      inHereString = false;
       pending = ['>', '>>', '&>'].includes(token.text) ? 'write'
         : token.text === '<' ? 'read'
-          : token.text === '>&' || token.text === '<&' ? 'descriptor' : 'none';
+          : token.text === '<<<' ? 'herestring'
+            : token.text === '>&' || token.text === '<&' ? 'descriptor' : 'none';
       continue;
     }
     const text = token.kind === 'single' || token.kind === 'double' ? token.inner : token.text;
@@ -365,6 +454,14 @@ function collectWords(tokens: Token[]): CommandWord[] {
       pending = 'none';
       continue;
     }
+    // A here-string (`<<< "text"`, including joined parts) is stdin text, not
+    // an operand; its substitutions are still analyzed from the tokens.
+    if (pending === 'herestring' || inHereString && token.joined) {
+      pending = 'none';
+      inHereString = true;
+      continue;
+    }
+    inHereString = false;
     if (token.joined && pending === 'none' && words.length) {
       words[words.length - 1]!.text += text;
       words[words.length - 1]!.end = token.end;
@@ -423,9 +520,9 @@ function analyzeSegment(
     for (const token of segment.tokens) {
       const bodies = token.kind === 'substitution'
         ? [{ body: token.inner, offset: token.start + (token.text.startsWith('$(') ? 2 : 1) }]
-        : token.kind === 'double'
+        : token.kind === 'double' || token.kind === 'heredoc' && token.expands
           ? extractSubstitutionBodies(token.inner)
-            .map(({ body, offset }) => ({ body, offset: token.start + 1 + offset }))
+            .map(({ body, offset }) => ({ body, offset: token.start + (token.kind === 'double' ? 1 : 0) + offset }))
           : [];
       for (const { body, offset } of bodies) {
         if (!body.trim()) continue;
@@ -458,7 +555,7 @@ function analyzeSegment(
   const isExecBase = EXEC_BASES.has(base);
   if (isExecBase) {
     for (const token of segment.tokens) {
-      if (token.kind === 'single' || token.kind === 'double') activeParts.push(token.inner);
+      if (token.kind === 'single' || token.kind === 'double' || token.kind === 'heredoc') activeParts.push(token.inner);
     }
   }
   const screened = containsScreenedToken(activeParts.join(' '));
@@ -475,6 +572,16 @@ function analyzeSegment(
       if (token.kind !== 'single' && token.kind !== 'double') continue;
       if (!token.inner.trim()) continue;
       absorb(analyzeCommand(token.inner, ctx, cwdAtStart, depth + 1), `in ${base} code: `, token.start + 1);
+    }
+  }
+
+  // A heredoc fed to a shell (`bash <<'EOF'`, `sudo sh <<EOF`) is its script.
+  const shellReadsHeredoc = SHELL_BASES.has(base)
+    || isExecBase && args.some(arg => SHELL_BASES.has(baseNameOf(arg)));
+  if (shellReadsHeredoc && depth < MAX_RECURSION_DEPTH) {
+    for (const token of segment.tokens) {
+      if (token.kind !== 'heredoc' || !token.inner.trim()) continue;
+      absorb(analyzeCommand(token.inner, ctx, cwdAtStart, depth + 1), 'in heredoc script: ', token.start);
     }
   }
 
