@@ -18,6 +18,7 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright-core';
 import { REPO_ROOT, startInstance } from './instance';
 import { capture, lastPage, THEMES, themeName, type Scene, type SceneContext } from './scene';
+import { board } from './scenes/board';
 import { branches } from './scenes/branches';
 import { commandApproval } from './scenes/command-approval';
 import { explorer } from './scenes/explorer';
@@ -31,7 +32,7 @@ import { worktrees } from './scenes/worktrees';
 import { Demo } from './script';
 import { buildWorld } from './world';
 
-const SCENES: Scene[] = [hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace];
+const SCENES: Scene[] = [hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board];
 
 const { values } = parseArgs({
   options: {
