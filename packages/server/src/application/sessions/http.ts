@@ -256,9 +256,13 @@ export function createSessionHttpApplication(
         parentId: null,
         agentName: null,
       });
-      if (session.workspaceRootId) worktreeAttachments?.changed(session.workspaceRootId);
-      changes?.created(session);
-      return session;
+      // As in the WebSocket create path: a session started as an agent belongs
+      // to it, so agent-scoped session search and learning find it.
+      const agentId = input.preconfigId && repository.isAgentSync(input.preconfigId) ? input.preconfigId : null;
+      const created = agentId ? repository.updateSession(session.id, { agentId }) ?? session : session;
+      if (created.workspaceRootId) worktreeAttachments?.changed(created.workspaceRootId);
+      changes?.created(created);
+      return created;
     },
 
     listSessionsGrouped(workspaceIds, options) {

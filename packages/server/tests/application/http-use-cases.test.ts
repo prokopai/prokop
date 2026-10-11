@@ -91,6 +91,28 @@ describe('session HTTP application', () => {
     }]);
   });
 
+  test('createSession records the agent a session starts as, like the WebSocket path', () => {
+    const updates: Array<{ id: string; updates: unknown }> = [];
+    const withAgent = makeSession({ id: 'http-2', agentId: 'agent-1' } as Partial<Session>);
+    const repository = makeRepository({
+      createSession: () => makeSession({ id: 'http-2' }),
+      isAgentSync: (id) => id === 'agent-1',
+      updateSession: (id, input) => {
+        updates.push({ id, updates: input });
+        return withAgent;
+      },
+    });
+    const app = createSessionHttpApplication(repository);
+
+    expect(app.createSession({ workspaceId: 'ws-1', preconfigId: 'agent-1' })).toBe(withAgent);
+    expect(updates).toEqual([{ id: 'http-2', updates: { agentId: 'agent-1' } }]);
+
+    // A preconfig that is not an agent leaves the session without one.
+    updates.length = 0;
+    app.createSession({ workspaceId: 'ws-1', preconfigId: 'plain-preconfig' });
+    expect(updates).toEqual([]);
+  });
+
   test('updateSession marks a manual title only when a title is present', () => {
     const updateInputs: unknown[] = [];
     const existing = makeSession({ metadata: { old: true } });
