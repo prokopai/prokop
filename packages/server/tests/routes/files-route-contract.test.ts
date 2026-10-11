@@ -269,6 +269,7 @@ describe('files route contract (S5 filesystem isolation)', () => {
         options: {
           path: 'sub',
           search: undefined,
+          suggest: false,
           limit: 10,
           showHidden: true,
           root: '/ws',
@@ -279,6 +280,10 @@ describe('files route contract (S5 filesystem isolation)', () => {
     const body = await response.json() as { mode: string; files: Array<{ name: string }> };
     expect(body.mode).toBe('browse');
     expect(body.files[0].name).toBe('a.txt');
+
+    // An empty `@` asks for changed files.
+    await filesApp(application).request('/api/workspaces/ws-1/files?suggest=changed');
+    expect(calls[1]).toMatchObject({ options: { search: undefined, suggest: true } });
   });
 
   test('maps workspace-not-found to the exact 404 body', async () => {

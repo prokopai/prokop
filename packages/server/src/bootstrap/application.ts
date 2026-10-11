@@ -481,6 +481,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   // Tool completions that may write files refresh subscribed Git status and trees, throttled per root.
   addWorkspaceFilesChangedObserver((workspaceId) => files.gitStatusFeed.filesChanged(workspaceId));
   addWorkspaceFilesChangedObserver((workspaceId) => files.fileTreeFeed.filesChanged(workspaceId));
+  addWorkspaceFilesChangedObserver((workspaceId) => files.searchFilesChanged(workspaceId));
   const configuration = createConfigurationApplication({
     ...createProkopConfigurationPorts(),
     // Primary/both preconfigs materialize as agents on save. Materialization

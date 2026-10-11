@@ -79,6 +79,7 @@ export function registerFileRoutes(app: Hono, files: FilesApplication): void {
     const workspaceId = c.req.param('id');
     const path = c.req.query('path') || '';
     const search = c.req.query('search');
+    const suggest = c.req.query('suggest') === 'changed';
     const limit = parseInt(c.req.query('limit') || '20', 10);
     const showHidden = c.req.query('showHidden') !== 'false';
     const rootQuery = c.req.query('root');
@@ -87,13 +88,14 @@ export function registerFileRoutes(app: Hono, files: FilesApplication): void {
       const result = await files.list(workspaceId, {
         path,
         search,
+        suggest,
         limit,
         showHidden,
         root: rootQuery,
         signal: c.req.raw.signal,
       });
 
-      if (search && c.req.raw.signal.aborted) {
+      if ((search || suggest) && c.req.raw.signal.aborted) {
         return new Response(null, { status: 499 });
       }
 

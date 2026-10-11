@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Minimize2, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
+import { UserPromptText } from './UserPromptText';
 import { ErrorMessageContent } from './ErrorMessageContent';
 import { ToolCall } from './ToolCall';
 import { cn } from '@/lib/utils';
@@ -336,6 +337,7 @@ const MessageParts = memo(function MessageParts({
   parts,
   onNavigateToSubagent,
   inverted = false,
+  userPrompt = false,
   isStreaming = false,
   serverUrl,
 }: {
@@ -343,6 +345,8 @@ const MessageParts = memo(function MessageParts({
   parts: Part[];
   onNavigateToSubagent?: (sessionId: string) => void;
   inverted?: boolean;
+  /** Text parts of a user message: context references render as chips. */
+  userPrompt?: boolean;
   isStreaming?: boolean;
   serverUrl?: string;
   collapseToolPreviews?: boolean;
@@ -353,6 +357,14 @@ const MessageParts = memo(function MessageParts({
     const animate = isStreaming && index === parts.length - 1;
     switch (part.type) {
       case 'text': {
+        if (userPrompt && part.text) {
+          return (
+            <div key={part.id} className="min-w-0">
+              <UserPromptText text={part.text} sessionId={sessionId} inverted={inverted}
+                formatBody={inverted ? formatInvertedText : undefined} />
+            </div>
+          );
+        }
         const text = inverted && part.text
           ? formatInvertedText(part.text)
           : (part.text || '...');
@@ -676,6 +688,7 @@ const MessageRow = memo(function MessageRow({
             parts={item.parts}
             onNavigateToSubagent={onNavigateToSubagent}
             inverted={item.message.role === 'user' && !item.isQueued}
+            userPrompt={item.message.role === 'user'}
             isStreaming={isAssistantMessage(item.message) && item.message.status === 'streaming'}
             collapseToolPreviews={item.collapseToolPreviews}
             serverUrl={serverUrl}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
 import { TerminalView } from './TerminalView';
+import { TerminalAddToChat } from './TerminalAddToChat';
 import { TerminalTabStrip, type TerminalTab } from './TerminalTabStrip';
 import {
   useTerminalConnection,
@@ -713,11 +714,20 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
   const renderTerminalContent = () => (
     <div className="flex-1 min-h-0 overflow-hidden relative">
       {activeCached && activeTab ? (
-        <TerminalView
-          key={activeTabServerId}
-          cachedTerminal={activeCached}
-          visible={isOpen}
-        />
+        <>
+          <TerminalView
+            key={activeTabServerId}
+            cachedTerminal={activeCached}
+            visible={isOpen}
+          />
+          <TerminalAddToChat
+            key={`add-to-chat:${activeTabServerId}`}
+            terminal={activeCached.terminal}
+            label={activeTab.title || activeTab.shell.split('/').pop() || 'Terminal'}
+            cwd={activeTab.cwd || undefined}
+            sessionId={focusedSessionId}
+          />
+        </>
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
           No terminal sessions

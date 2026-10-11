@@ -159,6 +159,30 @@ describe('files application over the Jean2 port (S5 filesystem isolation)', () =
     expect(tree.paths).toContain('secret.log');
   });
 
+  test('Git roots rank fuzzy matches from the tree and suggest changed files', async () => {
+    expect(Bun.spawnSync(['git', '-C', main, 'init', '-q']).exitCode).toBe(0);
+    mkdirSync(join(main, 'src', 'auth'), { recursive: true });
+    writeFileSync(join(main, '.gitignore'), '*.log\n');
+    writeFileSync(join(main, 'secret.log'), 'secret');
+    writeFileSync(join(main, 'src', 'auth', 'sessionToken.ts'), 'a');
+    writeFileSync(join(main, 'src', 'session.ts'), 'b');
+    const app = files();
+
+    const fuzzy = await app.list(workspaceId, { path: '', search: 'stok' });
+    expect(fuzzy.files.map((entry) => entry.path)).toEqual(['src/auth/sessionToken.ts']);
+    expect((await app.list(workspaceId, { path: '', search: 'secret' })).files).toEqual([]);
+
+    const suggested = await app.list(workspaceId, { path: '', suggest: true });
+    expect(suggested.mode).toBe('search');
+    expect(suggested.files.map((entry) => entry.path)).toEqual(['.gitignore', 'src/auth/sessionToken.ts', 'src/session.ts']);
+
+    // A file created by a tool shows up once the workspace reports the change.
+    writeFileSync(join(main, 'src', 'sessionStore.ts'), 'c');
+    app.searchFilesChanged(workspaceId);
+    expect((await app.list(workspaceId, { path: '', search: 'sessionstore' })).files.map((entry) => entry.path))
+      .toEqual(['src/sessionStore.ts']);
+  });
+
   test('tree reads share the pushed feed and app file actions push the change', async () => {
     writeFileSync(join(main, 'a.txt'), 'a');
     const pushed: FileTreeMessage[] = [];

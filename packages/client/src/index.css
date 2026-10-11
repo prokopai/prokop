@@ -944,6 +944,19 @@ main {
   background-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
 }
 
+/* Chat composer (TipTap): one paragraph per line, placeholder on the empty first line */
+.composer-editor p {
+  margin: 0;
+}
+
+.composer-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+}
+
 /* Safari-like scrollbar for chat input textarea */
 .chat-input-scrollbar {
   scrollbar-width: thin;

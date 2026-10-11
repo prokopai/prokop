@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { ProkopaiClient, PromptInfo, Session } from '@prokopai/sdk';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { clearDraft } from '@/config/draftStorage';
+import { getComposer, typeInComposer } from '../../composerHelpers';
 
 vi.mock('@/components/worktrees/SessionCheckoutSelector', () => ({
   SessionCheckoutSelector: () => null,
@@ -43,8 +44,7 @@ test('Claude Goal sends a condition without Codex limits and shows native checks
   fireEvent.click(await screen.findByRole('menuitem', { name: 'Goal' }));
   expect(screen.queryByLabelText('Token budget')).not.toBeInTheDocument();
   expect(screen.queryByText('Max turns')).not.toBeInTheDocument();
-  fireEvent.change(screen.getByPlaceholderText('Type the completion condition...'),
-    { target: { value: 'Tests pass' } });
+  typeInComposer(getComposer('Type the completion condition...'), 'Tests pass');
   fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: 'Set goal' }));
   expect(onSendMessage).toHaveBeenCalledWith('Tests pass', undefined, undefined, { condition: 'Tests pass' });
@@ -57,7 +57,7 @@ test('Claude Goal sends a condition without Codex limits and shows native checks
     sessionId={session.id} workspaceId="ws" onSendMessage={onSendMessage} />);
   expect(screen.queryByText('ended · 2 checks')).not.toBeInTheDocument();
   expect(screen.queryByText('Tests pass')).not.toBeInTheDocument();
-  expect(screen.getByPlaceholderText('Message Claude CLI (text and images)')).not.toBeDisabled();
+  expect(getComposer('Message Claude CLI (text and images)')).toHaveAttribute('aria-disabled', 'false');
 });
 
 test('Codex Goal sends a token budget separately from max turns', async () => {
@@ -67,7 +67,7 @@ test('Codex Goal sends a token budget separately from max turns', async () => {
   const budget = screen.getByLabelText('Token budget') as HTMLInputElement;
   expect(budget.value).toBe('50000');
   fireEvent.change(budget, { target: { value: '0' } });
-  fireEvent.change(screen.getByPlaceholderText('Type the completion condition...'), { target: { value: 'Ship it' } });
+  typeInComposer(getComposer('Type the completion condition...'), 'Ship it');
   const sendGoal = document.querySelector('button[aria-label="Set goal"]') as HTMLButtonElement;
   expect(sendGoal).toBeDisabled();
   fireEvent.change(budget, { target: { value: '25000' } });
@@ -84,7 +84,7 @@ test('an active Codex Goal shows usage and disables the composer', () => {
     sessionId={session.id} workspaceId="ws"
     onSendMessage={onSendMessage} />);
   expect(screen.getByText('123/50,000 tokens', { exact: false })).toBeInTheDocument();
-  expect(screen.getByPlaceholderText('Goal active')).toBeDisabled();
+  expect(getComposer('Goal active')).toHaveAttribute('aria-disabled', 'true');
 });
 
 test('Codex picker accepts images and sends image-only messages', async () => {
@@ -103,18 +103,18 @@ test('Codex picker accepts images and sends image-only messages', async () => {
 
 test('Codex paste and drop ignore non-images while keeping image with text', async () => {
   const { view, upload, onSendMessage } = setup();
-  const textarea = screen.getByPlaceholderText('Message Codex CLI (/ prompts, @ files)');
+  const textarea = getComposer('Message Codex CLI (/ prompts, @ files)');
   const file = new File(['text'], 'note.txt', { type: 'text/plain' });
   const image = new File(['img'], 'b.webp', { type: 'image/webp' });
   await act(async () => {
-    fireEvent.paste(textarea, { clipboardData: { files: [file, image] } });
+    fireEvent.paste(textarea, { clipboardData: { files: [file, image], getData: () => '', types: ['Files'] } });
   });
   expect(upload).toHaveBeenCalledTimes(1);
   await act(async () => {
     fireEvent.drop(view.container.querySelector('form')!, { dataTransfer: { files: [file] } });
   });
   expect(upload).toHaveBeenCalledTimes(1);
-  fireEvent.change(textarea, { target: { value: 'Describe this' } });
+  typeInComposer(textarea, 'Describe this');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenCalledWith('Describe this', [{ id: 'uploaded-b.webp', kind: 'image' }]);
 });
@@ -126,8 +126,7 @@ test('Codex expands a prompt while preserving an uploaded image', async () => {
   await act(async () => {
     fireEvent.change(fileInput, { target: { files: [new File(['img'], 'c.png', { type: 'image/png' })] } });
   });
-  fireEvent.change(screen.getByPlaceholderText('Message Codex CLI (/ prompts, @ files)'),
-    { target: { value: '/describe' } });
+  typeInComposer(getComposer('Message Codex CLI (/ prompts, @ files)'), '/describe');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenCalledWith('Describe this image', [{ id: 'uploaded-c.png', kind: 'image' }]);
 });

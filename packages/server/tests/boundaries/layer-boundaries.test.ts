@@ -1488,6 +1488,7 @@ describe('server layer boundaries', () => {
       '@/application/ports/files',
       './git-status-feed',
       './file-tree-feed',
+      './file-search',
       'path',
     ].sort());
     expect(file!.sourceText).not.toContain("@/store");
@@ -1498,6 +1499,8 @@ describe('server layer boundaries', () => {
       'files/root-feed.ts': [],
       'files/git-status-feed.ts': ['@prokopai/sdk', './root-feed'],
       'files/file-tree-feed.ts': ['@prokopai/sdk', './root-feed'],
+      // Pure ranking over the paths the tree feed already holds.
+      'files/file-search.ts': ['path', '@prokopai/sdk'],
     };
     for (const [relativePath, expected] of Object.entries(expectedFeedImports)) {
       const feedPath = resolve(applicationDir, relativePath);

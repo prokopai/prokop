@@ -1,7 +1,7 @@
 import { Copy, Check, X, Clock, Undo2, GitBranch, Pin, PinOff, Pencil, X as XIcon, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { Message } from '@prokopai/sdk';
-import { isAssistantMessage } from '@prokopai/sdk';
+import { contextMessagePlainText, isAssistantMessage, joinContextEnvelope, splitContextEnvelope } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
@@ -143,14 +143,16 @@ export function MessageBubble({
   }, [isEditing]);
 
   const handleCopy = async () => {
-    const text = textContent || '';
+    // User prompts copy as people would type them, with captured terminal output inline.
+    const text = isUser ? contextMessagePlainText(textContent || '', { terminals: 'fenced' }) : textContent || '';
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleStartEdit = () => {
-    setEditText(textContent || '');
+    // The envelope stays out of the edit box and returns on save for references still present.
+    setEditText(splitContextEnvelope(textContent || '').body);
     setIsEditing(true);
   };
 
@@ -162,7 +164,7 @@ export function MessageBubble({
   const handleSaveEdit = () => {
     const trimmed = editText.trim();
     if (!trimmed || !onEdit) return;
-    onEdit(trimmed);
+    onEdit(joinContextEnvelope(trimmed, splitContextEnvelope(textContent || '').terminals.values()));
   };
 
   useEffect(() => {

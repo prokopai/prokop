@@ -17,7 +17,7 @@ const CODE_THEME_INVERTED_LIGHT = themes.nightOwlLight;
 
 const COPY_RESET_DELAY_MS = 2000;
 
-function extractText(children: ReactNode): string {
+export function extractText(children: ReactNode): string {
   if (typeof children === 'string') return children;
   if (typeof children === 'number') return String(children);
   if (Array.isArray(children)) return children.map(extractText).join('');
@@ -129,6 +129,18 @@ function pictureImageProps(node: HastElement | undefined, mode: 'dark' | 'light'
   };
 }
 
+/** The renderer's link, for overrides that only special-case some links. */
+export function MarkdownLink({ inverted = false, className, ...props }: ComponentProps<'a'> & { inverted?: boolean }) {
+  return (
+    <a
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn('underline underline-offset-2 transition-colors', inverted ? 'text-primary-foreground hover:text-primary-foreground/85' : 'text-primary hover:text-primary/80', className)}
+      {...props}
+    />
+  );
+}
+
 function DefaultMarkdownImage({ node: _node, className, ...props }: ComponentProps<'img'> & ExtraProps) {
   // Inline like GitHub so badge rows and align="center" work; preflight makes images block.
   return <img {...props} className={cn('inline max-w-full', className)} />;
@@ -185,17 +197,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       );
     },
     a({ href, children, ...props }) {
-      return (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn('underline underline-offset-2 transition-colors', inverted ? 'text-primary-foreground hover:text-primary-foreground/85' : 'text-primary hover:text-primary/80')}
-          {...props}
-        >
-          {children}
-        </a>
-      );
+      return <MarkdownLink href={href} inverted={inverted} {...props}>{children}</MarkdownLink>;
     },
     p({ node, children }: ComponentProps<'p'> & ExtraProps) {
       return <p className={cn('last:mb-0 leading-relaxed break-words', alignClass(node))}>{children}</p>;

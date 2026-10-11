@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { ProkopaiClient, Session } from '@prokopai/sdk';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { clearDraft } from '@/config/draftStorage';
+import { getComposer, pressInComposer, typeInComposer } from '../../composerHelpers';
 
 vi.mock('@/components/worktrees/SessionCheckoutSelector', () => ({
   SessionCheckoutSelector: () => null,
@@ -21,16 +22,16 @@ afterEach(() => clearDraft(session.id));
 test.each(['codex-cli', 'claude-cli'] as const)('%s composer queues during a turn and keeps Stop when empty', harness => {
   const onSendMessage = vi.fn();
   const onStopStreaming = vi.fn();
-  const view = render(<MessageInput session={{ ...session, harness }} sessionId={session.id} workspaceId="ws"
+  render(<MessageInput session={{ ...session, harness }} sessionId={session.id} workspaceId="ws"
     isStreaming onStopStreaming={onStopStreaming} onSendMessage={onSendMessage} />);
   expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
-  const textarea = view.container.querySelector('textarea')!;
-  fireEvent.change(textarea, { target: { value: '  next instruction  ' } });
+  const textarea = getComposer();
+  typeInComposer(textarea, '  next instruction  ');
   expect(screen.getByRole('button', { name: 'Queue message' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
   expect(onSendMessage).toHaveBeenCalledExactlyOnceWith('next instruction', undefined);
-  fireEvent.change(textarea, { target: { value: 'another instruction' } });
-  fireEvent.keyDown(textarea, { key: 'Enter' });
+  typeInComposer(textarea, 'another instruction');
+  pressInComposer(textarea, 'Enter');
   expect(onSendMessage).toHaveBeenLastCalledWith('another instruction', undefined);
   expect(onSendMessage).toHaveBeenCalledTimes(2);
   expect(onStopStreaming).not.toHaveBeenCalled();
@@ -41,8 +42,7 @@ test('Claude composer sends a trimmed text message with no extra options', () =>
   render(<MessageInput session={session} sessionId={session.id} workspaceId="ws"
     onSendMessage={onSendMessage} />);
   expect(screen.getByRole('button', { name: `Auto-approve settings for ${session.id}` })).toBeInTheDocument();
-  fireEvent.change(screen.getByPlaceholderText('Message Claude CLI (text and images)'),
-    { target: { value: '  Hello Claude  ' } });
+  typeInComposer(getComposer('Message Claude CLI (text and images)'), '  Hello Claude  ');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenCalledExactlyOnceWith('Hello Claude', undefined);
 });

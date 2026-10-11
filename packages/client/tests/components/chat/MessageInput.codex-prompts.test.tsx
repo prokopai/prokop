@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { PromptInfo, Session } from '@prokopai/sdk';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { clearDraft } from '@/config/draftStorage';
+import { composerText, getComposer, pressInComposer, typeInComposer } from '../../composerHelpers';
 
 vi.mock('@/components/worktrees/SessionCheckoutSelector', () => ({
   SessionCheckoutSelector: () => null,
@@ -23,28 +24,28 @@ function setup() {
   const onSendMessage = vi.fn();
   render(<MessageInput session={session} sessionId={session.id} workspaceId="ws"
     prompts={prompts} onSendMessage={onSendMessage} />);
-  const textarea = screen.getByPlaceholderText('Message Codex CLI (/ prompts, @ files)') as HTMLTextAreaElement;
+  const textarea = getComposer('Message Codex CLI (/ prompts, @ files)');
   return { textarea, onSendMessage };
 }
 
 test('Codex prompt autocomplete selects a slash command and expands its arguments on send', async () => {
   const { textarea, onSendMessage } = setup();
-  fireEvent.change(textarea, { target: { value: '/rev', selectionStart: 4 } });
+  typeInComposer(textarea, '/rev');
   expect(await screen.findByText('/review')).toBeInTheDocument();
-  fireEvent.keyDown(textarea, { key: 'Enter' });
-  expect(textarea.value).toBe('/review');
+  pressInComposer(textarea, 'Enter');
+  expect(composerText(textarea)).toBe('/review');
   expect(onSendMessage).not.toHaveBeenCalled();
-  fireEvent.change(textarea, { target: { value: '/review src/main.ts', selectionStart: 19 } });
+  typeInComposer(textarea, '/review src/main.ts');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenCalledWith('Review this change: src/main.ts', undefined);
 });
 
 test('Codex sends prompt content with extra text and leaves unknown commands literal', () => {
   const { textarea, onSendMessage } = setup();
-  fireEvent.change(textarea, { target: { value: '/explain src/main.ts' } });
+  typeInComposer(textarea, '/explain src/main.ts');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenLastCalledWith('Explain this change\nsrc/main.ts', undefined);
-  fireEvent.change(textarea, { target: { value: '/unknown src/main.ts' } });
+  typeInComposer(textarea, '/unknown src/main.ts');
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   expect(onSendMessage).toHaveBeenLastCalledWith('/unknown src/main.ts', undefined);
 });
@@ -53,10 +54,10 @@ test('Codex goal keeps the typed condition rather than expanding slash prompts',
   const { onSendMessage } = setup();
   fireEvent.pointerDown(screen.getByRole('button', { name: 'Send mode: chat' }), { button: 0, ctrlKey: false });
   fireEvent.click(await screen.findByRole('menuitem', { name: 'Goal' }));
-  const textarea = screen.getByPlaceholderText('Type the completion condition...');
-  fireEvent.change(textarea, { target: { value: '/rev', selectionStart: 4 } });
+  const textarea = getComposer('Type the completion condition...');
+  typeInComposer(textarea, '/rev');
   expect(screen.queryByText('/review')).not.toBeInTheDocument();
-  fireEvent.change(textarea, { target: { value: '/review src/main.ts' } });
+  typeInComposer(textarea, '/review src/main.ts');
   fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Set goal' })); });
   expect(onSendMessage).toHaveBeenCalledWith('/review src/main.ts', undefined, undefined,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Part, TextPart } from '@prokopai/sdk';
+import { contextMessagePlainText } from '@prokopai/sdk';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +46,7 @@ function isFailedTurn(message: PromptMapSourceItem['message']): boolean {
 function getPromptText(parts: Part[]): string {
   return parts
     .filter((part): part is TextPart => part.type === 'text')
-    .map(part => part.text)
+    .map(part => contextMessagePlainText(part.text))
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim() || 'Attachment prompt';

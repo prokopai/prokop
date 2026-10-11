@@ -1,4 +1,4 @@
-import type { MessageWithParts } from '@prokopai/sdk';
+import { contextMessagePlainText, type MessageWithParts } from '@prokopai/sdk';
 import { runTextModel } from '@/infrastructure/providers/ai-sdk';
 import { getModelsConfig, findModel } from '@/config';
 
@@ -91,9 +91,10 @@ export async function generateSessionTitle(messages: MessageWithParts[]): Promis
 function buildConversationText(messages: MessageWithParts[]): string {
   const lines: string[] = [];
   for (const item of messages) {
+    // Context references read as paths and terminal labels, without captured output.
     const text = item.parts
       .filter(part => part.type === 'text')
-      .map(part => part.text.trim())
+      .map(part => (item.message.role === 'user' ? contextMessagePlainText(part.text) : part.text).trim())
       .filter(Boolean)
       .join('\n');
     if (!text) continue;
@@ -122,7 +123,7 @@ export function fallbackSessionTitle(messages: MessageWithParts[]): string | nul
     .find(item => item.message.role === 'user')
     ?.parts
     .filter(part => part.type === 'text')
-    .map(part => part.text)
+    .map(part => contextMessagePlainText(part.text))
     .join(' ');
 
   if (!firstUserText) return null;

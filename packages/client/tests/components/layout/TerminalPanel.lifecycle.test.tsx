@@ -25,6 +25,7 @@ vi.mock('@/hooks/useTerminal', async (original) => {
         element, open: (container: HTMLElement) => container.appendChild(element),
         dispose: vi.fn(), write: vi.fn(), focus: vi.fn(() => input.focus()), reset: vi.fn(), cols: 80, rows: 24,
         onData: () => ({ dispose: vi.fn() }), onResize: () => ({ dispose: vi.fn() }),
+        onSelectionChange: () => ({ dispose: vi.fn() }), hasSelection: () => false,
       };
       mocks.instances.push(terminal);
       return { terminal, fitAddon: { fit: vi.fn() } };

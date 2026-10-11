@@ -33,6 +33,7 @@ import type {
 } from '@/application/ports/files';
 import { createGitStatusFeed, type GitStatusFeed } from './git-status-feed';
 import { createFileTreeFeed, type FileTreeFeed } from './file-tree-feed';
+import { rankFilePaths, toFileEntry } from './file-search';
 
 export interface FilesListResult {
   files: FileEntry[];
@@ -69,12 +70,16 @@ export interface FilesApplication {
     options: {
       path: string;
       search?: string;
+      /** With no search text: files with Git changes, for an empty `@`. */
+      suggest?: boolean;
       limit?: number;
       showHidden?: boolean;
       root?: string;
       signal?: AbortSignal;
     },
   ): Promise<FilesListResult>;
+  /** Tool calls may have added or removed files; drop cached search snapshots. */
+  searchFilesChanged(workspaceId: string): void;
   gitRepository(workspaceId: string, rootQuery?: string): Promise<GitRepositoryState>;
   gitCommit(workspaceId: string, input: GitCommitInput): Promise<GitCommitResult>;
   gitPush(workspaceId: string, input: GitPushInput): Promise<GitPushResult>;
@@ -174,8 +179,47 @@ export function createFilesApplication(
     deliver: (subscriber, message) => options.deliverFileTree?.(subscriber, message),
   });
 
+  /**
+   * Search reads the tree and status feeds. Watched roots are served from the
+   * feed cache; this short-lived copy spares unwatched roots a walk per keystroke.
+   */
+  const SEARCH_SNAPSHOT_TTL_MS = 10_000;
+  interface SearchSnapshot { git: boolean; paths: string[]; ignored: Set<string>; changed: Set<string>; changedFiles: string[] }
+  const searchSnapshots = new Map<string, { at: number; value: Promise<SearchSnapshot> }>();
+
+  function dropSearchSnapshots(workspaceId: string, root?: string): void {
+    for (const key of searchSnapshots.keys()) {
+      if (root === undefined ? key.startsWith(`${workspaceId}\0`) : key === `${workspaceId}\0${root}`) searchSnapshots.delete(key);
+    }
+  }
+
+  function searchSnapshot(workspaceId: string, rootQuery: string | undefined, root: string): Promise<SearchSnapshot> {
+    const key = `${workspaceId}\0${root}`;
+    const cached = searchSnapshots.get(key);
+    if (cached && Date.now() - cached.at < SEARCH_SNAPSHOT_TTL_MS) return cached.value;
+    const value = Promise.all([
+      fileTreeFeed.read(workspaceId, rootQuery),
+      gitStatusFeed.read(workspaceId, rootQuery).catch(() => null),
+    ]).then(([tree, status]) => {
+      const changedFiles = (status?.files ?? [])
+        .filter((file) => file.git.status !== 'deleted')
+        .map((file) => file.path);
+      return {
+        git: status?.availability.available === true,
+        paths: tree.paths,
+        ignored: new Set(tree.ignored ?? []),
+        changed: new Set(changedFiles),
+        changedFiles,
+      };
+    });
+    value.catch(() => { if (searchSnapshots.get(key)?.value === value) searchSnapshots.delete(key); });
+    searchSnapshots.set(key, { at: Date.now(), value });
+    return value;
+  }
+
   /** App Git mutations refresh the pushed status and tree at once, then notify the other Git views. */
   function gitChanged(workspaceId: string, root: string): void {
+    dropSearchSnapshots(workspaceId, root);
     gitStatusFeed.refreshRoot(workspaceId, root);
     fileTreeFeed.refreshRoot(workspaceId, root);
     onGitChanged?.(workspaceId, root);
@@ -183,6 +227,7 @@ export function createFilesApplication(
 
   /** App create/rename/delete/save: push the new tree and Git status at once. */
   function entriesChanged(workspaceId: string, rootQuery?: string): void {
+    dropSearchSnapshots(workspaceId);
     fileTreeFeed.refresh(workspaceId, rootQuery);
     gitStatusFeed.refresh(workspaceId, rootQuery);
   }
@@ -280,14 +325,31 @@ export function createFilesApplication(
       const { root, isMain } = port.resolveRoot(workspace, options.root);
 
       try {
-        if (options.search) {
-          const files = await port.searchFiles(
-            root,
-            options.search,
-            options.limit ?? 20,
-            options.showHidden ?? true,
-            options.signal,
-          );
+        if (options.search || options.suggest) {
+          const limit = options.limit ?? 20;
+          let snapshot: SearchSnapshot | null = null;
+          try {
+            treeRoot(workspaceId, options.root);
+            snapshot = await searchSnapshot(workspaceId, options.root, root);
+          } catch {
+            // Roots the tree walk refuses keep the direct glob search.
+          }
+          if (options.signal?.aborted) return { files: [], currentPath: '', mode: 'search', root, isMain };
+          // Outside Git the tree knows no ignore rules; the glob search reads .gitignore itself.
+          if (!snapshot?.git) {
+            const files = options.search
+              ? await port.searchFiles(root, options.search, limit, options.showHidden ?? true, options.signal)
+              : [];
+            return { files, currentPath: '', mode: 'search', root, isMain };
+          }
+          const files = options.search
+            ? rankFilePaths(snapshot.paths, options.search, {
+              limit,
+              ignored: snapshot.ignored,
+              changed: snapshot.changed,
+              showHidden: options.showHidden ?? true,
+            })
+            : snapshot.changedFiles.slice(0, limit).map(toFileEntry);
           return { files, currentPath: '', mode: 'search', root, isMain };
         }
 
@@ -365,6 +427,10 @@ export function createFilesApplication(
       const result = await port.saveFile(workspace, input);
       entriesChanged(workspaceId, input.root);
       return result;
+    },
+
+    searchFilesChanged(workspaceId) {
+      dropSearchSnapshots(workspaceId);
     },
 
     listTreePaths(workspaceId, input) {

@@ -1,28 +1,22 @@
-import { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
-import type { ProkopaiClient, Session } from '@prokopai/sdk';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import type { ContextReference, ProkopaiClient, Session } from '@prokopai/sdk';
 import { ArrowUp, Square, Paperclip, AlertTriangle, Target, ChevronDown } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { FileEntry, PromptInfo, AttachmentKind } from '@prokopai/sdk';
 import { FileAutocomplete } from '@/components/files/FileAutocomplete';
 import { PromptAutocomplete } from '@/components/chat/PromptAutocomplete';
 import { PendingAttachment } from './PendingAttachment';
-import { FileMentionChip } from './FileMentionChip';
+import { ComposerEditor, type ComposerEditorHandle, type ComposerTrigger } from './ComposerEditor';
 import { AutoApproveSelector } from './AutoApproveSelector';
 import { ResponseFormatSelector } from './ResponseFormatSelector';
 import { SessionCheckoutSelector, SessionCheckoutStrip } from '@/components/worktrees/SessionCheckoutSelector';
 import { useResponseFormatsQuery } from '@/hooks/queries';
-// import { useHighlightBackground } from '@/hooks/useHighlightBackground';
-import { useFileSearch, extractMentionsFromText } from '@/hooks/useFileSearch';
+import { sessionReferenceRoot, useContextFileOpener } from '@/hooks/useContextFileOpener';
 import { useSessionDraft } from '@/hooks/useSessionDraft';
+import { registerComposer } from '@/lib/composerTargets';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { useUIStore } from '@/stores/uiStore';
 import { randomUUID } from '@/lib/randomId';
-import { useScopedServerData } from '@/contexts/HostScopeContext';
-
-type AutocompleteMode = 'none' | 'files' | 'prompts';
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }) => void;
@@ -94,12 +88,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const codexSession = session?.harness === 'codex-cli';
   const claudeSession = session?.harness === 'claude-cli';
   const { input, setInput, clearInput } = useSessionDraft(sessionId);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
+  const [dismissedTrigger, setDismissedTrigger] = useState<ComposerTrigger | null>(null);
   const [autocompleteFiles, setAutocompleteFiles] = useState<FileEntry[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [acMode, setAcMode] = useState<AutocompleteMode>('none');
-  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
-  const [promptQuery, setPromptQuery] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentData[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedResponseFormatId, setSelectedResponseFormatId] = useState<string | undefined>(undefined);
@@ -107,127 +99,58 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const sendMode = selectedSendMode;
   const [goalMaxTurns, setGoalMaxTurns] = useState(5);
   const [goalTokenBudget, setGoalTokenBudget] = useState(50_000);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<ComposerEditorHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: responseFormatsData } = useResponseFormatsQuery(sdkClient ?? null);
   const responseFormats = responseFormatsData?.formats ?? [];
 
   useImperativeHandle(ref, () => ({
-    focus: () => textareaRef.current?.focus(),
+    focus: () => editorRef.current?.focus(),
     // A draft already in the input stays below the restored text.
     restoreText: (text: string) => {
       setInput(input.trim() ? `${text}\n\n${input}` : text);
-      textareaRef.current?.focus();
+      editorRef.current?.focus();
     },
   }), [input, setInput]);
 
-  const {
-    query,
-    setQuery,
-    showAutocomplete,
-    setShowAutocomplete,
-    handleFileSelect,
-    insertMention,
-  } = useFileSearch({ workspaceId: workspaceId || '' });
-
-  const mentions = useMemo(() => extractMentionsFromText(input), [input]);
-
-  const openFilePreview = useUIStore((s) => s.openFilePreview);
-  const activeWorkspace = useScopedServerData(s => s.activeWorkspace);
-  // Disabled: canvas background highlight overlay was not working well
-  // const mentionPaths = useMemo(() => mentions.map(m => m.path), [mentions]);
-  // useHighlightBackground(textareaRef, input, mentionPaths);
-
+  // Terminal "Add to chat" and other panels insert references into this session's composer.
   useEffect(() => {
+    if (!sessionId) return;
+    return registerComposer(sessionId, (reference) => editorRef.current?.insertReference(reference));
+  }, [sessionId]);
+
+  const openContextFile = useContextFileOpener(sessionId);
+  const referenceRoot = sessionReferenceRoot(session);
+
+  const handleTriggerChange = useCallback((next: ComposerTrigger | null) => {
+    setTrigger(next);
     setSelectedIndex(0);
-    setTooltipIndex(null);
-  }, [autocompleteFiles, promptQuery, prompts]);
+  }, []);
 
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
-    }
-  }, [input]);
-
+  const promptQuery = trigger?.kind === 'prompt' ? trigger.query : '';
   const filteredPrompts = prompts.filter(p =>
     p.name.toLowerCase().includes(promptQuery.toLowerCase())
   );
 
-  const showPromptAc = acMode === 'prompts' && prompts.length > 0 && (!codexSession || sendMode === 'chat');
-  const showFileAc = acMode === 'files' && showAutocomplete && !!workspaceId;
+  const triggerOpen = !!trigger && trigger !== dismissedTrigger;
+  const showPromptAc = triggerOpen && trigger.kind === 'prompt' && prompts.length > 0 && (!codexSession || sendMode === 'chat');
+  const showFileAc = triggerOpen && trigger.kind === 'file' && !!workspaceId;
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    const cursorPos = e.target.selectionStart || 0;
+  const closeAutocomplete = useCallback(() => {
+    setDismissedTrigger(trigger);
+  }, [trigger]);
 
-    setInput(value);
-    setCursorPosition(cursorPos);
-
-    const lastSlashIndex = value.lastIndexOf('/', cursorPos);
-    if (lastSlashIndex !== -1) {
-      const charBefore = lastSlashIndex > 0 ? value[lastSlashIndex - 1] : '\n';
-      const textAfterSlash = value.slice(lastSlashIndex + 1, cursorPos);
-
-      if ((charBefore === '\n' || charBefore === ' ' || charBefore === '') && !textAfterSlash.includes(' ')) {
-        setPromptQuery(textAfterSlash);
-        setAcMode('prompts');
-        return;
-      }
-    }
-
-    const lastAtIndex = value.lastIndexOf('@', cursorPos);
-    if (lastAtIndex !== -1) {
-      const textAfterAt = value.slice(lastAtIndex + 1, cursorPos);
-      if (!textAfterAt.includes(' ')) {
-        setQuery(textAfterAt);
-        setShowAutocomplete(true);
-        setAcMode('files');
-        return;
-      }
-    }
-
-    setAcMode('none');
-    setShowAutocomplete(false);
-  }, [setQuery, setShowAutocomplete, setInput]);
-
-  const handleFileSelectWrapper = useCallback((file: FileEntry) => {
-    const mention = handleFileSelect(file);
-    const result = insertMention(input, cursorPosition, mention);
-    setInput(result.text);
-    setAcMode('none');
-    setShowAutocomplete(false);
+  const handleFileSelect = useCallback((file: FileEntry) => {
+    if (!trigger) return;
+    const reference: ContextReference = { kind: 'file', path: file.type === 'directory' ? `${file.path}/` : file.path };
+    editorRef.current?.replaceTrigger(trigger, { reference });
     setAutocompleteFiles([]);
-
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(result.cursorPos, result.cursorPos);
-      }
-    }, 0);
-  }, [input, cursorPosition, handleFileSelect, insertMention, setShowAutocomplete, setInput]);
+  }, [trigger]);
 
   const handlePromptSelect = useCallback((prompt: PromptInfo) => {
-    const lastSlashIndex = input.lastIndexOf('/', cursorPosition);
-    const beforeSlash = input.slice(0, lastSlashIndex);
-    const afterSlash = input.slice(lastSlashIndex + 1);
-    const spaceIndex = afterSlash.indexOf(' ');
-    const existingUserText = spaceIndex !== -1 ? afterSlash.slice(spaceIndex) : '';
-
-    const completed = `${beforeSlash}/${prompt.name}${existingUserText}`;
-    const newCursorPos = lastSlashIndex + 1 + prompt.name.length + (existingUserText ? 0 : 0);
-
-    setInput(completed);
-    setAcMode('none');
-
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
-  }, [input, cursorPosition, setInput]);
+    if (!trigger) return;
+    editorRef.current?.replaceTrigger(trigger, { text: `/${prompt.name}` });
+  }, [trigger]);
 
   const cleanupPending = useCallback(() => {
     for (const a of pendingAttachments) {
@@ -265,23 +188,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     });
   }, []);
 
-  const handleMentionRemove = useCallback((path: string) => {
-    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const mentionRegex = new RegExp(`@${escapedPath}`, 'g');
-    const newInput = input.replace(mentionRegex, '').replace(/\s+/g, ' ').trim();
-    setInput(newInput);
-  }, [input, setInput]);
-
-  const handleMentionPreview = useCallback((path: string) => {
-    if (activeWorkspace?.id) {
-      openFilePreview({
-        workspaceId: activeWorkspace.id,
-        path,
-        name: path.split('/').pop() || path,
-      });
-    }
-  }, [activeWorkspace?.id, openFilePreview]);
-
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(file => !(codexSession || claudeSession)
       || ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type));
@@ -318,13 +224,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     }
   }, [uploadAttachment, codexSession, claudeSession]);
 
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    const files = e.clipboardData?.files;
-    if (files && Array.from(files).some(file => !(codexSession || claudeSession)
-      || ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))) {
-      e.preventDefault();
-      void addFiles(files);
-    }
+  const handlePasteFiles = useCallback((files: File[]) => {
+    if (!files.some(file => !(codexSession || claudeSession)
+      || ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))) return false;
+    void addFiles(files);
+    return true;
   }, [addFiles, codexSession, claudeSession]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -424,85 +328,60 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     setSelectedResponseFormatId(undefined);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) {
-      return;
-    }
-
+  /** Keys from the composer; true when handled here. */
+  const handleKeyDown = (e: KeyboardEvent): boolean => {
     if (showPromptAc && filteredPrompts.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex(i => Math.min(i + 1, filteredPrompts.length - 1));
-          return;
+          setSelectedIndex(i => (i + 1) % filteredPrompts.length);
+          return true;
         case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex(i => Math.max(i - 1, 0));
-          return;
+          setSelectedIndex(i => (i - 1 + filteredPrompts.length) % filteredPrompts.length);
+          return true;
         case 'Enter':
-          if (e.shiftKey) return;
-          e.preventDefault();
-          if (filteredPrompts[selectedIndex]) {
-            handlePromptSelect(filteredPrompts[selectedIndex]);
-          }
-          return;
+          if (e.shiftKey) return false;
+          if (filteredPrompts[selectedIndex]) handlePromptSelect(filteredPrompts[selectedIndex]);
+          return true;
         case 'Tab':
-          e.preventDefault();
-          if (filteredPrompts[selectedIndex]) {
-            handlePromptSelect(filteredPrompts[selectedIndex]);
-          }
-          return;
+          if (filteredPrompts[selectedIndex]) handlePromptSelect(filteredPrompts[selectedIndex]);
+          return true;
         case 'Escape':
-          e.preventDefault();
-          setAcMode('none');
-          return;
+          closeAutocomplete();
+          return true;
       }
     }
 
     if (showFileAc && autocompleteFiles.length > 0) {
+      const file = autocompleteFiles[selectedIndex];
       switch (e.key) {
         case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex(i => Math.min(i + 1, autocompleteFiles.length - 1));
-          return;
+          setSelectedIndex(i => (i + 1) % autocompleteFiles.length);
+          return true;
         case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex(i => Math.max(i - 1, 0));
-          return;
+          setSelectedIndex(i => (i - 1 + autocompleteFiles.length) % autocompleteFiles.length);
+          return true;
         case 'Enter':
-          e.preventDefault();
-          if (autocompleteFiles[selectedIndex]) {
-            handleFileSelectWrapper(autocompleteFiles[selectedIndex]);
-          }
-          return;
-        case 'ArrowRight':
-          e.preventDefault();
-          setTooltipIndex(selectedIndex);
-          return;
-        case 'ArrowLeft':
-          e.preventDefault();
-          setTooltipIndex(null);
-          return;
-        case 'Escape':
-          e.preventDefault();
-          setShowAutocomplete(false);
-          setAcMode('none');
-          setTooltipIndex(null);
-          return;
+          if (file) handleFileSelect(file);
+          return true;
         case 'Tab':
-          e.preventDefault();
-          if (autocompleteFiles[selectedIndex]) {
-            handleFileSelectWrapper(autocompleteFiles[selectedIndex]);
+          // Tab on a folder keeps searching inside it; Enter references the folder itself.
+          if (file?.type === 'directory' && trigger) {
+            editorRef.current?.replaceTrigger(trigger, { text: `@${file.path}/` });
+          } else if (file) {
+            handleFileSelect(file);
           }
-          setTooltipIndex(null);
-          return;
+          return true;
+        case 'Escape':
+          closeAutocomplete();
+          return true;
       }
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      void handleSubmit();
+      return true;
     }
+    return false;
   };
 
   const handleFilesChange = useCallback((files: FileEntry[]) => {
@@ -566,18 +445,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             <span>This model will not inspect images directly. They will be sent as file paths instead.</span>
           </div>
         )}
-        {mentions.length > 0 && (
-          <div className="flex gap-2 flex-wrap px-3 pt-2">
-            {mentions.map((mention) => (
-              <FileMentionChip
-                key={mention.path}
-                path={mention.path}
-                onRemove={handleMentionRemove}
-                onPreview={handleMentionPreview}
-              />
-            ))}
-          </div>
-        )}
         {goal?.status === 'active' && (
           <div className="flex items-center gap-2 px-3 pt-3 text-xs text-muted-foreground">
             <Target className="size-3 shrink-0" />
@@ -596,31 +463,22 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         )}
         <div className="relative">
           <Popover open={showPromptAc || showFileAc} onOpenChange={(open) => {
-            if (!open) {
-              setAcMode('none');
-              setShowAutocomplete(false);
-              setTooltipIndex(null);
-            }
+            if (!open) closeAutocomplete();
           }}>
             <PopoverAnchor asChild>
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={effectivePlaceholder}
-                disabled={disabled || goalActive}
-                className={cn(
-                  'min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent dark:bg-transparent shadow-none',
-                  'px-3 pt-3 pb-0 chat-input-scrollbar',
-                  'focus-visible:ring-0 focus-visible:shadow-none',
-                  'placeholder:text-muted-foreground/60',
-                  'disabled:bg-transparent disabled:opacity-100 dark:disabled:bg-transparent'
-                )}
-                rows={1}
-                data-chat-input="true"
-              />
+              <div className="min-h-[52px] max-h-[200px] overflow-y-auto px-3 pt-3 pb-0 text-base md:text-sm chat-input-scrollbar">
+                <ComposerEditor
+                  ref={editorRef}
+                  value={input}
+                  onChange={setInput}
+                  onTriggerChange={handleTriggerChange}
+                  onKeyDown={handleKeyDown}
+                  onPasteFiles={handlePasteFiles}
+                  onOpenFile={openContextFile}
+                  placeholder={effectivePlaceholder}
+                  disabled={disabled || goalActive}
+                />
+              </div>
             </PopoverAnchor>
 
             <PopoverContent
@@ -632,18 +490,16 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               onCloseAutoFocus={(e) => e.preventDefault()}
             >
               {showFileAc ? (
-                <TooltipProvider>
                 <FileAutocomplete
                   workspaceId={workspaceId || ''}
-                  searchQuery={query}
+                  searchQuery={trigger?.kind === 'file' ? trigger.query : ''}
                   selectedIndex={selectedIndex}
-                  tooltipIndex={tooltipIndex}
-                  onTooltipIndexChange={setTooltipIndex}
-                  onSelect={handleFileSelectWrapper}
+                  onSelectedIndexChange={setSelectedIndex}
+                  onSelect={handleFileSelect}
                   onFilesChange={handleFilesChange}
                   sdkClient={sdkClient}
+                  root={referenceRoot}
                 />
-                </TooltipProvider>
               ) : (
                 <PromptAutocomplete
                   prompts={prompts}
