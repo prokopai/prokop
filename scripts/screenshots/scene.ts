@@ -44,13 +44,10 @@ export function lastPage(): Page | null {
 }
 
 /** What opening the client needs; clips run against a different world. */
-export type ClientContext = Pick<SceneContext, 'instance' | 'browser'>;
+export type ClientContext = Pick<SceneContext, 'instance' | 'browser'> & { world: Pick<World, 'workspaceId'> };
 
-/**
- * Opens the client in a fresh context with the theme preset, and returns the page plus its client-side server id.
- * `recordVideoDir` records the page as a webm at viewport size.
- */
-export async function openClient(ctx: ClientContext, theme: Theme, viewport = DESKTOP, recordVideoDir?: string): Promise<{ page: Page; serverId: string }> {
+/** Opens the client in a fresh context with the theme preset, and returns the page plus its client-side server id. */
+export async function openClient(ctx: ClientContext, theme: Theme, viewport = DESKTOP): Promise<{ page: Page; serverId: string }> {
   const phone = viewport.width < 768;
   const context = await ctx.browser.newContext({
     viewport,
@@ -58,17 +55,16 @@ export async function openClient(ctx: ClientContext, theme: Theme, viewport = DE
     isMobile: phone,
     hasTouch: phone,
     colorScheme: theme.mode,
-    // Video records at CSS size; phone video at 1x is too small to read, so take it at 2x.
-    recordVideo: recordVideoDir
-      ? { dir: recordVideoDir, size: phone ? { width: viewport.width * 2, height: viewport.height * 2 } : viewport }
-      : undefined,
   });
-  await context.addInitScript(({ settings, clientId }) => {
+  await context.addInitScript(({ settings, clientId, workspaceId }) => {
     localStorage.setItem('prokopai-theme-settings', settings);
     // One client identity across contexts; otherwise the server sees a new
     // device per scene and the previous one keeps session control.
     localStorage.setItem('prokopai_client_id', clientId);
-  }, { settings: JSON.stringify(theme), clientId: JSON.stringify(SCREENSHOT_CLIENT_ID) });
+    // Open on linkshelf; with no saved choice the client takes the first
+    // workspace by name, which is invoicer.
+    localStorage.setItem('activeWorkspaceId', workspaceId);
+  }, { settings: JSON.stringify(theme), clientId: JSON.stringify(SCREENSHOT_CLIENT_ID), workspaceId: ctx.world.workspaceId });
   const page = await context.newPage();
   lastOpenedPage = page;
   await page.goto(ctx.instance.url);
@@ -78,8 +74,8 @@ export async function openClient(ctx: ClientContext, theme: Theme, viewport = DE
 }
 
 /** Opens a session and waits until `readyText` (e.g. part of the last reply) is visible. */
-export async function openSession(ctx: ClientContext, theme: Theme, sessionId: string, readyText: string, viewport = DESKTOP, recordVideoDir?: string): Promise<Page> {
-  const { page, serverId } = await openClient(ctx, theme, viewport, recordVideoDir);
+export async function openSession(ctx: ClientContext, theme: Theme, sessionId: string, readyText: string, viewport = DESKTOP): Promise<Page> {
+  const { page, serverId } = await openClient(ctx, theme, viewport);
   await page.goto(`${ctx.instance.url}/server/${serverId}/workspace/session/${sessionId}`);
   await page.getByText(readyText).first().waitFor();
   return page;
@@ -96,12 +92,11 @@ export interface WorkspaceOptions {
   /** Texts that must be visible before the scene continues. */
   readyTexts: string[];
   viewport?: { width: number; height: number };
-  recordVideoDir?: string;
 }
 
 /** Opens the workspace with a preset pane layout and docks. */
 export async function openWorkspace(ctx: ClientContext, theme: Theme, options: WorkspaceOptions): Promise<Page> {
-  const { page, serverId } = await openClient(ctx, theme, options.viewport, options.recordVideoDir);
+  const { page, serverId } = await openClient(ctx, theme, options.viewport);
   const layout = JSON.stringify(workspaceLayout(serverId, options.columns, options.rightActive));
   const docks = options.bottomSize ? JSON.stringify({ version: 1, sizes: { left: 256, right: 540, bottom: options.bottomSize } }) : null;
   // Before any client code runs, so the stores load these instead of their defaults.

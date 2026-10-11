@@ -2,7 +2,7 @@
  * From agent edits to a commit: the stats change streams in its worktree,
  * its diff is previewed from Changes, and both files are committed.
  */
-import { sendPrompt, stageStory, storyStart, type Clip } from '../clip';
+import { sendPrompt, stageStory, ScreenRecorder, type Clip } from '../clip';
 import { clickTreeItem, openWorkspace } from '../scene';
 import { STATS_READY } from '../scenes/ready';
 import { statsExpiredFlag } from '../world/stats-expired-flag';
@@ -10,18 +10,16 @@ import { statsExpiredFlag } from '../world/stats-expired-flag';
 export const gitWorkbenchClip: Clip = {
   name: 'git-workbench',
   live: ['statsExpiredFlag'],
-  async record(ctx, theme, videoDir) {
+  async record(ctx, theme, framesDir) {
     const sessionId = await stageStory(ctx, statsExpiredFlag);
 
-    const openedAt = Date.now();
     const page = await openWorkspace(ctx, theme, {
       columns: [[sessionId]],
       rightActive: 'changes',
       docks: { right: true },
       readyTexts: [statsExpiredFlag.title],
-      recordVideoDir: videoDir,
     });
-    const trimStartMs = await storyStart(page, openedAt);
+    const recorder = await ScreenRecorder.start(page, framesDir);
 
     await page.waitForTimeout(600);
     await sendPrompt(page, statsExpiredFlag.prompt);
@@ -43,6 +41,6 @@ export const gitWorkbenchClip: Clip = {
     await page.getByRole('button', { name: 'Commit', exact: true }).click();
     await page.getByText(/Committed [0-9a-f]{8}/).first().waitFor();
     await page.waitForTimeout(2500);
-    return { page, trimStartMs };
+    return { page, recorder };
   },
 };

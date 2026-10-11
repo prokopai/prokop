@@ -3,7 +3,7 @@
  * package.json and asks to run `rm -rf dist && bun build ...` with only the
  * delete highlighted. The approval is allowed and the real build runs.
  */
-import { sendPrompt, stageStory, storyStart, type Clip } from '../clip';
+import { sendPrompt, stageStory, ScreenRecorder, type Clip } from '../clip';
 import { openWorkspace } from '../scene';
 import type { Step } from '../script';
 import { buildScript } from '../world/build-script';
@@ -20,16 +20,14 @@ const BUILT: Step = {
 export const commandApprovalClip: Clip = {
   name: 'command-approval',
   live: ['buildScript'],
-  async record(ctx, theme, videoDir) {
+  async record(ctx, theme, framesDir) {
     const sessionId = await stageStory(ctx, buildScript, [BUILT]);
 
-    const openedAt = Date.now();
     const page = await openWorkspace(ctx, theme, {
       columns: [[sessionId]],
       readyTexts: [buildScript.title],
-      recordVideoDir: videoDir,
     });
-    const trimStartMs = await storyStart(page, openedAt);
+    const recorder = await ScreenRecorder.start(page, framesDir);
 
     await page.waitForTimeout(600);
     await sendPrompt(page, buildScript.prompt);
@@ -41,6 +39,6 @@ export const commandApprovalClip: Clip = {
 
     await page.getByText(DONE.replaceAll('`', '')).first().waitFor({ timeout: 60_000 });
     await page.waitForTimeout(3000);
-    return { page, trimStartMs };
+    return { page, recorder };
   },
 };

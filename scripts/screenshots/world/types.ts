@@ -10,6 +10,8 @@ export interface Story {
   title: string;
   prompt: string;
   steps: Step[];
+  /** The second project the story runs in; omitted for linkshelf. */
+  project?: 'invoicer';
   /** The managed worktree the session runs in; omitted for the main checkout. */
   worktree?: WorktreeName;
   /** Where the world leaves the turn, see `Demo.runTurn`. */

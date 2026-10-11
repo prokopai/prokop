@@ -3,7 +3,7 @@
  *
  * For each clip and theme, boots the same isolated sandbox instance as
  * `bun run screenshots`, builds the world around it, and records it as
- * `<clip>.<mode>-<scheme>.{webm,mp4,webp,gif}`.
+ * `<clip>.<mode>-<scheme>.{mp4,webp,gif}`.
  *
  * --theme accepts a mode (`dark`), a scheme (`ocean`), or both (`dark-ocean`).
  * Default: dark-neutral only. Each recording plays its turn live, in real
@@ -18,6 +18,7 @@ import { chromium } from 'playwright-core';
 import { encode, type Clip, type ClipContext } from './clip';
 import { commandApprovalClip } from './clips/command-approval';
 import { gitWorkbenchClip } from './clips/git-workbench';
+import { memoryClip } from './clips/memory';
 import { mobileClip } from './clips/mobile';
 import { multiSessionClip } from './clips/multi-session';
 import { REPO_ROOT, startInstance, type Instance } from './instance';
@@ -25,7 +26,7 @@ import { lastPage, THEMES, themeName } from './scene';
 import { Demo } from './script';
 import { buildClipWorld } from './world';
 
-const CLIPS: Clip[] = [commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip];
+const CLIPS: Clip[] = [memoryClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip];
 
 const { values } = parseArgs({
   options: {
@@ -57,7 +58,6 @@ if (!(await clientIndex.exists())) {
 }
 
 mkdirSync(values.out, { recursive: true });
-const videoDir = join(values.out, '.raw');
 let instance: Instance | null = null;
 
 const shutdown = async () => {
@@ -87,7 +87,7 @@ try {
         await demo.disconnect();
         process.stdout.write('recording ... ');
         const ctx: ClipContext = { instance, browser, demo, world };
-        const recording = await clip.record(ctx, theme, videoDir);
+        const recording = await clip.record(ctx, theme, join(values.out, '.frames', name));
         const files = await encode(recording, values.out, name);
         console.log(`ok (${files.length} files, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
       } catch (error) {
