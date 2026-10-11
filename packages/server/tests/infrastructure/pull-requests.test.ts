@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parsePullRequestRemote } from '@/infrastructure/pull-requests/repositories';
 import { createGitHubPullRequests } from '@/infrastructure/pull-requests/github';
+import { createGitHubCredentials, githubRest, type GitHubApi } from '@/infrastructure/pull-requests/github-rest';
 import { createAzurePullRequests } from '@/infrastructure/pull-requests/azure';
 import { runCli, type CliRequest, type RunCli } from '@/infrastructure/pull-requests/cli';
 import {
@@ -14,7 +15,7 @@ import {
   type AzureRequest,
   type FetchLike,
 } from '@/infrastructure/pull-requests/azure-rest';
-import { BadRequestError } from '@/application/http-errors';
+import { BadRequestError, ConflictError } from '@/application/http-errors';
 import { pullRequestActionSchema, pullRequestCreateSchema } from '@/transport/http/routes/pull-requests';
 
 const head = 'a'.repeat(40);
@@ -93,17 +94,125 @@ describe('repository identity', () => {
   });
 });
 
-describe('GitHub CLI adapter', () => {
-  test('create sends arbitrary markdown over stdin, never shell arguments', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify(call.input ? ghPr : { full_name: 'acme/project' });
+interface GitHubCall {
+  path: string;
+  method: string;
+  body?: unknown;
+}
+function githubHarness(answer: (call: GitHubCall) => unknown = () => ghPr) {
+  const calls: GitHubCall[] = [];
+  const api: GitHubApi = async (path, method = 'GET', body) => {
+    const call = { path, method, ...(body === undefined ? {} : { body }) };
+    calls.push(call);
+    return structuredClone(answer(call));
+  };
+  return { calls, provider: createGitHubPullRequests(api, githubRepo) };
+}
+const graphPr = {
+  number: 7,
+  title: 'Feature',
+  body: 'Description',
+  url: 'https://github.com/acme/project/pull/7',
+  state: 'OPEN',
+  isDraft: false,
+  headRefName: 'feature',
+  baseRefName: 'main',
+  headRefOid: head,
+  baseRefOid: base,
+  updatedAt: '2026-10-08T00:00:00Z',
+  mergeable: 'MERGEABLE',
+  author: { __typename: 'User', login: 'alice', databaseId: 1 },
+  autoMergeRequest: null,
+  reviewRequests: {
+    nodes: [
+      { requestedReviewer: { __typename: 'User', login: 'carol', databaseId: 3 } },
+      { requestedReviewer: { __typename: 'Team' } },
+    ],
+  },
+  comments: {
+    pageInfo: { hasNextPage: false },
+    nodes: [
+      {
+        databaseId: 11,
+        body: 'Coverage report',
+        createdAt: '2026-10-08T02:00:00Z',
+        author: { __typename: 'Bot', login: 'codecov', databaseId: 9 },
       },
-      '/checkout',
-      githubRepo,
-    );
+    ],
+  },
+  reviews: {
+    pageInfo: { hasNextPage: false },
+    nodes: [
+      {
+        databaseId: 21,
+        state: 'CHANGES_REQUESTED',
+        body: 'Please add tests',
+        submittedAt: '2026-10-08T01:00:00Z',
+        author: { __typename: 'User', login: 'bob', databaseId: 2 },
+      },
+      { databaseId: 22, state: 'PENDING', body: 'draft', submittedAt: null, author: null },
+    ],
+  },
+  reviewThreads: {
+    pageInfo: { hasNextPage: false },
+    nodes: [
+      {
+        id: 'T_1',
+        path: 'src/a.ts',
+        line: 4,
+        diffSide: 'RIGHT',
+        isResolved: false,
+        isOutdated: false,
+        viewerCanResolve: true,
+        viewerCanUnresolve: false,
+        comments: {
+          pageInfo: { hasNextPage: false },
+          nodes: [{ databaseId: 31, body: 'Why?', createdAt: '2026-10-08T03:00:00Z', author: null }],
+        },
+      },
+    ],
+  },
+  commits: {
+    nodes: [
+      {
+        commit: {
+          oid: head,
+          statusCheckRollup: {
+            contexts: {
+              pageInfo: { hasNextPage: false },
+              nodes: [
+                {
+                  __typename: 'CheckRun',
+                  name: 'test',
+                  status: 'COMPLETED',
+                  conclusion: 'FAILURE',
+                  permalink: 'https://github.com/acme/project/runs/1',
+                },
+                { __typename: 'CheckRun', name: 'lint', status: 'IN_PROGRESS', conclusion: null, permalink: '' },
+                { __typename: 'StatusContext', context: 'ci/legacy', state: 'SUCCESS', targetUrl: null },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  },
+};
+const graphDetail = (pullRequest: unknown = graphPr, errors?: unknown[]) => ({
+  data: {
+    repository: {
+      mergeCommitAllowed: false,
+      squashMergeAllowed: true,
+      rebaseMergeAllowed: true,
+      pullRequest,
+    },
+  },
+  ...(errors ? { errors } : {}),
+});
+
+describe('GitHub adapter', () => {
+  test('create sends the description verbatim as JSON, never through a shell', async () => {
+    const { provider, calls } = githubHarness((call) => (call.body ? ghPr : { full_name: 'acme/project' }));
     const body = 'literal $(touch nope) `hello`\nsecond line';
     await provider.create({
       title: 'Feature',
@@ -113,39 +222,17 @@ describe('GitHub CLI adapter', () => {
       draft: true,
       accountId: '1',
     });
-    expect(calls[1].cwd).toBe('/checkout');
-    expect(calls[1].args).toEqual([
-      'api',
-      '--hostname',
-      'github.com',
-      '--method',
-      'POST',
-      'repos/acme/project/pulls',
-      '--input',
-      '-',
-    ]);
-    expect(JSON.parse(calls[1].input!)).toMatchObject({ body, head: 'alice:feature', draft: true });
+    expect(calls[1]).toMatchObject({ path: 'repos/acme/project/pulls', method: 'POST' });
+    expect(calls[1].body).toMatchObject({ body, head: 'alice:feature', draft: true });
   });
   test('writes to a renamed or transferred repository target its canonical name', async () => {
-    // GitHub answers writes to the old name with a 307 that gh does not follow.
-    const calls: CliRequest[] = [];
     const moved = { ...ghPr, base: { ...ghPr.base, repo: { full_name: 'new-org/renamed' } } };
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        if (call.input) return JSON.stringify(call.args.includes('PUT') ? { merged: true } : moved);
-        return JSON.stringify(
-          call.args.includes('repos/acme/project') ? { full_name: 'new-org/renamed' } : moved,
-        );
-      },
-      '/checkout',
-      githubRepo,
-    );
+    const { provider, calls } = githubHarness((call) => {
+      if (call.body) return call.method === 'PUT' ? { merged: true } : moved;
+      return call.path === 'repos/acme/project' ? { full_name: 'new-org/renamed' } : moved;
+    });
     await provider.action(7, { ...guard, action: 'merge', method: 'squash' });
-    expect(calls.map((c) => c.args[5])).toEqual([
-      'repos/acme/project/pulls/7',
-      'repos/new-org/renamed/pulls/7/merge',
-    ]);
+    expect(calls.map((c) => c.path)).toEqual(['repos/acme/project/pulls/7', 'repos/new-org/renamed/pulls/7/merge']);
     calls.length = 0;
     await provider.create({
       title: 'Feature',
@@ -155,96 +242,49 @@ describe('GitHub CLI adapter', () => {
       draft: false,
       accountId: '1',
     });
-    expect(calls.map((c) => c.args[5])).toEqual(['repos/acme/project', 'repos/new-org/renamed/pulls']);
+    expect(calls.map((c) => c.path)).toEqual(['repos/acme/project', 'repos/new-org/renamed/pulls']);
   });
   test('an invalid canonical repository name blocks the write', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify({ ...ghPr, base: { ...ghPr.base, repo: { full_name: 'a/b/c' } } });
-      },
-      '/checkout',
-      githubRepo,
-    );
-    await expect(provider.action(7, { ...guard, action: 'close' })).rejects.toThrow(
-      'invalid repository name',
-    );
+    const { provider, calls } = githubHarness(() => ({
+      ...ghPr,
+      base: { ...ghPr.base, repo: { full_name: 'a/b/c' } },
+    }));
+    await expect(provider.action(7, { ...guard, action: 'close' })).rejects.toThrow('invalid repository name');
     expect(calls).toHaveLength(1);
   });
   test('rejects a stale merge without executing any write', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify(ghPr);
-      },
-      '/checkout',
-      githubRepo,
-    );
+    const { provider, calls } = githubHarness();
     await expect(
       provider.action(7, { ...guard, expectedHead: base, action: 'merge', method: 'squash' }),
     ).rejects.toThrow('changed');
-    expect(calls).toHaveLength(1);
-    expect(calls[0].args).toContain('GET');
+    expect(calls).toEqual([{ path: 'repos/acme/project/pulls/7', method: 'GET' }]);
   });
   test('merge sends an atomic expected SHA and verifies merged=true', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify(call.input ? { merged: false } : ghPr);
-      },
-      '/checkout',
-      githubRepo,
-    );
+    const { provider, calls } = githubHarness((call) => (call.body ? { merged: false } : ghPr));
     await expect(provider.action(7, { ...guard, action: 'merge', method: 'squash' })).rejects.toThrow(
       'did not merge',
     );
-    expect(JSON.parse(calls[1].input!)).toEqual({ sha: head, merge_method: 'squash' });
+    expect(calls[1].body).toEqual({ sha: head, merge_method: 'squash' });
   });
   test('inline review uses the displayed commit and diff side', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify(call.input ? {} : ghPr);
-      },
-      '/checkout',
-      githubRepo,
-    );
+    const { provider, calls } = githubHarness((call) => (call.body ? {} : ghPr));
     await provider.action(7, {
       ...guard,
       action: 'comment',
       body: 'Why?',
       position: { path: 'src/a.ts', line: 9, side: 'LEFT' },
     });
-    expect(JSON.parse(calls[1].input!)).toMatchObject({
-      commit_id: head,
-      path: 'src/a.ts',
-      line: 9,
-      side: 'LEFT',
-    });
+    expect(calls[1].body).toMatchObject({ commit_id: head, path: 'src/a.ts', line: 9, side: 'LEFT' });
   });
   test('denies thread IDs belonging to another pull request', async () => {
-    const calls: CliRequest[] = [];
-    const provider = createGitHubPullRequests(
-      async (call) => {
-        calls.push(call);
-        return JSON.stringify(
-          call.input
-            ? {
-                data: {
-                  repository: {
-                    pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } },
-                  },
-                },
-              }
-            : ghPr,
-        );
-      },
-      '/checkout',
-      githubRepo,
+    const { provider, calls } = githubHarness((call) =>
+      call.body
+        ? {
+            data: {
+              repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
+            },
+          }
+        : ghPr,
     );
     await expect(
       provider.action(7, { ...guard, action: 'resolve', threadId: 'foreign', resolved: true }),
@@ -252,20 +292,207 @@ describe('GitHub CLI adapter', () => {
     expect(calls).toHaveLength(2);
   });
   test('malformed provider data fails instead of becoming a green or empty PR', async () => {
-    const provider = createGitHubPullRequests(
-      async () => JSON.stringify({ ...ghPr, state: 'surprise' }),
-      '/checkout',
-      githubRepo,
-    );
+    const { provider } = githubHarness(() => ({ ...ghPr, state: 'surprise' }));
     await expect(provider.summary(7)).rejects.toThrow('invalid PR state');
+    const graph = githubHarness(() => graphDetail({ ...graphPr, state: 'SURPRISE' }));
+    await expect(graph.provider.detail(7)).rejects.toThrow('invalid PR state');
   });
   test('merged pagination advances by raw rows even when page contains only abandoned PRs', async () => {
-    const provider = createGitHubPullRequests(
-      async () => JSON.stringify(Array.from({ length: 30 }, () => ({ ...ghPr, state: 'closed' }))),
-      '/checkout',
-      githubRepo,
-    );
+    const { provider } = githubHarness(() => Array.from({ length: 30 }, () => ({ ...ghPr, state: 'closed' })));
     expect(await provider.list('merged', 1)).toEqual({ items: [], nextPage: 2 });
+  });
+  test('detail loads everything in one GraphQL request', async () => {
+    const { provider, calls } = githubHarness(() => graphDetail());
+    const detail = await provider.detail(7);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ path: 'graphql', method: 'POST' });
+    expect(calls[0].body).toMatchObject({ variables: { owner: 'acme', name: 'project', number: 7 } });
+    expect(detail).toMatchObject({
+      number: 7,
+      state: 'open',
+      head,
+      base,
+      author: { id: '1', name: 'alice' },
+      requestedReviewerIds: ['3'],
+      mergeability: 'mergeable',
+      mergeMethods: ['squash', 'rebase'],
+      autoMerge: false,
+      warnings: [],
+    });
+    expect(detail.reviewers).toEqual([
+      { id: '2', name: 'bob', vote: 'CHANGES_REQUESTED' },
+      { id: '3', name: 'carol', vote: 'Review requested' },
+    ]);
+    // Review bodies join the conversation in time order; pending reviews stay private.
+    expect(detail.comments.map((c) => [c.author.name, c.body])).toEqual([
+      ['bob', 'Please add tests'],
+      ['codecov[bot]', 'Coverage report'],
+    ]);
+    expect(detail.threads[0]).toMatchObject({
+      id: 'T_1',
+      path: 'src/a.ts',
+      line: 4,
+      canResolve: true,
+      comments: [{ author: { id: 'deleted', name: 'Deleted user' }, body: 'Why?' }],
+    });
+    expect(detail.checks).toEqual([
+      { name: 'test', state: 'failure', url: 'https://github.com/acme/project/runs/1' },
+      { name: 'lint', state: 'in_progress', url: '' },
+      { name: 'ci/legacy', state: 'success', url: '' },
+    ]);
+  });
+  test('a section GitHub cannot resolve becomes a warning instead of failing the PR', async () => {
+    const { provider } = githubHarness(() =>
+      graphDetail({ ...graphPr, commits: null, reviews: null }, [
+        { path: ['repository', 'pullRequest', 'commits'], message: 'Resource not accessible' },
+        { path: ['repository', 'pullRequest', 'reviews'], message: 'Resource not accessible' },
+      ]),
+    );
+    const detail = await provider.detail(7);
+    expect(detail.title).toBe('Feature');
+    expect(detail.checks).toEqual([]);
+    expect(detail.reviewers).toEqual([{ id: '3', name: 'carol', vote: 'Review requested' }]);
+    expect(detail.warnings).toEqual([
+      'Checks unavailable. Refresh or open on GitHub.',
+      'Reviews unavailable. Refresh or open on GitHub.',
+    ]);
+  });
+  test('checks for an older commit are not shown as the current head', async () => {
+    const stale = { nodes: [{ commit: { ...graphPr.commits.nodes[0].commit, oid: base } }] };
+    const { provider } = githubHarness(() => graphDetail({ ...graphPr, commits: stale }));
+    const detail = await provider.detail(7);
+    expect(detail.checks).toEqual([]);
+    expect(detail.warnings).toEqual(['Checks unavailable. Refresh or open on GitHub.']);
+  });
+  test('truncated activity is reported', async () => {
+    const { provider } = githubHarness(() =>
+      graphDetail({ ...graphPr, comments: { ...graphPr.comments, pageInfo: { hasNextPage: true } } }),
+    );
+    expect((await provider.detail(7)).warnings).toEqual([
+      'Some activity may be omitted. Open on GitHub for the full history.',
+    ]);
+  });
+  test('a missing pull request fails clearly', async () => {
+    const { provider } = githubHarness(() => graphDetail(null, [{ type: 'NOT_FOUND', path: ['repository'] }]));
+    await expect(provider.detail(7)).rejects.toThrow('could not load this pull request');
+  });
+  test('changed files carry their patch, so opening a file needs no request', async () => {
+    const { provider, calls } = githubHarness((call) =>
+      call.path.includes('/files')
+        ? [
+            { filename: 'src/a.ts', status: 'modified', additions: 1, deletions: 1, patch: '@@ -1 +1 @@\n-a\n+b' },
+            { filename: 'logo.png', status: 'added', additions: 0, deletions: 0 },
+          ]
+        : ghPr,
+    );
+    const result = await provider.files(7, head, 1);
+    expect(calls.map((c) => c.path)).toEqual([
+      'repos/acme/project/pulls/7/files?per_page=30&page=1',
+      'repos/acme/project/pulls/7',
+    ]);
+    expect(result.files[0].diff).toEqual({
+      patch: 'diff --git "a/src/a.ts" "b/src/a.ts"\n--- "a/src/a.ts"\n+++ "b/src/a.ts"\n@@ -1 +1 @@\n-a\n+b\n',
+    });
+    expect(result.files[1].diff).toMatchObject({ patch: '', unavailable: expect.stringContaining('binary') });
+  });
+  test('a push while listing files is a conflict', async () => {
+    const { provider } = githubHarness((call) =>
+      call.path.includes('/files') ? [] : { ...ghPr, head: { ...ghPr.head, sha: base } },
+    );
+    await expect(provider.files(7, head, 1)).rejects.toThrow('changed');
+  });
+});
+
+describe('GitHub REST transport', () => {
+  const user = { id: 1, login: 'alice' };
+  function transport(response: (url: string, init: RequestInit) => Response = () => Response.json(user)) {
+    const cli: CliRequest[] = [];
+    const requests: { url: string; init: RequestInit }[] = [];
+    let token = 'token-1';
+    let clock = 0;
+    const run: RunCli = async (request) => {
+      cli.push(request);
+      return `${token}\n`;
+    };
+    const fetcher: FetchLike = async (url, init) => {
+      requests.push({ url, init });
+      return response(url, init);
+    };
+    const credentials = createGitHubCredentials(run, () => clock);
+    return {
+      cli,
+      requests,
+      api: githubRest(fetcher, credentials),
+      switchAccount: (next: string) => {
+        token = next;
+      },
+      advance: (ms: number) => {
+        clock += ms;
+      },
+    };
+  }
+  const header = (init: RequestInit) => (init.headers as Record<string, string>).authorization;
+
+  test('reads the gh token once and calls the API directly', async () => {
+    const { cli, requests, api } = transport();
+    await Promise.all([api('repos/acme/project/pulls/7'), api('repos/acme/project/pulls/8')]);
+    expect(cli).toHaveLength(1);
+    expect(cli[0].args).toEqual(['auth', 'token', '--hostname', 'github.com']);
+    expect(requests[0].url).toBe('https://api.github.com/repos/acme/project/pulls/7');
+    expect(header(requests[0].init)).toBe('Bearer token-1');
+  });
+  test('identifies the account once per token and notices an account switch', async () => {
+    const { requests, api, switchAccount, advance } = transport((_url, init) =>
+      Response.json(header(init) === 'Bearer token-2' ? { id: 2, login: 'bob' } : user),
+    );
+    await api('user');
+    await api('user');
+    expect(requests).toHaveLength(1);
+    switchAccount('token-2');
+    advance(10_001);
+    expect(await api('user')).toEqual({ id: 2, login: 'bob' });
+    expect(requests).toHaveLength(2);
+  });
+  test('sends JSON bodies with the requested method', async () => {
+    const { requests, api } = transport(() => Response.json({}));
+    await api('graphql', 'POST', { query: 'q' });
+    expect(requests[0].init).toMatchObject({ method: 'POST', body: '{"query":"q"}' });
+  });
+  test('a rejected token asks for gh auth login and is read again', async () => {
+    let status = 401;
+    const { cli, api } = transport(() => Response.json({ message: 'Bad credentials' }, { status }));
+    await expect(api('user')).rejects.toThrow('gh auth login');
+    status = 200;
+    await api('repos/acme/project');
+    expect(cli).toHaveLength(2);
+  });
+  test('a failed gh sign-in is not cached', async () => {
+    let signedIn = false;
+    const cli: CliRequest[] = [];
+    const run: RunCli = async (request) => {
+      cli.push(request);
+      if (!signedIn)
+        throw new BadRequestError(request.classify?.('no oauth token found for github.com') ?? 'generic');
+      return 'token';
+    };
+    const api = githubRest(async () => Response.json(user), createGitHubCredentials(run));
+    await expect(api('user')).rejects.toThrow('gh auth login');
+    signedIn = true;
+    await api('user');
+    expect(cli).toHaveLength(2);
+  });
+  test.each([
+    [Response.json({ message: 'API rate limit exceeded' }, { status: 403, headers: { 'x-ratelimit-remaining': '0' } }), 'rate limit'],
+    [Response.json({}, { status: 429 }), 'rate limit'],
+    [Response.json({ message: 'A pull request already exists for acme:feature.' }, { status: 422 }), 'already exists'],
+    [Response.json({}, { status: 404 }), 'could not find'],
+  ])('classifies provider failures %#', async (failure, message) => {
+    const { api } = transport(() => failure);
+    await expect(api('repos/acme/project/pulls', 'POST', {})).rejects.toThrow(message);
+  });
+  test('a conflicting write is a conflict', async () => {
+    const { api } = transport(() => Response.json({ message: 'Head branch was modified.' }, { status: 409 }));
+    await expect(api('repos/acme/project/pulls/7/merge', 'PUT', {})).rejects.toBeInstanceOf(ConflictError);
   });
 });
 
@@ -352,9 +579,8 @@ describe('Azure adapter', () => {
     },
   );
   test('rejects patches if the source changes while reading file content', async () => {
-    let reads = 0;
     const { provider } = azureHarness((request) => {
-      if (request.path === 'pullrequests/7' && ++reads > 1)
+      if (request.path === 'pullrequests/7')
         return { ...azPr, lastMergeSourceCommit: { commitId: base } };
       if (request.path.endsWith('/changes'))
         return {
@@ -657,6 +883,13 @@ describe('Azure REST transport', () => {
     await Promise.all([api({ path: 'a' }), api({ path: 'b' }), api({ path: 'c' })]);
     await api({ path: 'd' });
     expect(cli).toHaveLength(1);
+  });
+  test('identifies the viewer once per token', async () => {
+    const { requests, api } = transport({ tenantHeader: '' });
+    const identify = () => api({ path: 'connectionData', scope: 'organization', version: '7.1-preview' });
+    await identify();
+    await identify();
+    expect(requests.filter((r) => r.init.method !== 'HEAD')).toHaveLength(1);
   });
   test('mints again when the cached token is about to expire', async () => {
     const { cli, api } = transport({

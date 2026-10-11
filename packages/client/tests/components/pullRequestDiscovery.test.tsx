@@ -140,3 +140,59 @@ test('an unavailable Azure connection shows the exact sign-in command from the s
   expect(screen.getByRole('button', { name: 'Copy command' })).toBeInTheDocument();
   expect(list).not.toHaveBeenCalled();
 });
+
+test('resting the pointer on a pull request loads it before the click; passing over does not', async () => {
+  const detail = vi.fn().mockReturnValue(new Promise(() => {}));
+  const hoverClient = {
+    http: { ...client.http, pullRequests: { discover, list, detail } },
+  } as unknown as ProkopaiClient;
+  const summary = (number: number) => ({
+    number,
+    title: `PR ${number}`,
+    body: '',
+    url: `https://github.com/rabbyte-tech/jean2/pull/${number}`,
+    author: { id: 'a', name: 'Alice' },
+    state: 'open',
+    draft: false,
+    sourceBranch: 'feature',
+    targetBranch: 'main',
+    head: 'a'.repeat(40),
+    base: 'b'.repeat(40),
+    updatedAt: '2026-10-08',
+  });
+  discover.mockResolvedValue({
+    branch: 'main',
+    connections: [
+      {
+        status: 'connected',
+        accountId: 'viewer',
+        accountName: 'Reviewer',
+        repository: {
+          provider: 'github',
+          host: 'github.com',
+          owner: 'rabbyte-tech',
+          name: 'jean2',
+          remote: 'origin',
+          key: 'github:rabbyte-tech/jean2',
+          url: 'https://github.com/rabbyte-tech/jean2',
+        },
+      },
+    ],
+  });
+  list.mockResolvedValue({ items: [summary(1), summary(2)], nextPage: null, accountId: 'viewer' });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PullRequestsView client={hoverClient} serverId="server" workspaceId="old" />
+    </QueryClientProvider>,
+  );
+  const first = await screen.findByRole('button', { name: /PR 1/ });
+  fireEvent.pointerEnter(first);
+  fireEvent.pointerLeave(first);
+  fireEvent.pointerEnter(screen.getByRole('button', { name: /PR 2/ }));
+  await waitFor(() => expect(detail).toHaveBeenCalledTimes(1));
+  expect(detail).toHaveBeenCalledWith('old', expect.objectContaining({ remote: 'origin' }), 2);
+  // The open PR shows its list row at once and reuses the load already in flight.
+  fireEvent.click(screen.getByRole('button', { name: /PR 2/ }));
+  expect(await screen.findByRole('heading', { name: /PR 2/ })).toBeInTheDocument();
+  expect(detail).toHaveBeenCalledTimes(1);
+});

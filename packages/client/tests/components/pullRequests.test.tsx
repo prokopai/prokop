@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ProkopaiClient, PullRequestDetail } from '@prokopai/sdk';
+import type { ProkopaiClient, PullRequestDetail, PullRequestSummary } from '@prokopai/sdk';
 import { PullRequestDetailView } from '@/components/pullRequests/PullRequestDetailView';
 import { PullRequestCreateForm } from '@/components/pullRequests/PullRequestCreateForm';
 import {
@@ -39,7 +39,11 @@ const pr: PullRequestDetail = {
 const action = vi.fn();
 const detail = vi.fn();
 const createPr = vi.fn();
-const client = { http: { pullRequests: { detail, action, create: createPr } } } as unknown as ProkopaiClient;
+const files = vi.fn();
+const patch = vi.fn();
+const client = {
+  http: { pullRequests: { detail, action, create: createPr, files, patch } },
+} as unknown as ProkopaiClient;
 const ctx: PullRequestContext = {
   client,
   serverId: 'server',
@@ -52,16 +56,19 @@ beforeEach(() => {
   action.mockReset().mockResolvedValue({ ok: true });
   detail.mockReset().mockResolvedValue(pr);
   createPr.mockReset().mockResolvedValue(pr);
+  files.mockReset().mockResolvedValue({ files: [], nextPage: null, head });
+  patch.mockReset().mockResolvedValue({ patch: '' });
   usePrDrafts.setState({ values: {} });
 });
 afterEach(cleanup);
 function show(
   context = ctx,
   cache = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }),
+  summary?: PullRequestSummary,
 ) {
   const result = render(
     <QueryClientProvider client={cache}>
-      <PullRequestDetailView ctx={context} number={7} visible />
+      <PullRequestDetailView ctx={context} number={7} visible summary={summary} />
     </QueryClientProvider>,
   );
   return { ...result, cache };
@@ -163,6 +170,55 @@ test('refuses to act through a detail response from a different CLI account', as
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Merge PR' })).not.toBeInTheDocument();
   expect(action).not.toHaveBeenCalled();
+});
+test('the list row is shown while the full pull request loads', async () => {
+  let finish!: (value: PullRequestDetail) => void;
+  detail.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  show(ctx, undefined, { ...pr, title: 'Fix login (from list)' });
+  expect(screen.getByRole('heading', { name: /Fix login \(from list\)/ })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Merge PR' })).not.toBeInTheDocument();
+  finish(pr);
+  expect(await screen.findByRole('button', { name: 'Merge PR' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Fix login/ })).not.toHaveTextContent('from list');
+});
+test('changed files load with the pull request, before the Files tab opens', async () => {
+  show();
+  await screen.findByRole('button', { name: 'Merge PR' });
+  await waitFor(() => expect(files).toHaveBeenCalledWith('ws', ctx.scope, 7, head, 1));
+});
+test('a file whose patch came with the file list opens without another request', async () => {
+  files.mockResolvedValue({
+    files: [
+      {
+        path: 'src/a.ts',
+        status: 'modified',
+        additions: 1,
+        deletions: 1,
+        diff: { patch: 'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-a\n+b\n' },
+      },
+      {
+        path: 'logo.png',
+        status: 'added',
+        additions: 0,
+        deletions: 0,
+        diff: { patch: '', unavailable: 'GitHub did not provide a text patch for this file.' },
+      },
+    ],
+    nextPage: null,
+    head,
+  });
+  show();
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Files' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+  expect(await screen.findByText(/Click a line number to comment/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /logo\.png/ }));
+  expect(await screen.findByText('GitHub did not provide a text patch for this file.')).toBeInTheDocument();
+  expect(patch).not.toHaveBeenCalled();
 });
 test('creation uses a published source and explicit target without calling Git push', async () => {
   const onCreated = vi.fn();

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import type { PullRequestRepository } from '@prokopai/sdk/types';
 import { BadRequestError, ConflictError } from '@/application/http-errors';
-import { array, json, object, str, type RunCli } from './cli';
+import { array, json, object, providerMessage, str, type RunCli } from './cli';
 
 /** Microsoft Entra resource ID of Azure DevOps; its tokens authorize dev.azure.com REST calls. */
 const DEVOPS_RESOURCE = '499b84ac-1321-427f-aa17-267ca6975798';
@@ -23,6 +23,8 @@ export interface AzureCredentials {
   /** Drop cached tokens after Azure rejects them. */
   invalidate(organization: string): void;
   signInCommand(organization: string): string;
+  /** One identity read per token: a token always belongs to the same user. */
+  identity(organization: string, authorization: string, load: () => Promise<unknown>): Promise<unknown>;
 }
 
 /**
@@ -38,6 +40,7 @@ export function createAzureCredentials(
 ): AzureCredentials {
   const tenants = new Map<string, string | null>();
   const tokens = new Map<string, Promise<{ value: string; expires: number }>>();
+  const identities = new Map<string, { authorization: string; value: Promise<unknown> }>();
   const command = (tenant: string | null | undefined) =>
     tenant ? `az login --tenant ${tenant} --allow-no-subscriptions` : 'az login';
 
@@ -128,6 +131,17 @@ export function createAzureCredentials(
     invalidate(organization) {
       tokens.delete(organization);
       tenants.delete(organization);
+      identities.delete(organization);
+    },
+    identity(organization, authorization, load) {
+      const cached = identities.get(organization);
+      if (cached?.authorization === authorization) return cached.value;
+      const entry = { authorization, value: load() };
+      identities.set(organization, entry);
+      entry.value.catch(() => {
+        if (identities.get(organization) === entry) identities.delete(organization);
+      });
+      return entry.value;
     },
     signInCommand(organization) {
       return env.AZURE_DEVOPS_EXT_PAT ? 'export AZURE_DEVOPS_EXT_PAT=<new token>' : command(tenants.get(organization));
@@ -146,19 +160,6 @@ export interface AzureRequest {
 }
 export type AzureApi = (request: AzureRequest) => Promise<unknown>;
 
-/** Azure's own error text is safe and actionable (for example TF401179); keep it bounded. */
-function azureMessage(text: string): string {
-  try {
-    const message = [...str(object(JSON.parse(text)).message)]
-      .map((c) => (c.charCodeAt(0) < 32 ? ' ' : c))
-      .join('')
-      .trim();
-    return message.length > 300 ? `${message.slice(0, 300)}…` : message;
-  } catch {
-    return '';
-  }
-}
-
 export function azureRest(
   fetcher: FetchLike,
   credentials: AzureCredentials,
@@ -173,7 +174,10 @@ export function azureRest(
     identities: `https://vssps.dev.azure.com/${org}/_apis/`,
   };
   const signIn = (message: string) => new AzureSetupError(message, credentials.signInCommand(org));
-  return async ({ path, scope = 'repository', query = {}, method = 'GET', body, version = '7.1' }) => {
+  const request = async (
+    authorization: string,
+    { path, scope = 'repository', query = {}, method = 'GET', body, version = '7.1' }: AzureRequest,
+  ): Promise<unknown> => {
     const url = new URL(path, bases[scope]);
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     url.searchParams.set('api-version', version);
@@ -183,7 +187,7 @@ export function azureRest(
       response = await fetcher(url.href, {
         method,
         headers: {
-          authorization: await credentials.authorization(org),
+          authorization,
           accept: 'application/json',
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         },
@@ -213,7 +217,7 @@ export function azureRest(
     }
     if (status === 429) throw new BadRequestError('Provider rate limit reached. Wait before refreshing.');
     if (status >= 400) {
-      const detail = azureMessage(text);
+      const detail = providerMessage(text);
       if (status === 409 || status === 412) throw new ConflictError(detail || 'The PR changed. Refresh before continuing.');
       if (/has not been materialized/i.test(detail))
         throw signIn(`Your Azure CLI identity is not a member of "${org}". Sign in with an account that has access.`);
@@ -227,5 +231,11 @@ export function azureRest(
       );
     }
     return text.trim() ? json(text) : null;
+  };
+  return async (input) => {
+    const authorization = await credentials.authorization(org);
+    if (input.path === 'connectionData' && input.scope === 'organization' && (input.method ?? 'GET') === 'GET')
+      return credentials.identity(org, authorization, () => request(authorization, input));
+    return request(authorization, input);
   };
 }

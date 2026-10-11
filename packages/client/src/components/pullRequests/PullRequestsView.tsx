@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useInfiniteQuery, useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, GitPullRequest, Plus, RefreshCw } from 'lucide-react';
@@ -20,6 +20,7 @@ import { PullRequestDetailView } from './PullRequestDetailView';
 import { PullRequestCreateForm } from './PullRequestCreateForm';
 import {
   CopyCommand,
+  detailQuery,
   PrError,
   PrSelect,
   PrStateIcon,
@@ -314,6 +315,13 @@ function RepositoryInbox({
   const refresh = () => {
     void cache.invalidateQueries({ queryKey: prKey(ctx) });
   };
+  // Start loading a PR once the pointer rests on it, so passing over the list stays free.
+  const hover = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const prefetch = (number: number) => {
+    clearTimeout(hover.current);
+    hover.current = setTimeout(() => void cache.prefetchQuery(detailQuery(ctx, number)), 150);
+  };
+  const cancelPrefetch = () => clearTimeout(hover.current);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {toolbar(
@@ -389,6 +397,10 @@ function RepositoryInbox({
                   setSelected(pr.number);
                   setCreating(false);
                 }}
+                onPointerEnter={() => prefetch(pr.number)}
+                onPointerLeave={cancelPrefetch}
+                onFocus={() => prefetch(pr.number)}
+                onBlur={cancelPrefetch}
                 aria-pressed={selected === pr.number}
                 className={cn(
                   'flex w-full gap-2 rounded-md p-2 text-left hover:bg-muted',
@@ -468,7 +480,13 @@ function RepositoryInbox({
               onCancel={() => setCreating(false)}
             />
           ) : selected !== null ? (
-            <PullRequestDetailView key={selected} ctx={ctx} number={selected} visible={visible} />
+            <PullRequestDetailView
+              key={selected}
+              ctx={ctx}
+              number={selected}
+              visible={visible}
+              summary={items.find((p) => p.number === selected)}
+            />
           ) : (
             <p className="m-auto p-6 text-sm text-muted-foreground">
               Select a pull request to review its changes.

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
@@ -14,7 +15,7 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
 } from 'lucide-react';
-import type { ProkopaiClient, PullRequestScope, PullRequestSummary } from '@prokopai/sdk';
+import type { ProkopaiClient, PullRequestFiles, PullRequestScope, PullRequestSummary } from '@prokopai/sdk';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,26 @@ export function prKey(ctx: PullRequestContext): readonly unknown[] {
     ctx.scope.root ?? '',
     ctx.accountId,
   ];
+}
+/** Shared by the views and by prefetching, so a prefetched result is the one the view reads. */
+export function detailQuery(ctx: PullRequestContext, number: number) {
+  return queryOptions({
+    queryKey: [...prKey(ctx), 'detail', number],
+    queryFn: () => ctx.client.http.pullRequests.detail(ctx.workspaceId, ctx.scope, number),
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+export function filesQuery(ctx: PullRequestContext, number: number, head: string) {
+  return infiniteQueryOptions({
+    queryKey: [...prKey(ctx), 'files', number, head],
+    queryFn: ({ pageParam }) =>
+      ctx.client.http.pullRequests.files(ctx.workspaceId, ctx.scope, number, head, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (page: PullRequestFiles) => page.nextPage ?? undefined,
+    retry: false,
+    staleTime: 60_000,
+  });
 }
 export function draftKey(ctx: PullRequestContext, number: number | 'create', field: string): string {
   return JSON.stringify([...prKey(ctx), number, field]);

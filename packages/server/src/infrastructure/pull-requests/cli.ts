@@ -133,22 +133,15 @@ export function json(text: string): unknown {
   }
 }
 
-export function githubApi(run: RunCli, cwd: string) {
-  return async (path: string, method = 'GET', body?: unknown): Promise<unknown> =>
-    json(
-      (await run({
-        command: 'gh',
-        cwd,
-        args: [
-          'api',
-          '--hostname',
-          'github.com',
-          '--method',
-          method,
-          path,
-          ...(body === undefined ? [] : ['--input', '-']),
-        ],
-        ...(body === undefined ? {} : { input: JSON.stringify(body) }),
-      })) || 'null',
-    );
+/** Provider error text is safe and actionable (for example TF401179); keep it bounded. */
+export function providerMessage(text: string): string {
+  try {
+    const message = [...str(object(JSON.parse(text)).message)]
+      .map((c) => (c.charCodeAt(0) < 32 ? ' ' : c))
+      .join('')
+      .trim();
+    return message.length > 300 ? `${message.slice(0, 300)}…` : message;
+  } catch {
+    return '';
+  }
 }

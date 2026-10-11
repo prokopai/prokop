@@ -106,6 +106,8 @@ export interface PullRequestFile {
   additions: number | null;
   deletions: number | null;
   changeTrackingId?: number;
+  /** Included when the provider sends patches with the file list (GitHub); otherwise load it with `patch`. */
+  diff?: PullRequestPatch;
 }
 export interface PullRequestFiles {
   files: PullRequestFile[];

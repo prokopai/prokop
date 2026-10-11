@@ -18,6 +18,7 @@ import { Thread, ReviewForm, type ActOnPullRequest } from './PullRequestDetailVi
 import {
   displayPath,
   draftKey,
+  filesQuery,
   prKey,
   PrError,
   usePrDraft,
@@ -38,15 +39,7 @@ export default function PullRequestFilesView({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const files = useInfiniteQuery({
-    queryKey: [...prKey(ctx), 'files', pr.number, pr.head],
-    queryFn: ({ pageParam }) =>
-      ctx.client.http.pullRequests.files(ctx.workspaceId, ctx.scope, pr.number, pr.head, pageParam),
-    initialPageParam: 1,
-    getNextPageParam: (p) => p.nextPage ?? undefined,
-    retry: false,
-    staleTime: 60_000,
-  });
+  const files = useInfiniteQuery(filesQuery(ctx, pr.number, pr.head));
   const entries =
     files.data?.pages
       .flatMap((p) => p.files)
@@ -189,23 +182,27 @@ function FileReview({
   const [position, setPosition] = useState<PullRequestPosition | null>(null);
   const [body, setBody, clearBody] = usePrDraft(draftKey(ctx, pr.number, `inline:${file.path}`));
   const [viewed, setViewed] = usePrDraft(draftKey(ctx, pr.number, `viewed:${pr.head}:${file.path}`));
+  // GitHub sends the patch with the file list; other providers load it per file.
   const patch = useQuery({
     queryKey: [...prKey(ctx), 'patch', pr.number, pr.head, file.path],
     queryFn: () =>
       ctx.client.http.pullRequests.patch(ctx.workspaceId, ctx.scope, pr.number, pr.head, file.path),
+    enabled: !file.diff,
     retry: false,
     staleTime: Infinity,
   });
+  const diff = file.diff ?? patch.data;
+  const loading = !file.diff && patch.isPending;
   const parsed = useMemo(() => {
     try {
       return {
-        files: patch.data?.patch ? parsePatchFiles(patch.data.patch, pierreCacheKey(`pr:${file.path}`, patch.data.patch), true).flatMap((p) => p.files) : [],
+        files: diff?.patch ? parsePatchFiles(diff.patch, pierreCacheKey(`pr:${file.path}`, diff.patch), true).flatMap((p) => p.files) : [],
         error: null,
       };
     } catch {
       return { files: [], error: 'This patch could not be rendered. Open the file on the provider website.' };
     }
-  }, [patch.data?.patch, file.path]);
+  }, [diff?.patch, file.path]);
   const threads = pr.threads.filter((t) => t.path === file.path || t.path === file.oldPath);
   return (
     <div className="flex flex-col gap-3">
@@ -240,9 +237,9 @@ function FileReview({
           Viewed
         </label>
       </div>
-      <PrError error={patch.error || parsed.error} />
-      {patch.isPending && <Skeleton className="h-48" />}
-      {patch.data?.unavailable && <p className="text-sm text-muted-foreground">{patch.data.unavailable}</p>}
+      <PrError error={(!file.diff && patch.error) || parsed.error} />
+      {loading && <Skeleton className="h-48" />}
+      {diff?.unavailable && <p className="text-sm text-muted-foreground">{diff.unavailable}</p>}
       {parsed.files.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Click a line number to comment on that line. Provider patches may omit large sections.

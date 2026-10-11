@@ -5,10 +5,12 @@ import type {
   PullRequestThread,
   PullRequestDetail,
   PullRequestFile,
+  PullRequestPatch,
 } from '@prokopai/sdk/types';
 import type { PullRequestProviderPort } from '@/application/ports/pull-requests';
 import { BadRequestError, ConflictError } from '@/application/http-errors';
-import { array, githubApi, integer, object, required, str, type RunCli } from './cli';
+import { array, integer, object, required, str } from './cli';
+import type { GitHubApi } from './github-rest';
 
 const actor = (value: unknown) => {
   if (value === null) return { id: 'deleted', name: 'Deleted user' };
@@ -37,13 +39,70 @@ function summary(value: unknown): PullRequestSummary {
     requestedReviewerIds: array(v.requested_reviewers).map((r) => actor(r).id),
   };
 }
-function comment(value: unknown): PullRequestComment {
+/** GraphQL actors carry the REST numeric ID as `databaseId`; accounts compare by it. */
+function graphActor(value: unknown) {
+  if (value == null) return { id: 'deleted', name: 'Deleted user' };
+  const v = object(value);
+  const login = required(v.login);
+  return {
+    id: typeof v.databaseId === 'number' ? String(integer(v.databaseId)) : login,
+    name: v.__typename === 'Bot' ? `${login}[bot]` : login,
+  };
+}
+function graphComment(value: unknown): PullRequestComment {
   const v = object(value);
   return {
-    id: String(integer(v.id)),
-    author: actor(v.user),
+    id: String(integer(v.databaseId)),
+    author: graphActor(v.author),
     body: str(v.body),
-    createdAt: required(v.created_at),
+    createdAt: required(v.createdAt),
+  };
+}
+const ACTOR = '__typename login ...on User{databaseId} ...on Bot{databaseId}';
+const THREADS = `reviewThreads(first:100){pageInfo{hasNextPage} nodes{id path line diffSide isResolved isOutdated viewerCanResolve viewerCanUnresolve comments(first:100){pageInfo{hasNextPage} nodes{databaseId body createdAt author{${ACTOR}}}}}}`;
+function parseThreads(value: unknown): { threads: PullRequestThread[]; truncated: boolean } {
+  const connection = object(value);
+  let truncated = object(connection.pageInfo).hasNextPage === true;
+  const threads = array(connection.nodes).map((node) => {
+    const v = object(node);
+    const comments = object(v.comments);
+    truncated ||= object(comments.pageInfo).hasNextPage === true;
+    return {
+      id: required(v.id),
+      path: required(v.path),
+      ...(typeof v.line === 'number' ? { line: integer(v.line) } : {}),
+      side: v.diffSide === 'LEFT' ? ('LEFT' as const) : ('RIGHT' as const),
+      resolved: v.isResolved === true,
+      outdated: v.isOutdated === true,
+      canResolve: v.isResolved ? v.viewerCanUnresolve === true : v.viewerCanResolve === true,
+      comments: array(comments.nodes).map(graphComment),
+    };
+  });
+  return { threads, truncated };
+}
+/** Everything the detail view shows, in one request instead of one per section. */
+const DETAIL = `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed pullRequest(number:$number){number title body url state isDraft headRefName baseRefName headRefOid baseRefOid updatedAt mergeable author{${ACTOR}} autoMergeRequest{enabledAt} reviewRequests(first:100){nodes{requestedReviewer{__typename ...on User{login databaseId}}}} comments(first:100){pageInfo{hasNextPage} nodes{databaseId body createdAt author{${ACTOR}}}} reviews(first:100){pageInfo{hasNextPage} nodes{databaseId state body submittedAt author{${ACTOR}}}} ${THREADS} commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ...on CheckRun{name status conclusion permalink} ...on StatusContext{context state targetUrl}}}}}}}}}}`;
+const SECTIONS: Record<string, string> = {
+  comments: 'Comments',
+  reviews: 'Reviews',
+  reviewThreads: 'Inline conversations',
+  commits: 'Checks',
+  reviewRequests: 'Review requests',
+  autoMergeRequest: 'Automatic merge status',
+};
+/** GitHub sends each file's patch with the changed-file list; keep it so opening a file needs no request. */
+function filePatch(v: Record<string, unknown>, path: string): PullRequestPatch {
+  if (!str(v.patch))
+    return {
+      patch: '',
+      unavailable:
+        'GitHub did not provide a text patch for this file. It may be binary, unchanged after rename, or too large.',
+    };
+  const oldPath = str(v.previous_filename) || path;
+  const old = v.status === 'added' ? '/dev/null' : JSON.stringify(`a/${oldPath}`);
+  const next = v.status === 'removed' ? '/dev/null' : JSON.stringify(`b/${path}`);
+  return {
+    patch: `diff --git ${JSON.stringify(`a/${oldPath}`)} ${JSON.stringify(`b/${path}`)}\n--- ${old}\n+++ ${next}\n${str(v.patch)}\n`,
   };
 }
 const PAGE = 30;
@@ -57,12 +116,7 @@ function canonicalPath(value: unknown): string {
   return repoPath(parts[0], parts[1]);
 }
 
-export function createGitHubPullRequests(
-  run: RunCli,
-  cwd: string,
-  repo: PullRequestRepository,
-): PullRequestProviderPort {
-  const api = githubApi(run, cwd);
+export function createGitHubPullRequests(api: GitHubApi, repo: PullRequestRepository): PullRequestProviderPort {
   const base = repoPath(repo.owner, repo.name);
   // GitHub answers writes to a renamed or transferred repository with a 307 that gh does not
   // follow (reads get a followed 301), so writes target the canonical name from a read first.
@@ -76,47 +130,29 @@ export function createGitHubPullRequests(
       );
     return object(response.data);
   };
-  const threads = async (number: number): Promise<{ threads: PullRequestThread[]; truncated: boolean }> => {
-    const data = await graph(
-      `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){pageInfo{hasNextPage} nodes{id path line diffSide isResolved isOutdated viewerCanResolve viewerCanUnresolve comments(first:100){pageInfo{hasNextPage} nodes{databaseId body createdAt author{login}}}}}}}}`,
-      { owner: repo.owner, name: repo.name, number },
+  const threads = async (number: number) =>
+    parseThreads(
+      object(
+        object(
+          object(
+            await graph(
+              `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){${THREADS}}}}`,
+              { owner: repo.owner, name: repo.name, number },
+            ),
+          ).repository,
+        ).pullRequest,
+      ).reviewThreads,
     );
-    const connection = object(object(object(data.repository).pullRequest).reviewThreads);
-    let truncated = object(connection.pageInfo).hasNextPage === true;
-    const result = array(connection.nodes).map((value) => {
-      const v = object(value);
-      const comments = object(v.comments);
-      truncated ||= object(comments.pageInfo).hasNextPage === true;
-      return {
-        id: required(v.id),
-        path: required(v.path),
-        ...(typeof v.line === 'number' ? { line: integer(v.line) } : {}),
-        side: v.diffSide === 'LEFT' ? ('LEFT' as const) : ('RIGHT' as const),
-        resolved: v.isResolved === true,
-        outdated: v.isOutdated === true,
-        canResolve: v.isResolved ? v.viewerCanUnresolve === true : v.viewerCanResolve === true,
-        comments: array(comments.nodes).map((c) => {
-          const x = object(c);
-          const login = x.author ? required(object(x.author).login) : 'Deleted user';
-          return {
-            id: String(integer(x.databaseId)),
-            body: str(x.body),
-            author: { id: login, name: login },
-            createdAt: required(x.createdAt),
-          };
-        }),
-      };
-    });
-    return { threads: result, truncated };
-  };
   const file = (value: unknown): PullRequestFile => {
     const v = object(value);
+    const path = required(v.filename);
     return {
-      path: required(v.filename),
+      path,
       ...(v.previous_filename ? { oldPath: required(v.previous_filename) } : {}),
       status: required(v.status),
       additions: integer(v.additions),
       deletions: integer(v.deletions),
+      diff: filePatch(v, path),
     };
   };
   const checked = async (number: number, head: string) => {
@@ -146,92 +182,123 @@ export function createGitHubPullRequests(
       return summary(await raw(number));
     },
     async detail(number) {
-      const pr = await raw(number);
-      const result = summary(pr);
-      const warnings: string[] = [];
-      const optional = async <T>(label: string, read: () => Promise<T>, fallback: T): Promise<T> => {
+      const response = object(
+        await api('graphql', 'POST', {
+          query: DETAIL,
+          variables: { owner: repo.owner, name: repo.name, number },
+        }),
+      );
+      const repository = object(object(response.data ?? {}).repository ?? {});
+      if (repository.pullRequest == null)
+        throw new BadRequestError('GitHub could not load this pull request. Check permissions and refresh.');
+      const pr = object(repository.pullRequest);
+      // A section GitHub could not resolve comes back as null with an error naming its path.
+      const warnings = new Set<string>();
+      const unavailable = (label: string) => warnings.add(`${label} unavailable. Refresh or open on GitHub.`);
+      for (const error of Array.isArray(response.errors) ? response.errors : []) {
+        const path = error && typeof error === 'object' && Array.isArray(error.path) ? error.path : [];
+        if (path[1] === 'pullRequest' && typeof path[2] === 'string' && SECTIONS[path[2]]) unavailable(SECTIONS[path[2]]);
+        else if (path[1] !== 'pullRequest') unavailable('Merge methods');
+        else unavailable('Some details');
+      }
+      const optional = <T>(label: string, read: () => T, fallback: T): T => {
         try {
-          return await read();
+          return read();
         } catch {
-          warnings.push(`${label} unavailable. Refresh or open on GitHub.`);
+          unavailable(label);
           return fallback;
         }
       };
-      const [comments, reviews, reviewThreads, checks, statuses, repository] = await Promise.all([
-        optional(
-          'Comments',
-          async () => array(await api(`${base}/issues/${number}/comments?per_page=100`)).map(comment),
-          [],
-        ),
-        optional('Reviews', async () => array(await api(`${base}/pulls/${number}/reviews?per_page=100`)), []),
-        optional('Inline conversations', () => threads(number), { threads: [], truncated: false }),
-        optional(
-          'Checks',
-          async () =>
-            array(object(await api(`${base}/commits/${result.head}/check-runs?per_page=100`)).check_runs),
-          [],
-        ),
-        optional(
-          'Commit statuses',
-          async () => array(object(await api(`${base}/commits/${result.head}/status?per_page=100`)).statuses),
-          [],
-        ),
-        optional('Merge methods', async () => object(await api(base)), {} as Record<string, unknown>),
-      ]);
-      if (
-        comments.length === 100 ||
-        reviews.length === 100 ||
-        reviewThreads.truncated ||
-        checks.length === 100 ||
-        statuses.length === 100
-      )
-        warnings.push('Some activity may be omitted. Open on GitHub for the full history.');
+      if (!['OPEN', 'CLOSED', 'MERGED'].includes(str(pr.state)) || typeof pr.isDraft !== 'boolean')
+        throw new BadRequestError('GitHub returned an invalid PR state.');
+      const requested = optional(
+        'Review requests',
+        () =>
+          array(object(pr.reviewRequests).nodes)
+            .map((node) => object(node).requestedReviewer)
+            // Team requests have no login; GitHub lists only users as requested reviewers.
+            .filter((reviewer) => reviewer != null && typeof object(reviewer).login === 'string')
+            .map(graphActor),
+        [],
+      );
+      const result: PullRequestSummary = {
+        number: integer(pr.number),
+        title: required(pr.title),
+        body: str(pr.body),
+        url: required(pr.url),
+        author: graphActor(pr.author),
+        state: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed' : 'open',
+        draft: pr.isDraft,
+        sourceBranch: required(pr.headRefName),
+        targetBranch: required(pr.baseRefName),
+        head: required(pr.headRefOid),
+        base: required(pr.baseRefOid),
+        updatedAt: required(pr.updatedAt),
+        requestedReviewerIds: requested.map((r) => r.id),
+      };
+      let truncated = false;
+      const page = (value: unknown) => {
+        const connection = object(value);
+        truncated ||= object(connection.pageInfo).hasNextPage === true;
+        return array(connection.nodes);
+      };
+      const comments = optional('Comments', () => page(pr.comments).map(graphComment), []);
+      const reviews = optional('Reviews', () => page(pr.reviews).map(object), []);
+      const reviewThreads = optional('Inline conversations', () => parseThreads(pr.reviewThreads), {
+        threads: [],
+        truncated: false,
+      });
+      truncated ||= reviewThreads.truncated;
+      const checks = optional(
+        'Checks',
+        () => {
+          const commit = object(object(array(object(pr.commits).nodes)[0]).commit);
+          if (commit.oid !== result.head) throw new Error('Checks belong to another commit.');
+          if (commit.statusCheckRollup == null) return [];
+          return page(object(commit.statusCheckRollup).contexts).map((value) => {
+            const v = object(value);
+            return v.__typename === 'CheckRun'
+              ? {
+                  name: required(v.name),
+                  state: (str(v.conclusion) || required(v.status)).toLowerCase(),
+                  url: str(v.permalink),
+                }
+              : { name: required(v.context), state: required(v.state).toLowerCase(), url: str(v.targetUrl) };
+          });
+        },
+        [],
+      );
+      if (truncated) warnings.add('Some activity may be omitted. Open on GitHub for the full history.');
       const reviewers = new Map<string, PullRequestDetail['reviewers'][number]>();
-      for (const value of reviews) {
-        const review = object(value);
+      for (const review of reviews) {
         if (review.state === 'PENDING') continue;
-        const user = actor(review.user);
+        const user = graphActor(review.author);
         reviewers.set(user.id, { ...user, vote: required(review.state) });
-        if (str(review.body)) comments.push(comment({ ...review, created_at: review.submitted_at }));
+        if (str(review.body))
+          comments.push(graphComment({ ...review, createdAt: review.submittedAt }));
       }
-      for (const value of array(pr.requested_reviewers)) {
-        const user = actor(value);
-        reviewers.set(user.id, { ...user, vote: 'Review requested' });
-      }
+      for (const user of requested) reviewers.set(user.id, { ...user, vote: 'Review requested' });
       comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       return {
         ...result,
-        autoMerge: pr.auto_merge != null,
+        autoMerge: pr.autoMergeRequest != null,
         reviewers: [...reviewers.values()],
         comments,
         threads: reviewThreads.threads,
-        warnings,
-        checks: [
-          ...checks.map((value) => {
-            const v = object(value);
-            return {
-              name: required(v.name),
-              state: str(v.conclusion) || required(v.status),
-              url: str(v.html_url),
-            };
-          }),
-          ...statuses.map((value) => {
-            const v = object(value);
-            return { name: required(v.context), state: required(v.state), url: str(v.target_url) };
-          }),
-        ],
+        warnings: [...warnings],
+        checks,
         mergeability:
-          pr.mergeable === true ? 'mergeable' : pr.mergeable === false ? 'conflicting' : 'unknown',
+          pr.mergeable === 'MERGEABLE' ? 'mergeable' : pr.mergeable === 'CONFLICTING' ? 'conflicting' : 'unknown',
         mergeMethods: [
-          ...(repository.allow_merge_commit === true ? ['merge' as const] : []),
-          ...(repository.allow_squash_merge === true ? ['squash' as const] : []),
-          ...(repository.allow_rebase_merge === true ? ['rebase' as const] : []),
+          ...(repository.mergeCommitAllowed === true ? ['merge' as const] : []),
+          ...(repository.squashMergeAllowed === true ? ['squash' as const] : []),
+          ...(repository.rebaseMergeAllowed === true ? ['rebase' as const] : []),
         ],
       };
     },
     async files(number, head, page) {
-      await checked(number, head);
       const values = array(await api(`${base}/pulls/${number}/files?per_page=${PAGE}&page=${page}`));
+      // Checking after the read is enough: a push before or during it changes the head.
       await checked(number, head);
       return {
         files: values.map(file),
@@ -241,25 +308,13 @@ export function createGitHubPullRequests(
       };
     },
     async patch(number, head, path) {
-      await checked(number, head);
       // GitHub only exposes patches through the paginated changed-file list.
       for (let page = 1; page <= 30; page++) {
         const values = array(await api(`${base}/pulls/${number}/files?per_page=100&page=${page}`));
         const found = values.map(object).find((v) => v.filename === path);
         if (found) {
           await checked(number, head);
-          if (!str(found.patch))
-            return {
-              patch: '',
-              unavailable:
-                'GitHub did not provide a text patch for this file. It may be binary, unchanged after rename, or too large.',
-            };
-          const oldPath = str(found.previous_filename) || path;
-          const old = found.status === 'added' ? '/dev/null' : JSON.stringify(`a/${oldPath}`);
-          const next = found.status === 'removed' ? '/dev/null' : JSON.stringify(`b/${path}`);
-          return {
-            patch: `diff --git ${JSON.stringify(`a/${oldPath}`)} ${JSON.stringify(`b/${path}`)}\n--- ${old}\n+++ ${next}\n${str(found.patch)}\n`,
-          };
+          return filePatch(found, path);
         }
         if (values.length < 100) break;
       }

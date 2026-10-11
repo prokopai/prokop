@@ -1,12 +1,13 @@
 import { lazy, Suspense, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
 import { ExternalLink, Pencil, UserPlus, X } from 'lucide-react';
 import type {
   PullRequestAction,
   PullRequestDetail,
   PullRequestMergeMethod,
+  PullRequestSummary,
   PullRequestThread,
   PullRequestVote,
 } from '@prokopai/sdk';
@@ -22,8 +23,10 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import { cn } from '@/lib/utils';
 import {
+  detailQuery,
   displayPath,
   draftKey,
+  filesQuery,
   prKey,
   PrError,
   PrSelect,
@@ -43,19 +46,16 @@ export function PullRequestDetailView({
   ctx,
   number,
   visible,
+  summary,
 }: {
   ctx: PullRequestContext;
   number: number;
   visible: boolean;
+  /** The list row, shown while the full PR loads. */
+  summary?: PullRequestSummary;
 }) {
   const cache = useQueryClient();
-  const detail = useQuery({
-    queryKey: [...prKey(ctx), 'detail', number],
-    queryFn: () => ctx.client.http.pullRequests.detail(ctx.workspaceId, ctx.scope, number),
-    enabled: visible,
-    retry: false,
-    staleTime: 30_000,
-  });
+  const detail = useQuery({ ...detailQuery(ctx, number), enabled: visible });
   const mutationKey = [...prKey(ctx), 'action', number];
   const records = useMutationState({
     filters: { mutationKey, exact: true },
@@ -78,54 +78,59 @@ export function PullRequestDetailView({
     },
   });
   const [tab, setTab] = useState('overview');
+  const loadedHead = detail.data?.accountId === ctx.accountId ? detail.data.head : undefined;
+  // Reviews almost always continue to the changed files; load them alongside the PR.
+  useInfiniteQuery({ ...filesQuery(ctx, number, loadedHead ?? ''), enabled: visible && !!loadedHead });
   const act: ActOnPullRequest = async (action) => {
     if (pending) throw new Error('An operation is already in progress.');
     await mutation.mutateAsync(action);
   };
-  if (detail.isPending)
-    return (
+  if (detail.data && detail.data.accountId !== ctx.accountId)
+    return <PrError error="The CLI account changed. Rescan connections before continuing." />;
+  const pr = detail.error ? undefined : detail.data;
+  const shown = pr ?? summary;
+  const failure = !pr && !detail.isPending && (
+    <div className="flex flex-col items-start gap-2 p-4">
+      <PrError error={detail.error} />
+      <Button variant="outline" onClick={() => void detail.refetch()}>
+        Retry
+      </Button>
+    </div>
+  );
+  if (!shown)
+    return detail.isPending ? (
       <div className="flex flex-col gap-3 p-4">
         <Skeleton className="h-6 w-2/3" />
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-32" />
       </div>
+    ) : (
+      failure
     );
-  if (!detail.data || detail.error)
-    return (
-      <div className="flex flex-col items-start gap-2 p-4">
-        <PrError error={detail.error} />
-        <Button variant="outline" onClick={() => void detail.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  const pr = detail.data;
-  if (pr.accountId !== ctx.accountId)
-    return <PrError error="The CLI account changed. Rescan connections before continuing." />;
-  const conversations = pr.comments.length + pr.threads.length;
+  const conversations = pr ? pr.comments.length + pr.threads.length : 0;
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
       <header className="flex shrink-0 flex-col gap-2 border-b px-4 pt-3">
         <div className="flex items-start gap-3">
           <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug">
-            {pr.title} <span className="font-normal text-muted-foreground">#{number}</span>
+            {shown.title} <span className="font-normal text-muted-foreground">#{number}</span>
           </h2>
           <Button variant="ghost" size="sm" asChild>
-            <a href={safePrUrl(pr.url)} target="_blank" rel="noopener noreferrer">
+            <a href={safePrUrl(shown.url)} target="_blank" rel="noopener noreferrer">
               Open on {ctx.provider === 'github' ? 'GitHub' : 'Azure'}
               <ExternalLink />
             </a>
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <PrStateBadge pr={pr} />
+          <PrStateBadge pr={shown} />
           <span>
-            {pr.author.name}
-            {pr.updatedAt && ` · updated ${relativeTime(pr.updatedAt)}`}
+            {shown.author.name}
+            {shown.updatedAt && ` · updated ${relativeTime(shown.updatedAt)}`}
           </span>
           <span className="flex min-w-0 items-center gap-1 font-mono">
-            <code className="truncate rounded bg-muted px-1.5 py-0.5">{pr.sourceBranch}</code>→
-            <code className="truncate rounded bg-muted px-1.5 py-0.5">{pr.targetBranch}</code>
+            <code className="truncate rounded bg-muted px-1.5 py-0.5">{shown.sourceBranch}</code>→
+            <code className="truncate rounded bg-muted px-1.5 py-0.5">{shown.targetBranch}</code>
           </span>
         </div>
         <TabsList variant="line" className="-mb-px">
@@ -141,44 +146,53 @@ export function PullRequestDetailView({
           </TabsTrigger>
         </TabsList>
       </header>
-      <div className="@container min-h-0 flex-1 overflow-auto p-4">
-        <div className="mb-3 flex flex-col gap-2 empty:hidden">
-          <PrError error={records.at(-1)?.error} />
-          {records.at(-1)?.status === 'success' && (
-            <p role="status" className="text-xs text-muted-foreground">
-              Action accepted. Remote merges and checks may still be processing.
-            </p>
-          )}
-          {pr.warnings.map((w) => (
-            <p key={w} role="status" className="text-sm text-warning">
-              {w}
-            </p>
-          ))}
+      {!pr ? (
+        (failure || (
+          <div className="flex flex-col gap-3 p-4" aria-busy="true">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-20" />
+          </div>
+        ))
+      ) : (
+        <div className="@container min-h-0 flex-1 overflow-auto p-4">
+          <div className="mb-3 flex flex-col gap-2 empty:hidden">
+            <PrError error={records.at(-1)?.error} />
+            {records.at(-1)?.status === 'success' && (
+              <p role="status" className="text-xs text-muted-foreground">
+                Action accepted. Remote merges and checks may still be processing.
+              </p>
+            )}
+            {pr.warnings.map((w) => (
+              <p key={w} role="status" className="text-sm text-warning">
+                {w}
+              </p>
+            ))}
+          </div>
+          <TabsContent value="overview">
+            <Overview key={`${pr.head}:${pr.targetBranch}`} ctx={ctx} pr={pr} act={act} busy={pending} />
+          </TabsContent>
+          <TabsContent value="activity" className="flex flex-col gap-3">
+            {pr.comments.map((c) => (
+              <article key={`${c.id}:${c.createdAt}`} className="rounded-md border p-3">
+                <CommentMeta name={c.author.name} createdAt={c.createdAt} />
+                <Markdown body={c.body} />
+              </article>
+            ))}
+            {pr.threads.map((t) => (
+              <Thread key={t.id} ctx={ctx} pr={pr} thread={t} act={act} busy={pending} />
+            ))}
+            {!conversations && <p className="text-sm text-muted-foreground">No conversation yet.</p>}
+            <ReviewForm ctx={ctx} pr={pr} act={act} busy={pending} />
+          </TabsContent>
+          <TabsContent value="files">
+            {tab === 'files' && (
+              <Suspense fallback={<Skeleton className="h-32" />}>
+                <PullRequestFilesView ctx={ctx} pr={pr} act={act} busy={pending} />
+              </Suspense>
+            )}
+          </TabsContent>
         </div>
-        <TabsContent value="overview">
-          <Overview key={`${pr.head}:${pr.targetBranch}`} ctx={ctx} pr={pr} act={act} busy={pending} />
-        </TabsContent>
-        <TabsContent value="activity" className="flex flex-col gap-3">
-          {pr.comments.map((c) => (
-            <article key={`${c.id}:${c.createdAt}`} className="rounded-md border p-3">
-              <CommentMeta name={c.author.name} createdAt={c.createdAt} />
-              <Markdown body={c.body} />
-            </article>
-          ))}
-          {pr.threads.map((t) => (
-            <Thread key={t.id} ctx={ctx} pr={pr} thread={t} act={act} busy={pending} />
-          ))}
-          {!conversations && <p className="text-sm text-muted-foreground">No conversation yet.</p>}
-          <ReviewForm ctx={ctx} pr={pr} act={act} busy={pending} />
-        </TabsContent>
-        <TabsContent value="files">
-          {tab === 'files' && (
-            <Suspense fallback={<Skeleton className="h-32" />}>
-              <PullRequestFilesView ctx={ctx} pr={pr} act={act} busy={pending} />
-            </Suspense>
-          )}
-        </TabsContent>
-      </div>
+      )}
     </Tabs>
   );
 }

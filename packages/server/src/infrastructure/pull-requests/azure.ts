@@ -265,7 +265,7 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
       };
     },
     async files(number, head, page) {
-      await checked(number, head);
+      // Checking after the reads is enough: a push before or during them changes the head.
       const latest = await iteration(number);
       const id = integer(latest.id);
       const result = await changes(number, id, (page - 1) * PAGE);
@@ -278,7 +278,6 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
       };
     },
     async patch(number, head, path) {
-      await checked(number, head);
       const latest = await iteration(number);
       let found: PullRequestFile | undefined;
       for (let skip = 0; skip < 3000; ) {
