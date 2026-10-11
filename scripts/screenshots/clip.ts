@@ -4,10 +4,10 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CDPSession, Page } from 'playwright-core';
+import type { CDPSession, Locator, Page } from 'playwright-core';
 import type { ClientContext, Theme } from './scene';
 import type { Demo, Step } from './script';
-import { createStorySession, type ClipWorld, type Story, type StoryName } from './world';
+import { createStorySession, type ClipWorld, type ClipWorldOptions, type Story, type StoryName } from './world';
 
 export interface ClipContext extends ClientContext {
   demo: Demo;
@@ -23,6 +23,7 @@ export interface Clip {
   name: string;
   /** Stories the clip plays live; the world leaves them out. */
   live: StoryName[];
+  world?: ClipWorldOptions;
   /** Opens the page, records the story into `framesDir`, and resolves once it ended. */
   record(ctx: ClipContext, theme: Theme, framesDir: string): Promise<Recording>;
 }
@@ -101,6 +102,56 @@ export async function sendPrompt(page: Page, prompt: string, pane = 0, { tapSend
   // which turns into Stop and would show its tooltip for the whole turn.
   if (tapSend) await page.getByRole('button', { name: 'Send message' }).filter({ visible: true }).nth(pane).tap();
   else await composer.press('Enter');
+}
+
+/**
+ * Tutorials show where clicks happen. The screencast never includes the
+ * system cursor, so draw one that follows real mouse events, with a ring on
+ * each press. Call after the page loaded; it survives client-side navigation.
+ */
+export async function showCursor(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    if (document.getElementById('clip-cursor')) return;
+    const cursor = document.createElement('div');
+    cursor.id = 'clip-cursor';
+    cursor.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 2l16 9.5-7 1.6 4.2 7.4-2.9 1.6-4.2-7.4L5 20z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+    Object.assign(cursor.style, { position: 'fixed', left: '0', top: '0', zIndex: '2147483647', pointerEvents: 'none', transform: 'translate(-100px, -100px)' });
+    document.documentElement.appendChild(cursor);
+    const ring = (x: number, y: number) => {
+      const element = document.createElement('div');
+      Object.assign(element.style, {
+        position: 'fixed', left: `${x - 14}px`, top: `${y - 14}px`, width: '28px', height: '28px', borderRadius: '50%',
+        border: '2px solid rgba(99, 102, 241, 0.9)', background: 'rgba(99, 102, 241, 0.18)', zIndex: '2147483646',
+        pointerEvents: 'none', transition: 'transform 0.4s ease-out, opacity 0.4s ease-out',
+      });
+      document.documentElement.appendChild(element);
+      requestAnimationFrame(() => Object.assign(element.style, { transform: 'scale(1.8)', opacity: '0' }));
+      setTimeout(() => element.remove(), 450);
+    };
+    document.addEventListener('mousemove', (event) => {
+      cursor.style.transform = `translate(${event.clientX - 4}px, ${event.clientY - 2}px)`;
+    }, true);
+    document.addEventListener('mousedown', (event) => ring(event.clientX, event.clientY), true);
+  });
+}
+
+/** Moves the mouse to the element's center at a speed a viewer can follow. */
+export async function pointAt(page: Page, target: Locator): Promise<{ x: number; y: number }> {
+  await target.waitFor();
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  if (!box) throw new Error('Target has no position on screen');
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(point.x, point.y, { steps: 24 });
+  await page.waitForTimeout(250);
+  return point;
+}
+
+/** Points at the element, then clicks it with the real mouse, so the cursor shows the click. */
+export async function clickOn(page: Page, target: Locator, { button = 'left' }: { button?: 'left' | 'right' } = {}): Promise<void> {
+  const point = await pointAt(page, target);
+  await page.mouse.click(point.x, point.y, { button });
+  await page.waitForTimeout(400);
 }
 
 async function ffmpeg(args: string[]): Promise<void> {

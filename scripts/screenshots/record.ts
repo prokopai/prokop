@@ -18,6 +18,11 @@ import { chromium } from 'playwright-core';
 import { encode, type Clip, type ClipContext } from './clip';
 import { commandApprovalClip } from './clips/command-approval';
 import { gitWorkbenchClip } from './clips/git-workbench';
+import { guideAddProject } from './clips/guide-add-project';
+import { guideAgentLearning } from './clips/guide-agent-learning';
+import { guideConnectProvider } from './clips/guide-connect-provider';
+import { guideMultipleSessions } from './clips/guide-multiple-sessions';
+import { guideOverview } from './clips/guide-overview';
 import { memoryClip } from './clips/memory';
 import { mobileClip } from './clips/mobile';
 import { multiSessionClip } from './clips/multi-session';
@@ -26,7 +31,7 @@ import { lastPage, THEMES, themeName } from './scene';
 import { Demo } from './script';
 import { buildClipWorld } from './world';
 
-const CLIPS: Clip[] = [memoryClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip];
+const CLIPS: Clip[] = [memoryClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider];
 
 const { values } = parseArgs({
   options: {
@@ -82,7 +87,7 @@ try {
         instance = await startInstance(Number(values.port), values.home);
         const demo = new Demo(instance.url);
         await demo.connect();
-        const world = await buildClipWorld(demo, instance.home, clip.live);
+        const world = await buildClipWorld(demo, instance.home, clip.live, clip.world);
         // Clips send their turns from the recorded client, which must hold session control.
         await demo.disconnect();
         process.stdout.write('recording ... ');
