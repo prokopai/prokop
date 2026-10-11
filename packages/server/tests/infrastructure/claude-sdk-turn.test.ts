@@ -228,6 +228,32 @@ test('SDK hook gates even native auto-approved tools and preserves tool lifecycl
   ]);
 });
 
+test('SDK hook returns AskUserQuestion answers as updatedInput and replays them once', async () => {
+  const asked = { questions: [{ question: 'Which?', header: 'Pick', multiSelect: false,
+    options: [{ label: 'a', description: '' }, { label: 'b', description: '' }] }] };
+  const answered = { ...asked, answers: { 'Which?': 'b' } };
+  let calls = 0;
+  for await (const _item of runClaudeTurn({ ...base,
+    canUseTool: async () => { calls++; return { behavior: 'allow', updatedInput: answered }; },
+    start: (_prompt, config) => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        const decision = await config.hooks!.PreToolUse![0]!.hooks[0]!({ hook_event_name: 'PreToolUse',
+          tool_name: 'AskUserQuestion', tool_input: asked, tool_use_id: 'ask-1' } as never, 'ask-1',
+        { signal: base.controller.signal });
+        expect(decision).toMatchObject({ hookSpecificOutput: { permissionDecision: 'allow', updatedInput: answered } });
+        // The CLI may follow up with either input form; the user is not asked twice.
+        expect(await config.canUseTool!('AskUserQuestion', answered, {
+          signal: base.controller.signal, toolUseID: 'ask-1', requestId: crypto.randomUUID(),
+        })).toEqual({ behavior: 'allow', updatedInput: answered });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done' });
+      }
+      return stream();
+    },
+  })) { /* Consume the fake turn. */ }
+  expect(calls).toBe(1);
+});
+
 test('default Agent and future tools keep parent tool rows while child events stay out of parent text', async () => {
   const approved: string[] = [];
   const collected = [];

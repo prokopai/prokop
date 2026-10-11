@@ -288,3 +288,57 @@ test('a waiting ask pushes a permission notification, except in learning review 
     installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
   }
 });
+
+const question = (multiSelect = false) => ({ questions: [{ question: 'Which library?', header: 'Library',
+  multiSelect, options: [{ label: 'date-fns', description: 'Small' }, { label: 'luxon', description: 'Zones' }] }] });
+
+test('AskUserQuestion becomes a form question answered through updatedInput', async () => {
+  updateSession('session', { permissionMode: 'full' });
+  const approvals = new ClaudeApprovals(() => 2000);
+  const { requests, delivery } = fixture();
+  const signal = new AbortController().signal;
+  const use = approvals.request('session', 'ws', root, delivery, signal);
+  const single = use('AskUserQuestion', question(), options(signal));
+  const ask = requests[0] as { ask: unknown; toolCallId: string; requestId: string };
+  // Questions ask even in full mode and are stored as questions, not approvals.
+  expect(ask.ask).toEqual({ target: 'human', type: 'form', question: 'Library', questions: [{
+    type: 'single_select', question: 'Which library?', options: [
+      { label: 'date-fns', value: 'date-fns', description: 'Small' },
+      { label: 'luxon', value: 'luxon', description: 'Zones' }] }] });
+  expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ isPermission: false, status: 'pending' });
+  expect(await approvals.resolve(ask.toolCallId, { type: 'form',
+    answers: [{ question: 'Which library?', answer: 'luxon' }] }, ask.requestId)).toBe(true);
+  expect(await single).toEqual({ behavior: 'allow',
+    updatedInput: { ...question(), answers: { 'Which library?': 'luxon' } } });
+  expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ status: 'approved' });
+
+  const multi = use('AskUserQuestion', question(true), options(signal));
+  const next = requests[1] as { ask: { questions: Array<{ type: string }> }; toolCallId: string; requestId: string };
+  expect(next.ask.questions[0]).toMatchObject({ type: 'multi_select', min: 1 });
+  expect(await approvals.resolve(next.toolCallId, { type: 'form',
+    answers: [{ question: 'Which library?', answer: ['date-fns', 'luxon'] }] }, next.requestId)).toBe(true);
+  expect(await multi).toMatchObject({ behavior: 'allow',
+    updatedInput: { answers: { 'Which library?': 'date-fns, luxon' } } });
+});
+
+test('AskUserQuestion fails closed on malformed input, invented answers and no controller', async () => {
+  const approvals = new ClaudeApprovals(() => 2000);
+  const { requests, delivery } = fixture();
+  const signal = new AbortController().signal;
+  const use = approvals.request('session', 'ws', root, delivery, signal);
+  for (const input of [{}, { questions: [] }, { questions: [{ question: 'Pick?', options: [] }] },
+    { questions: [{ question: 'Pick?', options: [{ label: 'a' }, { label: 'a' }] }] }]) {
+    expect(await use('AskUserQuestion', input, options(signal))).toMatchObject({ behavior: 'deny' });
+  }
+  expect(requests).toHaveLength(0);
+  const invented = use('AskUserQuestion', question(), options(signal));
+  const ask = requests[0]!;
+  expect(await approvals.resolve(ask.toolCallId, { type: 'form',
+    answers: [{ question: 'Which library?', answer: 'moment' }] }, ask.requestId)).toBe(true);
+  expect(await invented).toMatchObject({ behavior: 'deny', message: 'Claude question was not answered' });
+  expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ status: 'denied' });
+  removeSessionControl('session');
+  expect(await use('AskUserQuestion', question(), options(signal)))
+    .toMatchObject({ behavior: 'deny', message: 'Claude question requires a session controller' });
+  expect(requests).toHaveLength(1);
+});

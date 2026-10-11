@@ -90,7 +90,10 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   const { ANTHROPIC_API_KEY: _apiKey, ANTHROPIC_AUTH_TOKEN: _authToken,
     CLAUDE_CODE_USE_BEDROCK: _bedrock, CLAUDE_CODE_USE_VERTEX: _vertex,
     CLAUDE_CODE_USE_FOUNDRY: _foundry, ...env } = process.env;
-  const approvedToolIds = new Map<string, { name: string; input: string }>();
+  // An approval may rewrite the input (AskUserQuestion carries the answers);
+  // the follow-up canUseTool may see either form and must return the rewrite.
+  const approvedToolIds = new Map<string, { name: string; inputs: string[];
+    updatedInput?: Record<string, unknown> }>();
   let streamClosed = false;
   const options: Options = {
     pathToClaudeCodeExecutable: executable,
@@ -111,7 +114,9 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       if (streamClosed) return { behavior: 'deny', message: 'Claude stream has ended' };
       const approved = context.toolUseID ? approvedToolIds.get(context.toolUseID) : undefined;
       if (context.toolUseID) approvedToolIds.delete(context.toolUseID);
-      if (approved && approved.name === name && approved.input === JSON.stringify(value)) return { behavior: 'allow' };
+      if (approved && approved.name === name && approved.inputs.includes(JSON.stringify(value))) {
+        return { behavior: 'allow', ...(approved.updatedInput ? { updatedInput: approved.updatedInput } : {}) };
+      }
       return input.canUseTool(name, value, context);
     },
     // The native permission engine may auto-allow reads. Gate every invocation before it reaches that engine.
@@ -124,11 +129,17 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       });
       if (streamClosed) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Claude stream has ended' } };
+      const updatedInput = decision?.behavior === 'allow' ? decision.updatedInput : undefined;
       if (decision?.behavior === 'allow' && event.tool_use_id) {
-        approvedToolIds.set(event.tool_use_id, { name: event.tool_name, input: JSON.stringify(event.tool_input) });
+        approvedToolIds.set(event.tool_use_id, { name: event.tool_name,
+          inputs: [JSON.stringify(event.tool_input), ...(updatedInput ? [JSON.stringify(updatedInput)] : [])],
+          ...(updatedInput ? { updatedInput } : {}) });
       }
+      // A hook allow satisfies an interactive tool only when it carries the
+      // interaction's result (AskUserQuestion answers) as updatedInput.
       return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: decision?.behavior === 'allow' ? 'allow' as const : 'deny' as const,
+        ...(updatedInput ? { updatedInput } : {}),
         ...(decision?.behavior === 'deny' ? { permissionDecisionReason: decision.message } : {}),
       } };
     }] }] },
