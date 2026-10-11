@@ -110,6 +110,22 @@ export const pullRequestActionSchema = z.discriminatedUnion('action', [
       resolved: z.boolean(),
     })
     .strict(),
+  z
+    .object({
+      ...guard,
+      action: z.literal('check'),
+      operation: z.enum(['queue', 'rerun', 'approve-run', 'approve-deployment', 'reject-deployment']),
+      target: z
+        .string()
+        .regex(/^[A-Za-z0-9-]+$/)
+        .max(100),
+      environmentIds: z.array(z.number().int().positive()).min(1).max(50).optional(),
+    })
+    .strict()
+    .refine(
+      (v) => v.operation.endsWith('-deployment') === (v.environmentIds !== undefined),
+      'Choose the environments to review',
+    ),
 ]);
 const sourceBranch = z.union([
   branch,

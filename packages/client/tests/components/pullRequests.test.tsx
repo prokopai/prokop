@@ -220,6 +220,67 @@ test('a file whose patch came with the file list opens without another request',
   expect(await screen.findByText('GitHub did not provide a text patch for this file.')).toBeInTheDocument();
   expect(patch).not.toHaveBeenCalled();
 });
+test('a blocking pipeline is queued with one click, against the reviewed commit', async () => {
+  const target = '11111111-2222-3333-4444-555555555555';
+  detail.mockResolvedValue({
+    ...pr,
+    checks: [{ name: 'CI', state: 'queued', action: { kind: 'queue', target } }],
+  });
+  show({ ...ctx, provider: 'azure' });
+  fireEvent.click(await screen.findByRole('button', { name: 'Queue: CI' }));
+  await waitFor(() =>
+    expect(action).toHaveBeenCalledWith('ws', ctx.scope, 7, {
+      action: 'check',
+      operation: 'queue',
+      target,
+      expectedHead: head,
+      accountId: 'reviewer',
+    }),
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+test('running a contributor workflow and deploying ask first', async () => {
+  detail.mockResolvedValue({
+    ...pr,
+    checks: [
+      { name: 'CI', state: 'action_required', action: { kind: 'approve-run', target: '40' } },
+      {
+        name: 'deploy',
+        state: 'waiting',
+        action: { kind: 'review-deployment', target: '43', environments: [{ id: 5, name: 'staging' }] },
+      },
+    ],
+  });
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve and run: CI' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Approve only if you trust this code.');
+  expect(action).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Approve and run' }));
+  await waitFor(() =>
+    expect(action).toHaveBeenCalledWith('ws', ctx.scope, 7, expect.objectContaining({ operation: 'approve-run', target: '40' })),
+  );
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'Reject: deploy' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reject deployment' }));
+  await waitFor(() =>
+    expect(action).toHaveBeenLastCalledWith(
+      'ws',
+      ctx.scope,
+      7,
+      expect.objectContaining({ operation: 'reject-deployment', target: '43', environmentIds: [5] }),
+    ),
+  );
+});
+test('closed pull requests offer no pipeline actions', async () => {
+  detail.mockResolvedValue({
+    ...pr,
+    state: 'closed',
+    checks: [{ name: 'test', state: 'failure', action: { kind: 'rerun', target: '55' } }],
+  });
+  show();
+  expect(await screen.findByText('test')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Re-run: test' })).not.toBeInTheDocument();
+});
 test('creation uses a published source and explicit target without calling Git push', async () => {
   const onCreated = vi.fn();
   render(

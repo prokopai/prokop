@@ -6,6 +6,7 @@ import type {
   PullRequestDetail,
   PullRequestFile,
   PullRequestPatch,
+  PullRequestCheck,
 } from '@prokopai/sdk/types';
 import type { PullRequestProviderPort } from '@/application/ports/pull-requests';
 import { BadRequestError, ConflictError } from '@/application/http-errors';
@@ -80,8 +81,40 @@ function parseThreads(value: unknown): { threads: PullRequestThread[]; truncated
   });
   return { threads, truncated };
 }
+/**
+ * Check runs carry what Prokop can start for them: Actions jobs know their workflow run, and a
+ * job waiting on a protected environment names it. Workflows waiting for approval (forks,
+ * first-time contributors) have no jobs yet, only a check suite.
+ */
+const CHECKS = `statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ...on CheckRun{databaseId name status conclusion permalink checkSuite{workflowRun{databaseId}} pendingDeploymentRequest{currentUserCanApprove environment{databaseId name}}} ...on StatusContext{context state targetUrl}}}} checkSuites(first:50){nodes{conclusion workflowRun{databaseId url workflow{name}}}}`;
+const RERUNNABLE = ['FAILURE', 'CANCELLED', 'TIMED_OUT', 'STARTUP_FAILURE'];
+function checkRun(v: Record<string, unknown>): PullRequestCheck {
+  const check: PullRequestCheck = {
+    name: required(v.name),
+    state: (str(v.conclusion) || required(v.status)).toLowerCase(),
+    url: str(v.permalink),
+  };
+  const run = object(v.checkSuite ?? {}).workflowRun;
+  if (run == null) return check;
+  const runId = String(integer(object(run).databaseId));
+  const request = v.pendingDeploymentRequest == null ? null : object(v.pendingDeploymentRequest);
+  if (v.status === 'WAITING' && request?.currentUserCanApprove === true) {
+    const environment = object(request.environment);
+    return {
+      ...check,
+      action: {
+        kind: 'review-deployment',
+        target: runId,
+        environments: [{ id: integer(environment.databaseId), name: required(environment.name) }],
+      },
+    };
+  }
+  if (v.status === 'COMPLETED' && RERUNNABLE.includes(str(v.conclusion)))
+    return { ...check, action: { kind: 'rerun', target: String(integer(v.databaseId)) } };
+  return check;
+}
 /** Everything the detail view shows, in one request instead of one per section. */
-const DETAIL = `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed pullRequest(number:$number){number title body url state isDraft headRefName baseRefName headRefOid baseRefOid updatedAt mergeable author{${ACTOR}} autoMergeRequest{enabledAt} reviewRequests(first:100){nodes{requestedReviewer{__typename ...on User{login databaseId}}}} comments(first:100){pageInfo{hasNextPage} nodes{databaseId body createdAt author{${ACTOR}}}} reviews(first:100){pageInfo{hasNextPage} nodes{databaseId state body submittedAt author{${ACTOR}}}} ${THREADS} commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ...on CheckRun{name status conclusion permalink} ...on StatusContext{context state targetUrl}}}}}}}}}}`;
+const DETAIL = `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed pullRequest(number:$number){number title body url state isDraft headRefName baseRefName headRefOid baseRefOid updatedAt mergeable author{${ACTOR}} autoMergeRequest{enabledAt} reviewRequests(first:100){nodes{requestedReviewer{__typename ...on User{login databaseId}}}} comments(first:100){pageInfo{hasNextPage} nodes{databaseId body createdAt author{${ACTOR}}}} reviews(first:100){pageInfo{hasNextPage} nodes{databaseId state body submittedAt author{${ACTOR}}}} ${THREADS} commits(last:1){nodes{commit{oid ${CHECKS}}}}}}}`;
 const SECTIONS: Record<string, string> = {
   comments: 'Comments',
   reviews: 'Reviews',
@@ -254,17 +287,28 @@ export function createGitHubPullRequests(api: GitHubApi, repo: PullRequestReposi
         () => {
           const commit = object(object(array(object(pr.commits).nodes)[0]).commit);
           if (commit.oid !== result.head) throw new Error('Checks belong to another commit.');
-          if (commit.statusCheckRollup == null) return [];
-          return page(object(commit.statusCheckRollup).contexts).map((value) => {
-            const v = object(value);
-            return v.__typename === 'CheckRun'
-              ? {
-                  name: required(v.name),
-                  state: (str(v.conclusion) || required(v.status)).toLowerCase(),
-                  url: str(v.permalink),
-                }
-              : { name: required(v.context), state: required(v.state).toLowerCase(), url: str(v.targetUrl) };
-          });
+          const waiting = array(object(commit.checkSuites ?? { nodes: [] }).nodes)
+            .map(object)
+            .filter((suite) => suite.conclusion === 'ACTION_REQUIRED' && suite.workflowRun != null)
+            .map((suite): PullRequestCheck => {
+              const run = object(suite.workflowRun);
+              return {
+                name: required(object(run.workflow).name),
+                state: 'action_required',
+                url: str(run.url),
+                action: { kind: 'approve-run', target: String(integer(run.databaseId)) },
+              };
+            });
+          if (commit.statusCheckRollup == null) return waiting;
+          return [
+            ...waiting,
+            ...page(object(commit.statusCheckRollup).contexts).map((value): PullRequestCheck => {
+              const v = object(value);
+              return v.__typename === 'CheckRun'
+                ? checkRun(v)
+                : { name: required(v.context), state: required(v.state).toLowerCase(), url: str(v.targetUrl) };
+            }),
+          ];
         },
         [],
       );
@@ -422,6 +466,41 @@ export function createGitHubPullRequests(api: GitHubApi, repo: PullRequestReposi
               id: thread.id,
             });
           }
+          break;
+        }
+        case 'check': {
+          if (input.operation === 'queue') throw new BadRequestError('GitHub does not support this check action.');
+          if (!/^\d+$/.test(input.target)) throw new BadRequestError('This check is not part of this pull request.');
+          // Jobs and runs must belong to the reviewed commit, not just to the repository.
+          const current = (value: unknown) => {
+            if (required(object(value).head_sha) !== input.expectedHead)
+              throw new ConflictError('This check belongs to another commit. Refresh before continuing.');
+          };
+          if (input.operation === 'rerun') {
+            current(await api(`${target}/actions/jobs/${input.target}`));
+            await api(`${target}/actions/jobs/${input.target}/rerun`, 'POST');
+            break;
+          }
+          const run = `${target}/actions/runs/${input.target}`;
+          current(await api(run));
+          if (input.operation === 'approve-run') {
+            await api(`${run}/approve`, 'POST');
+            break;
+          }
+          const allowed = new Set(
+            array(await api(`${run}/pending_deployments`))
+              .map(object)
+              .filter((pending) => pending.current_user_can_approve === true)
+              .map((pending) => integer(object(pending.environment).id)),
+          );
+          const environments = input.environmentIds ?? [];
+          if (!environments.length || environments.some((id) => !allowed.has(id)))
+            throw new ConflictError('This deployment is no longer waiting for your review. Refresh before continuing.');
+          await api(`${run}/pending_deployments`, 'POST', {
+            environment_ids: environments,
+            state: input.operation === 'approve-deployment' ? 'approved' : 'rejected',
+            comment: '',
+          });
           break;
         }
       }

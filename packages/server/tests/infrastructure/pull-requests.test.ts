@@ -395,6 +395,130 @@ describe('GitHub adapter', () => {
     });
     expect(result.files[1].diff).toMatchObject({ patch: '', unavailable: expect.stringContaining('binary') });
   });
+  test('checks offer only what the viewer can start: failed Actions jobs, approvals and deployments', async () => {
+    const run = (id: number) => ({ workflowRun: { databaseId: id } });
+    const commits = {
+      nodes: [
+        {
+          commit: {
+            oid: head,
+            checkSuites: {
+              nodes: [
+                {
+                  conclusion: 'ACTION_REQUIRED',
+                  workflowRun: { databaseId: 40, url: 'https://github.com/acme/project/actions/runs/40', workflow: { name: 'CI' } },
+                },
+                { conclusion: 'SUCCESS', workflowRun: { databaseId: 41, url: '', workflow: { name: 'Lint' } } },
+              ],
+            },
+            statusCheckRollup: {
+              contexts: {
+                pageInfo: { hasNextPage: false },
+                nodes: [
+                  { __typename: 'CheckRun', databaseId: 55, name: 'test', status: 'COMPLETED', conclusion: 'FAILURE', permalink: '', checkSuite: run(42) },
+                  { __typename: 'CheckRun', databaseId: 56, name: 'lint', status: 'COMPLETED', conclusion: 'SUCCESS', permalink: '', checkSuite: run(41) },
+                  {
+                    __typename: 'CheckRun',
+                    databaseId: 57,
+                    name: 'deploy',
+                    status: 'WAITING',
+                    conclusion: null,
+                    permalink: '',
+                    checkSuite: run(43),
+                    pendingDeploymentRequest: { currentUserCanApprove: true, environment: { databaseId: 5, name: 'staging' } },
+                  },
+                  {
+                    __typename: 'CheckRun',
+                    databaseId: 58,
+                    name: 'deploy prod',
+                    status: 'WAITING',
+                    conclusion: null,
+                    permalink: '',
+                    checkSuite: run(43),
+                    pendingDeploymentRequest: { currentUserCanApprove: false, environment: { databaseId: 6, name: 'production' } },
+                  },
+                  // Another app's check run cannot be re-run through Actions.
+                  { __typename: 'CheckRun', databaseId: 59, name: 'external', status: 'COMPLETED', conclusion: 'FAILURE', permalink: '', checkSuite: { workflowRun: null } },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    };
+    const { provider } = githubHarness(() => graphDetail({ ...graphPr, commits }));
+    expect((await provider.detail(7)).checks.map((c) => [c.name, c.state, c.action])).toEqual([
+      ['CI', 'action_required', { kind: 'approve-run', target: '40' }],
+      ['test', 'failure', { kind: 'rerun', target: '55' }],
+      ['lint', 'success', undefined],
+      ['deploy', 'waiting', { kind: 'review-deployment', target: '43', environments: [{ id: 5, name: 'staging' }] }],
+      ['deploy prod', 'waiting', undefined],
+      ['external', 'failure', undefined],
+    ]);
+  });
+  test('re-running a failed job checks its commit, then re-runs only that job', async () => {
+    const { provider, calls } = githubHarness((call) => (call.path.includes('/actions/') ? { head_sha: head } : ghPr));
+    await provider.action(7, { ...guard, action: 'check', operation: 'rerun', target: '55' });
+    expect(calls).toEqual([
+      { path: 'repos/acme/project/pulls/7', method: 'GET' },
+      { path: 'repos/acme/project/actions/jobs/55', method: 'GET' },
+      { path: 'repos/acme/project/actions/jobs/55/rerun', method: 'POST' },
+    ]);
+  });
+  test('a job or run from another commit is refused before any write', async () => {
+    const { provider, calls } = githubHarness((call) => (call.path.includes('/actions/') ? { head_sha: base } : ghPr));
+    await expect(
+      provider.action(7, { ...guard, action: 'check', operation: 'rerun', target: '55' }),
+    ).rejects.toThrow('another commit');
+    await expect(
+      provider.action(7, { ...guard, action: 'check', operation: 'approve-run', target: '40' }),
+    ).rejects.toThrow('another commit');
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
+  });
+  test('approving a waiting workflow approves that run', async () => {
+    const { provider, calls } = githubHarness((call) => (call.path.includes('/actions/') ? { head_sha: head } : ghPr));
+    await provider.action(7, { ...guard, action: 'check', operation: 'approve-run', target: '40' });
+    expect(calls.at(-1)).toEqual({ path: 'repos/acme/project/actions/runs/40/approve', method: 'POST' });
+  });
+  test('deployment reviews only cover environments still waiting for the viewer', async () => {
+    const pending = [
+      { environment: { id: 5, name: 'staging' }, current_user_can_approve: true },
+      { environment: { id: 6, name: 'production' }, current_user_can_approve: false },
+    ];
+    const answer = (call: GitHubCall) =>
+      call.path.endsWith('/pending_deployments') ? pending : call.path.includes('/actions/') ? { head_sha: head } : ghPr;
+    const { provider, calls } = githubHarness(answer);
+    await provider.action(7, {
+      ...guard,
+      action: 'check',
+      operation: 'reject-deployment',
+      target: '43',
+      environmentIds: [5],
+    });
+    expect(calls.at(-1)).toEqual({
+      path: 'repos/acme/project/actions/runs/43/pending_deployments',
+      method: 'POST',
+      body: { environment_ids: [5], state: 'rejected', comment: '' },
+    });
+    calls.length = 0;
+    await expect(
+      provider.action(7, {
+        ...guard,
+        action: 'check',
+        operation: 'approve-deployment',
+        target: '43',
+        environmentIds: [5, 6],
+      }),
+    ).rejects.toThrow('no longer waiting');
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
+  });
+  test('GitHub refuses Azure-only check actions', async () => {
+    const { provider, calls } = githubHarness();
+    await expect(
+      provider.action(7, { ...guard, action: 'check', operation: 'queue', target: '55' }),
+    ).rejects.toThrow('does not support');
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
+  });
   test('a push while listing files is a conflict', async () => {
     const { provider } = githubHarness((call) =>
       call.path.includes('/files') ? [] : { ...ghPr, head: { ...ghPr.head, sha: base } },
@@ -668,6 +792,70 @@ describe('Azure adapter', () => {
       { name: 'CI', state: 'queued', url: 'https://dev.azure.com/acme/Product/_build/results?buildId=42' },
       { name: 'Reviewers (optional)', state: 'approved' },
     ]);
+  });
+  test('build policies that block completion until queued offer Queue', async () => {
+    const build = { type: { id: '0609b952-1397-4640-95ec-e00a01b2c241', displayName: 'Build' }, isBlocking: true };
+    const policy = (name: string, status: string, context?: unknown, type = build) => ({
+      evaluationId: `00000000-0000-0000-0000-00000000000${name.length}`,
+      status,
+      configuration: { ...type, settings: { displayName: name } },
+      ...(context ? { context } : {}),
+    });
+    const { provider } = azureHarness((request) =>
+      request.path === 'policy/evaluations'
+        ? {
+            value: [
+              policy('manual', 'queued'),
+              policy('expire', 'approved', { buildId: 1, isExpired: true }),
+              policy('failed1', 'rejected', { buildId: 2 }),
+              policy('running1', 'queued', { buildId: 3 }),
+              policy('passing12', 'approved', { buildId: 4 }),
+              policy('reviewers', 'rejected', undefined, { type: { id: 'fd2167ab-b0be-447a-8ec8-39368250530e', displayName: 'Minimum reviewers' }, isBlocking: true }),
+            ],
+          }
+        : request.path.endsWith('/threads') || request.path.endsWith('/statuses')
+          ? { value: [] }
+          : undefined,
+    );
+    expect((await provider.detail(7)).checks.map((c) => [c.name, c.action?.kind])).toEqual([
+      ['manual', 'queue'],
+      ['expire', 'queue'],
+      ['failed1', 'queue'],
+      ['running1', undefined],
+      ['passing12', undefined],
+      ['reviewers', undefined],
+    ]);
+  });
+  test('queueing a build policy requeues its evaluation for this pull request only', async () => {
+    const id = '11111111-2222-3333-4444-555555555555';
+    const evaluation = (artifactId: string, status = 'queued') => ({
+      evaluationId: id,
+      artifactId,
+      status,
+      configuration: { type: { id: '0609b952-1397-4640-95ec-e00a01b2c241' } },
+    });
+    let record = evaluation('vstfs:///CodeReview/CodeReviewId/project-id/7');
+    const { provider, writes } = azureHarness((request) => (request.path === `policy/evaluations/${id}` ? record : undefined));
+    await provider.action(7, { ...guard, action: 'check', operation: 'queue', target: id });
+    expect(writes()).toEqual([
+      { path: `policy/evaluations/${id}`, scope: 'project', method: 'PATCH', version: '7.1-preview.1' },
+    ]);
+    record = evaluation('vstfs:///CodeReview/CodeReviewId/project-id/8');
+    await expect(provider.action(7, { ...guard, action: 'check', operation: 'queue', target: id })).rejects.toThrow(
+      'not part of this pull request',
+    );
+    record = { ...evaluation('vstfs:///CodeReview/CodeReviewId/project-id/7', 'running'), context: { buildId: 9 } } as typeof record;
+    await expect(provider.action(7, { ...guard, action: 'check', operation: 'queue', target: id })).rejects.toThrow(
+      'no longer needs',
+    );
+    expect(writes()).toHaveLength(1);
+  });
+  test('Azure refuses GitHub-only check actions', async () => {
+    const { provider, writes } = azureHarness();
+    await expect(
+      provider.action(7, { ...guard, action: 'check', operation: 'rerun', target: '55' }),
+    ).rejects.toThrow('does not support');
+    expect(writes()).toEqual([]);
   });
   test('a status without a state (Azure omits the default notSet) still loads the PR', async () => {
     const { provider } = azureHarness((request) =>
@@ -969,6 +1157,10 @@ describe('wire validation', () => {
     { action: 'review', verdict: 'request-changes', body: '' },
     { action: 'reviewer', reviewer: '--admin', remove: false },
     { action: 'comment', body: 'hi', position: { path: 'a', line: 0, side: 'RIGHT' } },
+    { action: 'check', operation: 'approve-deployment', target: '43' },
+    { action: 'check', operation: 'rerun', target: '55', environmentIds: [5] },
+    { action: 'check', operation: 'rerun', target: '55/../../admin' },
+    { action: 'check', operation: 'delete', target: '55' },
   ])('rejects invalid action %#', (action) =>
     expect(pullRequestActionSchema.safeParse({ ...input, ...action }).success).toBe(false),
   );

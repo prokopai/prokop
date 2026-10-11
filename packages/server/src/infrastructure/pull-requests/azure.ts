@@ -31,9 +31,26 @@ const strategies: Record<PullRequestMergeMethod, string> = {
 };
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PAGE = 30;
+const BUILD_POLICY = '0609b952-1397-4640-95ec-e00a01b2c241';
+const POLICY_API = '7.1-preview.1';
+/**
+ * A build policy that blocks completion until someone queues it: manual-only and not yet run,
+ * expired, built for an older commit, or failed. Running and passing builds need nothing.
+ */
+function needsQueue(evaluation: Record<string, unknown>): boolean {
+  if (object(object(evaluation.configuration).type).id !== BUILD_POLICY) return false;
+  const context = object(evaluation.context ?? {});
+  return (
+    ['rejected', 'broken'].includes(str(evaluation.status)) ||
+    context.isExpired === true ||
+    context.buildIsNotCurrent === true ||
+    (evaluation.status === 'queued' && typeof context.buildId !== 'number')
+  );
+}
 
 export function createAzurePullRequests(api: AzureApi, repo: PullRequestRepository): PullRequestProviderPort {
   const pr = (number: number, rest = '') => `pullrequests/${number}${rest}`;
+  const artifact = (project: string, number: number) => `vstfs:///CodeReview/CodeReviewId/${project}/${number}`;
   const raw = async (number: number) => object(await api({ path: pr(number) }));
   const summary = (value: unknown): PullRequestSummary => {
     const v = object(value);
@@ -181,6 +198,7 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
     return {
       name: configuration.isBlocking === false ? `${name} (optional)` : name,
       state: str(v.status) || 'queued',
+      ...(needsQueue(v) ? { action: { kind: 'queue' as const, target: required(v.evaluationId) } } : {}),
       ...(typeof buildId === 'number'
         ? {
             url: `https://dev.azure.com/${repo.owner}/${encodeURIComponent(repo.project!)}/_build/results?buildId=${buildId}`,
@@ -235,8 +253,8 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
               await api({
                 path: 'policy/evaluations',
                 scope: 'project',
-                query: { artifactId: `vstfs:///CodeReview/CodeReviewId/${project}/${number}` },
-                version: '7.1-preview.1',
+                query: { artifactId: artifact(project, number) },
+                version: POLICY_API,
               }),
             ).map(policyCheck),
           [],
@@ -350,7 +368,7 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
       );
     },
     async action(number, input) {
-      await checked(number, input.expectedHead);
+      const current = await checked(number, input.expectedHead);
       const update = (body: unknown) => api({ path: pr(number), method: 'PATCH', body });
       const writeComment = (body: string) =>
         api({
@@ -484,6 +502,20 @@ export function createAzurePullRequests(api: AzureApi, repo: PullRequestReposito
               body: { content: input.body, parentCommentId: 0, commentType: 1 },
             });
           else await api({ path, method: 'PATCH', body: { status: input.resolved ? 2 : 1 } });
+          break;
+        }
+        case 'check': {
+          if (input.operation !== 'queue' || !GUID.test(input.target))
+            throw new BadRequestError('Azure DevOps does not support this check action.');
+          const path = `policy/evaluations/${input.target}`;
+          const evaluation = object(await api({ path, scope: 'project', version: POLICY_API }));
+          const project = required(object(object(current.repository).project).id);
+          if (evaluation.artifactId !== artifact(project, number))
+            throw new BadRequestError('This policy is not part of this pull request.');
+          if (!needsQueue(evaluation))
+            throw new ConflictError('This policy no longer needs to be queued. Refresh before continuing.');
+          // Requeueing a build policy evaluation starts its build for the current PR commit.
+          await api({ path, scope: 'project', method: 'PATCH', version: POLICY_API });
           break;
         }
       }

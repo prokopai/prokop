@@ -5,6 +5,8 @@ import type { Components } from 'react-markdown';
 import { ExternalLink, Pencil, UserPlus, X } from 'lucide-react';
 import type {
   PullRequestAction,
+  PullRequestCheck,
+  PullRequestCheckOperation,
   PullRequestDetail,
   PullRequestMergeMethod,
   PullRequestSummary,
@@ -389,6 +391,7 @@ function Overview({
                 {statusTone(c.state) !== 'success' && (
                   <span className="shrink-0 text-xs text-muted-foreground">{c.state}</span>
                 )}
+                <CheckActions pr={pr} check={c} act={act} busy={busy} />
               </div>
             ))
           ) : (
@@ -521,6 +524,95 @@ function Overview({
         }}
       />
     </div>
+  );
+}
+
+type ConfirmedOperation = Extract<PullRequestCheckOperation, 'approve-run' | 'approve-deployment' | 'reject-deployment'>;
+
+/** Start a check from Prokop. Approvals run or deploy someone's code, so they ask first. */
+function CheckActions({
+  pr,
+  check,
+  act,
+  busy,
+}: {
+  pr: PullRequestDetail;
+  check: PullRequestCheck;
+  act: ActOnPullRequest;
+  busy: boolean;
+}) {
+  const [confirm, setConfirm] = useState<ConfirmedOperation | null>(null);
+  const action = check.action;
+  if (!action || pr.state !== 'open') return null;
+  const environments = action.environments ?? [];
+  const names = environments.map((e) => e.name).join(', ');
+  const start = (operation: PullRequestCheckOperation) =>
+    act({
+      action: 'check',
+      operation,
+      target: action.target,
+      ...(operation.endsWith('-deployment') ? { environmentIds: environments.map((e) => e.id) } : {}),
+    });
+  const button = (label: string, onClick: () => void, className?: string) => (
+    <Button
+      key={label}
+      type="button"
+      variant="ghost"
+      size="xs"
+      className={cn('shrink-0', className)}
+      disabled={busy}
+      aria-label={`${label}: ${check.name}`}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
+  );
+  const dialog = {
+    'approve-run': {
+      title: `Run ${check.name} for #${pr.number}?`,
+      description: `The workflow runs the changes from ${pr.author.name} on ${pr.sourceBranch}. Approve only if you trust this code.`,
+      label: 'Approve and run',
+    },
+    'approve-deployment': {
+      title: `Approve deployment to ${names}?`,
+      description: `${check.name} continues and deploys ${pr.sourceBranch} to ${names}.`,
+      label: 'Approve deployment',
+    },
+    'reject-deployment': {
+      title: `Reject deployment to ${names}?`,
+      description: `${check.name} stops and its workflow run fails.`,
+      label: 'Reject deployment',
+    },
+  };
+  const now = (operation: PullRequestCheckOperation) => () => void start(operation).catch(() => {});
+  return (
+    <>
+      {action.kind === 'queue' && button('Queue', now('queue'))}
+      {action.kind === 'rerun' && button('Re-run', now('rerun'))}
+      {action.kind === 'approve-run' && button('Approve and run', () => setConfirm('approve-run'))}
+      {action.kind === 'review-deployment' && [
+        button('Approve', () => setConfirm('approve-deployment')),
+        button('Reject', () => setConfirm('reject-deployment'), 'text-destructive'),
+      ]}
+      {confirm && (
+        <ConfirmationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setConfirm(null);
+          }}
+          variant={confirm === 'reject-deployment' ? 'destructive' : 'default'}
+          title={dialog[confirm].title}
+          description={dialog[confirm].description}
+          confirmLabel={dialog[confirm].label}
+          loading={busy}
+          onConfirm={() => {
+            void start(confirm)
+              .then(() => setConfirm(null))
+              .catch(() => {});
+          }}
+        />
+      )}
+    </>
   );
 }
 

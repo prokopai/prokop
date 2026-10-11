@@ -76,11 +76,31 @@ export interface PullRequestThread {
 export interface PullRequestReviewer extends PullRequestActor {
   vote: string;
 }
+/**
+ * Something the viewer can start for a check without opening the provider:
+ * `queue` an Azure build policy, `rerun` a failed GitHub Actions job, `approve-run` a workflow
+ * waiting for approval (forks, first-time contributors), or `review-deployment` for a job
+ * waiting on a protected environment. The provider still enforces permissions.
+ */
+export interface PullRequestCheckAction {
+  kind: 'queue' | 'rerun' | 'approve-run' | 'review-deployment';
+  /** Provider ID: Azure policy evaluation, GitHub job (`rerun`) or workflow run. */
+  target: string;
+  /** Environments the viewer may approve or reject (`review-deployment`). */
+  environments?: { id: number; name: string }[];
+}
 export interface PullRequestCheck {
   name: string;
   state: string;
   url?: string;
+  action?: PullRequestCheckAction;
 }
+export type PullRequestCheckOperation =
+  | 'queue'
+  | 'rerun'
+  | 'approve-run'
+  | 'approve-deployment'
+  | 'reject-deployment';
 export interface PullRequestDetail extends PullRequestSummary {
   accountId: string;
   reviewers: PullRequestReviewer[];
@@ -145,5 +165,6 @@ export type PullRequestAction =
   | { action: 'review'; verdict: PullRequestVote; body: string }
   | { action: 'reviewer'; reviewer: string; remove: boolean }
   | { action: 'reply'; threadId: string; body: string }
-  | { action: 'resolve'; threadId: string; resolved: boolean };
+  | { action: 'resolve'; threadId: string; resolved: boolean }
+  | { action: 'check'; operation: PullRequestCheckOperation; target: string; environmentIds?: number[] };
 export type PullRequestMutation = PullRequestAction & { expectedHead: string; accountId: string };
