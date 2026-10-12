@@ -45,7 +45,11 @@ vi.mock('@legendapp/list/react', async () => {
             list.element = element;
             if (!element) return;
             for (const key of ['scrollTop', 'scrollHeight', 'clientHeight'] as const) {
-              Object.defineProperty(element, key, { configurable: true, get: () => metrics[key] });
+              Object.defineProperty(element, key, {
+                configurable: true,
+                get: () => metrics[key],
+                set: (value: number) => { metrics[key] = value; },
+              });
             }
           }}
         >
@@ -59,8 +63,16 @@ vi.mock('@/components/chat/MessageBubble', () => ({ MessageBubble: ({ children }
 vi.mock('@/components/shared/MarkdownRenderer', () => ({ MarkdownRenderer: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/visualizations', () => ({ StructuredResponse: () => null }));
 
+const resizeCallbacks: Array<() => void> = [];
+
 beforeEach(() => {
   Object.assign(metrics, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 });
+  resizeCallbacks.length = 0;
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(callback: () => void) { resizeCallbacks.push(callback); }
+    observe() {}
+    disconnect() {}
+  });
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal('cancelAnimationFrame', () => {});
 });
@@ -204,4 +216,41 @@ test('a saved anchor restores to that message and offset', () => {
   const anchor: TranscriptAnchor = { messageId: 'm4', offset: 30 };
   render(transcript({ autoFollow: false, initialAnchor: anchor }));
   expect(list.props!.initialScrollIndex).toEqual({ index: 4, viewOffset: -30 });
+});
+
+/** Content grows below the end, as a new row or streamed text does. */
+async function grow(by: number) {
+  metrics.scrollHeight += by;
+  list.element!.appendChild(document.createElement('div'));
+  await act(async () => { await Promise.resolve(); });
+}
+
+test('a following transcript pins to the end in the same frame content grows', async () => {
+  render(transcript());
+  scrollTo(600);
+
+  await grow(450);
+
+  expect(metrics.scrollTop).toBe(1050);
+});
+
+test('a following transcript stays at the end when the composer shrinks or grows the viewport', () => {
+  render(transcript());
+  scrollTo(600);
+
+  metrics.clientHeight = 250;
+  act(() => resizeCallbacks.forEach(callback => callback()));
+
+  expect(metrics.scrollTop).toBe(750);
+});
+
+test('content growth never pulls back a reader who scrolled up', async () => {
+  render(transcript());
+  scrollTo(600);
+  fireEvent.wheel(list.element!, { deltaY: -100 });
+  scrollTo(500);
+
+  await grow(450);
+
+  expect(metrics.scrollTop).toBe(500);
 });

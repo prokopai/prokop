@@ -897,6 +897,33 @@ export function VirtualizedTranscript({
     scheduleEndCheck();
   }, [displayItems, autoFollow, targetMessageId, scheduleEndCheck]);
 
+  // LegendList's maintainScrollAtEnd scrolls a frame after it measures, and
+  // only while the view is within its end threshold. Growth was painted below
+  // the fold first, and one taller than the threshold (a long prompt, a big
+  // tool output) left a following view stranded above the end. Pin in the
+  // same frame instead: mutations cover new rows, streamed text and
+  // LegendList's size writes; the resize covers the composer growing or
+  // shrinking the viewport.
+  useEffect(() => {
+    const scrollEl = listRef.current?.getScrollableNode() as HTMLElement | null | undefined;
+    if (!scrollEl) return;
+    const pin = () => {
+      if (!autoScrollRef.current || targetMessageIdRef.current) return;
+      const end = scrollEl.scrollHeight - scrollEl.clientHeight;
+      if (end - scrollEl.scrollTop > 1) scrollEl.scrollTop = end;
+    };
+    const resize = new ResizeObserver(pin);
+    resize.observe(scrollEl);
+    const mutation = new MutationObserver(pin);
+    mutation.observe(scrollEl, {
+      subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['style'],
+    });
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, []);
+
   useLayoutEffect(() => {
     if (scrollToBottomRef) {
       scrollToBottomRef.current = () => {
