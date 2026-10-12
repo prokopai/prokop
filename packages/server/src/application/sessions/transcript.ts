@@ -184,7 +184,7 @@ export function createSessionTranscriptApplication<Origin>(
         wire.delivery.broadcastToSession(sessionId, { type: 'session.interrupted', sessionId, result });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Interrupt failed';
-        wire.delivery.send(origin, { type: 'error', code: 'interrupt_error', message });
+        wire.delivery.send(origin, { type: 'error', code: 'interrupt_error', message, sessionId });
       }
     },
   };

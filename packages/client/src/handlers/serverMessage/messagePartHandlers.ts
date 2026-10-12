@@ -3,6 +3,7 @@ import type { CompactionCompleteMessage, Message, Part, ToolPart } from '@prokop
 import type { SessionHandlersContext, SessionUsage } from './types';
 import { handleFilesChanged } from './fileHandlers';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 import { queryClient } from '@/components/providers/QueryProvider';
 import { toast } from 'sonner';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
@@ -54,6 +55,10 @@ export function handleMessageCreated(
     }));
   }
 
+  if ('status' in message && message.status === 'streaming') {
+    // A new reply (a queued prompt after Stop) shows the session running again.
+    useConnectionStore.getState().clearSessionStopping(message.sessionId);
+  }
   if (hasContent && 'status' in message && message.status === 'streaming') {
     addStreamingSession(message.sessionId);
     removeInterruptedSession(message.sessionId);
@@ -341,6 +346,10 @@ export function handleError(
   _ctx: SessionHandlersContext,
 ): void {
   console.error('Server error:', msg.code, msg.message);
+
+  if (msg.code === 'interrupt_error' && msg.sessionId) {
+    useConnectionStore.getState().clearSessionStopping(msg.sessionId);
+  }
 
   if (msg.sessionId) {
     const pendingOps = usePendingOperationsStore.getState().getSessionPendingOperations(msg.sessionId);

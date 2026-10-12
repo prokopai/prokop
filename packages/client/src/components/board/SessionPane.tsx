@@ -135,7 +135,9 @@ export function SessionPane({
   }, [commands, sessionId]);
 
   const isCompacting = session?.compacting ?? false;
-  const isStreaming = useConnectionStore(s => s.streamingSessionIds.has(sessionId)) || !!session?.runningAt;
+  const isStopping = useConnectionStore(s => s.stoppingSessionIds.has(sessionId));
+  const isSessionStreaming = useConnectionStore(s => s.streamingSessionIds.has(sessionId));
+  const isStreaming = !isStopping && (isSessionStreaming || !!session?.runningAt);
   const sessionModelInfo = models.find(m => m.id === sessionModel);
   const modelSupportsImage = sessionModelInfo?.capabilities?.input?.image ?? false;
   const targetMessageId = navigationIntent.mode === 'target-message' ? navigationIntent.messageId : null;

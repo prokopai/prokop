@@ -42,6 +42,7 @@ export const useSidebarData = (): UseSidebarDataReturn => {
   // Read from stores
   const allSessions = useSessionStore(s => s.sessions);
   const streamingSessionIds = useConnectionStore(s => s.streamingSessionIds);
+  const stoppingSessionIds = useConnectionStore(s => s.stoppingSessionIds);
   const pendingAskRequests = useAskStore(s => s.pendingRequests);
   const connected = useConnectionStore(s => s.connected);
   const workspaces = useServerDataStore(s => s.workspaces);
@@ -130,14 +131,16 @@ export const useSidebarData = (): UseSidebarDataReturn => {
 
     const derived = new Map<string, { isStreaming: boolean; hasPendingPermission: boolean; isRunning: boolean }>();
     for (const session of allSessions) {
-      const isStreaming = streamingSessionIds.has(session.id);
+      // A session the user stopped reads idle while its run winds down.
+      const stopping = stoppingSessionIds.has(session.id);
+      const isStreaming = streamingSessionIds.has(session.id) && !stopping;
       const hasPendingPermission = pendingPermissionSessionIds.has(session.id);
-      const isRunning = isStreaming || session.subagentStatus === 'running' || !!session.runningAt
-        || runningNativeAncestors.has(session.id);
+      const isRunning = !stopping && (isStreaming || session.subagentStatus === 'running' || !!session.runningAt
+        || runningNativeAncestors.has(session.id));
       derived.set(session.id, { isStreaming, hasPendingPermission, isRunning });
     }
     return derived;
-  }, [allSessions, streamingSessionIds, pendingAskRequests]);
+  }, [allSessions, streamingSessionIds, stoppingSessionIds, pendingAskRequests]);
 
   // Separate active, archived, and scheduled sessions (only root sessions, no parent)
   const { activeSessions, archivedSessions, scheduledSessionsByJob } = useMemo(() => {

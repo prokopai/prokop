@@ -31,6 +31,7 @@ export function WindowTitle() {
   const foreign = useForeignSessionsStore((s) => (focusedId ? s.byId[focusedId]?.session : undefined));
   const shown = session ?? foreign;
   const streaming = useConnectionStore((s) => (focusedId ? s.streamingSessionIds.has(focusedId) : false));
+  const stopping = useConnectionStore((s) => (focusedId ? s.stoppingSessionIds.has(focusedId) : false));
   const waiting = useAskStore((s) => s.pendingRequests.length > 0);
   const workspaceName = useServerDataStore((s) => {
     const workspace = s.workspaces.find((w) => w.id === shown?.workspaceId) ?? s.activeWorkspace;
@@ -40,7 +41,7 @@ export function WindowTitle() {
   const title = formatWindowTitle({
     sessionTitle: shown ? shown.title || 'Untitled' : null,
     workspaceName,
-    active: waiting || streaming || !!shown?.runningAt,
+    active: waiting || (!stopping && (streaming || !!shown?.runningAt)),
   });
 
   useEffect(() => {

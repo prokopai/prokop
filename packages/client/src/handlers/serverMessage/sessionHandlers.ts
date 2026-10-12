@@ -3,6 +3,7 @@ import type { SessionHandlersContext, SessionUsage } from './types';
 import { handleFilesChanged } from './fileHandlers';
 import { useSessionControlStore } from '@/stores/sessionControlStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { queryClient } from '@/components/providers/QueryProvider';
@@ -360,6 +361,13 @@ export function handleSessionUpdated(
     return previous ? prev.map(s => (s.id === session.id ? session : s)) : [session, ...prev];
   });
 
+  // A stopped session reads idle until its run ends or another one starts.
+  const connection = useConnectionStore.getState();
+  if (connection.stoppingSessionIds.has(session.id)
+    && (!session.runningAt || (previous && !previous.runningAt))) {
+    connection.clearSessionStopping(session.id);
+  }
+
   if (session.selectedModel) {
     setModelForSession(session.id, session.selectedModel);
   }
@@ -414,6 +422,10 @@ export function handleSessionInterrupted(
   const { sessionId, result } = msg;
   const { addInterruptedSession, skipFinishSoundSessionIdsRef, removeStreamingSession, clearPendingAskRequestsBySessionId } = ctx;
 
+  // Nothing was stopped, or nothing is left to wait for: show the server's state.
+  if (!result.success || !ctx.sessionsRef.current.find(s => s.id === sessionId)?.runningAt) {
+    useConnectionStore.getState().clearSessionStopping(sessionId);
+  }
   addInterruptedSession(sessionId);
   skipFinishSoundSessionIdsRef.current.add(sessionId);
   removeStreamingSession(sessionId);

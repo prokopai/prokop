@@ -68,6 +68,7 @@ export function AppMainContent({
   const retryCount = useConnectionStore(s => s.retryCount);
   const nextRetryIn = useConnectionStore(s => s.nextRetryIn);
   const streamingSessionIds = useConnectionStore(s => s.streamingSessionIds);
+  const stoppingSessionIds = useConnectionStore(s => s.stoppingSessionIds);
 
   const currentSession = useSessionStore(s => s.currentSession);
   const queuedMessages = useSessionStore(s => s.queuedMessages);
@@ -183,7 +184,8 @@ export function AppMainContent({
       onAskResponse={onAskResponse}
       modelSupportsImage={currentModelInfo?.capabilities?.input?.image ?? false}
       onNavigateToSubagent={onNavigateToSubagent}
-      isStreaming={streamingSessionIds.has(currentSession.id) || !!currentSession.runningAt}
+      isStreaming={!stoppingSessionIds.has(currentSession.id)
+        && (streamingSessionIds.has(currentSession.id) || !!currentSession.runningAt)}
       onInterrupt={handleInterrupt}
       onRevert={onRevert}
       onFork={onFork}

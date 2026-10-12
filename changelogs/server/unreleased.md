@@ -6,4 +6,6 @@
 
 ### Fixed
 
+- **Stop responds at once**: Pressing Stop now switches the session to idle right away: the Stop button turns back into Send, and the running markers in the sidebar, tabs, header and window title clear. Before, they stayed until the agent had fully shut down, which takes about 2 seconds for Claude Code. A message you send in that moment is queued and runs once the stopped turn has ended. It is never steered into the turn you stopped. If the server reports that nothing was stopped, the session shows as running again.
+
 - **Terminal on phones**: The terminal sheet now stops above where the on-screen keyboard opens, so typing never hides the prompt, and with the keyboard up it fills the space above it. The tab row no longer stretches into an empty band. A key row under the terminal adds **^C** to stop a running process, plus **Esc**, **Tab** and arrow keys; tapping them does not open or close the keyboard.

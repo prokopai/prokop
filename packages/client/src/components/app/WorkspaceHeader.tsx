@@ -76,6 +76,7 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
     currentSession ? s.messagesBySession[currentSession.id] : undefined,
   );
   const isSessionStreaming = useConnectionStore((s) => displayedSessionId ? s.streamingSessionIds.has(displayedSessionId) : false);
+  const isSessionStopping = useConnectionStore((s) => displayedSessionId ? s.stoppingSessionIds.has(displayedSessionId) : false);
   const compactableMessageCount = useMemo(
     () => currentSessionMessages?.filter((message) => message.role !== 'system').length ?? 0,
     [currentSessionMessages],
@@ -113,7 +114,7 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
                   ? () => sessionManager.resumeSession(currentSession.parentId!)
                   : undefined
               }
-              isStreaming={isSessionStreaming || !!currentSession.runningAt}
+              isStreaming={!isSessionStopping && (isSessionStreaming || !!currentSession.runningAt)}
               onCompact={compactableMessageCount >= 2 ? () => sessionManager.compactSession(currentSession.id) : undefined}
               isCompacting={isCompacting}
               canCompact={compactableMessageCount >= 2}

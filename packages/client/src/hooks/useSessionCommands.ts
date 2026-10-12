@@ -21,6 +21,7 @@ import { foreignClientFor } from '@/lib/hostClientPool';
 import { foreignSession } from '@/stores/foreignSessionsStore';
 import { useAskStore } from '@/stores/askStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 
 interface UseSessionCommandsParams {
   clientRef: React.RefObject<ProkopaiClient | null>;
@@ -383,8 +384,10 @@ export function useSessionCommands({
       return;
     }
     if (queue) {
+      // A stopped turn takes no steer; the prompt runs once it has ended.
       const steer = useUIStore.getState().followUpMode === 'steer'
-        && session.harnessState?.capabilities?.canSteerQueuedMessages === true;
+        && session.harnessState?.capabilities?.canSteerQueuedMessages === true
+        && !useConnectionStore.getState().stoppingSessionIds.has(sessionId);
       client.queue.add(sessionId, content, { attachments, responseFormatId, clientMessageId, steer });
     } else {
       client.chat.send(
@@ -425,6 +428,8 @@ export function useSessionCommands({
     const client = clientFor(sessionId);
     if (client && client.connected) {
       client.sessions.interrupt(sessionId);
+      // Show the stop at once; the server confirms when the turn has ended.
+      useConnectionStore.getState().markSessionStopping(sessionId);
     }
   }, [clientFor]);
 

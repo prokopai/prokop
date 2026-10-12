@@ -8,6 +8,11 @@ interface ConnectionState {
   nextRetryIn: number;
   streamingSessionIds: Set<string>;
   interruptedSessions: Set<string>;
+  /**
+   * Sessions the user stopped whose turn the server has not finished yet. The
+   * UI shows them idle at once; the server's running state stays untouched.
+   */
+  stoppingSessionIds: Set<string>;
 }
 
 interface ConnectionActions {
@@ -24,6 +29,8 @@ interface ConnectionActions {
   addInterruptedSession: (sessionId: string) => void;
   removeInterruptedSession: (sessionId: string) => void;
   clearInterruptedSessions: () => void;
+  markSessionStopping: (sessionId: string) => void;
+  clearSessionStopping: (sessionId: string) => void;
 }
 
 type ConnectionStore = ConnectionState & ConnectionActions;
@@ -36,6 +43,7 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   nextRetryIn: 0,
   streamingSessionIds: new Set<string>(),
   interruptedSessions: new Set<string>(),
+  stoppingSessionIds: new Set<string>(),
 
   setConnected: (connected) => set({ connected }),
   setAuthError: (authError) => set({ authError }),
@@ -56,6 +64,7 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
     nextRetryIn: 0,
     streamingSessionIds: new Set<string>(),
     interruptedSessions: new Set<string>(),
+    stoppingSessionIds: new Set<string>(),
   }),
   clearStreamingSessions: () => set({ streamingSessionIds: new Set<string>() }),
   addStreamingSession: (sessionId) => set((state) => {
@@ -86,4 +95,16 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
     return { interruptedSessions: next };
   }),
   clearInterruptedSessions: () => set({ interruptedSessions: new Set<string>() }),
+  markSessionStopping: (sessionId) => set((state) => {
+    if (state.stoppingSessionIds.has(sessionId)) return state;
+    const next = new Set(state.stoppingSessionIds);
+    next.add(sessionId);
+    return { stoppingSessionIds: next };
+  }),
+  clearSessionStopping: (sessionId) => set((state) => {
+    if (!state.stoppingSessionIds.has(sessionId)) return state;
+    const next = new Set(state.stoppingSessionIds);
+    next.delete(sessionId);
+    return { stoppingSessionIds: next };
+  }),
 }));

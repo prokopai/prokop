@@ -31,6 +31,7 @@ export function useWorkspaceSessionTabs(serverId: string | undefined, sdkClient:
   const servers = useContext(ServerContext)?.servers ?? [];
   const requests = useAskStore((state) => state.pendingRequests);
   const streamingIds = useConnectionStore((state) => state.streamingSessionIds);
+  const stoppingIds = useConnectionStore((state) => state.stoppingSessionIds);
   const connected = useConnectionStore((state) => state.connected);
   const workspaces = useServerDataStore((state) => state.workspaces);
   const agents = useServerDataStore((state) => state.agents);
@@ -78,7 +79,8 @@ export function useWorkspaceSessionTabs(serverId: string | undefined, sdkClient:
     const workspaceName = foreignServerId ? serverNames.get(foreignServerId) : session && workspaceNames.get(session.workspaceId);
     const title = session?.title || 'Untitled session';
     const label = workspaceName ? `${workspaceName} / ${title}` : title;
-    const status = needsInputIds.has(id) ? 'Needs input' : runningIds.has(id) ? 'Running' : undefined;
+    const status = needsInputIds.has(id) ? 'Needs input'
+      : runningIds.has(id) && !stoppingIds.has(id) ? 'Running' : undefined;
     views[viewId] = foreignServerId
       ? <ForeignSessionView serverId={foreignServerId} sessionId={id} />
       : <WorkspaceSessionView sessionId={id} sdkClient={sdkClient} serverUrl={serverUrl} />;

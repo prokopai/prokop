@@ -638,7 +638,7 @@ describe('application session use cases', () => {
       expect(spy.broadcastToSession).toEqual([]);
     });
 
-    test('interrupt maps thrown errors to interrupt_error without a sessionId', async () => {
+    test('interrupt maps thrown errors to interrupt_error for that session', async () => {
       const execution = makeExecution({ interruptSession: async () => { throw new Error('boom'); } });
       const app = createSessionTranscriptApplication({ repository: makeRepository(), execution, gate: noGate() });
       const spy = makeSpy();
@@ -646,7 +646,7 @@ describe('application session use cases', () => {
 
       await app.interrupt(wire, origin, { sessionId: 'sess-1' });
 
-      expect(spy.sent).toEqual([{ type: 'error', code: 'interrupt_error', message: 'boom' }]);
+      expect(spy.sent).toEqual([{ type: 'error', code: 'interrupt_error', message: 'boom', sessionId: 'sess-1' }]);
     });
   });
 
