@@ -1,10 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { McpConfig, McpServerConfig, McpLocalServerConfig, McpRemoteServerConfig } from '@prokopai/sdk';
-import { BUILTIN_BROWSER_MCP_NAME } from '@prokopai/sdk';
+import { BUILTIN_BROWSER_MCP_NAME, BUILTIN_VISUALS_MCP_NAME } from '@prokopai/sdk';
 import { resolveWorkspaceDir } from '@/infrastructure/runtime/workspace-dirs';
 import { getDataDir } from '@/infrastructure/runtime/paths';
-import { mcpConfigSchema, mcpNameSchema, mcpServerConfigSchema } from '@/domains/mcp/config';
+import { isBuiltinNameValid, mcpConfigSchema, mcpNameSchema, mcpServerConfigSchema } from '@/domains/mcp/config';
 
 const writes = new Map<string, Promise<unknown>>();
 
@@ -29,9 +29,8 @@ export async function loadMcpConfig(workspacePath: string | null): Promise<McpCo
 export async function updateMcpConfig(workspacePath: string | null, name: string, config: McpServerConfig | null): Promise<void> {
   mcpNameSchema.parse(name);
   if (config !== null) mcpServerConfigSchema.parse(config);
-  if (config?.type === 'builtin' && name !== BUILTIN_BROWSER_MCP_NAME
-    || name === BUILTIN_BROWSER_MCP_NAME && config !== null && config.type !== 'builtin') {
-    throw new Error('Prokop Browser is reserved for the built-in browser integration');
+  if (config !== null && !isBuiltinNameValid(name, config)) {
+    throw new Error(`${name} is reserved for a built-in integration`);
   }
   const directory = configDirectory(workspacePath);
   const previous = writes.get(directory) ?? Promise.resolve();
@@ -50,8 +49,11 @@ export async function updateMcpConfig(workspacePath: string | null, name: string
 
 export async function getMcpServers(workspacePath: string | null): Promise<Record<string, McpServerConfig>> {
   const servers = (await loadMcpConfig(workspacePath)).servers;
+  // Built-ins exist without an entry: the browser is opt-in, visuals are on
+  // until a saved entry turns them off.
   return workspacePath === null
-    ? { [BUILTIN_BROWSER_MCP_NAME]: { type: 'builtin', id: 'browser', enabled: false }, ...servers }
+    ? { [BUILTIN_BROWSER_MCP_NAME]: { type: 'builtin', id: 'browser', enabled: false },
+      [BUILTIN_VISUALS_MCP_NAME]: { type: 'builtin', id: 'visuals' }, ...servers }
     : servers;
 }
 

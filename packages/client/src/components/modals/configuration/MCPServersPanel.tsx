@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import type { McpServerConfig, McpStatus, ProkopaiClient } from '@prokopai/sdk';
+import type { McpBuiltinId, McpServerConfig, McpStatus, ProkopaiClient } from '@prokopai/sdk';
 import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,11 @@ import { McpServerForm } from './McpServerForm';
 import { SettingsEmpty } from './SettingsPrimitives';
 
 interface Props { workspaceId: string | null | undefined; sdkClient: ProkopaiClient | null }
+const BUILTIN_DESCRIPTIONS: Record<McpBuiltinId, string> = {
+  browser: 'Browser tools for Prokop, Claude Code and Codex CLI.',
+  visuals: 'Lets agents show charts, tables and diagrams as pages in their replies.',
+};
+
 const statusLabels: Record<McpStatus['status'], string> = {
   connected: 'Connected', disabled: 'Disconnected', failed: 'Connection failed',
   needs_auth: 'Sign-in required', needs_client_registration: 'Client registration required',
@@ -65,14 +70,14 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{config.type === 'builtin' ? 'Browser tools for Prokop, Claude Code and Codex CLI.' : config.type === 'remote' ? config.url : config.command.join(' ')}</p>
+                  <p className="truncate text-xs text-muted-foreground">{config.type === 'builtin' ? BUILTIN_DESCRIPTIONS[config.id] : config.type === 'remote' ? config.url : config.command.join(' ')}</p>
                 </div>
                 <Switch aria-label={'Enable ' + name} checked={config.enabled !== false} disabled={action.isPending}
                   onCheckedChange={enabled => run(() => client.http.mcp.save(workspaceId, name, { ...config, enabled }))} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={connection.status === 'failed' ? 'destructive' : 'secondary'}>
-                  {config.enabled === false ? 'Disabled' : config.type === 'builtin' && connection.status !== 'connected' ? 'Extension not connected' : statusLabels[connection.status]}
+                  {config.enabled === false ? 'Disabled' : config.type === 'builtin' && config.id === 'browser' && connection.status !== 'connected' ? 'Extension not connected' : statusLabels[connection.status]}
                 </Badge>
                 {config.type === 'builtin' && <Badge variant="outline">Built-in</Badge>}
                 {config.type !== 'builtin' && config.enabled !== false && connection.status !== 'connected' && <Button size="sm" variant="ghost" disabled={action.isPending}
@@ -95,7 +100,7 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
                 <Button size="icon-sm" variant="ghost" aria-label={'Remove ' + name} disabled={action.isPending}
                   onClick={() => run(() => client.http.mcp.remove(workspaceId, name))}><Trash2 /></Button></>}
               </div>
-              {config.type === 'builtin' && <details className="text-sm">
+              {config.type === 'builtin' && config.id === 'browser' && <details className="text-sm">
                 <summary className="text-muted-foreground">Set up browser extension</summary>
                 <ol className="mt-2 flex list-inside list-decimal flex-col gap-2 text-xs text-muted-foreground">
                   <li><a className="underline" href="https://github.com/prokopai/prokop/releases?q=browser%2F&expanded=true" target="_blank" rel="noopener noreferrer">Download the Prokop Browser extension</a> ZIP from a browser release and extract it.</li>

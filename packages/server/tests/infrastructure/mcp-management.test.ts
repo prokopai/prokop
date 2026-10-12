@@ -16,7 +16,12 @@ import { createCodexMcpTools } from '@/harnesses/codex-cli/mcp-tools';
 import type { McpServerConfig } from '@prokopai/sdk';
 
 let root: string;
-beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'mcp-management-')); Paths.configure({ dataDir: join(root, 'global') }); });
+// Built-in visuals are on by default; these tests cover external servers only.
+const visualsOff: McpServerConfig = { type: 'builtin', id: 'visuals', enabled: false };
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), 'mcp-management-')); Paths.configure({ dataDir: join(root, 'global') });
+  await updateMcpConfig(null, 'Prokop Visuals', visualsOff);
+});
 afterEach(async () => { await shutdownWorkspace(root); await shutdownWorkspace(null); Paths.reset(); await rm(root, { recursive: true, force: true }); });
 const config: McpServerConfig = { type: 'local', command: [process.execPath, resolve(import.meta.dir, 'fixtures/mcp-server.ts')], timeout: 2000 };
 
@@ -110,7 +115,7 @@ describe('workspace MCP management', () => {
   test('serializes concurrent configuration writes and retains disabled servers', async () => {
     await Promise.all(['one', 'two', 'three'].map(name => updateMcpConfig(root, name, { ...config, enabled: false })));
     expect(Object.keys((await loadMcpConfig(root)).servers).sort()).toEqual(['one', 'three', 'two']);
-    expect(Object.keys(await getAllServerStatus(root))).toHaveLength(4); // Includes the built-in browser entry.
+    expect(Object.keys(await getAllServerStatus(root))).toHaveLength(5); // Includes the built-in browser and visuals entries.
     await initializeWorkspace(root);
     expect(await getWorkspaceTools(root)).toEqual([]);
   });
@@ -150,7 +155,7 @@ describe('workspace MCP management', () => {
     await removeServer(root, 'crm');
     expect(await getAllServerStatus(root)).toEqual({ 'Prokop Browser': {
       config: { type: 'builtin', id: 'browser', enabled: false }, status: { status: 'disabled' },
-    } });
+    }, 'Prokop Visuals': { config: visualsOff, status: { status: 'disabled' } } });
   });
   test('config replacement invalidates old handles and isolates workspace credentials and tools', async () => {
     await saveServer(root, 'crm', config);

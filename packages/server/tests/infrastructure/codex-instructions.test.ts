@@ -105,3 +105,17 @@ test('a plain preconfig does not advertise an agent home or agent memory files',
   expect(text).not.toContain('<agent_memory>');
   expect(text).not.toContain('USER.md');
 });
+
+test('Codex learns how to reach render_html through its MCP bridge only while the tool is available', async () => {
+  const sources = {
+    listPreconfigs: async () => [primary],
+    getPreconfig: async () => primary,
+    getAgentDirectory: async () => null,
+    readAgentMemoryFile: async () => null,
+  };
+  const withTool = await codexDeveloperInstructions(workspace, '/projects/worktree', primary, sources, ['render_html']);
+  expect(withTool).toContain('call mcp_call_tool with tool "render_html" and arguments { html, title, height }');
+  expect(withTool).toContain('without being asked');
+  expect(await codexDeveloperInstructions(workspace, '/projects/worktree', primary, sources, []))
+    .not.toContain('render_html');
+});

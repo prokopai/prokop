@@ -649,9 +649,11 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           catch { return false; }
         };
         const handoffBrief = readHandoffBrief(sessionId);
+        // Codex reaches MCP tools only through its bridge, so the instructions name the ones that need guidance.
+        const mcpToolNames = deps.mcp ? (await deps.mcp.tools(workspace.path, sessionId)).map(tool => tool.name) : [];
         const instructions = await codexDeveloperInstructions(workspace, root, preconfig, {
           ...sources, getAgentDirectory: async () => agentDir,
-        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
+        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
           + (handoffBrief ? `\n\n${handoffBrief}` : '');
         if (!session.preconfigId) {
           const updated = updateSession(sessionId, { preconfigId,

@@ -29,6 +29,15 @@ describe('groupTurnParts', () => {
     expect(group.kind === 'tools' && group.id).toBe('r1');
     expect(group.kind === 'tools' && group.items.map(item => item.index)).toEqual([1, 2, 3, 4]);
   });
+
+  test('a shown page ends the run and stays outside the fold with the answer', () => {
+    const page = done('page', 'render_html');
+    page.presentation = { summary: 'Logo', debugAvailable: false, visualization: { type: 'html-render', render: {
+      sessionId: 's', attachmentId: 'a', accessKey: 'k', title: 'Logo', height: 300 } } };
+    const segments = groupTurnParts([done('t1'), done('t2'), page, done('t3'), done('t4'), text('answer')]);
+    expect(segments.map(segment => segment.kind)).toEqual(['tools', 'part', 'tools', 'part']);
+    expect(segments[1]!.kind === 'part' && segments[1]!.part.id).toBe('page');
+  });
 });
 
 describe('getToolGroupStats', () => {

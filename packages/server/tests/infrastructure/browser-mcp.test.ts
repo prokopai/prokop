@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BUILTIN_BROWSER_MCP_NAME, type AskRequestMessage, type ServerMessage } from '@prokopai/sdk';
+import { BUILTIN_BROWSER_MCP_NAME, BUILTIN_VISUALS_MCP_NAME, type AskRequestMessage, type ServerMessage } from '@prokopai/sdk';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
@@ -46,6 +46,8 @@ beforeEach(async () => {
   seedWorkspace({ id: 'ws', path: root });
   sockets = []; requests = []; onRequest = undefined; abort = new AbortController();
   manager = createMcpManager();
+  // Built-in visuals are on by default; these tests count browser tools only.
+  await manager.saveServer(null, BUILTIN_VISUALS_MCP_NAME, { type: 'builtin', id: 'visuals', enabled: false });
   installBrowserRequestsPort(browserService);
   const capture = (message: ServerMessage, connection?: ConnectionId) => {
     if (message.type === 'ask.request') { requests.push({ message, connection }); onRequest?.(message); }

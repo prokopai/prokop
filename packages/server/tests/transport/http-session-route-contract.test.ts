@@ -661,4 +661,19 @@ describe('HTTP session route contract', () => {
     expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
+
+  test('GET attachment content lets an agent render run scripts, still in an opaque origin', async () => {
+    const { app } = makeApp({
+      attachments: {
+        ...makeRepository().attachments,
+        getByKey: () => ({ ...attachmentRecord(), filename: 'chart.html', mimeType: 'text/html;profile=prokop-render', sizeBytes: 8 }),
+        openFile: async () => new Blob(['<p>x</p>']),
+      },
+    });
+
+    const res = await app.request('/api/sessions/sess-1/attachments/att-1/content?key=k');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Security-Policy')).toBe('sandbox allow-scripts allow-forms');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
 });

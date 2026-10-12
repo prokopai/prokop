@@ -1,4 +1,4 @@
-import type { AnyVisualization, DiffVisualization } from '@prokopai/sdk';
+import { HTML_RENDER_TOOL_NAME, htmlRenderResultText, parseHtmlRenderMarker, type AnyVisualization, type DiffVisualization } from '@prokopai/sdk';
 
 /**
  * Shared harness tool-call naming and visualization.
@@ -34,6 +34,8 @@ const CLAUDE_CANONICAL_NAMES: Record<string, string> = {
 export function claudeToolName(native: string): string {
   const canonical = CLAUDE_CANONICAL_NAMES[native];
   if (canonical) return canonical;
+  // Built-in visuals read the same in every harness.
+  if (native === `mcp__workspace__${HTML_RENDER_TOOL_NAME}`) return HTML_RENDER_TOOL_NAME;
   if (native.startsWith(`mcp__${PROKOP_MCP_SERVER}__`)) {
     const tool = native.slice(`mcp__${PROKOP_MCP_SERVER}__`.length);
     return PROKOP_MCP_TOOLS.has(tool) ? tool : `${PROKOP_MCP_SERVER}: ${tool}`;
@@ -100,6 +102,7 @@ export function claudeToolSummary(name: string, input: Record<string, unknown>):
       case 'glob': case 'grep': return firstString(input, ['pattern', 'path']);
       case 'webfetch': return firstString(input, ['url']);
       case 'web-search': return firstString(input, ['query']);
+      case HTML_RENDER_TOOL_NAME: return firstString(input, ['title']);
       case 'todo': return Array.isArray(input.todos) ? `${input.todos.length} todos` : 'todos';
       case 'subagent': return firstString(input, ['description', 'subagent_type']);
       case 'memory': case 'agent_memory':
@@ -170,6 +173,14 @@ function fileListFromLines(output: string, singular: string): AnyVisualization {
     files: lines.map(line => ({ path: line.slice(0, 500) })),
     total: lines.length,
   };
+}
+
+/** A render_html result as its inline page in every harness; an error keeps its message. */
+export function htmlRenderVisualization(output: string): AnyVisualization {
+  const text = htmlRenderResultText(output);
+  const render = parseHtmlRenderMarker(text);
+  return render ? { type: 'html-render', title: render.title, render }
+    : { type: 'none', message: preview(text.split('\n')[0] || 'Page not shown') };
 }
 
 // ── Prokop domain tool results (shared by Codex dynamic and Claude MCP) ────
@@ -249,6 +260,7 @@ export function claudeToolVisualization(
 ): AnyVisualization {
   const content = preview(output);
   switch (name) {
+    case HTML_RENDER_TOOL_NAME: return htmlRenderVisualization(output);
     case 'shell': {
       // Claude reports failures via is_error; a trailing "Exit code N" is
       // parsed when present, otherwise failed maps to 1 and success to 0.

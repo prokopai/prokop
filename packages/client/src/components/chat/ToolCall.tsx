@@ -132,6 +132,8 @@ export const ToolCall = memo(function ToolCall({
   const state = part.state;
   const status = state.status;
   const visualization = getToolPartVisualization(part);
+  // A page the agent showed is part of its answer, so older turns keep it visible.
+  const previewCollapsed = collapsePreview && visualization?.type !== 'html-render';
   const durationMs = getToolDurationMs(state);
   const interruptReason = getInterruptReasonLabel(state);
   const errorLine = state.status === 'error' && typeof state.error === 'string' ? firstLine(state.error) : '';
@@ -266,7 +268,7 @@ export const ToolCall = memo(function ToolCall({
               <div className="text-xs text-muted-foreground">{visualization.message}</div>
             )}
             {/* Pretty body for collapsed visualizations (chip-only while collapsed) */}
-            {visualization && (visualization.collapsed || collapsePreview) && visualization.type !== 'none' && (
+            {visualization && (visualization.collapsed || previewCollapsed) && visualization.type !== 'none' && (
               <div>
                 <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1">Result</div>
                 <VisualizationRenderer visualization={visualization} persistKey={part.id} />
@@ -369,7 +371,7 @@ export const ToolCall = memo(function ToolCall({
       </Collapsible>
 
       {/* Older previews mount inside the existing expandable row, not hidden DOM. */}
-      {status === 'completed' && visualization && !visualization.collapsed && !collapsePreview && visualization.type !== 'none' && (
+      {status === 'completed' && visualization && !visualization.collapsed && !previewCollapsed && visualization.type !== 'none' && (
         <div className="mt-1">
           {visualization.type === 'shell-output' ? (
             <TerminalOutput stdout={visualization.stdout} stderr={visualization.stderr} />

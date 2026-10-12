@@ -4,6 +4,10 @@
 
 - **Switch harness mid-conversation**: When Claude Code or Codex runs out of usage, pick a model from another harness (Prokop, Claude Code or Codex) in the session's model picker and keep working in the same session. Before, the harness was locked after the first message. The new harness starts its own fresh thread and gets a summary of the conversation in its instructions: the first request, the last six turns with each tool call on one line, and the session ID so it can look up earlier details with session search. Nothing from the earlier turns runs again. The conversation shows "Switched to Codex CLI · gpt-5" where the switch happened. Switching works while the session is idle, with no queued messages, pending approvals, running Goal or Compact. After a switch, Fork is unavailable, and Edit and Undo are unavailable in Claude Code and Codex. In Prokop they still work for turns after the switch.
 
+- **Agents can show pages in their replies**: Prokop, Claude Code and Codex agents can show a chart, table, diagram or mockup as a page inside their reply, above the text. The page follows your light or dark theme, grows to fit its content, and opens in a new tab from its corner button. It runs sandboxed, with no access to Jean2's stored login or storage. This comes from a new built-in MCP entry, **Prokop Visuals**, which is on without any setup. Turn it off, or turn off its `render_html` tool, in MCP settings for all workspaces or for one. Subagents and learning reviews do not get it. A page can be up to 200 KB.
+
+- **Diagrams and math in messages**: A ` ```mermaid ` block is drawn as a diagram once its closing fence arrives. Until then, and if the diagram has an error, it shows as code; a corner button switches between the diagram and its source. Math between `$$` signs, inline or on its own lines, and ` ```math ` blocks render with KaTeX. A single `$` stays plain text, so prices such as "$5 and $10" are not turned into math.
+
 - **Reorder terminal tabs**: Drag a terminal tab to a new position, the same way you reorder dock tabs. The order is kept per workspace on this device, and new terminals open at the end.
 
 ### Fixed

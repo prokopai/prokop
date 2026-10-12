@@ -1,6 +1,7 @@
 import type { ToolModelOutputPart } from '@prokopai/sdk/types';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { CapabilityTool } from '@/infrastructure/providers/ai-sdk';
+import { stripVisualization } from '@/infrastructure/tools/strip-visualization';
 
 /** Čapek 1.1.x recognizes this envelope in its output policy and transcript writer.
  * Keep this compatibility mapping here until core exposes its envelope factory.
@@ -29,5 +30,5 @@ export const mcpModelOutput: NonNullable<CapabilityTool['toModelOutput']> = ({ o
       : { type: 'text' as const, text: part.text }) };
   }
   // The output policy can replace large text results with artifact references.
-  return { type: 'text', value: JSON.stringify(output) };
+  return { type: 'text', value: JSON.stringify(stripVisualization(output)) };
 };

@@ -17,7 +17,7 @@ test.each(['workspace', 'agent'] as const)('full %s composition suppresses domai
     scheduling: { enabled: true, permissionRisk: 'high' },
     skills: { managementEnabled: true, permissionRisk: 'high' },
   } });
-  seedSession('ws', { id: 'review' });
+  seedSession('ws', { id: 'review', metadata: { learningRunId: 'run' } });
   const host = getRuntimeHost();
   let executed = false;
   const preconfig = { id: 'dev', name: 'Developer', model: 'test', provider: 'test', tools: ['shell'], canSpawnSubagents: true } as Preconfig;

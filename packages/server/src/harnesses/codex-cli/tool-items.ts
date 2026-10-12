@@ -1,4 +1,4 @@
-import { resolveToolSummary, type AnyVisualization, type ToolPart } from '@prokopai/sdk';
+import { HTML_RENDER_TOOL_NAME, resolveToolSummary, type AnyVisualization, type ToolPart } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
 import { projectToolPartForClient } from '@/application/sessions/tool-debug';
 import { createPart, getToolPartByCallId, transitionToolToCompleted,
@@ -7,6 +7,7 @@ import { codexObject } from './app-server';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,
+  htmlRenderVisualization,
   memoryResultVisualization,
   preview,
   sessionSearchResultVisualization,
@@ -39,6 +40,13 @@ function commandStdout(value: unknown): string {
 function dynamicResult(item: Record<string, unknown>): Record<string, unknown> | null {
   const text = dynamicContent(item);
   try { return text ? codexObject(JSON.parse(text)) : null; } catch { return null; }
+}
+
+/** Built-in visuals arrive through the generic MCP bridge, keyed by the inner tool. */
+function renderVisualization(item: Record<string, unknown>): AnyVisualization | null {
+  if (item.type !== 'dynamicToolCall' || item.namespace !== null || item.tool !== 'mcp_call_tool'
+    || codexObject(item.arguments)?.tool !== HTML_RENDER_TOOL_NAME) return null;
+  return htmlRenderVisualization(dynamicContent(item) ?? '');
 }
 
 function domainVisualization(item: Record<string, unknown>): AnyVisualization | null {
@@ -80,6 +88,13 @@ function itemIdentity(item: Record<string, unknown>): { name: string; summary: s
         input: { server: preview(item.server), tool: preview(item.tool), arguments: preview(item.arguments) } };
     case 'dynamicToolCall':
       if (typeof item.tool !== 'string') return null;
+      if (item.namespace === null && item.tool === 'mcp_call_tool'
+        && codexObject(item.arguments)?.tool === HTML_RENDER_TOOL_NAME) {
+        // Built-in visuals read the same in every harness; the page itself is not row input.
+        const title = codexObject(codexObject(item.arguments)?.arguments)?.title;
+        return { name: HTML_RENDER_TOOL_NAME, summary: typeof title === 'string' ? preview(title).slice(0, 500) : HTML_RENDER_TOOL_NAME,
+          input: { title: typeof title === 'string' ? preview(title) : undefined } };
+      }
       if (item.namespace === null && DOMAIN_TOOLS.has(item.tool)) {
         const args = codexObject(item.arguments) ?? {};
         // Skill bodies stay in the Codex tool exchange, not the transcript or live part events.
@@ -186,7 +201,7 @@ export class CodexToolItems {
         ? { type: 'shell-output', command: preview(item.command), stdout: content,
           exitCode: typeof item.exitCode === 'number' ? item.exitCode : -1 }
         : item.type === 'fileChange' ? fileChangeVisualization(item.changes)
-          : domainVisualization(item)
+          : renderVisualization(item) ?? domainVisualization(item)
             ?? ((item.type === 'collabAgentToolCall' || item.type === 'subAgentActivity')
               ? { type: 'none' as const,
                 message: `Subagent ${typeof item.tool === 'string' && item.tool ? item.tool : 'task'} completed` }

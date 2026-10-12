@@ -14,13 +14,15 @@ export type TurnSegment =
 export const MIN_GROUPED_TOOLS = 2;
 
 function isWorkPart(part: Part): boolean {
-  return part.type === 'tool' || part.type === 'reasoning' || part.type === 'step';
+  // A page the agent showed is part of its answer, not work to fold away.
+  if (part.type === 'tool') return getToolPartVisualization(part)?.type !== 'html-render';
+  return part.type === 'reasoning' || part.type === 'step';
 }
 
 /**
  * Folds runs of agent work (tool calls plus the reasoning and step markers
- * between them) into one segment. Text, images and files end a run, so the
- * answer always stays outside the fold.
+ * between them) into one segment. Text, images, files and shown pages end a
+ * run, so the answer always stays outside the fold.
  */
 export function groupTurnParts(parts: readonly Part[]): TurnSegment[] {
   const segments: TurnSegment[] = [];

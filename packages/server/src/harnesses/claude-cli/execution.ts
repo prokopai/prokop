@@ -308,7 +308,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         const selectedRoot = path?.path ?? workspace.path;
         if (!existsSync(selectedRoot)) throw new Error('Claude workspace root unavailable');
         const root = realpathSync(selectedRoot);
-        const workspaceMcp = deps.mcp ? createClaudeWorkspaceMcp(await deps.mcp.tools(workspace.path, sessionId), controller.signal, () => {
+        const workspaceMcpTools = deps.mcp ? await deps.mcp.tools(workspace.path, sessionId) : [];
+        const workspaceMcp = deps.mcp ? createClaudeWorkspaceMcp(workspaceMcpTools, controller.signal, () => {
           const current = getSession(sessionId);
           return active.get(sessionId) === controller && current?.harness === 'claude-cli' && current.workspaceId === session.workspaceId
             && current.status === 'active' && current.workspaceRootId === session.workspaceRootId;
@@ -349,7 +350,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
           developerInstructions = await claudeDeveloperInstructions(workspace, root, preconfig, {
             ...sources, getAgentDirectory: async () => agentDir,
-          }, dynamicTools.map(item => item.name));
+          }, [...dynamicTools.map(item => item.name), ...workspaceMcpTools.map(tool => tool.name)]);
           if (!session.preconfigId) {
             const updated = updateSession(sessionId, { preconfigId,
               agentId: agentDir ? preconfigId : null });

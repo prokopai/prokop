@@ -1,7 +1,9 @@
+import type { HtmlRenderReference } from './html-render';
+
 /**
  * Supported visualization types for tool outputs.
  */
-export type VisualizationType = 'diff' | 'diffs' | 'code' | 'table' | 'file-list' | 'markdown' | 'shell-output' | 'none' | 'todo-list' | 'structured-response';
+export type VisualizationType = 'diff' | 'diffs' | 'code' | 'table' | 'file-list' | 'markdown' | 'shell-output' | 'none' | 'todo-list' | 'structured-response' | 'html-render';
 
 /**
  * Base interface for all visualization types embedded in tool output.
@@ -230,6 +232,14 @@ export interface StructuredResponseVisualization extends ToolVisualization {
 /**
  * Union of all possible visualization types.
  */
+/**
+ * An agent's HTML page shown inline in the conversation, in a sandboxed frame.
+ */
+export interface HtmlRenderVisualization extends ToolVisualization {
+  type: 'html-render';
+  render: HtmlRenderReference;
+}
+
 export type AnyVisualization =
   | DiffVisualization
   | DiffsVisualization
@@ -240,7 +250,8 @@ export type AnyVisualization =
   | ShellOutputVisualization
   | NoneVisualization
   | TodoListVisualization
-  | StructuredResponseVisualization;
+  | StructuredResponseVisualization
+  | HtmlRenderVisualization;
 
 /**
  * Tool output pattern that includes optional visualization data.

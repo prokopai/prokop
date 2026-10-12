@@ -44,6 +44,18 @@ describe.each(['ws', null])('MCP settings for %s', workspaceId => {
       { type: 'builtin', id: 'browser', enabled: true }));
     expect(await screen.findByRole('button', { name: 'Choose tools' })).toBeInTheDocument();
   });
+  test('shows built-in visuals as on, without browser setup, and turns it off with one switch', async () => {
+    const { api, user } = setup({ 'Prokop Visuals': { config: { type: 'builtin', id: 'visuals' }, status: { status: 'connected' } } });
+    expect(await screen.findByText('Lets agents show charts, tables and diagrams as pages in their replies.')).toBeInTheDocument();
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(screen.queryByText('Set up browser extension')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove Prokop Visuals' })).not.toBeInTheDocument();
+    const toggle = screen.getByRole('switch', { name: 'Enable Prokop Visuals' });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith(workspaceId, 'Prokop Visuals',
+      { type: 'builtin', id: 'visuals', enabled: false }));
+  });
   test('adds a remote server without editing a file', async () => {
     const { api, user } = setup();
     await user.click(screen.getByRole('button', { name: 'Add server' }));

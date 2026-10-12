@@ -3,6 +3,16 @@ import { CallToolResultSchema, type Tool as MCPToolDef } from '@modelcontextprot
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { getWorkspaceTools } from './manager';
 import { mcpModelOutput, mcpOutputForCapek } from '@/infrastructure/mcp/model-output';
+import { BUILTIN_VISUALS_MCP_NAME, HTML_RENDER_TOOL_NAME, parseHtmlRenderMarker } from '@prokopai/sdk';
+import type { WorkspaceMcpResult, WorkspaceMcpTool } from '@/application/ports/mcp-tools';
+
+/** A built-in render carries its inline page as the transcript visualization. */
+function withRenderVisualization(tool: WorkspaceMcpTool, result: WorkspaceMcpResult, output: unknown): unknown {
+  if (tool.serverName !== BUILTIN_VISUALS_MCP_NAME || tool.toolName !== HTML_RENDER_TOOL_NAME
+    || !output || typeof output !== 'object' || Array.isArray(output)) return output;
+  const render = parseHtmlRenderMarker(JSON.stringify(result));
+  return render ? { ...output, _visualization: { type: 'html-render', title: render.title, render } } : output;
+}
 
 export async function getTools(path: string, sessionId: string, authorized?: () => Promise<boolean>): Promise<Record<string, CapabilityTool>> {
   return Object.fromEntries((await getWorkspaceTools(path, sessionId)).map(tool => {
@@ -11,7 +21,8 @@ export async function getTools(path: string, sessionId: string, authorized?: () 
     converted.execute = async (input, options) => {
       if (authorized && !await authorized()) throw new Error('MCP access is not allowed for this agent');
       if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid MCP arguments');
-      return mcpOutputForCapek(await tool.execute(input as Record<string, unknown>, options?.abortSignal, authorized));
+      const result = await tool.execute(input as Record<string, unknown>, options?.abortSignal, authorized);
+      return withRenderVisualization(tool, result, mcpOutputForCapek(result));
     };
     converted.toModelOutput = mcpModelOutput;
     return [tool.name, converted];

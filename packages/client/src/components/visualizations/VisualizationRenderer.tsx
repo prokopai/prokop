@@ -7,6 +7,7 @@ import { SuccessIndicator } from './SuccessIndicator';
 import { TerminalOutput } from './TerminalOutput';
 import { TodoList } from './TodoList';
 import { StructuredResponse } from './StructuredResponse';
+import { HtmlRenderFrame } from './HtmlRenderFrame';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface VisualizationRendererProps {
@@ -114,6 +115,9 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
           items={visualization.items}
         />
       );
+
+    case 'html-render':
+      return <HtmlRenderFrame render={visualization.render} />;
 
     case 'structured-response':
       return (

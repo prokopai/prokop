@@ -2,13 +2,17 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
-import type { Components, ExtraProps } from 'react-markdown';
+import 'katex/dist/katex.min.css';
+import type { Components, ExtraProps, Options } from 'react-markdown';
 import { Highlight, themes } from 'prism-react-renderer';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import { MermaidDiagram } from './MermaidDiagram';
 
 const CODE_THEME_DARK = themes.oneDark;
 const CODE_THEME_LIGHT = themes.oneLight;
@@ -162,7 +166,40 @@ export interface MarkdownRendererProps {
 
 type ComponentProps<T extends ElementType> = ComponentPropsWithoutRef<T>;
 
-const HTML_REHYPE_PLUGINS = [rehypeRaw, rehypeSanitize];
+// Single-dollar math would turn "$5 and $10" into an equation, so math needs
+// $$...$$ or a ```math block.
+interface MarkdownNode {
+  type: string;
+  position?: { start: { offset?: number }; end: { offset?: number } };
+  data?: { hProperties?: Record<string, unknown> };
+  children?: MarkdownNode[];
+}
+
+/** True once a fenced block's closing fence has arrived. */
+export function isClosedFence(block: string): boolean {
+  const lines = block.trimEnd().split('\n');
+  return lines.length >= 2 && /^\s*(`{3,}|~{3,})\s*$/.test(lines[lines.length - 1]!);
+}
+
+/** Marks a fenced block still streaming, so a diagram is drawn only once it is complete. */
+function remarkMarkOpenFences() {
+  return (tree: MarkdownNode, file: { value: unknown }) => {
+    const source = String(file.value);
+    const visit = (node: MarkdownNode) => {
+      const { start, end } = { start: node.position?.start.offset, end: node.position?.end.offset };
+      if (node.type === 'code' && start !== undefined && end !== undefined && !isClosedFence(source.slice(start, end))) {
+        node.data = { ...node.data, hProperties: { ...node.data?.hProperties, dataFenceOpen: true } };
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
+const REMARK_PLUGINS: NonNullable<Options['remarkPlugins']> = [remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkMarkOpenFences];
+// KaTeX runs after the sanitizer so its own markup is kept; trust stays off.
+const REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [[rehypeKatex, { throwOnError: false, strict: 'ignore' }]];
+const HTML_REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [rehypeRaw, rehypeSanitize, ...REHYPE_PLUGINS];
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, allowHtml = false, overrides }: MarkdownRendererProps) {
   const { resolvedMode } = useTheme();
@@ -173,21 +210,26 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     : (isDark ? CODE_THEME_DARK : CODE_THEME_LIGHT);
 
   const components: Components = useMemo(() => ({
-    code({ className: codeClassName, children: codeChildren, ...props }) {
+    code({ node, className: codeClassName, children: codeChildren, ...props }) {
       const match = /language-(\w+)/.exec(codeClassName || '');
       const language = match ? match[1] : '';
       const codeString = extractText(codeChildren);
       const isBlock = Boolean(language) || codeString.includes('\n');
 
       if (isBlock) {
-        return (
+        const code = codeString.replace(/\n$/, '');
+        const block = (
           <MarkdownCodeBlock
-            code={codeString.replace(/\n$/, '')}
+            code={code}
             language={language}
             theme={codeTheme}
             inverted={inverted}
           />
         );
+        if (language === 'mermaid' && !inverted && !node?.properties.dataFenceOpen) {
+          return <MermaidDiagram code={code} source={block} />;
+        }
+        return block;
       }
 
       return (
@@ -273,8 +315,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
   return (
     <div className={cn('w-full markdown-render overflow-x-auto break-words', className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={allowHtml ? HTML_REHYPE_PLUGINS : undefined}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={allowHtml ? HTML_REHYPE_PLUGINS : REHYPE_PLUGINS}
         components={components}
       >
         {children}

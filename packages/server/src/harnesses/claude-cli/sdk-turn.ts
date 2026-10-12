@@ -4,6 +4,11 @@ import { claudeCliVersion } from './version';
 import { parseClaudeUsage, type ClaudeTurnUsage } from './usage';
 import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
+import { HTML_RENDER_TOOL_NAME } from '@prokopai/sdk';
+import { claudeWorkspaceToolName } from './mcp-tools';
+
+// A render shows in the conversation the user watches, so subagents never get it.
+const MAIN_THREAD_ONLY_TOOLS = new Set([claudeWorkspaceToolName(HTML_RENDER_TOOL_NAME)]);
 
 export type ClaudeTurnEvent = (
   | { type: 'text-delta'; text: string }
@@ -150,6 +155,9 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       if (event.hook_event_name !== 'PreToolUse') return { continue: false };
       if (streamClosed) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Claude stream has ended' } };
+      // agent_id is set only for calls from a subagent.
+      if (event.agent_id && MAIN_THREAD_ONLY_TOOLS.has(event.tool_name)) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
+        permissionDecision: 'deny', permissionDecisionReason: 'Only the main agent can show pages in the conversation' } };
       const decision = await input.canUseTool(event.tool_name, event.tool_input as Record<string, unknown>, {
         signal: context.signal, toolUseID: event.tool_use_id, requestId: crypto.randomUUID(),
       });

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import type { Preconfig, Workspace } from '@prokopai/sdk';
+import { HTML_RENDER_TOOL_NAME, type Preconfig, type Workspace } from '@prokopai/sdk';
+import { renderHtmlGuidance } from '@/infrastructure/visuals/render-html';
 import { formatCodexAgentSkills, listCodexAgentSkills } from './agent-skills';
 import { codexWorkspaceMemory } from './workspace-memory';
 
@@ -79,6 +80,9 @@ export async function codexDeveloperInstructions(
 List recent sessions to find an ID, search by keywords, and read the relevant messages before drawing conclusions.
 Prefer current_session for this conversation and workspace for other sessions in this project.
 Use agent scope only for the selected agent's cross-workspace history.`);
+  }
+  if (availableTools.includes(HTML_RENDER_TOOL_NAME)) {
+    sections.push(renderHtmlGuidance(`call mcp_call_tool with tool "${HTML_RENDER_TOOL_NAME}" and arguments { html, title, height }; mcp_list_tools shows its description`));
   }
   return sections.join('\n\n');
 }

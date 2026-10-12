@@ -15,9 +15,8 @@ import { StdioTransport } from './stdio-transport';
 import { McpOAuthProvider } from './oauth-provider';
 import { getMcpServers, updateMcpConfig } from './config';
 import { removeAuth } from './auth';
-import { BUILTIN_BROWSER_MCP_NAME } from '@prokopai/sdk';
-import { browserTools } from '@/infrastructure/browser/catalog';
-import { browserConnection, browserService } from '@/infrastructure/browser/service';
+import { BUILTIN_MCP_NAMES } from '@prokopai/sdk';
+import { builtinMcps, isBuiltinMcpName } from './builtins';
 
 const TIMEOUT = 30_000;
 interface State { client: Client | null; status: McpStatus; config: McpServerConfig }
@@ -82,7 +81,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     clients.set(name, state);
     if (config.enabled === false) return state.status;
     if (config.type === 'builtin') {
-      state.status = browserStatus();
+      state.status = builtinMcps[config.id].status();
       return state.status;
     }
     const timeout = config.timeout ?? TIMEOUT;
@@ -180,7 +179,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     onChange(path);
   }
   async function settingsConfig(path: string | null, name: string): Promise<McpServerConfig | undefined> {
-    return (await getMcpServers(path))[name] ?? (name === BUILTIN_BROWSER_MCP_NAME ? (await getMcpServers(null))[name] : undefined);
+    return (await getMcpServers(path))[name] ?? (isBuiltinMcpName(name) ? (await getMcpServers(null))[name] : undefined);
   }
   async function setToolEnabled(path: string | null, name: string, toolName: string, enabled: boolean): Promise<void> {
     await serialized(path, async () => {
@@ -192,23 +191,20 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     });
     onChange(path);
   }
-  function browserStatus(): McpStatus {
-    return browserConnection() ? { status: 'connected' }
-      : { status: 'failed', error: 'Connect exactly one Prokop Browser extension.' };
-  }
   async function getServerStatus(path: string | null, name: string): Promise<McpStatus | undefined> {
     const config = await settingsConfig(path, name);
-    if (config?.type === 'builtin') return config.enabled === false ? { status: 'disabled' } : browserStatus();
+    if (config?.type === 'builtin') return config.enabled === false ? { status: 'disabled' } : builtinMcps[config.id].status();
     return workspaces.get(path)?.get(name)?.status;
   }
   async function getAllServerStatus(path: string | null): Promise<Record<string, { config: McpServerConfig; status: McpStatus }>> {
     const configs = await getMcpServers(path);
-    if (!Object.hasOwn(configs, BUILTIN_BROWSER_MCP_NAME)) {
-      configs[BUILTIN_BROWSER_MCP_NAME] = (await getMcpServers(null))[BUILTIN_BROWSER_MCP_NAME]!;
+    const globals = await getMcpServers(null);
+    for (const name of Object.values(BUILTIN_MCP_NAMES)) {
+      if (!Object.hasOwn(configs, name)) configs[name] = globals[name]!;
     }
     return Object.fromEntries(Object.entries(configs).map(([name, config]) => [name, {
       config, status: config.enabled === false ? { status: 'disabled' }
-        : config.type === 'builtin' ? browserStatus() : workspaces.get(path)?.get(name)?.status ?? { status: 'disabled' },
+        : config.type === 'builtin' ? builtinMcps[config.id].status() : workspaces.get(path)?.get(name)?.status ?? { status: 'disabled' },
     }]));
   }
   async function listTools(state: State): Promise<Tool[]> {
@@ -231,8 +227,9 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     if (!config) throw new NotFoundError('MCP server not found');
     const state = workspaces.get(path)?.get(name);
     let tools: Tool[];
-    try { tools = config.type === 'builtin' ? browserTools.map(tool => ({ name: tool.definition.name, description: tool.definition.description,
-      inputSchema: { ...tool.definition.inputSchema, type: 'object' as const } })) : state ? await listTools(state) : []; }
+    try { tools = config.type === 'builtin' ? builtinMcps[config.id].definitions.map(definition => ({ name: definition.name,
+      description: definition.description, inputSchema: { ...definition.inputSchema, type: 'object' as const } }))
+      : state ? await listTools(state) : []; }
     catch { throw new Error('Unable to list MCP tools. Reconnect and try again.'); }
     return tools.map(tool => ({ name: tool.name, description: tool.description,
       enabled: !config.disabledTools?.includes(tool.name) }));
@@ -278,9 +275,10 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     const builtins: WorkspaceMcpTool[] = [];
     if (sessionId) for (const [name, config] of Object.entries(effective)) {
       if (config.type !== 'builtin' || config.enabled === false) continue;
+      const builtin = builtinMcps[config.id];
+      if (!builtin.visibleTo(sessionId)) continue;
       const workspaceOwned = Object.hasOwn(workspaceServers, name);
-      for (const tool of browserTools) {
-        const definition = tool.definition;
+      for (const definition of builtin.definitions) {
         if (config.disabledTools?.includes(definition.name)) continue;
         builtins.push({ name: definition.name, serverName: name, toolName: definition.name,
           description: definition.description, inputSchema: definition.inputSchema,
@@ -289,10 +287,10 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
               const workspaceConfig = await getMcpServers(path);
               if (workspaceOwned !== Object.hasOwn(workspaceConfig, name)) return false;
               const current = workspaceOwned ? workspaceConfig[name] : (await getMcpServers(null))[name];
-              return current?.type === 'builtin' && current.enabled !== false
+              return current?.type === 'builtin' && current.id === config.id && current.enabled !== false
                 && !current.disabledTools?.includes(definition.name) && (!authorized || await authorized());
             };
-            return browserService.execute(definition.name, input, sessionId, path, signal, allowed, config.timeout);
+            return builtin.execute(definition.name, input, sessionId, path, signal, allowed, config.timeout);
           } });
       }
     }

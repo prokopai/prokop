@@ -149,3 +149,12 @@ test('Claude without any preconfig refuses the turn before any native work', asy
   expect(f.binding()).toBeNull();
   expect(listMessagesWithParts('session')).toHaveLength(0);
 });
+
+test('Claude learns about render_html only while the tool is available, by its Claude name', async () => {
+  const withTool = await claudeDeveloperInstructions(plainWorkspace, '/projects/worktree', agent,
+    plainSources(null), ['render_html']);
+  expect(withTool).toContain('render_html tool (mcp__workspace__render_html)');
+  expect(withTool).toContain('without being asked');
+  expect(await claudeDeveloperInstructions(plainWorkspace, '/projects/worktree', agent, plainSources(null), []))
+    .not.toContain('render_html');
+});

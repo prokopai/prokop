@@ -254,6 +254,28 @@ test('SDK hook returns AskUserQuestion answers as updatedInput and replays them 
   expect(calls).toBe(1);
 });
 
+test('SDK hook denies render_html to subagents and leaves the main agent to policy', async () => {
+  const asked: string[] = [];
+  for await (const _item of runClaudeTurn({ ...base,
+    canUseTool: async name => { asked.push(name); return { behavior: 'allow' }; },
+    start: (_prompt, config) => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        const hook = config.hooks!.PreToolUse![0]!.hooks[0]!;
+        const call = (agentId?: string) => hook({ hook_event_name: 'PreToolUse', tool_name: 'mcp__workspace__render_html',
+          tool_input: { html: '<p>x</p>', title: 'x', height: 200 }, tool_use_id: 'render-1',
+          ...(agentId ? { agent_id: agentId } : {}) } as never, 'render-1', { signal: base.controller.signal });
+        expect(await call('agent-7')).toMatchObject({ hookSpecificOutput: { permissionDecision: 'deny',
+          permissionDecisionReason: 'Only the main agent can show pages in the conversation' } });
+        expect(await call()).toMatchObject({ hookSpecificOutput: { permissionDecision: 'allow' } });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done' });
+      }
+      return stream();
+    },
+  })) { /* Consume the fake turn. */ }
+  expect(asked).toEqual(['mcp__workspace__render_html']);
+});
+
 test('default Agent and future tools keep parent tool rows while child events stay out of parent text', async () => {
   const approved: string[] = [];
   const collected = [];

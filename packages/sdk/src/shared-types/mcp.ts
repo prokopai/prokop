@@ -4,6 +4,13 @@
  */
 
 export const BUILTIN_BROWSER_MCP_NAME = 'Prokop Browser';
+export const BUILTIN_VISUALS_MCP_NAME = 'Prokop Visuals';
+export type McpBuiltinId = 'browser' | 'visuals';
+/** Each built-in owns one reserved server name. */
+export const BUILTIN_MCP_NAMES: Record<McpBuiltinId, string> = {
+  browser: BUILTIN_BROWSER_MCP_NAME,
+  visuals: BUILTIN_VISUALS_MCP_NAME,
+};
 export type McpServerType = 'local' | 'remote' | 'builtin';
 
 export interface McpOAuthConfig {
@@ -33,7 +40,7 @@ export interface McpRemoteServerConfig {
 
 export interface McpBuiltinServerConfig {
   type: 'builtin';
-  id: 'browser';
+  id: McpBuiltinId;
   enabled?: boolean;
   disabledTools?: string[];
   timeout?: number;

@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import type { SessionStatus } from '@prokopai/sdk';
+import { isHtmlRenderMimeType, type SessionStatus } from '@prokopai/sdk';
 import { validate } from './validate';
 import { parseSessionCategory } from './session-category';
 import { createSessionSchema, updateSessionSchema, codexModelSelectionSchema, harnessEnableSchema } from './schemas';
@@ -342,6 +342,12 @@ export function registerSessionRoutes(app: Hono, application: SessionHttpApplica
       throw new PayloadTooLargeError(`File size (${Math.round(sizeBytes / 1024 / 1024)} MB) exceeds the 20 MB limit.`);
     }
 
+    // Bun derives an upload's type from its file name, so this cannot match
+    // today. It keeps a client-chosen type from ever getting render scripts.
+    if (isHtmlRenderMimeType(mimeType)) {
+      throw new BadRequestError('This file type is reserved for agent HTML renders.');
+    }
+
     const kind = rules.determineKind(mimeType);
     if (kind === 'image' && !rules.validateImageMime(mimeType)) {
       throw new BadRequestError(`Image type "${mimeType}" is not supported. Allowed: png, jpeg, webp, gif.`);
@@ -399,13 +405,15 @@ export function registerSessionRoutes(app: Hono, application: SessionHttpApplica
 
     // The MIME type comes from the uploader, so an attached HTML page would run as
     // this origin and could read the API token. The sandbox gives an opened page an
-    // opaque origin and no scripts; images still embed.
+    // opaque origin and no scripts; images still embed. An agent render may run
+    // scripts and load CDN libraries, still in an opaque origin.
     return new Response(file, {
       headers: {
         'Content-Type': attachment.mimeType,
         'Content-Length': String(attachment.sizeBytes),
         'Cache-Control': 'private, max-age=86400',
-        'Content-Security-Policy': "default-src 'none'; sandbox",
+        'Content-Security-Policy': isHtmlRenderMimeType(attachment.mimeType)
+          ? 'sandbox allow-scripts allow-forms' : "default-src 'none'; sandbox",
         'X-Content-Type-Options': 'nosniff',
       },
     });

@@ -16,6 +16,7 @@ export * from './gitRebase';
 export * from './pullRequest';
 export * from './visualization';
 export * from './mcp';
+export * from './html-render';
 export * from './skill';
 export * from './server';
 export * from './prompt';
