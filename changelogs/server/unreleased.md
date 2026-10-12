@@ -8,6 +8,8 @@
 
 ### Fixed
 
+- **Opened attachments cannot run scripts**: An attached file opened from the conversation is now shown sandboxed, with no scripts and no access to Jean2's stored login. Before, an attached HTML page opened in a new tab ran as Jean2 and could read the API token. Images still show inline as before.
+
 - **Following the conversation stays at the bottom**: While the view follows new output, it now stays at the bottom when you send a message, however long. Before, a long message or a large tool output could leave the view above the end without bringing it back. Sending could also make the conversation flick up for a moment when the message box shrank back, and each new line of a streamed reply showed briefly below the edge before the view caught up. Scrolling up still stops following right away.
 
 - **Stop responds at once**: Pressing Stop now switches the session to idle right away: the Stop button turns back into Send, and the running markers in the sidebar, tabs, header and window title clear. Before, they stayed until the agent had fully shut down, which takes about 2 seconds for Claude Code. A message you send in that moment is queued and runs once the stopped turn has ended. It is never steered into the turn you stopped. If the server reports that nothing was stopped, the session shows as running again.

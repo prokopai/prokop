@@ -397,11 +397,16 @@ export function registerSessionRoutes(app: Hono, application: SessionHttpApplica
       throw new NotFoundError('Attachment file not found on disk');
     }
 
+    // The MIME type comes from the uploader, so an attached HTML page would run as
+    // this origin and could read the API token. The sandbox gives an opened page an
+    // opaque origin and no scripts; images still embed.
     return new Response(file, {
       headers: {
         'Content-Type': attachment.mimeType,
         'Content-Length': String(attachment.sizeBytes),
         'Cache-Control': 'private, max-age=86400',
+        'Content-Security-Policy': "default-src 'none'; sandbox",
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   });

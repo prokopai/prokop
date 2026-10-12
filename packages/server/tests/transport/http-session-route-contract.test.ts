@@ -641,6 +641,24 @@ describe('HTTP session route contract', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('text/plain');
     expect(res.headers.get('Content-Length')).toBe('3');
+    expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(await res.text()).toBe('abc');
+  });
+
+  test('GET attachment content sandboxes an uploaded HTML page', async () => {
+    const { app } = makeApp({
+      attachments: {
+        ...makeRepository().attachments,
+        getByKey: () => ({ ...attachmentRecord(), filename: 'page.html', mimeType: 'text/html', sizeBytes: 38 }),
+        openFile: async () => new Blob(['<script>fetch(localStorage.x)</script>']),
+      },
+    });
+
+    const res = await app.request('/api/sessions/sess-1/attachments/att-1/content?key=k');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/html');
+    expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 });
