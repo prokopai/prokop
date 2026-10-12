@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,8 +11,10 @@ import type { Components, ExtraProps, Options } from 'react-markdown';
 import { Highlight, themes } from 'prism-react-renderer';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { localFileLinkPath } from '@/lib/fileLinks';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { MermaidDiagram } from './MermaidDiagram';
+import { MarkdownFileLinkContext } from './markdownFileLinks';
 
 const CODE_THEME_DARK = themes.oneDark;
 const CODE_THEME_LIGHT = themes.oneLight;
@@ -135,11 +137,28 @@ function pictureImageProps(node: HastElement | undefined, mode: 'dark' | 'light'
 
 /** The renderer's link, for overrides that only special-case some links. */
 export function MarkdownLink({ inverted = false, className, ...props }: ComponentProps<'a'> & { inverted?: boolean }) {
+  const openFile = useContext(MarkdownFileLinkContext);
+  const filePath = openFile && props.href ? localFileLinkPath(props.href) : null;
+  const linkClassName = cn('underline underline-offset-2 transition-colors', inverted ? 'text-primary-foreground hover:text-primary-foreground/85' : 'text-primary hover:text-primary/80', className);
+  if (openFile && filePath) {
+    // A file path is not a URL on this origin: open it in the file preview.
+    return (
+      <a
+        {...props}
+        title={props.title ?? filePath}
+        className={linkClassName}
+        onClick={(event) => {
+          event.preventDefault();
+          openFile(filePath);
+        }}
+      />
+    );
+  }
   return (
     <a
       target="_blank"
       rel="noopener noreferrer"
-      className={cn('underline underline-offset-2 transition-colors', inverted ? 'text-primary-foreground hover:text-primary-foreground/85' : 'text-primary hover:text-primary/80', className)}
+      className={linkClassName}
       {...props}
     />
   );

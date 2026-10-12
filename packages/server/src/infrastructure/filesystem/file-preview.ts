@@ -7,6 +7,7 @@
  */
 
 import { stat, readFile } from 'fs/promises';
+import { homedir } from 'os';
 import { basename, extname, isAbsolute, join, resolve } from 'path';
 import type { FilePreviewResponse } from '@prokopai/sdk';
 import {
@@ -154,30 +155,75 @@ export interface PreviewContainment {
   ): boolean;
 }
 
+export interface PreviewPathOptions {
+  /**
+   * Open an absolute (or `~/`) path anywhere on disk, for files an agent links
+   * in chat. Relative paths stay inside the workspace.
+   */
+  anywhere?: boolean;
+}
+
+/** Resolves a preview path, enforcing workspace containment unless `anywhere` allows it. */
+function resolvePreviewPath(
+  containment: PreviewContainment,
+  workspacePath: string,
+  inputPath: string,
+  additionalPaths: string[],
+  options: PreviewPathOptions,
+): string {
+  const normalizedInput = inputPath.replace(/\\/g, '/');
+  if (options.anywhere && normalizedInput.startsWith('~/')) {
+    return resolve(homedir(), normalizedInput.slice(2));
+  }
+  if (isAbsolute(normalizedInput)) {
+    const fullPath = resolve(normalizedInput);
+    if (options.anywhere) return fullPath;
+    if (!containment.isPathWithinWorkspace(fullPath, workspacePath, additionalPaths)) {
+      throw new Error('Path outside workspace');
+    }
+    return fullPath;
+  }
+  const fullPath = join(workspacePath, normalizedInput);
+  // C6 step 4: the naive prefix containment is replaced by the Capek
+  // workspace policy's separator-aware containment. This fails closed for
+  // sibling-prefix paths (`/main-other` under `/main`) and for `..`
+  // traversal that resolves outside the allowed roots; every previously
+  // allowed path stays allowed.
+  if (!containment.isPathWithinWorkspace(fullPath, workspacePath, additionalPaths)) {
+    throw new Error('Path outside workspace');
+  }
+  return fullPath;
+}
+
+/** A file to send as a download: never a directory, resolved like a preview. */
+export function createFileDownload(containment: PreviewContainment) {
+  return async function getFileDownload(
+    workspacePath: string,
+    inputPath: string,
+    additionalPaths: string[] = [],
+    options: PreviewPathOptions = {},
+  ): Promise<{ file: Blob; name: string; size: number }> {
+    const fullPath = resolvePreviewPath(containment, workspacePath, inputPath, additionalPaths, options);
+    let stats;
+    try {
+      stats = await stat(fullPath);
+    } catch {
+      throw new Error('File not found');
+    }
+    if (stats.isDirectory()) throw new Error('Cannot preview a directory');
+    return { file: Bun.file(fullPath), name: basename(fullPath), size: stats.size };
+  };
+}
+
 /** Builds the preview function over the injected containment check. */
 export function createFilePreview(containment: PreviewContainment) {
   return async function getFilePreview(
     workspacePath: string,
     relativePath: string,
     additionalPaths: string[] = [],
+    options: PreviewPathOptions = {},
   ): Promise<FilePreviewResponse> {
-    let fullPath: string;
-    const normalizedInput = relativePath.replace(/\\/g, '/');
-
-    if (isAbsolute(normalizedInput)) {
-      fullPath = resolve(normalizedInput);
-    } else {
-      fullPath = join(workspacePath, normalizedInput);
-    }
-
-    // C6 step 4: the naive prefix containment is replaced by the Capek
-    // workspace policy's separator-aware containment. This fails closed for
-    // sibling-prefix paths (`/main-other` under `/main`) and for `..`
-    // traversal that resolves outside the allowed roots; every previously
-    // allowed path stays allowed.
-    if (!containment.isPathWithinWorkspace(fullPath, workspacePath, additionalPaths)) {
-      throw new Error('Path outside workspace');
-    }
+    const fullPath = resolvePreviewPath(containment, workspacePath, relativePath, additionalPaths, options);
 
     const primaryResolved = resolve(workspacePath);
 

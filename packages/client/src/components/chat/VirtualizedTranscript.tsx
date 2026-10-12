@@ -24,6 +24,8 @@ import { ErrorMessageContent } from './ErrorMessageContent';
 import { ToolCall } from './ToolCall';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { MarkdownFileLinkContext } from '@/components/shared/markdownFileLinks';
+import { useFileLinkOpener } from '@/hooks/useContextFileOpener';
 import { StructuredResponse } from '@/components/visualizations';
 import { splitStreamingText } from './streamingText';
 import { getToolPreviewCutoff } from '@/lib/toolPreviewPolicy';
@@ -1082,6 +1084,7 @@ export function VirtualizedTranscript({
     return ids;
   }, [messagesWithParts]);
 
+  const openFileLink = useFileLinkOpener(sessionId);
   const switchMarkers = useMemo(() => new Map((harnessSwitches ?? []).map(entry =>
     [entry.afterMessageId, `Switched to ${HARNESS_NAMES[entry.to]} · ${entry.modelId}`])), [harnessSwitches]);
 
@@ -1226,6 +1229,7 @@ export function VirtualizedTranscript({
   );
 
   return (
+    <MarkdownFileLinkContext.Provider value={openFileLink}>
     <LegendList
       ref={listRef}
       data={displayItems}
@@ -1246,5 +1250,6 @@ export function VirtualizedTranscript({
       ListHeaderComponent={header}
       ListEmptyComponent={emptyContent ? () => emptyContent : EmptyTranscript}
     />
+    </MarkdownFileLinkContext.Provider>
   );
 }

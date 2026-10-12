@@ -79,10 +79,12 @@ export function useFilePreviewQuery(
   path: string | undefined,
   root: string | undefined,
   enabled = true,
+  anywhere = false,
 ) {
   return useQuery({
+    // One key for both scopes: a path resolves to the same file either way.
     queryKey: queryKeys.files.preview(workspaceId ?? '', path ?? '', root),
-    queryFn: () => sdkClient!.http.files.preview(workspaceId!, path!, { root }),
+    queryFn: () => sdkClient!.http.files.preview(workspaceId!, path!, { root, anywhere }),
     enabled: !!sdkClient && !!workspaceId && !!path && enabled,
     // staleTime Infinity keeps first-open instant; without refetchOnMount:
     // false a query invalidated by files.changed refetches when reopened.

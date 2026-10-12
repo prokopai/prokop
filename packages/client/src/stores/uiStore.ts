@@ -59,6 +59,8 @@ export interface FilePreviewTarget {
   path: string;
   name: string;
   root?: string;
+  /** Allow an absolute path outside the workspace: set for files an agent links in chat. */
+  anywhere?: boolean;
 }
 
 interface FilePreviewState {

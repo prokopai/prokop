@@ -9,6 +9,7 @@ import {
   Eye,
   Code2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import type { FilePreviewTarget } from '@/stores/uiStore';
 import {
@@ -61,6 +62,7 @@ export default function FilePreviewOverlay({
     workspaceId,
     path: target?.path,
     root: target?.root,
+    anywhere: target?.anywhere,
     sdkClient,
     enabled: open && !!target && !!workspaceId,
   });
@@ -100,9 +102,27 @@ export default function FilePreviewOverlay({
 
   if (!target) return null;
 
+  const download = async () => {
+    if (!sdkClient || !workspaceId) return;
+    try {
+      const blob = await sdkClient.http.files.download(workspaceId, target.path, { root: target.root, anywhere: target.anywhere });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = target.name;
+      link.click();
+      // The browser has started the save by now; the URL is only needed for that.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (downloadError) {
+      toast.error(`Could not download ${target.name}: ${downloadError instanceof Error ? downloadError.message : 'unknown error'}`);
+    }
+  };
+
   const isMarkdown = data?.kind === 'markdown';
   // SVG is text and edits like source; other images are preview only.
   const isBinaryImage = data?.kind === 'image' && data.content === undefined;
+  // A linked file outside the workspace opens read-only: the editor saves only inside it.
+  const isOutsideWorkspace = !!target.anywhere && !!data && data.path.startsWith('/');
   // Markdown and SVG both have a rendered view and a source view.
   const hasSourceTabs = isMarkdown || (data?.kind === 'image' && data.content !== undefined);
 
@@ -215,7 +235,7 @@ export default function FilePreviewOverlay({
     }
 
     // Binary, too large, unsupported — keep existing status panels
-    return <FilePreviewContent preview={data} />;
+    return <FilePreviewContent preview={data} onDownload={sdkClient ? () => { void download(); } : undefined} />;
   };
 
   return (
@@ -280,8 +300,8 @@ export default function FilePreviewOverlay({
               <Button
                 size="sm"
                 onClick={onOpenEdit}
-                disabled={!onOpenEdit || isDeletedFile || isBinaryImage}
-                title={isBinaryImage ? 'Images open in preview only' : undefined}
+                disabled={!onOpenEdit || isDeletedFile || isBinaryImage || isOutsideWorkspace}
+                title={isBinaryImage ? 'Images open in preview only' : isOutsideWorkspace ? 'Files outside the workspace open in preview only' : undefined}
                 className="shrink-0"
               >
                 <FilePenLine data-icon="inline-start" />

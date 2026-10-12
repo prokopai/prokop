@@ -159,6 +159,29 @@ describe('file preview containment matrix (C6 step 4)', () => {
       .rejects.toThrow('Path outside workspace');
   });
 
+  test('anywhere opens an absolute path outside the workspace, never a relative escape', async () => {
+    const base = tempRoot('capek-matrix-anywhere');
+    const main = join(base, 'main');
+    const outside = join(base, 'escape');
+    mkdirSync(main);
+    mkdirSync(outside);
+    writeFileSync(join(outside, 'outside.txt'), 'outside content');
+
+    const preview = await getFilePreview(main, join(outside, 'outside.txt'), [], { anywhere: true });
+    expect(preview).toMatchObject({ path: join(outside, 'outside.txt'), name: 'outside.txt', kind: 'text' });
+    expect(textContent(preview)).toBe('outside content');
+    await expect(getFilePreview(main, '../escape/outside.txt', [], { anywhere: true }))
+      .rejects.toThrow('Path outside workspace');
+  });
+
+  test('anywhere expands a home-relative path', async () => {
+    const home = mkdtempSync(join(homedir(), '.capek-preview-home-'));
+    temporaryDirectories.push(home);
+    writeFileSync(join(home, 'note.txt'), 'home content');
+    const preview = await getFilePreview(tempRoot('capek-matrix-home'), `~/${basename(home)}/note.txt`, [], { anywhere: true });
+    expect(textContent(preview)).toBe('home content');
+  });
+
   test('allows traversal that lexically resolves back inside the workspace root', async () => {
     const main = tempRoot('capek-matrix-inside');
     mkdirSync(join(main, 'sub'), { recursive: true });
@@ -219,6 +242,38 @@ describe('file preview route containment status (C6 step 4)', () => {
       error: 'forbidden',
       message: 'Path outside workspace',
     });
+  });
+
+  test('opens an absolute outside path only when the request asks for anywhere', async () => {
+    const outside = tempRoot('capek-route-outside');
+    writeFileSync(join(outside, 'report.txt'), 'report');
+    const url = `/api/workspaces/${workspaceId}/file-preview?path=${encodeURIComponent(join(outside, 'report.txt'))}`;
+
+    expect((await filesApp().request(url)).status).toBe(403);
+    const response = await filesApp().request(`${url}&anywhere=true`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ name: 'report.txt', kind: 'text', content: 'report' });
+  });
+
+  test('downloads a file as an attachment, never rendered', async () => {
+    const outside = tempRoot('capek-route-download');
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff]);
+    writeFileSync(join(outside, 'release notes.xlsx'), bytes);
+    writeFileSync(join(main, 'page.html'), '<script>1</script>');
+    const download = `/api/workspaces/${workspaceId}/file-download`;
+
+    const response = await filesApp().request(`${download}?anywhere=true&path=${encodeURIComponent(join(outside, 'release notes.xlsx'))}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('application/octet-stream');
+    expect(response.headers.get('Content-Disposition')).toBe("attachment; filename*=UTF-8''release%20notes.xlsx");
+    expect(response.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+
+    const html = await filesApp().request(`${download}?path=page.html`);
+    expect(html.headers.get('Content-Type')).toBe('application/octet-stream');
+    expect((await filesApp().request(`${download}?path=${encodeURIComponent(join(outside, 'release notes.xlsx'))}`)).status).toBe(403);
+    expect((await filesApp().request(`${download}?path=missing.bin`)).status).toBe(404);
+    expect((await filesApp().request(`${download}?path=.`)).status).toBe(400);
   });
 
   test('keeps inside-root traversal allowed at the route boundary', async () => {

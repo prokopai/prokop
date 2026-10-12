@@ -37,7 +37,7 @@ function mapApplicationError(err: unknown): never {
     throw err;
   }
   const message = err instanceof Error ? err.message : 'Unknown error';
-  if (message === 'Workspace not found' || message === 'Path not found') {
+  if (message === 'Workspace not found' || message === 'Path not found' || message === 'File not found') {
     throw new NotFoundError(message);
   }
   // GitOperationError carries a reason and redacted output tail for the client.
@@ -292,8 +292,35 @@ export function registerFileRoutes(app: Hono, files: FilesApplication): void {
     }
 
     try {
-      const preview = await files.previewFile(workspaceId, path, rootQuery);
+      const preview = await files.previewFile(workspaceId, path, rootQuery, { anywhere: c.req.query('anywhere') === 'true' });
       return c.json(preview);
+    } catch (err: unknown) {
+      mapApplicationError(err);
+    }
+  });
+
+  app.get('/api/workspaces/:id/file-download', async (c) => {
+    const workspaceId = c.req.param('id');
+    const path = c.req.query('path');
+    const rootQuery = c.req.query('root');
+
+    if (!path) {
+      throw new BadRequestError('Path query parameter is required');
+    }
+
+    try {
+      const download = await files.downloadFile(workspaceId, path, rootQuery, { anywhere: c.req.query('anywhere') === 'true' });
+      // Always a download, never rendered: an HTML file must not run as this origin.
+      return new Response(download.file, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': String(download.size),
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(download.name)}`,
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'no-store',
+        },
+      });
     } catch (err: unknown) {
       mapApplicationError(err);
     }

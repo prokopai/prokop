@@ -80,12 +80,21 @@ export interface FilesApplicationPort {
     signal?: AbortSignal,
   ): Promise<FileEntry[]>;
 
-  /** Preview a path under a workspace with additional roots. */
+  /** Preview a path under a workspace with additional roots; `anywhere` opens absolute paths outside it. */
   previewFile(
     workspacePath: string,
     relativePath: string,
     additionalPaths: string[],
+    options?: { anywhere?: boolean },
   ): Promise<FilePreviewResponse>;
+
+  /** Locate a file to download, resolved like a preview. */
+  downloadFile(
+    workspacePath: string,
+    relativePath: string,
+    additionalPaths: string[],
+    options?: { anywhere?: boolean },
+  ): Promise<{ file: Blob; name: string; size: number }>;
 
   /** Editable read with the exact containment, realpath, and error
    * behavior. */

@@ -40,7 +40,16 @@ interface SearchOptions {
 }
 
 interface PreviewOptions {
+  /** Open an absolute or `~/` path outside the workspace, as chat file links do. */
+  anywhere?: boolean;
   signal?: AbortSignal;
+}
+
+function previewParams(path: string, options?: PreviewOptions & { root?: string }): Record<string, string> {
+  const params: Record<string, string> = { path };
+  if (options?.root !== undefined) params.root = options.root;
+  if (options?.anywhere) params.anywhere = 'true';
+  return params;
 }
 
 interface ReadEditableOptions {
@@ -111,14 +120,19 @@ export class FilesRestNamespace {
   }
 
   async preview(workspaceId: string, path: string, options?: PreviewOptions & { root?: string }): Promise<PreviewFileResponse> {
-    const params: Record<string, string> = { path };
-    if (options?.root !== undefined) {
-      params.root = options.root;
-    }
     return this.http.get(`/workspaces/${encodeURIComponent(workspaceId)}/file-preview`, {
-      params,
+      params: previewParams(path, options),
       signal: options?.signal,
     });
+  }
+
+  /** GET /api/workspaces/:id/file-download — the file's bytes, resolved like a preview. */
+  async download(workspaceId: string, path: string, options?: PreviewOptions & { root?: string }): Promise<Blob> {
+    const response = await this.http.get<Response>(`/workspaces/${encodeURIComponent(workspaceId)}/file-download`, {
+      params: previewParams(path, options),
+      signal: options?.signal,
+    });
+    return response.blob();
   }
 
   async readEditable(workspaceId: string, path: string, options?: ReadEditableOptions): Promise<ReadEditableFileResponse> {

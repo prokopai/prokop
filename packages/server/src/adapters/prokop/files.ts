@@ -13,7 +13,7 @@ import { getGitRepository, commitGitFiles, previewGitPush, pushGitBranch, remove
 import { workspacePathPolicyPort } from '@/adapters/workspace-paths';
 import type { FilesApplicationPort } from '@/application/ports/files';
 import { listDirectory, searchFiles } from '@/infrastructure/filesystem/workspace-files';
-import { createFilePreview } from '@/infrastructure/filesystem/file-preview';
+import { createFileDownload, createFilePreview } from '@/infrastructure/filesystem/file-preview';
 import { createEditableFileOps } from '@/infrastructure/filesystem/file-mutations';
 import { createFileTreeOps } from '@/infrastructure/filesystem/file-tree';
 import {
@@ -21,6 +21,7 @@ import {
 } from '@/infrastructure/filesystem/git-status';
 
 const previewFile = createFilePreview(workspacePathPolicyPort);
+const downloadFile = createFileDownload(workspacePathPolicyPort);
 const editableOps = createEditableFileOps(workspacePathPolicyPort);
 const treeOps = createFileTreeOps(workspacePathPolicyPort);
 const gitOps = createGitStatus(workspacePathPolicyPort);
@@ -59,8 +60,11 @@ export function createProkopFilesApplicationPort(
     searchFiles: (rootPath, query, limit, showHidden, signal) =>
       searchFiles(rootPath, query, limit, showHidden, signal),
 
-    previewFile: (workspacePath, relativePath, additionalPaths) =>
-      previewFile(workspacePath, relativePath, additionalPaths),
+    previewFile: (workspacePath, relativePath, additionalPaths, previewOptions) =>
+      previewFile(workspacePath, relativePath, additionalPaths, previewOptions),
+
+    downloadFile: (workspacePath, relativePath, additionalPaths, downloadOptions) =>
+      downloadFile(workspacePath, relativePath, additionalPaths, downloadOptions),
 
     readEditableFile: (workspace, inputPath, rootQuery) =>
       editableOps.readEditableFile(workspace, inputPath, rootQuery),

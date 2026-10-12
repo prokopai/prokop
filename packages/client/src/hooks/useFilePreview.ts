@@ -5,6 +5,8 @@ interface UseFilePreviewOptions {
   workspaceId: string | undefined;
   path: string | undefined;
   root?: string;
+  /** Open an absolute path outside the workspace (chat file links). */
+  anywhere?: boolean;
   sdkClient: ProkopaiClient | null;
   enabled: boolean;
 }
@@ -22,6 +24,7 @@ export function useFilePreview({
   workspaceId,
   path,
   root,
+  anywhere = false,
   sdkClient,
   enabled,
 }: UseFilePreviewOptions): UseFilePreviewResult {
@@ -31,6 +34,7 @@ export function useFilePreview({
     path,
     root,
     enabled,
+    anywhere,
   );
 
   return {

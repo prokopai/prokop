@@ -2,10 +2,13 @@ import type { FilePreviewResponse } from '@prokopai/sdk';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import FilePreviewCodeView from './FilePreviewCodeView';
 import ImagePreview from './ImagePreview';
-import { FileX2, FileQuestion, FileWarning } from 'lucide-react';
+import { FileX2, FileQuestion, FileWarning, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface FilePreviewContentProps {
   preview: FilePreviewResponse;
+  /** Saves the file; offered where the preview cannot show it. */
+  onDownload?: () => void;
 }
 
 function StatusPanel({
@@ -13,11 +16,13 @@ function StatusPanel({
   title,
   reason,
   name,
+  onDownload,
 }: {
   icon: typeof FileX2;
   title: string;
   reason: string;
   name: string;
+  onDownload?: () => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -25,11 +30,17 @@ function StatusPanel({
       <p className="text-sm font-medium mb-1">{title}</p>
       <p className="text-sm text-muted-foreground mb-2">{reason}</p>
       <p className="text-xs text-muted-foreground">{name}</p>
+      {onDownload && (
+        <Button variant="outline" size="sm" className="mt-4" onClick={onDownload}>
+          <Download data-icon="inline-start" />
+          Download
+        </Button>
+      )}
     </div>
   );
 }
 
-export default function FilePreviewContent({ preview }: FilePreviewContentProps) {
+export default function FilePreviewContent({ preview, onDownload }: FilePreviewContentProps) {
   if (preview.kind === 'markdown') {
     return (
       <div className="h-full overflow-auto p-6 chat-transcript-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -71,6 +82,7 @@ export default function FilePreviewContent({ preview }: FilePreviewContentProps)
         title="Binary file"
         reason={preview.reason}
         name={preview.name}
+        onDownload={onDownload}
       />
     );
   }
@@ -82,6 +94,7 @@ export default function FilePreviewContent({ preview }: FilePreviewContentProps)
         title="Unsupported file"
         reason={preview.reason}
         name={preview.name}
+        onDownload={onDownload}
       />
     );
   }
@@ -93,6 +106,7 @@ export default function FilePreviewContent({ preview }: FilePreviewContentProps)
         title="File too large"
         reason={preview.reason}
         name={preview.name}
+        onDownload={onDownload}
       />
     );
   }

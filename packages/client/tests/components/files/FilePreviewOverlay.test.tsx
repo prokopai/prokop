@@ -46,6 +46,7 @@ vi.mock('@/components/files/FilePreviewCodeView', () => ({
 
 const mockPreviewFn = vi.fn();
 const mockGitDiffFn = vi.fn();
+const mockDownloadFn = vi.fn();
 
 function makeSdkClient(): ProkopaiClient {
   return {
@@ -53,6 +54,7 @@ function makeSdkClient(): ProkopaiClient {
       files: {
         preview: mockPreviewFn,
         gitDiff: mockGitDiffFn,
+        download: mockDownloadFn,
       },
     },
   } as unknown as ProkopaiClient;
@@ -371,5 +373,45 @@ describe('FilePreviewOverlay - images', () => {
     expect(screen.getByRole('button', { name: /Edit/ })).toBeEnabled();
     await userEvent.click(screen.getByRole('tab', { name: /Source/ }));
     expect(screen.getByText(svg)).toBeInTheDocument();
+  });
+});
+
+describe('FilePreviewOverlay - files linked in chat', () => {
+  let queryClient: QueryClient;
+  const OUTSIDE = '/Users/me/Downloads/release-notes.xlsx';
+
+  beforeEach(() => {
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    mockPreviewFn.mockReset();
+    mockGitDiffFn.mockReset();
+    mockDownloadFn.mockReset();
+    mockGitDiffFn.mockResolvedValue({ diffAvailable: false });
+  });
+
+  test('a binary file outside the workspace downloads and stays read-only', async () => {
+    mockPreviewFn.mockResolvedValue({ kind: 'binary', reason: 'Binary file type not supported for preview',
+      size: 12, name: 'release-notes.xlsx', extension: '.xlsx', path: OUTSIDE, readOnly: true });
+    mockDownloadFn.mockResolvedValue(new Blob(['xlsx']));
+    const createObjectURL = vi.fn(() => 'blob:release-notes');
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    renderOverlay(queryClient, { onOpenEdit: vi.fn(), target: { workspaceId: 'ws-1', path: OUTSIDE, name: 'release-notes.xlsx', anywhere: true } });
+
+    await userEvent.click(await screen.findByRole('button', { name: /Download/ }));
+    expect(mockPreviewFn).toHaveBeenCalledWith('ws-1', OUTSIDE, { root: undefined, anywhere: true });
+    expect(mockDownloadFn).toHaveBeenCalledWith('ws-1', OUTSIDE, { root: undefined, anywhere: true });
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('release-notes.xlsx');
+    expect(screen.getByRole('button', { name: /Edit/ })).toBeDisabled();
+    click.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  test('a linked text file inside the workspace stays editable', async () => {
+    mockPreviewFn.mockResolvedValue({ kind: 'text', content: 'notes', size: 5, name: 'notes.txt', extension: '.txt', path: 'docs/notes.txt', readOnly: true });
+    renderOverlay(queryClient, { onOpenEdit: vi.fn(), target: { workspaceId: 'ws-1', path: 'docs/notes.txt', name: 'notes.txt', anywhere: true } });
+    expect(await screen.findByText('notes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Edit/ })).toBeEnabled();
   });
 });

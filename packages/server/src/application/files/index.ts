@@ -90,7 +90,9 @@ export interface FilesApplication {
   gitStatusFeed: GitStatusFeed<string>;
   gitDiff(workspaceId: string, path: string, rootQuery?: string): Promise<GitFileDiffResponse>;
   gitAdd(workspaceId: string, path: string, rootQuery?: string): Promise<{ path: string }>;
-  previewFile(workspaceId: string, path: string, rootQuery?: string): Promise<FilePreviewResponse>;
+  /** `anywhere` opens an absolute path outside the workspace, for files linked in chat. */
+  previewFile(workspaceId: string, path: string, rootQuery?: string, options?: { anywhere?: boolean }): Promise<FilePreviewResponse>;
+  downloadFile(workspaceId: string, path: string, rootQuery?: string, options?: { anywhere?: boolean }): Promise<{ file: Blob; name: string; size: number }>;
   readEditableFile(workspaceId: string, path: string, rootQuery?: string): Promise<EditableFileResponse>;
   saveFile(
     workspaceId: string,
@@ -411,10 +413,16 @@ export function createFilesApplication(
       return port.gitDiff(root, path, workspace.additionalPaths);
     },
 
-    async previewFile(workspaceId, path, rootQuery) {
+    async previewFile(workspaceId, path, rootQuery, options) {
       const workspace = resolveWorkspace(workspaceId);
       const { root } = port.resolveRoot(workspace, rootQuery);
-      return port.previewFile(root, path, workspace.additionalPaths);
+      return port.previewFile(root, path, workspace.additionalPaths, options);
+    },
+
+    async downloadFile(workspaceId, path, rootQuery, options) {
+      const workspace = resolveWorkspace(workspaceId);
+      const { root } = port.resolveRoot(workspace, rootQuery);
+      return port.downloadFile(root, path, workspace.additionalPaths, options);
     },
 
     readEditableFile(workspaceId, path, rootQuery) {
