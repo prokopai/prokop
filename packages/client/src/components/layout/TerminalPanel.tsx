@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHand
 import { Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
 import { TerminalView } from './TerminalView';
 import { TerminalAddToChat } from './TerminalAddToChat';
+import { TerminalKeyBar } from './TerminalKeyBar';
 import { TerminalTabStrip, type TerminalTab } from './TerminalTabStrip';
 import {
   useTerminalConnection,
@@ -36,6 +37,9 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useWorktreesQuery } from '@/hooks/queries';
+
+/** Share of the phone screen the on-screen keyboard and its suggestion bar take. */
+const MOBILE_KEYBOARD_RESERVE = 0.45;
 
 export interface TerminalPanelHandle {
   focus: () => void;
@@ -737,10 +741,11 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
   );
 
   if (isMobile) {
-    const keyboardOpen = viewport.height < window.innerHeight * 0.85;
-    const sheetHeight = keyboardOpen
-      ? `calc(${viewport.height}px - env(safe-area-inset-top, 0px))`
-      : Math.min(window.innerHeight * 0.7, viewport.height);
+    // With the keyboard up, fill the visible area above it. Without it, stop
+    // where the keyboard will reach, so opening it never covers the prompt.
+    const visibleHeight = viewport.keyboardOpen
+      ? viewport.height
+      : viewport.height * (1 - MOBILE_KEYBOARD_RESERVE);
 
     // Opened from the app header toggle; dismissed by tapping outside.
     return (
@@ -749,14 +754,19 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
           ref={panelRef}
           data-terminal-panel=""
           side="top"
-          className="p-0 bg-sidebar [&>button]:hidden flex flex-col"
-          style={{ height: sheetHeight }}
+          className="p-0 gap-0 bg-sidebar [&>button]:hidden flex flex-col"
+          style={{
+            // iOS scrolls the page to the focused input; follow the visible area.
+            top: `calc(${viewport.offsetTop}px + env(safe-area-inset-top, 0px))`,
+            height: `calc(${Math.round(visibleHeight)}px - env(safe-area-inset-top, 0px))`,
+          }}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Terminal</SheetTitle>
           </SheetHeader>
-          {renderTabs(false)}
+          <div className="flex shrink-0">{renderTabs(false)}</div>
           {renderTerminalContent()}
+          {activeCached && activeTab && <TerminalKeyBar terminal={activeCached.terminal} />}
         </SheetContent>
       </Sheet>
     );
