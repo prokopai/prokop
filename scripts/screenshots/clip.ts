@@ -122,12 +122,13 @@ export async function stageStory(ctx: ClipContext, story: Story, extraSteps: Ste
  */
 export async function sendPrompt(page: Page, prompt: string, pane = 0, { tapSend = false } = {}): Promise<void> {
   // Claude Code and Codex sessions read "Message Claude CLI …" and "Message Codex CLI …".
-  const composer = page.getByPlaceholder(/^(Type a message|Message \w+ CLI)/).filter({ visible: true }).nth(pane);
+  // The composer is a rich editor labelled with its placeholder.
+  const composer = page.getByRole('textbox', { name: /^(Type a message|Message \w+ CLI)/ }).filter({ visible: true }).nth(pane);
   // Clicking an inactive pane activates it first; settle before typing into the element itself.
   await composer.click();
   await page.waitForTimeout(300);
   await composer.pressSequentially(prompt, { delay: 25 });
-  const typed = await composer.inputValue();
+  const typed = (await composer.innerText()).trim();
   if (typed !== prompt) throw new Error(`Composer in pane ${pane} holds ${JSON.stringify(typed)}, not the prompt`);
   await page.waitForTimeout(300);
   // A touch tap, not a click: a click leaves the mouse hovering the button,

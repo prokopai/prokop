@@ -12,7 +12,7 @@ import { openWorkspace } from '../scene';
 const PREFERENCE = "One thing for the future: don't mock Date in tests. Pass `now` in as a parameter instead. That's how I do it in every project.";
 const TESTS = 'Add tests for overdue invoices.';
 
-async function createCliSession(ctx: ClipContext, harness: 'claude-cli' | 'codex-cli', title: string): Promise<string> {
+export async function createCliSession(ctx: ClipContext, harness: 'claude-cli' | 'codex-cli', title: string): Promise<string> {
   const workspaceId = ctx.world.invoicerWorkspaceId;
   if (!workspaceId) throw new Error('The runtimes clip needs the invoicer workspace');
   const { session } = await ctx.demo.rest.sessions.create({ workspaceId, title, harness, preconfigId: ctx.world.agentId });
@@ -39,7 +39,7 @@ async function running(ctx: ClipContext, sessionId: string): Promise<boolean> {
  * Waits for the session's turn to end, recording only while the page text
  * changes (digits aside, so elapsed timers do not count as activity).
  */
-async function recordTurn(ctx: ClipContext, page: Page, recorder: ScreenRecorder, sessionId: string, idleMs = 2500, timeoutMs = 300_000): Promise<void> {
+export async function recordTurn(ctx: ClipContext, page: Page, recorder: ScreenRecorder, sessionId: string, idleMs = 2500, timeoutMs = 300_000): Promise<void> {
   const text = () => page.evaluate(() => document.body.innerText.replace(/\d+/g, '#'));
   const deadline = Date.now() + timeoutMs;
   let last = await text();

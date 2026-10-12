@@ -20,9 +20,14 @@ import { commandApprovalClip } from './clips/command-approval';
 import { gitWorkbenchClip } from './clips/git-workbench';
 import { guideAddProject } from './clips/guide-add-project';
 import { guideAgentLearning } from './clips/guide-agent-learning';
+import { guideClaudeCodex } from './clips/guide-claude-codex';
 import { guideConnectProvider } from './clips/guide-connect-provider';
+import { guideReviewCommit } from './clips/guide-review-commit';
+import { guideWorktree } from './clips/guide-worktree';
 import { guideMultipleSessions } from './clips/guide-multiple-sessions';
 import { guideOverview } from './clips/guide-overview';
+import { guidePhone } from './clips/guide-phone';
+import { harnessSwitchClip } from './clips/harness-switch';
 import { memoryClip } from './clips/memory';
 import { mobileClip } from './clips/mobile';
 import { multiSessionClip } from './clips/multi-session';
@@ -32,7 +37,7 @@ import { lastPage, THEMES, themeName } from './scene';
 import { Demo } from './script';
 import { buildClipWorld } from './world';
 
-const CLIPS: Clip[] = [memoryClip, runtimesClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider];
+const CLIPS: Clip[] = [memoryClip, runtimesClip, harnessSwitchClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider, guideClaudeCodex, guideReviewCommit, guidePhone, guideWorktree];
 
 const { values } = parseArgs({
   options: {

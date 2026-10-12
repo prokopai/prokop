@@ -54,6 +54,7 @@ Around that, a complete workspace:
 
 - **Use the agent you already have.** Run Claude Code or Codex CLI on their own logins, or Prokop's built-in runtime on your own provider, in the same workspace.
 - **Parallel work without a terminal farm.** Several sessions side by side, each in its own Git worktree if you like, with files, diffs, Git, pull requests, and terminals around them.
+- **Talk to it mid-turn.** A message you send while the agent works reaches the running turn, and agents can answer with a chart, table, or page right in the reply.
 - **Approvals that explain themselves.** Asks name the concrete concern, such as a recursive delete or a path outside the project, and highlight the exact part of the command.
 - **The same workspace everywhere.** The full interface on your phone, and sessions from several of your machines in one place.
 - **Yours.** Apache 2.0, no account, no telemetry. Local only until you pair another device.
@@ -96,13 +97,13 @@ These clips, and the one at the top, are recorded from a real Prokop instance. O
 
 ## Three runtimes, one workspace
 
-Pick the runtime per session in the model picker. The first message locks it; you can still change model and effort.
+Pick the runtime per session in the model picker. When one runs out of usage, pick a model from another and keep going in the same conversation: the new runtime starts from a summary of it. The **Usage** tab next to Sessions shows your Claude and Codex plan limits and reset times.
 
-**Switch runtimes, keep the agent.** Told once on Claude Code, applied on Codex: the preference goes into the agent's own memory, not into either CLI. Unlike the clips above, nothing here is scripted. Both are real runs on the CLIs' own logins, with the waits for the model cut out.
+**Switch runtimes mid-conversation.** Claude Code adds tests, the session switches to Codex from the model picker, and Codex carries on in the same conversation. Unlike the clips above, nothing here is scripted. Both are real runs on the CLIs' own logins, with the waits for the model cut out.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/runtimes-dark.webp">
-  <img src="docs/readme/runtimes-light.webp" alt="Two sessions of the same agent side by side. On Claude Code you say not to mock Date in tests and it saves that to the agent's memory. On Codex you ask for tests for overdue invoices, and it adds a now parameter instead of mocking Date; the tests pass" width="900">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/harness-switch-dark.webp">
+  <img src="docs/readme/harness-switch-light.webp" alt="A session on Claude Code adds tests for overdue invoices. The model picker switches it to a Codex model, the conversation shows Switched to Codex CLI, and Codex adds a daysOverdue helper with tests in the same conversation; the tests pass" width="900">
 </picture>
 
 | Runtime | Runs on | You need |
@@ -123,7 +124,7 @@ Prokop is built and maintained by one developer and used for real daily work. It
 
 ## Documentation
 
-[Getting Started](https://prokopai.dev/get-started) · [Client and mobile](https://prokopai.dev/docs/client) · [Workspaces and sessions](https://prokopai.dev/docs/workspaces) · [Configuration](https://prokopai.dev/docs/configuration) · [CLI](https://prokopai.dev/docs/cli) · [Tools](https://prokopai.dev/docs/tools) · [Security](https://prokopai.dev/docs/security)
+[Getting Started](https://prokopai.dev/get-started) · [How-to guides](https://prokopai.dev/how-to) · [Client and mobile](https://prokopai.dev/docs/client) · [Workspaces and sessions](https://prokopai.dev/docs/workspaces) · [Configuration](https://prokopai.dev/docs/configuration) · [CLI](https://prokopai.dev/docs/cli) · [Tools](https://prokopai.dev/docs/tools) · [Security](https://prokopai.dev/docs/security)
 
 Working on Prokop itself: `bun install`, then `bun run test`. The built-in runtime lives in `packages/server/src/harnesses/prokop`.
 

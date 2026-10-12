@@ -29,6 +29,27 @@ export interface Scene {
   name: string;
   /** Opens the view in the given theme and resolves once it is ready to capture. */
   open(ctx: SceneContext, theme: Theme): Promise<Page>;
+  /** Captures only this region, in CSS pixels, instead of the whole viewport. */
+  clip?(page: Page): Promise<Rect>;
+}
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The smallest rect covering every box, grown by `pad` and kept inside the viewport. */
+export function around(page: Page, boxes: Array<Rect | null>, pad = 24): Rect {
+  const present = boxes.filter((box): box is Rect => box !== null);
+  if (present.length === 0) throw new Error('Nothing to clip around');
+  const viewport = page.viewportSize()!;
+  const x = Math.max(0, Math.min(...present.map((box) => box.x)) - pad);
+  const y = Math.max(0, Math.min(...present.map((box) => box.y)) - pad);
+  const right = Math.min(viewport.width, Math.max(...present.map((box) => box.x + box.width)) + pad);
+  const bottom = Math.min(viewport.height, Math.max(...present.map((box) => box.y + box.height)) + pad);
+  return { x, y, width: right - x, height: bottom - y };
 }
 
 const SCREENSHOT_CLIENT_ID = '7c1e2d4a-5b3f-4e6a-9d8c-0f1a2b3c4d5e';
@@ -132,11 +153,11 @@ export async function typeInTerminal(page: Page, commands: string[]): Promise<vo
   }
 }
 
-export async function capture(page: Page, outDir: string, name: string): Promise<string> {
+export async function capture(page: Page, outDir: string, name: string, clip?: Rect): Promise<string> {
   // Let fonts, highlighting, and enter animations settle.
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(800);
   const path = join(outDir, `${name}.png`);
-  await page.screenshot({ path });
+  await page.screenshot({ path, clip });
   return path;
 }

@@ -23,6 +23,7 @@ import { branches } from './scenes/branches';
 import { commandApproval } from './scenes/command-approval';
 import { explorer } from './scenes/explorer';
 import { fullWorkspace } from './scenes/full-workspace';
+import { GALLERY_SCENES } from './scenes/gallery';
 import { gitWorkbench } from './scenes/git-workbench';
 import { hero } from './scenes/hero';
 import { mobile } from './scenes/mobile';
@@ -32,7 +33,10 @@ import { worktrees } from './scenes/worktrees';
 import { Demo } from './script';
 import { buildWorld } from './world';
 
-const SCENES: Scene[] = [hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board];
+const SCENES: Scene[] = [
+  hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board,
+  ...GALLERY_SCENES,
+];
 
 const { values } = parseArgs({
   options: {
@@ -101,7 +105,7 @@ try {
         }
         throw error;
       });
-      await capture(page, values.out, name);
+      await capture(page, values.out, name, await scene.clip?.(page));
       await page.context().close();
       console.log('ok');
     }
