@@ -98,7 +98,9 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, source }: { c
   }
 
   return (
-    <div className="group/mermaid relative my-2">
+    // Markdown wraps code blocks in <pre>; Mermaid measures labels in the body
+    // font, so the diagram must not inherit the monospace or they get clipped.
+    <div className="group/mermaid relative my-2 font-sans whitespace-normal">
       {showSource ? source : current ? (
         <div
           role="img"
