@@ -10,6 +10,8 @@
 
 - **Claude Code and Codex read their own skills without asking**: Reading a skill from `~/.claude/skills`, `~/.claude/plugins`, `~/.codex/skills` (including Codex's built-in `.system` skills), `~/.codex/plugins` or `~/.agents/skills` no longer asks for outside-workspace access. `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are honored. Only reading is allowed: writing there still asks, and so does reading anything else in those homes, such as `~/.codex/auth.json`, settings, history or other sessions. A link inside a skill folder is judged by where it points.
 
+- **Claude Code web results stay folded**: Claude Code's web search and web fetch rows now show one line ("Searched: …" or "Fetched: …", with the page size) instead of the full results as markdown under the row. The results are still in **Show raw data**, as with Prokop's own web fetch.
+
 - **Opened attachments cannot run scripts**: An attached file opened from the conversation is now shown sandboxed, with no scripts and no access to Jean2's stored login. Before, an attached HTML page opened in a new tab ran as Jean2 and could read the API token. Images still show inline as before.
 
 - **Following the conversation stays at the bottom**: While the view follows new output, it now stays at the bottom when you send a message, however long. Before, a long message or a large tool output could leave the view above the end without bringing it back. Sending could also make the conversation flick up for a moment when the message box shrank back, and each new line of a streamed reply showed briefly below the edge before the view caught up. Scrolling up still stops following right away.

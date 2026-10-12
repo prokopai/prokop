@@ -271,9 +271,12 @@ export function claudeToolVisualization(
         message: `Read: ${firstString(input, ['file_path', 'notebook_path']) ?? 'file'}` };
     case 'glob': return fileListFromLines(output, 'file');
     case 'grep': return fileListFromLines(output, 'match');
+    // Fetched pages and search results stay in raw data, as with Prokop's webfetch.
     case 'webfetch':
-      return { type: 'markdown', content, ...(typeof input.url === 'string' ? { sourceUrl: input.url } : {}) };
-    case 'web-search': return { type: 'markdown', content };
+      return { type: 'none', badge: `${(output.length / 1024).toFixed(1)} KB`,
+        message: `Fetched: ${firstString(input, ['url']) ?? 'page'}` };
+    case 'web-search':
+      return { type: 'none', message: `Searched: ${firstString(input, ['query']) ?? 'the web'}` };
     case 'todo': {
       const todos = Array.isArray(input.todos) ? input.todos : [];
       return { type: 'todo-list', items: todos.slice(0, 100).map(todo => {
