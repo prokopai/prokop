@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
 import { TerminalView } from './TerminalView';
 import { TerminalAddToChat } from './TerminalAddToChat';
@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { orderTerminalTabs, useTerminalTabOrderStore } from '@/stores/terminalTabOrderStore';
 import { useWorktreesQuery } from '@/hooks/queries';
 
 /** Share of the phone screen the on-screen keyboard and its suggestion bar take. */
@@ -95,6 +96,8 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
     : workspacePath;
 
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const tabOrder = useTerminalTabOrderStore((state) => workspaceId ? state.byWorkspace[workspaceId] : undefined);
+  const orderedTabs = useMemo(() => orderTerminalTabs(tabs, tabOrder), [tabs, tabOrder]);
   const [activeTabServerId, setActiveTabServerId] = useState<string | null>(null);
   const [connectionTarget, setConnectionTarget] = useState<CachedTerminal | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -113,9 +116,10 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
   const activeTabByWorkspaceRef = useRef<Map<string, string>>(new Map());
   const addTabRef = useRef<() => void>(() => {});
 
+  // Shown order: cycling and the tab chosen after a close follow your drags.
   useEffect(() => {
-    tabsRef.current = tabs;
-  }, [tabs]);
+    tabsRef.current = orderedTabs;
+  }, [orderedTabs]);
 
   const handleTerminalEvent = useCallback((event: TerminalEvent) => {
     switch (event.type) {
@@ -570,6 +574,16 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
     }
   }, [selectTerminalTab, activeTabServerId, focusActiveTerminal]);
 
+  const moveTab = useCallback((serverSessionId: string, beforeId: string | null) => {
+    if (!workspaceId) return;
+    useTerminalTabOrderStore.getState().moveTab(
+      workspaceId,
+      tabsRef.current.map(t => t.serverSessionId),
+      serverSessionId,
+      beforeId,
+    );
+  }, [workspaceId]);
+
   const renameTab = useCallback(async (serverSessionId: string, title: string) => {
     if (!workspaceId || !sdkClient) return;
     const previous = tabsRef.current.find(t => t.serverSessionId === serverSessionId)?.title;
@@ -705,12 +719,13 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
 
   const renderTabs = (compact: boolean) => (
     <TerminalTabStrip
-      tabs={tabs}
+      tabs={orderedTabs}
       activeId={activeTabServerId}
       compact={compact}
       onActivate={activateTab}
       onClose={closeTab}
       onRename={renameTab}
+      onMove={moveTab}
       trailing={renderAddTerminalMenu()}
     />
   );

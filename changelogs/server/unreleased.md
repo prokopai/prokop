@@ -2,6 +2,8 @@
 
 - **Steer a running agent**: A message you send while an agent is working is now delivered into the running turn instead of waiting for the turn to end, and its bubble says "Steering" until the agent receives it. To keep the old behavior, set **Settings > Appearance > Messages sent while the agent works** to **Queue**; the choice is kept per device. A queued message has a **Steer** button, and pressing Enter in an empty message box steers the oldest queued message. Your message then appears in the conversation at the point the agent read it, and the rest of the reply answers it. Prokop agents receive it after their current tool step finishes. Claude Code receives it between tool calls. Codex receives it through its own steering request. If the turn ends first, or the agent cannot take it (Claude Code and Codex Goal runs, a stopped turn), the message stays in the queue and is sent after the turn like any queued message, so it is never lost. In Codex sessions, Undo and Fork work on whole turns: they are available after the reply to a steered message, not between the steered message and the reply before it.
 
+- **Reorder terminal tabs**: Drag a terminal tab to a new position, the same way you reorder dock tabs. The order is kept per workspace on this device, and new terminals open at the end.
+
 ### Fixed
 
 - **Terminal on phones**: The terminal sheet now stops above where the on-screen keyboard opens, so typing never hides the prompt, and with the keyboard up it fills the space above it. The tab row no longer stretches into an empty band. A key row under the terminal adds **^C** to stop a running process, plus **Esc**, **Tab** and arrow keys; tapping them does not open or close the keyboard.

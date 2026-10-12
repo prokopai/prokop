@@ -2,22 +2,32 @@ import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, RefObject } from 'react';
 import type { WorkspaceViewId } from '@/stores/workspaceViewStore';
 
-const TAB_DRAG_TYPE = 'application/x-prokop-workspace-tab';
-// Only accept a tab drag started in this document, never an external payload.
-let activeDrag: { id: WorkspaceViewId; source: HTMLElement } | null = null;
+/** What a strip drags: its payload type and the attribute naming each tab's id. */
+export interface TabDragKind {
+  type: string;
+  idAttribute: string;
+}
 
-interface Insertion {
-  beforeId: WorkspaceViewId | null;
+const WORKSPACE_TAB_DRAG: TabDragKind = {
+  type: 'application/x-prokop-workspace-tab',
+  idAttribute: 'data-workspace-tab-id',
+};
+
+// Only accept a tab drag started in this document, never an external payload.
+let activeDrag: { kind: TabDragKind; id: string; source: HTMLElement } | null = null;
+
+interface Insertion<Id extends string> {
+  beforeId: Id | null;
   left: number;
 }
 
-function insertionAt(scroller: HTMLDivElement, clientX: number): Insertion {
+function insertionAt<Id extends string>(scroller: HTMLDivElement, clientX: number, kind: TabDragKind): Insertion<Id> {
   const bounds = scroller.getBoundingClientRect();
-  const tabs = Array.from(scroller.querySelectorAll<HTMLElement>('[data-workspace-tab-id]'));
+  const tabs = Array.from(scroller.querySelectorAll<HTMLElement>(`[${kind.idAttribute}]`));
   for (const tab of tabs) {
     const rect = tab.getBoundingClientRect();
     if (clientX < rect.left + rect.width / 2) {
-      return { beforeId: tab.dataset.workspaceTabId as WorkspaceViewId, left: rect.left - bounds.left + scroller.scrollLeft };
+      return { beforeId: tab.getAttribute(kind.idAttribute) as Id, left: rect.left - bounds.left + scroller.scrollLeft };
     }
   }
   const last = tabs.at(-1)?.getBoundingClientRect();
@@ -28,7 +38,16 @@ export function useWorkspaceTabDrag(
   scrollerRef: RefObject<HTMLDivElement | null>,
   onMove?: (id: WorkspaceViewId, beforeId: WorkspaceViewId | null) => void,
 ) {
-  const [insertion, setInsertion] = useState<Insertion | null>(null);
+  return useTabDrag(scrollerRef, WORKSPACE_TAB_DRAG, onMove);
+}
+
+/** Drag to reorder within a horizontal tab strip; only drops of the same kind land. */
+export function useTabDrag<Id extends string>(
+  scrollerRef: RefObject<HTMLDivElement | null>,
+  kind: TabDragKind,
+  onMove?: (id: Id, beforeId: Id | null) => void,
+) {
+  const [insertion, setInsertion] = useState<Insertion<Id> | null>(null);
   const frame = useRef<number | null>(null);
   const pointerX = useRef(0);
 
@@ -58,13 +77,13 @@ export function useWorkspaceTabDrag(
     };
   }, [scrollerRef]);
 
-  const accepts = (event: DragEvent) => !!onMove && !!activeDrag?.source.isConnected
+  const accepts = (event: DragEvent) => !!onMove && activeDrag?.kind === kind && activeDrag.source.isConnected
     && !activeDrag.source.closest('[inert], [aria-hidden="true"]')
     && !event.currentTarget.closest('[inert], [aria-hidden="true"]')
-    && event.dataTransfer.types.includes(TAB_DRAG_TYPE);
+    && event.dataTransfer.types.includes(kind.type);
 
   const updateInsertion = (scroller: HTMLDivElement) => {
-    const next = insertionAt(scroller, pointerX.current);
+    const next = insertionAt<Id>(scroller, pointerX.current, kind);
     setInsertion((previous) => previous?.beforeId === next.beforeId && previous.left === next.left ? previous : next);
   };
 
@@ -83,10 +102,10 @@ export function useWorkspaceTabDrag(
 
   return {
     insertion,
-    start: (id: WorkspaceViewId, event: DragEvent<HTMLButtonElement>) => {
+    start: (id: Id, event: DragEvent<HTMLElement>) => {
       if (!onMove) { event.preventDefault(); return; }
-      activeDrag = { id, source: event.currentTarget };
-      event.dataTransfer.setData(TAB_DRAG_TYPE, id);
+      activeDrag = { kind, id, source: event.currentTarget };
+      event.dataTransfer.setData(kind.type, id);
       event.dataTransfer.effectAllowed = 'move';
       event.stopPropagation();
     },
@@ -106,8 +125,8 @@ export function useWorkspaceTabDrag(
       onDrop: (event: DragEvent<HTMLDivElement>) => {
         if (!accepts(event) || !activeDrag) return;
         event.preventDefault();
-        const id = activeDrag.id;
-        const target = insertionAt(event.currentTarget, event.clientX);
+        const id = activeDrag.id as Id;
+        const target = insertionAt<Id>(event.currentTarget, event.clientX, kind);
         activeDrag = null;
         reset();
         onMove?.(id, target.beforeId);

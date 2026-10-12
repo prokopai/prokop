@@ -4,6 +4,7 @@ import { createRef } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { TerminalPanel, type TerminalPanelHandle } from '@/components/layout/TerminalPanel';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useTerminalTabOrderStore } from '@/stores/terminalTabOrderStore';
 
 const mocks = vi.hoisted(() => ({
   instances: [] as Array<{ dispose: ReturnType<typeof vi.fn>; write: ReturnType<typeof vi.fn> }>,
@@ -173,7 +174,10 @@ describe('terminal tabs', () => {
   });
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     useConnectionStore.setState(useConnectionStore.getInitialState());
+    useTerminalTabOrderStore.setState({ byWorkspace: {} });
+    localStorage.clear();
   });
 
   const twoTabs = () => [
@@ -293,5 +297,42 @@ describe('terminal tabs', () => {
     await waitFor(() => expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true'));
     act(() => ref.current!.cycleTab(1));
     await waitFor(() => expect(screen.getAllByRole('tab')[0]).toHaveAttribute('aria-selected', 'true'));
+  });
+
+  test('dragging a tab reorders it, survives a remount, and cycling follows it', async () => {
+    const sdk = createClient(twoTabs);
+    const ref = createRef<TerminalPanelHandle>();
+    const { unmount } = renderPanel(sdk, ref);
+    const tabs = await screen.findAllByRole('tab');
+    const strip = screen.getByRole('tablist', { name: 'Terminals' }).parentElement!;
+    vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 32));
+    tabs.forEach((tab, index) => {
+      vi.spyOn(tab, 'getBoundingClientRect').mockReturnValue(new DOMRect(index * 100, 0, 100, 24));
+    });
+
+    const dataTransfer = new DataTransfer();
+    fireEvent.dragStart(tabs[1], { dataTransfer });
+    // The DOM test environment does not supply mouse coordinates on drag events.
+    const drop = new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 10 });
+    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
+    fireEvent(strip, drop);
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['dev server', 'api']);
+    act(() => ref.current!.cycleTab(1));
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^api/ })).toHaveAttribute('aria-selected', 'false'));
+    expect(screen.getByRole('tab', { name: /dev server/ })).toHaveAttribute('aria-selected', 'true');
+
+    unmount();
+    renderPanel(createClient(twoTabs));
+    await waitFor(() => expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['dev server', 'api']));
+  });
+
+  test('new terminals join after the dragged order', async () => {
+    useTerminalTabOrderStore.setState({ byWorkspace: { w1: ['dev', 'api'] } });
+    const sdk = createClient(twoTabs);
+    renderPanel(sdk);
+    await screen.findAllByRole('tab');
+    sdk.emit('created', { id: 'new', title: 'new', status: 'running', cwd: '/work', shell: 'zsh' });
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['dev server', 'api', 'new']);
   });
 });

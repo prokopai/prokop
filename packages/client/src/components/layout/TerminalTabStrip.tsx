@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Bot, X } from 'lucide-react';
 import type { TerminalStatus } from '@/hooks/useTerminal';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useTabDrag, type TabDragKind } from '@/components/app/useWorkspaceTabDrag';
 import { cn } from '@/lib/utils';
 
 export interface TerminalTab {
@@ -23,11 +24,18 @@ interface TerminalTabStripProps {
   onActivate: (serverSessionId: string) => void;
   onClose: (serverSessionId: string) => void;
   onRename: (serverSessionId: string, title: string) => void;
+  /** Drops a dragged tab before another (or at the end, for null). */
+  onMove?: (serverSessionId: string, beforeId: string | null) => void;
   /** Rendered after the tabs (the new-terminal control). */
   trailing?: ReactNode;
 }
 
 const OWNER_SEPARATOR = '\u0000';
+
+const TERMINAL_TAB_DRAG: TabDragKind = {
+  type: 'application/x-prokop-terminal-tab',
+  idAttribute: 'data-terminal-tab-id',
+};
 
 function statusIndicator(status: TerminalStatus): string {
   switch (status) {
@@ -71,10 +79,13 @@ export function TerminalTabStrip({
   onActivate,
   onClose,
   onRename,
+  onMove,
   trailing,
 }: TerminalTabStripProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const tabRefs = useRef(new Map<string, HTMLDivElement>());
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const drag = useTabDrag(scrollerRef, TERMINAL_TAB_DRAG, onMove);
   const ownerTitles = useOwnerTitles(tabs);
 
   const focusTabAt = (index: number) => {
@@ -112,7 +123,11 @@ export function TerminalTabStrip({
   };
 
   return (
-    <div className={cn('flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto', compact ? 'min-h-0' : 'min-h-[32px] px-1')}>
+    <div ref={scrollerRef} {...drag.stripEvents} className={cn(
+      'relative flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto',
+      compact ? 'min-h-0' : 'min-h-[32px] px-1',
+      drag.insertion && 'bg-primary/5 ring-1 ring-inset ring-primary/30',
+    )}>
       <div role="tablist" aria-label="Terminals" className="flex items-center gap-0.5">
         {tabs.map((tab, index) => {
           const active = tab.serverSessionId === activeId;
@@ -128,6 +143,8 @@ export function TerminalTabStrip({
               aria-selected={active}
               tabIndex={active ? 0 : -1}
               data-terminal-tab-id={tab.serverSessionId}
+              draggable={!!onMove && editingId !== tab.serverSessionId}
+              onDragStart={(event) => drag.start(tab.serverSessionId, event)}
               title={editingId === tab.serverSessionId ? undefined : tabTooltip(tab, ownerTitle)}
               className={cn(
                 'group flex items-center gap-1.5 px-2 text-xs rounded-sm whitespace-nowrap border border-transparent outline-none focus-visible:border-ring',
@@ -168,6 +185,7 @@ export function TerminalTabStrip({
         })}
       </div>
       {trailing}
+      {drag.insertion && <span data-tab-insertion-marker aria-hidden="true" className="pointer-events-none absolute top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" style={{ left: Math.max(0, drag.insertion.left - 1) }} />}
     </div>
   );
 }
