@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { getAttachmentByKey } from '@/infrastructure/sqlite/attachments';
+import { Paths } from '@/infrastructure/runtime/paths';
 import type { ServerMessage, ToolPart } from '@prokopai/sdk';
 import type { ToolCatalogEntry } from '@/application/ports/tool-catalog';
 import { getToolDebugData, projectMessagesForClient } from '@/application/sessions/tool-debug';
@@ -9,13 +14,16 @@ import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { createTestAssistantMessage } from '#tests/factories';
 import { seedWorkspace } from '#tests/seed';
 
+let dataDir: string;
 beforeEach(() => {
   setupTestDatabase();
+  dataDir = mkdtempSync(join(tmpdir(), 'codex-items-'));
+  Paths.configure({ dataDir });
   seedWorkspace({ id: 'ws', path: process.cwd() });
   createSession({ id: 's', workspaceId: 'ws', title: 'Test', status: 'active',
     preconfigId: 'agent', metadata: null, parentId: null, agentName: null, harness: 'codex-cli' });
 });
-afterEach(() => resetTestDatabase());
+afterEach(() => { resetTestDatabase(); Paths.reset(); rmSync(dataDir, { recursive: true, force: true }); });
 
 test('unclassified native tool items get bounded generic rows on live events and reload', async () => {
   const assistant = createMessage(createTestAssistantMessage('s'));
@@ -307,4 +315,30 @@ test('agent skill rows with malformed results stay bounded on reload', async () 
   expect(part.presentation).toMatchObject({ summary: 'create review',
     visualization: { type: 'none', message: 'Skill created: review' } });
   expect(JSON.stringify(projected)).not.toContain('"success":true');
+});
+
+test('Codex image generation shows the image from a session attachment and stores no image data', () => {
+  const assistant = createMessage(createTestAssistantMessage('s'));
+  const items = new CodexToolItems('s', assistant.id, 'turn', {
+    send: () => {}, broadcast: () => {}, broadcastToSession: () => {}, sendToController: () => {}, sendToAskTargets: () => {},
+  });
+  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(30_000, 7)]).toString('base64');
+  items.completed({ id: 'ok', type: 'imageGeneration', status: 'completed', revisedPrompt: 'a golden retriever',
+    result: png, savedPath: '/Users/me/.codex/generated_images/t/ok.png' });
+  items.completed({ id: 'odd', type: 'imageGeneration', status: 'completed', result: Buffer.from('not an image').toString('base64'),
+    savedPath: '/Users/me/.codex/generated_images/t/odd.png' });
+  items.completed({ id: 'limit', type: 'imageGeneration', status: 'completed', result: '',
+    failure: { type: 'usageLimitExceeded', limitId: 'x', resetsAt: null } });
+  const parts = listMessagesWithParts('s')[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
+  const viz = (id: string) => ((parts.find(part => part.callId === `codex-item:turn:${id}`)!.state as { output: unknown })
+    .output as { _visualization: Record<string, unknown> })._visualization;
+  const image = viz('ok');
+  expect(image).toMatchObject({ type: 'image', mimeType: 'image/png', alt: 'a golden retriever' });
+  const [, attachmentId, key] = /attachments\/([^/]+)\/content\?key=(\w+)$/.exec(String(image.url))!;
+  const attachment = getAttachmentByKey(attachmentId!, key!)!;
+  expect(attachment).toMatchObject({ sessionId: 's', mimeType: 'image/png', sizeBytes: 30_008 });
+  expect(readFileSync(attachment.absolutePath).subarray(0, 4).toString('hex')).toBe('89504e47');
+  expect(JSON.stringify(parts)).not.toContain(png.slice(0, 40));
+  expect(viz('odd')).toEqual({ type: 'none', message: 'Image saved: /Users/me/.codex/generated_images/t/odd.png' });
+  expect(viz('limit')).toEqual({ type: 'none', message: 'Image limit reached' });
 });

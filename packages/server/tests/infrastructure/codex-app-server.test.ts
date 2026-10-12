@@ -19,6 +19,8 @@ function fixture() {
   return {
     io, outgoing,
     send: (message: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`)),
+    /** Raw bytes in arbitrary pieces, as a pipe delivers them. */
+    sendBytes: (bytes: Uint8Array) => controller.enqueue(bytes),
     async waitFor(count: number) {
       for (let i = 0; i < 100 && outgoing.length < count; i++) await Bun.sleep(1);
       expect(outgoing).toHaveLength(count);
@@ -101,5 +103,35 @@ test('request timeout removes its waiter without reusing a request id', async ()
   f.send({ id: 1, result: { thread: { id: 'stale' } } });
   f.send({ id: 2, result: { thread: { id: 'current' } } });
   expect(await next).toEqual({ thread: { id: 'current' } });
+  await client.close();
+});
+
+test('a generated image arriving as a multi-megabyte line in small chunks keeps the connection', async () => {
+  const f = fixture();
+  const events: Array<{ method: string; params: unknown }> = [];
+  const client = new CodexAppServer(f.io, event => events.push(event));
+  // A 2.2 MB PNG is about 2.9 MB of base64, past the old 2 MB limit.
+  const image = 'A'.repeat(3 * 1024 * 1024);
+  const line = new TextEncoder().encode(`${JSON.stringify({ method: 'item/completed', params: {
+    item: { type: 'imageGeneration', id: 'ig', status: 'completed', result: image, savedPath: '/tmp/x.png' } } })}\n`);
+  for (let offset = 0; offset < line.length; offset += 64 * 1024) f.sendBytes(line.subarray(offset, offset + 64 * 1024));
+  const request = client.request('thread/read', { threadId: 't' });
+  await f.waitFor(1);
+  f.send({ id: 1, result: { thread: { id: 't' } } });
+  expect(await request).toEqual({ thread: { id: 't' } });
+  expect(events).toHaveLength(1);
+  expect((events[0]!.params as { item: { result: string } }).item.result).toHaveLength(image.length);
+  await client.close();
+});
+
+test('two messages split across chunks are both delivered in order', async () => {
+  const f = fixture();
+  const events: Array<{ method: string }> = [];
+  const client = new CodexAppServer(f.io, event => events.push(event));
+  const bytes = new TextEncoder().encode('{"method":"a","params":{"x":"é"}}\n{"method":"b","params":{}}\n');
+  // Split inside the two-byte é and between the messages.
+  for (const [start, end] of [[0, 30], [30, 40], [40, bytes.length]] as const) f.sendBytes(bytes.subarray(start, end));
+  for (let i = 0; i < 100 && events.length < 2; i++) await Bun.sleep(1);
+  expect(events.map(event => event.method)).toEqual(['a', 'b']);
   await client.close();
 });

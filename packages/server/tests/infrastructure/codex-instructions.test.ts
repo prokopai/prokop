@@ -119,3 +119,15 @@ test('Codex learns how to reach render_html through its MCP bridge only while th
   expect(await codexDeveloperInstructions(workspace, '/projects/worktree', primary, sources, []))
     .not.toContain('render_html');
 });
+
+test('Codex is told generated images already reach the user', async () => {
+  const sources = {
+    listPreconfigs: async () => [primary],
+    getPreconfig: async () => primary,
+    getAgentDirectory: async () => null,
+    readAgentMemoryFile: async () => null,
+  };
+  const text = await codexDeveloperInstructions(workspace, '/projects/worktree', primary, sources);
+  expect(text).toContain('shown to the user inline, under the tool call');
+  expect(text).toContain('Empty script output after generating an image is normal');
+});

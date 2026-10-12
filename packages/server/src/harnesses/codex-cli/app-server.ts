@@ -25,7 +25,9 @@ export class CodexRequestError extends Error {
   }
 }
 
-const MAX_LINE_BYTES = 2 * 1024 * 1024;
+// Generated images arrive base64-encoded inside one message (a 2 MB PNG is a
+// 2.9 MB line), and thread/read repeats every image in the turn history.
+const MAX_LINE_BYTES = 64 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -163,24 +165,32 @@ export class CodexAppServer {
 
   private async read(): Promise<void> {
     const reader = this.io.stdout.getReader();
-    let buffer = '';
+    // Chunks of an unfinished line; only each new chunk is scanned, so a
+    // multi-megabyte line costs linear time.
+    let partial: string[] = [];
+    let partialBytes = 0;
     try {
       while (!this.closed) {
         const { value, done } = await reader.read();
         if (done) break;
-        buffer += this.decoder.decode(value, { stream: true });
-        if (this.encoder.encode(buffer).byteLength > MAX_LINE_BYTES && !buffer.includes('\n')) {
-          throw new Error('Codex message exceeds size limit');
-        }
-        let newline = buffer.indexOf('\n');
+        let text = this.decoder.decode(value, { stream: true });
+        let newline = text.indexOf('\n');
         while (newline !== -1) {
-          const line = buffer.slice(0, newline);
-          buffer = buffer.slice(newline + 1);
+          partial.push(text.slice(0, newline));
+          const line = partial.join('');
+          partial = [];
+          partialBytes = 0;
           if (this.encoder.encode(line).byteLength > MAX_LINE_BYTES) {
             throw new Error('Codex message exceeds size limit');
           }
           if (line.trim()) this.receive(JSON.parse(line) as unknown);
-          newline = buffer.indexOf('\n');
+          text = text.slice(newline + 1);
+          newline = text.indexOf('\n');
+        }
+        if (text) {
+          partial.push(text);
+          partialBytes += this.encoder.encode(text).byteLength;
+          if (partialBytes > MAX_LINE_BYTES) throw new Error('Codex message exceeds size limit');
         }
       }
     } catch {

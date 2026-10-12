@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { VisualizationRenderer } from '@/components/visualizations';
 import { TerminalOutput } from '@/components/visualizations/TerminalOutput';
 import { RENDER_BUDGETS } from '@/lib/renderBudgets';
-import { getToolPartVisualization, getToolRowInfo, showToolRawData, toolChipToneClass } from '@/lib/toolSummaries';
+import { getToolPartVisualization, getToolRowInfo, isAnswerVisualization, showToolRawData, toolChipToneClass } from '@/lib/toolSummaries';
 import { firstLine, formatDuration, formatElapsed, getInterruptReasonLabel, getToolDurationMs } from '@/lib/turnStats';
 import { useSdkClient, useServerUrl } from '@/contexts/ServerClientContext';
 import { useToolDebugQuery, useToolDisplayCatalog } from '@/hooks/queries';
@@ -132,8 +132,8 @@ export const ToolCall = memo(function ToolCall({
   const state = part.state;
   const status = state.status;
   const visualization = getToolPartVisualization(part);
-  // A page the agent showed is part of its answer, so older turns keep it visible.
-  const previewCollapsed = collapsePreview && visualization?.type !== 'html-render';
+  // Pages and images are part of the answer, so older turns keep them visible.
+  const previewCollapsed = collapsePreview && !isAnswerVisualization(visualization);
   const durationMs = getToolDurationMs(state);
   const interruptReason = getInterruptReasonLabel(state);
   const errorLine = state.status === 'error' && typeof state.error === 'string' ? firstLine(state.error) : '';

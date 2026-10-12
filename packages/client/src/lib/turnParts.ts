@@ -1,5 +1,5 @@
 import type { Part, ToolPart } from '@prokopai/sdk';
-import { getDiffTotals, getToolPartVisualization } from './toolSummaries';
+import { getDiffTotals, getToolPartVisualization, isAnswerVisualization } from './toolSummaries';
 
 export interface IndexedPart {
   part: Part;
@@ -14,14 +14,13 @@ export type TurnSegment =
 export const MIN_GROUPED_TOOLS = 2;
 
 function isWorkPart(part: Part): boolean {
-  // A page the agent showed is part of its answer, not work to fold away.
-  if (part.type === 'tool') return getToolPartVisualization(part)?.type !== 'html-render';
+  if (part.type === 'tool') return !isAnswerVisualization(getToolPartVisualization(part));
   return part.type === 'reasoning' || part.type === 'step';
 }
 
 /**
  * Folds runs of agent work (tool calls plus the reasoning and step markers
- * between them) into one segment. Text, images, files and shown pages end a
+ * between them) into one segment. Text, images, files, shown pages and produced images end a
  * run, so the answer always stays outside the fold.
  */
 export function groupTurnParts(parts: readonly Part[]): TurnSegment[] {

@@ -144,6 +144,11 @@ export function getToolPartVisualization(part: ToolPart): AnyVisualization | und
     : undefined;
 }
 
+/** A shown page or a produced image is part of the agent's answer, not work to fold away. */
+export function isAnswerVisualization(visualization: AnyVisualization | undefined): boolean {
+  return visualization?.type === 'html-render' || visualization?.type === 'image';
+}
+
 export interface DiffTotals {
   additions: number;
   deletions: number;

@@ -8,6 +8,7 @@ import { TerminalOutput } from './TerminalOutput';
 import { TodoList } from './TodoList';
 import { StructuredResponse } from './StructuredResponse';
 import { HtmlRenderFrame } from './HtmlRenderFrame';
+import { ToolImage } from './ToolImage';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
 interface VisualizationRendererProps {
@@ -118,6 +119,9 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
 
     case 'html-render':
       return <HtmlRenderFrame render={visualization.render} />;
+
+    case 'image':
+      return <ToolImage url={visualization.url} alt={visualization.alt} />;
 
     case 'structured-response':
       return (

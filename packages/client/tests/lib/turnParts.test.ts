@@ -40,6 +40,14 @@ describe('groupTurnParts', () => {
   });
 });
 
+  test('a produced image ends the run like a shown page', () => {
+    const image = done('img', 'image-generation');
+    image.presentation = { summary: 'Generate image', debugAvailable: false,
+      visualization: { type: 'image', url: '/api/x', mimeType: 'image/png' } };
+    const segments = groupTurnParts([done('t1'), done('t2'), image, text('answer')]);
+    expect(segments.map(segment => segment.kind)).toEqual(['tools', 'part', 'part']);
+  });
+
 describe('getToolGroupStats', () => {
   test('counts names, failures, diff totals and wall time', () => {
     const edit = done('e1', 'edit', 2_000, 2_500);

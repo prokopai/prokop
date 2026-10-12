@@ -4,6 +4,8 @@ import { projectToolPartForClient } from '@/application/sessions/tool-debug';
 import { createPart, getToolPartByCallId, transitionToolToCompleted,
   transitionToolToError, transitionToolToInterrupted, updatePart } from '@/infrastructure/sqlite/message-store';
 import { codexObject } from './app-server';
+import { createAttachmentSync, MAX_ATTACHMENT_SIZE } from '@/infrastructure/sqlite/attachments';
+import { getSession } from '@/infrastructure/sqlite/session-store';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,
@@ -40,6 +42,38 @@ function commandStdout(value: unknown): string {
 function dynamicResult(item: Record<string, unknown>): Record<string, unknown> | null {
   const text = dynamicContent(item);
   try { return text ? codexObject(JSON.parse(text)) : null; } catch { return null; }
+}
+
+const IMAGE_TYPES: Array<{ mimeType: string; extension: string; matches(bytes: Buffer): boolean }> = [
+  { mimeType: 'image/png', extension: 'png', matches: bytes => bytes.subarray(0, 4).toString('hex') === '89504e47' },
+  { mimeType: 'image/jpeg', extension: 'jpg', matches: bytes => bytes.subarray(0, 3).toString('hex') === 'ffd8ff' },
+  { mimeType: 'image/webp', extension: 'webp',
+    matches: bytes => bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP' },
+];
+
+/**
+ * Codex sends the generated image as base64 in `result`. It is saved as a
+ * session attachment and shown inline; the transcript keeps only its URL.
+ */
+function imageGenerationVisualization(item: Record<string, unknown>, sessionId: string): AnyVisualization | null {
+  if (item.type !== 'imageGeneration') return null;
+  if (codexObject(item.failure)?.type === 'usageLimitExceeded') return { type: 'none', message: 'Image limit reached' };
+  const saved = typeof item.savedPath === 'string' ? `Image saved: ${preview(item.savedPath)}` : 'Image generated';
+  const bytes = typeof item.result === 'string' && item.result ? Buffer.from(item.result, 'base64') : null;
+  const type = bytes && IMAGE_TYPES.find(candidate => candidate.matches(bytes));
+  const workspaceId = getSession(sessionId)?.workspaceId;
+  if (!bytes || !type || bytes.byteLength > MAX_ATTACHMENT_SIZE || !workspaceId) return { type: 'none', message: saved };
+  try {
+    const attachment = createAttachmentSync({ sessionId, workspaceId, filename: `generated.${type.extension}`,
+      mimeType: type.mimeType, sizeBytes: bytes.byteLength,
+      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer });
+    const alt = typeof item.revisedPrompt === 'string' ? item.revisedPrompt : typeof item.prompt === 'string' ? item.prompt : undefined;
+    return { type: 'image', mimeType: type.mimeType,
+      url: `/api/sessions/${sessionId}/attachments/${attachment.id}/content?key=${attachment.accessKey}`,
+      ...(alt ? { alt: preview(alt).slice(0, 500) } : {}) };
+  } catch {
+    return { type: 'none', message: saved };
+  }
 }
 
 /** Built-in visuals arrive through the generic MCP bridge, keyed by the inner tool. */
@@ -205,7 +239,8 @@ export class CodexToolItems {
             ?? ((item.type === 'collabAgentToolCall' || item.type === 'subAgentActivity')
               ? { type: 'none' as const,
                 message: `Subagent ${typeof item.tool === 'string' && item.tool ? item.tool : 'task'} completed` }
-              : (item.type === 'webSearch' ? webSearchVisualization(item) : null) ?? fallback);
+              : (item.type === 'webSearch' ? webSearchVisualization(item) : null)
+                ?? imageGenerationVisualization(item, this.sessionId) ?? fallback);
       updated = transitionToolToCompleted(part.id, { status: typeof status === 'string' ? status : 'completed',
         ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}),
         // Unclassified output is inspectable through raw data, never an automatic preview.

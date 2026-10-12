@@ -3,7 +3,7 @@ import type { HtmlRenderReference } from './html-render';
 /**
  * Supported visualization types for tool outputs.
  */
-export type VisualizationType = 'diff' | 'diffs' | 'code' | 'table' | 'file-list' | 'markdown' | 'shell-output' | 'none' | 'todo-list' | 'structured-response' | 'html-render';
+export type VisualizationType = 'diff' | 'diffs' | 'code' | 'table' | 'file-list' | 'markdown' | 'shell-output' | 'none' | 'todo-list' | 'structured-response' | 'html-render' | 'image';
 
 /**
  * Base interface for all visualization types embedded in tool output.
@@ -240,6 +240,17 @@ export interface HtmlRenderVisualization extends ToolVisualization {
   render: HtmlRenderReference;
 }
 
+/**
+ * An image a tool produced, such as a generated picture, stored as a session
+ * attachment. `url` is the attachment path, like an image part's.
+ */
+export interface ImageVisualization extends ToolVisualization {
+  type: 'image';
+  url: string;
+  mimeType: string;
+  alt?: string;
+}
+
 export type AnyVisualization =
   | DiffVisualization
   | DiffsVisualization
@@ -251,7 +262,8 @@ export type AnyVisualization =
   | NoneVisualization
   | TodoListVisualization
   | StructuredResponseVisualization
-  | HtmlRenderVisualization;
+  | HtmlRenderVisualization
+  | ImageVisualization;
 
 /**
  * Tool output pattern that includes optional visualization data.

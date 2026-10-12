@@ -1,4 +1,5 @@
 import { getDatabase } from './database';
+import { mkdirSync, writeFileSync } from 'fs';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { AttachmentKind } from '@prokopai/sdk';
@@ -100,28 +101,45 @@ export function getAttachmentByKey(attachmentId: string, accessKey: string): Att
   return mapRowToAttachment(row);
 }
 
-/** Writes asynchronously: uploads reach 20 MB and must not stall the event loop. */
-export async function createAttachment(params: {
+interface CreateAttachmentParams {
   sessionId: string;
   workspaceId: string;
   filename: string;
   mimeType: string;
   sizeBytes: number;
   data: ArrayBuffer;
-}): Promise<Attachment> {
-  const db = getDatabase();
+}
+
+function attachmentLocation(params: CreateAttachmentParams) {
   const id = 'att_' + crypto.randomUUID();
+  const directory = getAttachmentDir(params.workspaceId, params.sessionId);
+  const safeFilename = params.filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  return { id, directory, absolutePath: join(directory, `${id}-${safeFilename}`) };
+}
+
+/** Writes asynchronously: uploads reach 20 MB and must not stall the event loop. */
+export async function createAttachment(params: CreateAttachmentParams): Promise<Attachment> {
+  const { id, directory, absolutePath } = attachmentLocation(params);
+  await mkdir(directory, { recursive: true });
+  await writeFile(absolutePath, new Uint8Array(params.data));
+  return recordAttachment(params, id, absolutePath);
+}
+
+/**
+ * For a tool result handled inside a synchronous event handler, where the
+ * row must exist before the next event. Keep it to a few megabytes.
+ */
+export function createAttachmentSync(params: CreateAttachmentParams): Attachment {
+  const { id, directory, absolutePath } = attachmentLocation(params);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(absolutePath, new Uint8Array(params.data));
+  return recordAttachment(params, id, absolutePath);
+}
+
+function recordAttachment(params: CreateAttachmentParams, id: string, absolutePath: string): Attachment {
+  const db = getDatabase();
   const accessKey = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('hex');
   const kind = determineKind(params.mimeType);
-  const attachmentDir = getAttachmentDir(params.workspaceId, params.sessionId);
-
-  await mkdir(attachmentDir, { recursive: true });
-
-  const safeFilename = params.filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-  const absolutePath = join(attachmentDir, `${id}-${safeFilename}`);
-
-  await writeFile(absolutePath, new Uint8Array(params.data));
-
   const createdAt = new Date().toISOString();
 
   db.run(

@@ -41,6 +41,8 @@ Do not save secrets, raw logs, large code, or one-off details.
 If memory is full, consolidate existing entries with replace before adding.
 Use the list action to verify current entries before replacing or removing.`;
 
+export const CODEX_GENERATED_IMAGE_GUIDANCE = 'Images you generate with the built-in image generation tool are shown to the user inline, under the tool call, as soon as they are ready. Do not try to display, link or attach them again, and do not tell the user the image could not be shown. Empty script output after generating an image is normal; a failed generation reports an error.';
+
 export async function codexDeveloperInstructions(
   workspace: Workspace, root: string, preconfig: Preconfig, sources: CodexInstructionSources,
   availableTools: readonly string[] = [],
@@ -67,6 +69,9 @@ export async function codexDeveloperInstructions(
   }
   if (preconfig.systemPrompt) sections.push(preconfig.systemPrompt);
   sections.push('When you spawn a subagent to answer the current user request, wait for its result within this turn before reporting the result. A completed parent turn is not automatically resumed by later child activity. Do not promise a later summary after ending the turn.');
+  // Codex hands a generated image to the client, not to the model, so a
+  // script that generates one reports empty output.
+  sections.push(CODEX_GENERATED_IMAGE_GUIDANCE);
   sections.push(`<workspace>\nWorking directory: ${root}\n${workspace.additionalPaths.length
     ? `Other project directories registered with this workspace:\n${workspace.additionalPaths.map(path => `- ${path}`).join('\n')}\nAccess to these directories remains subject to Codex sandbox and approvals.\n`
     : ''}</workspace>`);
