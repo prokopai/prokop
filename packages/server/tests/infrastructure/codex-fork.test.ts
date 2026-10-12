@@ -111,7 +111,7 @@ test('native fork keeps selected assistant turn, binding, model and inherited us
   const reader = fake(history);
   const client = new CodexAppServer(reader.connection, () => {});
   try { await client.initialize();
-    expect(await readRollbackHistory(client, getCodexBinding(forkId)!)).toEqual(['turn-0', 'turn-1']);
+    expect((await readRollbackHistory(client, getCodexBinding(forkId)!)).map(span => span.id)).toEqual(['turn-0', 'turn-1']);
   } finally { await client.close(); }
   expect(getDatabase().query('SELECT * FROM codex_fork_intents WHERE source_session_id = ?').get('s')).toBeNull();
 });
@@ -236,4 +236,35 @@ test('uncertain or invalid native fork never publishes a local session or retrie
     .rejects.toThrow('uncertain outcome');
   expect(retry.sent).toHaveLength(0);
   expect(getSession('s')?.harness).toBe('codex-cli');
+});
+
+test('a fork keeps a steered turn whole and maps every user message upstream', async () => {
+  createSession({ id: 's', workspaceId: 'ws', title: 'Original', status: 'active',
+    harness: 'codex-cli', preconfigId: 'test', metadata: null, parentId: null, agentName: null });
+  bindCodexThread({ sessionId: 's', threadId: 'source', workspaceRoot: root, cliVersion: version });
+  const ids = ['user-0', 'assistant-0', 'steered', 'steered-reply', 'user-1', 'assistant-1'];
+  ids.forEach((id, index) => {
+    if (id.startsWith('user') || id === 'steered') {
+      createMessage({ id, sessionId: 's', role: 'user', createdAt: index + 1 });
+      createPart({ id: `${id}-part`, messageId: id, type: 'text', text: id, createdAt: index + 1 }, 's');
+    } else {
+      createMessage({ id, sessionId: 's', role: 'assistant', status: 'completed', modelId: 'codex-cli',
+        providerId: 'codex-cli', tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: index + 1 });
+    }
+  });
+  const history = { source: [
+    { id: 'turn-0', itemsView: 'full', status: 'completed', items: [{ type: 'userMessage', clientId: 'user-0' },
+      { type: 'agentMessage', text: 'x' }, { type: 'userMessage', clientId: 'steered' }] },
+    { id: 'turn-1', itemsView: 'full', status: 'completed', items: [{ type: 'userMessage', clientId: 'user-1' }] },
+  ] as Array<Record<string, unknown>> };
+  // Forking at the reply before the steered message would split a Codex turn.
+  await expect(forkCodexSession({ sessionId: 's', targetMessageId: 'assistant-0' }, deps(fake(history).connection)))
+    .rejects.toThrow('Codex fork requires a completed assistant response');
+  const upstream = fake(history);
+  const result = await forkCodexSession({ sessionId: 's', targetMessageId: 'steered-reply' }, deps(upstream.connection));
+  expect(upstream.sent.find(message => message.method === 'thread/fork')?.params).toMatchObject({ lastTurnId: 'turn-0' });
+  const copy = listMessagesWithParts(result.forkedSession.id);
+  expect(copy.map(entry => entry.parts[0] && 'text' in entry.parts[0] ? entry.parts[0].text : entry.message.role))
+    .toEqual(['user-0', 'assistant', 'steered', 'assistant']);
+  expect(upstreamUserId(copy[2]!.message.id)).toBe('steered');
 });

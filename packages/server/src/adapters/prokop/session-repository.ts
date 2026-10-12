@@ -24,6 +24,7 @@ import {
   addMessageToQueue,
   getQueuedMessage,
   deleteQueuedMessage,
+  markQueuedMessageSteer,
 } from '@/infrastructure/sqlite/queued-messages';
 import {
   DEFAULT_TOOL_OUTPUT_PAGE_CHARS,
@@ -262,8 +263,13 @@ export function createProkopSessionRepository(
       sessionId: string,
       content: string,
       attachments?: Array<{ id: string; kind: string }>,
+      steer?: boolean,
     ): QueuedMessage {
-      return addMessageToQueue(sessionId, content, attachments);
+      return addMessageToQueue(sessionId, content, attachments, steer);
+    },
+
+    markQueuedMessageSteer(id: string): QueuedMessage | null {
+      return markQueuedMessageSteer(id);
     },
 
     getQueuedMessage(id: string): QueuedMessage | null {

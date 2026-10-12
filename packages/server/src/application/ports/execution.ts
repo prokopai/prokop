@@ -52,6 +52,8 @@ export interface EditMessageInput {
 export interface SessionExecutionPort {
   /** Wake an idle host-owned queue; active turns drain after their own cleanup. */
   drainQueue?<Origin>(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): Promise<void>;
+  /** Deliver steer messages into the running turn; idle sessions leave them for the queue drain. */
+  steerQueue?<Origin>(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): Promise<void>;
   sendMessage<Origin>(
     wire: SessionWirePorts<Origin>,
     origin: Origin,

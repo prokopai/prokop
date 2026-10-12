@@ -1,4 +1,4 @@
-import { Copy, Check, X, Clock, Undo2, GitBranch, Pin, PinOff, Pencil, X as XIcon, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Copy, Check, X, Clock, CornerDownRight, Undo2, GitBranch, Pin, PinOff, Pencil, X as XIcon, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { Message } from '@prokopai/sdk';
 import { contextMessagePlainText, isAssistantMessage, joinContextEnvelope, splitContextEnvelope } from '@prokopai/sdk';
@@ -16,6 +16,9 @@ interface MessageBubbleProps {
   children?: React.ReactNode;
   isQueued?: boolean;
   onRemove?: () => void;
+  /** Marked to enter the running turn at its next safe point. */
+  isSteering?: boolean;
+  onSteer?: () => void;
   onRevert?: () => void;
   canRevert?: boolean;
   onFork?: () => void;
@@ -92,6 +95,8 @@ export function MessageBubble({
   children,
   isQueued = false,
   onRemove,
+  isSteering = false,
+  onSteer,
   onRevert,
   canRevert = false,
   onFork,
@@ -401,20 +406,33 @@ export function MessageBubble({
           {isQueued && (
             <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-muted-foreground/20">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="size-3 animate-pulse" />
-                <span>Pending</span>
+                {isSteering ? <CornerDownRight className="size-3 animate-pulse" /> : <Clock className="size-3 animate-pulse" />}
+                <span>{isSteering ? 'Steering' : 'Pending'}</span>
               </div>
-              {onRemove && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRemove}
-                  className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  title="Remove from queue"
-                >
-                  <X className="size-3" />
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {onSteer && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onSteer}
+                    className="h-6 px-2 text-xs text-muted-foreground"
+                    title="Send into the running turn at its next step"
+                  >
+                    Steer
+                  </Button>
+                )}
+                {onRemove && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onRemove}
+                    className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Remove from queue"
+                  >
+                    <X className="size-3" />
+                  </Button>
+                )}
+              </div>
             </div>
           )}
           <div className="min-w-0">

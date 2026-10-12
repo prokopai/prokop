@@ -29,6 +29,7 @@ import {
 import { emitSessionUpdated } from '@/infrastructure/runtime/host-dependencies';
 import {
   buildEffectiveContextHistory,
+  getNextSteerQueuedMessage,
   getPartsByMessage,
   getSession,
   syncMessageFts,
@@ -38,6 +39,7 @@ import {
 } from '@/infrastructure/storage/runtime';
 import { rejectPendingAsksBySession } from '@/harnesses/prokop/permission/ask-user-api';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
+import { deliverSteerMessages } from '@/harnesses/prokop/execution/steering';
 import {
   getRetryPolicy,
   RetryDelayAbortedError,
@@ -48,6 +50,8 @@ export type StreamChatEvent =
   | (MessageEvent & { continuation?: boolean })
   | { type: 'usage'; usage: UsageEventData; model: string; variant: string | null }
   | { type: 'needs_compaction'; sessionId: string; resume?: boolean }
+  | { type: 'steer_ready'; sessionId: string }
+  | { type: 'queue.sending'; sessionId: string; queueId: string }
   | ChatRetryMessage
   | RateLimitErrorMessage
   | ServerErrorMessage
@@ -182,11 +186,15 @@ export async function* streamChatWithRetry(
     let remainingSteps = options.maxSteps ?? getLLMMaxSteps();
     let messages = options.messages;
     let continueFromCompaction = false;
+    // Only a top-level session owns a queue the user can steer.
+    const steerPending = isMainSession
+      ? async () => (await getNextSteerQueuedMessage(options.sessionId)) !== null : undefined;
     while (retries <= maxRetries) {
       let lastAssistantMessage: AssistantMessage | null = null;
       let attemptHadToolActivity = false;
       let maintenanceStarted = false;
       let pendingCompaction: Extract<StreamChatEvent, { type: 'needs_compaction' }> | undefined;
+      let steerReady = false;
       let overflow: ContextOverflowErrorMessage | undefined;
       const finishedSteps = new Set<string>();
 
@@ -195,9 +203,14 @@ export async function* streamChatWithRetry(
         for await (const event of stream({
           ...options, messages, maxSteps: remainingSteps,
           compactBetweenSteps: true, continueFromCompaction, retryAbortController: abortController,
+          steerPending,
         })) {
           if (event.type === 'needs_compaction') {
             pendingCompaction = event;
+            continue;
+          }
+          if (event.type === 'steer_ready') {
+            steerReady = true;
             continue;
           }
           if (event.type === 'error.context_overflow') {
@@ -275,6 +288,19 @@ export async function* streamChatWithRetry(
           overflowRetried ||= Boolean(overflow);
           messages = (await buildEffectiveContextHistory(options.sessionId)).messages;
           continueFromCompaction = true;
+          retries = 0;
+          continue;
+        }
+        if (steerReady) {
+          maintenanceStarted = true;
+          // Steering continues the same turn: completed tools stay in history and the
+          // user's message follows them, so nothing already run is replayed.
+          const delivered = yield* deliverSteerMessages(options.sessionId);
+          // The stop condition left budget, and the user's message always gets an answer.
+          remainingSteps = Math.max(1, remainingSteps - Math.max(1, finishedSteps.size));
+          messages = (await buildEffectiveContextHistory(options.sessionId)).messages;
+          // A row removed before delivery leaves no new input; resume the task as compaction does.
+          continueFromCompaction = delivered === 0;
           retries = 0;
           continue;
         }

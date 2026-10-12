@@ -19,7 +19,7 @@ const codexHarnessState: SessionHarnessState = {
   usage: null,
   goalUncertain: false,
   nativeApprovalPrefix: 'codex-approval:',
-  capabilities: { canRemoveQueuedMessages: false, canInterruptSubagent: true, subagentActivityPropagates: true },
+  capabilities: { canRemoveQueuedMessages: false, canSteerQueuedMessages: true, canInterruptSubagent: true, subagentActivityPropagates: true },
 };
 
 function session(id: string, overrides: Partial<Session> = {}): Session {

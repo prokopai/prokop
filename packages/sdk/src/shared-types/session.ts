@@ -165,6 +165,8 @@ export interface SessionHarnessState {
   capabilities: {
     /** Whether queued messages can be removed in this harness. */
     canRemoveQueuedMessages: boolean;
+    /** Whether a queued message can be delivered into the running turn. */
+    canSteerQueuedMessages: boolean;
     /** Whether a running native subagent session offers a Stop control. */
     canInterruptSubagent: boolean;
     /** Whether subagent activity marks ancestor sessions as running. */

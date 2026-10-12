@@ -15,6 +15,7 @@ import {
 import { prokopToolOutputArtifactStore } from '@/infrastructure/sqlite/tool-output-artifacts';
 import { searchMessages } from '@/infrastructure/sqlite/session-search-query-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';
+import { addMessageToQueue, listSteerQueuedMessages, markQueuedMessageSteer } from '@/infrastructure/sqlite/queued-messages';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { createTestAssistantMessage, createTestTextPart, createTestUserMessage } from '#tests/factories';
 import { seedSession, seedWorkspace } from '#tests/seed';
@@ -79,6 +80,7 @@ describe('Čapek storage adapter', () => {
     expect(typeof prokopStorageBundle.queue.addMessage).toBe('function');
     expect(typeof prokopStorageBundle.queue.delete).toBe('function');
     expect(typeof prokopStorageBundle.queue.peek).toBe('function');
+    expect(typeof prokopStorageBundle.queue.peekSteer).toBe('function');
     expect(typeof prokopStorageBundle.attachments.get).toBe('function');
     expect(typeof prokopStorageBundle.workspaces.get).toBe('function');
     expect('getAutoApproveSeverity' in prokopStorageBundle.workspaces).toBe(false);
@@ -140,6 +142,21 @@ describe('Čapek storage adapter', () => {
     updateMessage('message-update', { summary: false });
     expect((getMessage('message-update') as { summary?: boolean } | null)?.summary).toBeUndefined();
     expect(indexCalls).toEqual(['message-update']);
+  });
+
+  test('steer rows keep FIFO order and only steer rows are offered to the running turn', async () => {
+    const ws = seedWorkspace();
+    const session = seedSession(ws.id);
+    const plain = await prokopStorageBundle.queue.addMessage(session.id, 'later');
+    expect(plain.steer).toBeUndefined();
+    expect(await prokopStorageBundle.queue.peekSteer(session.id)).toBeNull();
+    const steer = markQueuedMessageSteer(plain.id);
+    expect(steer).toMatchObject({ id: plain.id, steer: true });
+    expect(await prokopStorageBundle.queue.peekSteer(session.id)).toMatchObject({ id: plain.id, steer: true });
+    const added = addMessageToQueue(session.id, 'now', undefined, true);
+    expect(added.steer).toBe(true);
+    expect(listSteerQueuedMessages(session.id).map(row => row.content)).toEqual(['later', 'now']);
+    expect(await prokopStorageBundle.queue.peek(session.id)).toMatchObject({ id: plain.id });
   });
 
   test('installs the module-level storage bundle by identity', () => {

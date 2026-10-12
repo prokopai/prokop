@@ -24,9 +24,9 @@ export interface QueuedTurnInput {
 }
 
 export type QueuedCliExecution = Pick<SessionExecutionPort,
-  'sendMessage' | 'drainQueue' | 'interruptSession' | 'isSessionActive' | 'editMessage' | 'revert' | 'fork' | 'compact'>;
+  'sendMessage' | 'drainQueue' | 'steerQueue' | 'interruptSession' | 'isSessionActive' | 'editMessage' | 'revert' | 'fork' | 'compact'>;
 
-export interface CliTurnExecution extends Omit<QueuedCliExecution, 'sendMessage' | 'drainQueue'> {
+export interface CliTurnExecution extends Omit<QueuedCliExecution, 'sendMessage' | 'drainQueue' | 'steerQueue'> {
   sendMessage<Origin>(
     wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string,
     content: string, attachments?: Array<{ id: string; kind: string }>, responseFormatId?: string,
@@ -35,6 +35,8 @@ export interface CliTurnExecution extends Omit<QueuedCliExecution, 'sendMessage'
     /** Called once the user message is persisted; rejected prompts never call it. */
     onTurnStarted?: () => void,
   ): Promise<'drainable' | void>;
+  /** Hands steer messages to the running turn. A session with no steerable turn leaves them queued. */
+  steer?<Origin>(wire: SessionWirePorts<Origin>, sessionId: string): Promise<void>;
 }
 
 /**
@@ -166,6 +168,9 @@ export function withCliMessageQueue(
         setRunning(wire, sessionId, false);
         running.delete(sessionId);
       }
+    },
+    async steerQueue(wire, _origin, sessionId) {
+      await execution.steer?.(wire, sessionId);
     },
     async drainQueue(wire, origin, sessionId) {
       if (running.has(sessionId) || execution.isSessionActive(sessionId)) return;

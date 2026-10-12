@@ -12,7 +12,7 @@ export { readClaudeSessionTitle } from './title';
  * server-side regeneration supplied by the composition root, which falls
  * back to the CLI's own title (readClaudeSessionTitle). */
 export function createClaudeCliHarness(
-  execution: Pick<SessionExecutionPort, 'sendMessage' | 'drainQueue' | 'interruptSession' | 'isSessionActive' | 'compact' | 'editMessage' | 'revert' | 'fork'>,
+  execution: Pick<SessionExecutionPort, 'sendMessage' | 'drainQueue' | 'steerQueue' | 'interruptSession' | 'isSessionActive' | 'compact' | 'editMessage' | 'revert' | 'fork'>,
   regenerateTitle: SessionExecutionPort['regenerateTitle'],
 ): HarnessRegistration {
   return {

@@ -2532,3 +2532,162 @@ test('a Codex CLI upgrade still blocks a changed workspace root', async () => {
     message: 'Codex failed during workspace root check. Check the host CLI setup.' });
   expect(getCodexBinding('s')?.cliVersion).toBe('codex-cli 0.156.0');
 });
+
+function transcriptOf(sessionId: string): string[] {
+  return listMessagesWithParts(sessionId).map(entry => `${entry.message.role}${entry.message.role === 'assistant'
+    ? `(${entry.message.status})` : ''}:${entry.parts.map(part => part.type === 'text' ? part.text : part.type).join('|')}`);
+}
+
+test('a steered message enters the running Codex turn with turn/steer and splits the reply', async () => {
+  create();
+  const processes: ReturnType<typeof fakeCodex>[] = [];
+  const execution = createCodexExecution({ version: () => 'codex-cli 0.161.0', connect: () => {
+    const fake = fakeCodex(); processes.push(fake); return fake.connection;
+  } });
+  const messages: ServerMessage[] = [];
+  const ports = wire(messages);
+  const turn = execution.sendMessage(ports, 'origin', 's', 'indent the file');
+  await waitFor(() => processes[0]?.sent.some(message => message.method === 'turn/start') ?? false);
+  const codex = processes[0]!;
+  const send = (method: string, params: Record<string, unknown>) =>
+    codex.send({ method, params: { threadId: 'thread-1', turnId: 'turn-1', ...params } });
+  // Rows queued before turn/started wait for it; goal and stopped turns never steer.
+  const queued = addMessageToQueue('s', 'use tabs', undefined, true);
+  await execution.steerQueue!(ports, 'origin', 's');
+  expect(codex.sent.some(message => message.method === 'turn/steer')).toBe(false);
+  codex.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
+  await waitFor(() => codex.sent.some(message => message.method === 'turn/steer'));
+  const request = codex.sent.find(message => message.method === 'turn/steer')!;
+  const params = request.params as Record<string, unknown> & { clientUserMessageId: string };
+  expect(params).toEqual({ threadId: 'thread-1', expectedTurnId: 'turn-1',
+    clientUserMessageId: params.clientUserMessageId, input: [{ type: 'text', text: 'use tabs' }] });
+  send('item/completed', { item: { type: 'agentMessage', id: 'a-1', text: 'checking spaces' } });
+  // The item can arrive before the steer response.
+  send('item/started', { item: { type: 'userMessage', id: 'u-2', clientId: params.clientUserMessageId,
+    content: [{ type: 'text', text: 'use tabs' }] } });
+  codex.send({ id: request.id, result: { turnId: 'turn-1' } });
+  send('item/completed', { item: { type: 'agentMessage', id: 'a-2', text: 'switched to tabs' } });
+  await waitFor(() => listMessagesWithParts('s').length === 4);
+  expect(getCodexBinding('s')?.pendingAssistantId).toBe(listMessagesWithParts('s')[3]!.message.id);
+  codex.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
+  await turn;
+  expect(transcriptOf('s')).toEqual(['user:indent the file', 'assistant(completed):checking spaces',
+    'user:use tabs', 'assistant(completed):switched to tabs']);
+  expect(listMessagesWithParts('s')[2]!.message.id).toBe(params.clientUserMessageId);
+  expect(listQueuedMessages('s')).toEqual([]);
+  expect(messages.filter(message => message.type === 'queue.sending')).toEqual([
+    { type: 'queue.sending', sessionId: 's', queueId: queued.id }]);
+  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+});
+
+test('a steer Codex rejects stays queued and is sent after the turn', async () => {
+  create();
+  const processes: ReturnType<typeof fakeCodex>[] = [];
+  const execution = createCodexExecution({ version: () => 'codex-cli 0.161.0', connect: () => {
+    const fake = fakeCodex(undefined, 'turn/steer'); processes.push(fake); return fake.connection;
+  } });
+  const ports = wire([]);
+  const turn = execution.sendMessage(ports, 'origin', 's', 'indent the file');
+  await waitFor(() => processes[0]?.sent.some(message => message.method === 'turn/start') ?? false);
+  processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
+  addMessageToQueue('s', 'use tabs', undefined, true);
+  await execution.steerQueue!(ports, 'origin', 's');
+  // Each wake-up may retry a rejected row; it is never consumed.
+  expect(processes[0]!.sent.some(message => message.method === 'turn/steer')).toBe(true);
+  expect(listQueuedMessages('s')).toHaveLength(1);
+  processes[0]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
+  await waitFor(() => processes[1]?.sent.some(message => message.method === 'turn/start') ?? false);
+  expect(processes[1]!.sent.find(message => message.method === 'turn/start')?.params)
+    .toMatchObject({ input: [{ type: 'text', text: 'use tabs' }] });
+  processes[1]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
+  processes[1]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'completed' } } });
+  await turn;
+  expect(listQueuedMessages('s')).toEqual([]);
+  expect(listMessagesWithParts('s').filter(entry => entry.message.role === 'user')).toHaveLength(2);
+});
+
+test('Codex undo treats a steered turn as one turn', async () => {
+  create();
+  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.161.0',
+    workspaceRoot: realpathSync(process.cwd()) });
+  // Turn 0 received a steered message: user, reply, steered user, reply. Turn 1 is ordinary.
+  const ids = ['user-0', 'assistant-0', 'steered', 'steered-reply', 'user-1', 'assistant-1'];
+  ids.forEach((id, index) => {
+    if (id.includes('user') || id === 'steered') {
+      createMessage({ id, sessionId: 's', role: 'user', createdAt: index + 1 });
+      createPart({ id: `${id}-text`, messageId: id, type: 'text', text: id, createdAt: index + 1 }, 's');
+    } else {
+      createMessage({ id, sessionId: 's', role: 'assistant', status: 'completed', modelId: 'codex-cli',
+        providerId: 'codex-cli', tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: index + 1 });
+    }
+  });
+  const upstream: Array<Record<string, unknown>> = [
+    { id: 'turn-0', status: 'completed', itemsView: 'full', items: [{ type: 'userMessage', clientId: 'user-0' },
+      { type: 'agentMessage', text: 'x' }, { type: 'userMessage', clientId: 'steered' }] },
+    { id: 'turn-1', status: 'completed', itemsView: 'full', items: [{ type: 'userMessage', clientId: 'user-1' }] },
+  ];
+  const fakes: ReturnType<typeof fakeCodex>[] = [];
+  const execution = createCodexExecution({ version: () => 'codex-cli 0.161.0', connect: () => {
+    const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' }, turns: upstream }),
+      undefined, false, undefined, false, false, false, before => {
+        upstream.splice(upstream.findIndex(turn => turn.id === before));
+      });
+    fakes.push(fake);
+    return fake.connection;
+  } });
+  const sent = () => fakes.flatMap(fake => fake.sent);
+  // A reply before a steered message ends no Codex turn, so nothing can be undone from there.
+  await expect(execution.revert({ sessionId: 's', targetMessageId: 'assistant-0' })).rejects.toThrow();
+  expect(sent().some(entry => entry.method === 'thread/revert')).toBe(false);
+  const result = await execution.revert({ sessionId: 's', targetMessageId: 'steered-reply' });
+  expect(sent().find(entry => entry.method === 'thread/revert')?.params).toEqual({
+    threadId: 'thread-1', beforeTurnId: 'turn-1' });
+  expect(result.removed.messageIds).toEqual(['user-1', 'assistant-1']);
+  expect(listMessagesWithParts('s').map(entry => entry.message.id)).toEqual(ids.slice(0, 4));
+});
+
+test('restart recovery after a steer fills only the reply to the steered message', async () => {
+  create();
+  const processes: ReturnType<typeof fakeCodex>[] = [];
+  let userId: string | null = null;
+  let steerId: string | null = null;
+  const deps = { version: () => 'codex-cli 0.161.0', connect: () => {
+    const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' }, turns: [{
+      id: 'turn-1', status: 'completed', itemsView: 'full', items: [
+        { type: 'userMessage', id: 'u', clientId: userId },
+        { type: 'agentMessage', id: 'a', text: 'checking spaces' },
+        { type: 'userMessage', id: 'u2', clientId: steerId },
+        { type: 'agentMessage', id: 'a2', text: 'switched to tabs' },
+      ],
+    }] }));
+    processes.push(fake); return fake.connection;
+  } };
+  const execution = createCodexExecution(deps);
+  const first = execution.sendMessage(wire([]), 'origin', 's', 'indent the file');
+  await waitFor(() => processes[0]?.sent.some(message => message.method === 'turn/start') ?? false);
+  userId = (processes[0]!.sent.find(message => message.method === 'turn/start')!.params as { clientUserMessageId: string }).clientUserMessageId;
+  processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
+  processes[0]!.send({ method: 'item/completed', params: { threadId: 'thread-1', turnId: 'turn-1',
+    item: { type: 'agentMessage', id: 'a', text: 'checking spaces' } } });
+  addMessageToQueue('s', 'use tabs', undefined, true);
+  // Dispatch resolves with the turn/steer response, which this test sends below.
+  const steering = execution.steerQueue!(wire([]), 'origin', 's');
+  await waitFor(() => processes[0]!.sent.some(message => message.method === 'turn/steer'));
+  const request = processes[0]!.sent.find(message => message.method === 'turn/steer')!;
+  steerId = (request.params as { clientUserMessageId: string }).clientUserMessageId;
+  processes[0]!.send({ id: request.id, result: { turnId: 'turn-1' } });
+  await steering;
+  processes[0]!.send({ method: 'item/started', params: { threadId: 'thread-1', turnId: 'turn-1',
+    item: { type: 'userMessage', id: 'u2', clientId: steerId } } });
+  await waitFor(() => listMessagesWithParts('s').length === 4);
+  processes[0]!.connection.kill();
+  await first;
+  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  const next = createCodexExecution(deps).sendMessage(wire([]), 'origin', 's', 'next');
+  await waitFor(() => processes[2]?.sent.some(message => message.method === 'turn/start') ?? false);
+  expect(transcriptOf('s').slice(0, 4)).toEqual(['user:indent the file', 'assistant(completed):checking spaces',
+    'user:use tabs', 'assistant(completed):switched to tabs']);
+  processes[2]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
+  processes[2]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'completed' } } });
+  await next;
+});

@@ -95,6 +95,7 @@ export interface UseServerSessionManagerReturn {
   editMessage: (sessionId: string, messageId: string, content: string) => void;
   compactSession: (sessionId: string) => void;
   removeFromQueue: (queueId: string) => void;
+  steerQueued: (queueId: string) => void;
   sendChatMessage: (content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }) => void;
   sendChatMessageForSession: (sessionId: string, content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }, options?: SendChatOptions) => void;
   handleAskResponse: (toolCallId: string, response: AskResponse, requestId?: string) => void;
@@ -889,6 +890,7 @@ export function useServerSessionManager({
     editMessage,
     compactSession,
     removeFromQueue,
+    steerQueued,
     sendChatMessage,
     sendChatMessageForSession,
     handleAskResponse,
@@ -983,6 +985,7 @@ export function useServerSessionManager({
     editMessage,
     compactSession,
     removeFromQueue,
+    steerQueued,
     sendChatMessage,
     sendChatMessageForSession,
     handleAskResponse,

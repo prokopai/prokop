@@ -1,7 +1,7 @@
 import type { RouterContext } from '@/transport/websocket/router-context';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import { createWirePorts, requireWireApplication } from '@/transport/websocket/application';
-import type { QueueAddMessage, QueueRemoveMessage } from '@prokopai/sdk';
+import type { QueueAddMessage, QueueRemoveMessage, QueueSteerMessage } from '@prokopai/sdk';
 
 /**
  * Queue wire handlers (S3). Wire presentation only; the queue add and
@@ -19,6 +19,7 @@ export function handleQueueAdd(
     content: msg.content,
     attachments: msg.attachments,
     clientMessageId: msg.clientMessageId,
+    steer: msg.steer === true,
   });
 }
 
@@ -29,4 +30,13 @@ export function handleQueueRemove(
 ): void {
   const wire = createWirePorts(ctx);
   requireWireApplication().session.queue.remove(wire, ws, msg.queueId);
+}
+
+export function handleQueueSteer(
+  ctx: RouterContext<ConnectionId>,
+  ws: ConnectionId,
+  msg: QueueSteerMessage,
+): void {
+  const wire = createWirePorts(ctx);
+  requireWireApplication().session.queue.steer(wire, ws, msg.queueId);
 }

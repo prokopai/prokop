@@ -595,12 +595,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })),
 
   addQueuedMessage: (sessionId, message) =>
-    set((state) => ({
-      queuedMessages: {
-        ...state.queuedMessages,
-        [sessionId]: [...(state.queuedMessages[sessionId] || []), message],
-      },
-    })),
+    set((state) => {
+      const current = state.queuedMessages[sessionId] || [];
+      // queue.updated replaces a known row in place (steer marks it).
+      const known = current.some((q) => q.id === message.id);
+      return {
+        queuedMessages: {
+          ...state.queuedMessages,
+          [sessionId]: known ? current.map((q) => (q.id === message.id ? message : q)) : [...current, message],
+        },
+      };
+    }),
 
   removeQueuedMessageById: (sessionId, queueId) =>
     set((state) => ({

@@ -4,6 +4,7 @@ import type { AssistantMessage, Message, Part, Session, TextPart } from '@prokop
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import type { InterruptExecutionResult } from '@/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
+import { commitSteer, pendingSteers, type DispatchedSteer } from '@/harnesses/shared/steering';
 import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { createMessage, createPart, deleteMessage, getMessageWithParts, listMessagesWithParts, updateMessage, updatePart } from '@/infrastructure/sqlite/message-store';
 import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
@@ -15,7 +16,7 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { getAttachment, MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment } from '@/infrastructure/sqlite/attachments';
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
-import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, type CodexBinding } from './bindings';
+import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
 import { getCodexModelSelection } from './models';
 import { codexDeveloperInstructions, defaultCodexPreconfigId, type CodexInstructionSources } from './instructions';
 import { codexApprovals } from './approvals';
@@ -72,6 +73,13 @@ interface ActiveTurn {
   resolveActivation(): void;
   stop?: Promise<InterruptExecutionResult>;
   pauseGoal?(goal: import('@prokopai/sdk').CodexGoalState): void;
+  session: Session;
+  /** Sent with turn/steer and not yet seen in the turn, keyed by host user message id. */
+  steers: Map<string, DispatchedSteer>;
+  /** Serializes dispatch so concurrent wake-ups never send a row twice. */
+  steerChain: Promise<void>;
+  /** Started, not finishing, not stopped, and not a goal run. */
+  steerable(): boolean;
 }
 
 export interface CodexExecutionDependencies {
@@ -224,7 +232,16 @@ async function reconcileTurn<Origin>(
     if (!assistant || assistant.message.sessionId !== sessionId || assistant.message.role !== 'assistant') {
       throw new Error('Codex transcript is unavailable');
     }
-    const items = (turn.items as unknown[]).map(codexObject).filter(item => item?.type === 'agentMessage');
+    // Replies to messages steered into the turn were recorded as they arrived;
+    // the pending reply follows the last user message this transcript knows.
+    const turnItems = (turn.items as unknown[]).map(codexObject);
+    const known = new Set(listMessagesWithParts(sessionId).filter(entry => entry.message.role === 'user')
+      .map(entry => entry.message.id));
+    let lastUser = -1;
+    turnItems.forEach((item, index) => {
+      if (item?.type === 'userMessage' && typeof item.clientId === 'string' && known.has(item.clientId)) lastUser = index;
+    });
+    const items = turnItems.slice(lastUser + 1).filter(item => item?.type === 'agentMessage');
     if (items.some(item => typeof item?.text !== 'string')) throw new Error('Invalid Codex response history');
     const texts = items.map(item => item!.text as string);
     const existing = assistant.parts.filter(part => part.type === 'text');
@@ -313,6 +330,38 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     connection.idleTimer.unref?.();
   }
   const resubmitting = new Map<string, string>();
+  function dispatchSteers(sessionId: string): Promise<void> {
+    const run = active.get(sessionId);
+    if (!run) return Promise.resolve();
+    run.steerChain = run.steerChain.then(async () => {
+      for (const queued of pendingSteers(sessionId, run.steers.values())) {
+        if (active.get(sessionId) !== run || !run.steerable() || !run.turnId) return;
+        // Unusable images stay queued; the drain reports them like any queued send.
+        const images = resolveImages(run.session, queued.attachments ?? []);
+        if (!images) continue;
+        const steer: DispatchedSteer = { queued, userMessageId: crypto.randomUUID(),
+          images: images.map(image => ({ id: image.id, accessKey: image.accessKey, mimeType: image.mimeType })) };
+        // Registered before the request: the turn can report the item before the response.
+        run.steers.set(steer.userMessageId, steer);
+        try {
+          await run.client.request('turn/steer', { threadId: run.threadId, expectedTurnId: run.turnId,
+            clientUserMessageId: steer.userMessageId,
+            input: [...(queued.content.trim() ? [{ type: 'text', text: queued.content }] : []),
+              ...images.map(image => ({ type: 'localImage', path: image.absolutePath }))] });
+          logHarness('codex-cli', 'steer dispatched', { sessionId, queueId: queued.id }, 'info');
+        } catch (error: unknown) {
+          // The turn ended or cannot take input; the row stays queued for the drain.
+          run.steers.delete(steer.userMessageId);
+          logHarness('codex-cli', 'steer rejected', { sessionId, queueId: queued.id,
+            rpcCode: error instanceof CodexRequestError ? error.code : null, ...describeError(error) }, 'info');
+          return;
+        }
+      }
+    }).catch((error: unknown) => {
+      logHarness('codex-cli', 'steer dispatch failed', { sessionId, ...describeError(error) });
+    });
+    return run.steerChain;
+  }
   async function rollback<Origin>(sessionId: string, operation: 'edit' | 'revert', targetMessageId: string,
     content: string | null, wire?: SessionWirePorts<Origin>): Promise<import('@/application/ports/execution').RevertExecutionResult | null> {
     const session = getSession(sessionId);
@@ -379,7 +428,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         intent = null;
       }
       if (!intent) {
-        const ids = await readRollbackHistory(client, binding);
+        const spans = await readRollbackHistory(client, binding);
         const local = listMessagesWithParts(sessionId);
         const index = local.findIndex(entry => entry.message.id === targetMessageId);
         const target = local[index];
@@ -390,13 +439,14 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           throw new Error('Codex edit attachment is unavailable');
         }
         const firstUser = operation === 'revert' && index === 0 && target.message.role === 'user';
-        const userIndex = operation === 'edit' || firstUser ? index / 2 : (index + 1) / 2;
-        if (!Number.isInteger(userIndex) || !ids[userIndex]
-          || operation === 'revert' && !firstUser && target.message.role !== 'assistant') {
-          throw new Error('Codex rollback target has no turn');
-        }
+        // Codex rolls back whole turns: edit a turn's first message, or undo after a turn's last reply.
+        // A message steered into a turn starts no turn of its own.
+        const ending = spans.findIndex(span => span.end === index);
+        const turn = operation === 'edit' || firstUser ? spans.find(span => span.start === index)
+          : target.message.role === 'assistant' && ending >= 0 ? spans[ending + 1] : undefined;
+        if (!turn) throw new Error('Codex rollback target has no turn');
         intent = { sessionId, operation, targetMessageId,
-          content, beforeTurnId: ids[userIndex]!, turnIds: ids, phase: 'rollback' };
+          content, beforeTurnId: turn.id, turnIds: spans.map(span => span.id), phase: 'rollback' };
         saveRollbackIntent(intent);
       }
       // A request whose response was lost is never issued twice: a retry first reads the thread above.
@@ -411,6 +461,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     }
   }
   const execution: CliTurnExecution = {
+    steer: async (_wire, sessionId) => dispatchSteers(sessionId),
     isSessionActive: (sessionId) => active.has(sessionId) || starting.has(sessionId)
       || [...connections.values()].some(connection => connection.children?.isLiveSession(sessionId)),
     async interruptSession(sessionId): Promise<InterruptExecutionResult> {
@@ -753,9 +804,37 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (connection) connection.parentTurnId = eventTurnId;
             started = true;
             resolveStarted();
+            // Steer rows queued before the turn started enter it right away.
+            void dispatchSteers(sessionId);
             return;
           }
           if (!run.turnId || eventTurnId !== run.turnId || completed) return;
+          if ((event.method === 'item/started' || event.method === 'item/completed') && assistant) {
+            const item = codexObject(params.item);
+            const steerId = item?.type === 'userMessage' && typeof item.clientId === 'string' ? item.clientId : '';
+            const steer = run.steers.get(steerId);
+            if (steer) {
+              // The steered message follows everything streamed so far; the rest of the turn answers it.
+              run.steers.delete(steerId);
+              settleStreamedText();
+              pendingDeltas.clear();
+              let answered: Message | null = null;
+              const previous = assistant;
+              commitSteer(wire.delivery, sessionId, steer, () => {
+                answered = updateMessage(previous.id, { status: 'completed', completedAt: Date.now() });
+                // Sorts after the steered message, which is created first in this transaction.
+                assistant = createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
+                  modelId: previous.modelId, providerId: 'codex-cli', agent: session.agentId ?? undefined,
+                  tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() + 1 }) as AssistantMessage;
+                markCodexSteerReply(sessionId, assistant.id);
+              });
+              if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered });
+              wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
+              toolItems?.retarget(assistant.id);
+              logHarness('codex-cli', 'steer started', { sessionId, queueId: steer.queued.id }, 'info');
+              return;
+            }
+          }
           if (event.method === 'item/started' || event.method === 'item/completed') {
             if (assistant) {
               toolItems ??= new CodexToolItems(sessionId, assistant.id, run.turnId, wire.delivery,
@@ -1035,6 +1114,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         const activationSettled = new Promise<void>(resolve => { resolveActivation = resolve; });
         run = { client, threadId, turnId: null, fail: rejectDone, goal: goalTokenBudget !== undefined,
           stopRequested: false, mcpAbort, isTurnCompleted: () => completed, activationSettled, resolveActivation,
+          session, steers: new Map(), steerChain: Promise.resolve(),
+          steerable: () => started && !completed && !run!.stopRequested && goalTokenBudget === undefined,
           pauseGoal: goal => {
             goalStatus = goal.status;
             publishCodexGoal(session, goal, wire.delivery);

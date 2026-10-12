@@ -72,3 +72,41 @@ test.each(['codex-cli', 'claude-cli'] as const)('%s composer queues image-only i
     URL.revokeObjectURL = originalRevoke;
   }
 });
+
+test('Enter in an empty box steers the oldest queued message; typed text still sends', () => {
+  const onSendMessage = vi.fn();
+  const onSteerQueued = vi.fn();
+  const view = render(<MessageInput session={session} sessionId={session.id} workspaceId="ws"
+    isStreaming onStopStreaming={vi.fn()} onSendMessage={onSendMessage} onSteerQueued={onSteerQueued} />);
+  const textarea = getComposer('Press Enter to steer the queued message');
+  pressInComposer(textarea, 'Enter');
+  expect(onSteerQueued).toHaveBeenCalledOnce();
+  expect(onSendMessage).not.toHaveBeenCalled();
+  typeInComposer(textarea, 'more context');
+  pressInComposer(textarea, 'Enter');
+  expect(onSendMessage).toHaveBeenCalledExactlyOnceWith('more context', undefined);
+  expect(onSteerQueued).toHaveBeenCalledOnce();
+  // Without a steerable queued message, an empty Enter does nothing.
+  view.rerender(<MessageInput session={session} sessionId={session.id} workspaceId="ws"
+    isStreaming onStopStreaming={vi.fn()} onSendMessage={onSendMessage} />);
+  pressInComposer(getComposer(), 'Enter');
+  expect(onSteerQueued).toHaveBeenCalledOnce();
+  expect(onSendMessage).toHaveBeenCalledOnce();
+});
+
+test('sends during a turn are labelled Steer by default and Queue under the Queue setting', async () => {
+  const { useUIStore } = await import('@/stores/uiStore');
+  const steerable = { ...session, harnessState: { capabilities: { canSteerQueuedMessages: true } } } as unknown as Session;
+  const view = render(<MessageInput session={steerable} sessionId={session.id} workspaceId="ws"
+    isStreaming onStopStreaming={vi.fn()} onSendMessage={vi.fn()} />);
+  typeInComposer(getComposer(), 'later');
+  expect(screen.getByRole('button', { name: 'Steer message' })).toBeEnabled();
+  act(() => useUIStore.getState().setFollowUpMode('queue'));
+  try {
+    view.rerender(<MessageInput session={steerable} sessionId={session.id} workspaceId="ws"
+      isStreaming onStopStreaming={vi.fn()} onSendMessage={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Queue message' })).toBeEnabled();
+  } finally {
+    act(() => useUIStore.getState().setFollowUpMode('steer'));
+  }
+});

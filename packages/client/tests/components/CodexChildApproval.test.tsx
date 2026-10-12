@@ -26,7 +26,7 @@ function harnessState(nativeApprovalPrefix?: string): Session['harnessState'] {
     goalUncertain: false,
     ...(nativeApprovalPrefix != null ? { nativeApprovalPrefix } : {}),
     capabilities: {
-      canRemoveQueuedMessages: true,
+      canRemoveQueuedMessages: true, canSteerQueuedMessages: true,
       canInterruptSubagent: true,
       subagentActivityPropagates: false,
     },

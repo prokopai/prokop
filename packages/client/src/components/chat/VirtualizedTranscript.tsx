@@ -46,6 +46,8 @@ export interface DisplayItem {
   parts: Part[];
   isQueued?: boolean;
   queueId?: string;
+  /** A queued message marked to enter the running turn. */
+  isSteer?: boolean;
   collapseToolPreviews?: boolean;
   /** Set while the prompt is shown ahead of the server persisting it. */
   pendingSend?: PendingSend;
@@ -65,6 +67,7 @@ interface VirtualizedTranscriptProps {
   sessionStatus?: string;
   onNavigateToSubagent?: (sessionId: string) => void;
   onRemoveFromQueue?: (queueId: string) => void;
+  onSteerQueued?: (queueId: string) => void;
   pendingSendActions?: PendingSendActions;
   onRevert?: (sessionId: string, stepPartId: string) => void;
   onFork?: (sessionId: string, messageId: string) => void;
@@ -569,6 +572,7 @@ interface MessageRowProps {
   sessionId: string;
   onNavigateToSubagent?: (sessionId: string) => void;
   onRemoveFromQueue?: (queueId: string) => void;
+  onSteerQueued?: (queueId: string) => void;
   pendingSendActions?: PendingSendActions;
   onRevert?: (sessionId: string, stepPartId: string) => void;
   onFork?: (sessionId: string, messageId: string) => void;
@@ -591,6 +595,7 @@ const MessageRow = memo(function MessageRow({
   sessionId,
   onNavigateToSubagent,
   onRemoveFromQueue,
+  onSteerQueued,
   pendingSendActions,
   onRevert,
   onFork,
@@ -653,6 +658,9 @@ const MessageRow = memo(function MessageRow({
         isQueued={item.isQueued}
         onRemove={item.isQueued && item.queueId && onRemoveFromQueue
           ? () => onRemoveFromQueue(item.queueId!) : undefined}
+        isSteering={item.isQueued && item.isSteer}
+        onSteer={item.isQueued && !item.isSteer && item.queueId && !item.pendingSend && onSteerQueued
+          ? () => onSteerQueued(item.queueId!) : undefined}
         sendStatus={item.pendingSend?.status}
         sendError={item.pendingSend?.error}
         onRetrySend={pending && pendingSendActions?.retry ? () => pendingSendActions.retry?.(pending.id) : undefined}
@@ -708,6 +716,7 @@ function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowProps): 
     prev.item.parts === next.item.parts &&
     prev.item.isQueued === next.item.isQueued &&
     prev.item.queueId === next.item.queueId &&
+    prev.item.isSteer === next.item.isSteer &&
     prev.item.collapseToolPreviews === next.item.collapseToolPreviews &&
     prev.item.pendingSend === next.item.pendingSend &&
     prev.pendingSendActions === next.pendingSendActions &&
@@ -715,6 +724,7 @@ function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowProps): 
     prev.sessionId === next.sessionId &&
     prev.onNavigateToSubagent === next.onNavigateToSubagent &&
     prev.onRemoveFromQueue === next.onRemoveFromQueue &&
+    prev.onSteerQueued === next.onSteerQueued &&
     prev.onRevert === next.onRevert &&
     prev.onFork === next.onFork &&
     prev.assistantOnlyFork === next.assistantOnlyFork &&
@@ -755,6 +765,7 @@ export function VirtualizedTranscript({
   onClearCompactionSuccess,
   onNavigateToSubagent,
   onRemoveFromQueue,
+  onSteerQueued,
   pendingSendActions,
   onRevert,
   onFork,
@@ -1049,6 +1060,7 @@ export function VirtualizedTranscript({
         sessionId={sessionId}
         onNavigateToSubagent={onNavigateToSubagent}
         onRemoveFromQueue={onRemoveFromQueue}
+        onSteerQueued={onSteerQueued}
         pendingSendActions={pendingSendActions}
         onRevert={onRevert}
         onFork={onFork}
@@ -1082,6 +1094,7 @@ export function VirtualizedTranscript({
     sessionId,
     onNavigateToSubagent,
     onRemoveFromQueue,
+    onSteerQueued,
     pendingSendActions,
     onRevert,
     onFork,
@@ -1106,6 +1119,7 @@ export function VirtualizedTranscript({
     pinnedMessageIds,
     isPinningMessage,
     onRemoveFromQueue,
+    onSteerQueued,
     pendingSendActions,
     onRevert,
     onFork,
@@ -1116,6 +1130,7 @@ export function VirtualizedTranscript({
     pinnedMessageIds,
     isPinningMessage,
     onRemoveFromQueue,
+    onSteerQueued,
     pendingSendActions,
     onRevert,
     onFork,

@@ -173,9 +173,10 @@ export interface SessionRepositoryPort {
   reconcileOrphanedToolCalls(sessionId: string): number;
 
   listQueuedMessages(sessionId: string): QueuedMessage[];
-  addMessageToQueue(sessionId: string, content: string, attachments?: Array<{ id: string; kind: string }>): QueuedMessage;
+  addMessageToQueue(sessionId: string, content: string, attachments?: Array<{ id: string; kind: string }>, steer?: boolean): QueuedMessage;
   getQueuedMessage(id: string): QueuedMessage | null;
   deleteQueuedMessage(id: string): boolean;
+  markQueuedMessageSteer(id: string): QueuedMessage | null;
 
   markManualSessionTitle(metadata: Record<string, unknown> | null | undefined): Record<string, unknown>;
   getWorkspacePermissionMode(workspaceId: string): PermissionMode;

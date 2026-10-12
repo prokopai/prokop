@@ -7,7 +7,7 @@ export type HarnessOperation = 'editMessage' | 'regenerateTitle' | 'compact' | '
 
 /** An adapter must own sending, interruption and live status. Other operations are opt-in. */
 export type HarnessExecutor = Pick<SessionExecutionPort, 'sendMessage' | 'interruptSession' | 'isSessionActive'>
-  & Partial<Pick<SessionExecutionPort, HarnessOperation | 'drainQueue'>>;
+  & Partial<Pick<SessionExecutionPort, HarnessOperation | 'drainQueue' | 'steerQueue'>>;
 
 export interface HarnessRegistration {
   execution: HarnessExecutor;
@@ -38,6 +38,9 @@ export function createHarnessExecution(
   return {
     async drainQueue(wire, origin, sessionId) {
       await resolve(sessionId).adapter?.execution.drainQueue?.(wire, origin, sessionId);
+    },
+    async steerQueue(wire, origin, sessionId) {
+      await resolve(sessionId).adapter?.execution.steerQueue?.(wire, origin, sessionId);
     },
     async sendMessage(wire, origin, sessionId, content, attachments, responseFormatId, goalCondition, goalMaxTurns, goalTokenBudget) {
       const target = resolve(sessionId);

@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
-import type { AssistantMessage, Part, TextPart, ToolPart } from '@prokopai/sdk';
+import type { AssistantMessage, Part, Session, TextPart, ToolPart } from '@prokopai/sdk';
 import { forkSession, getSessionMessages, type SDKMessage, type SDKUserMessage, type Options, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
@@ -13,12 +13,13 @@ import { getClaudeModelSelection } from './models';
 import { claudeCliVersion } from './version';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
 import { describeError, logHarness, StderrTail } from '@/harnesses/shared/diagnostics';
-import { runClaudeTurn } from './sdk-turn';
+import { runClaudeTurn, type ClaudeSteerInput } from './sdk-turn';
+import { commitSteer, pendingSteers, type DispatchedSteer } from '@/harnesses/shared/steering';
 import { readClaudeGoalVerdict } from './goal-transcript';
 import { runClaudeCompact } from './compact';
 import { claudeApprovals, type ClaudeApprovals } from './approvals';
 import { ClaudeChildTimelines } from './child-timelines';
-import { loadClaudeImages, resolveClaudeImages } from './images';
+import { loadClaudeImages, resolveClaudeImages, type ClaudeImage } from './images';
 import type { ClaudeTurnUsage } from './usage';
 import { applyClaudeRollback, groupClaudeTurns, groupLocalTurns, matchClaudeHistoryPrefix, type ClaudeRollbackDependencies } from './rollback';
 import { forkClaudeSession } from './fork';
@@ -52,8 +53,43 @@ export interface ClaudeExecutionDependencies extends ClaudeRollbackDependencies 
   mcp?: WorkspaceMcpToolsPort;
 }
 
+interface ClaudeSteerRun {
+  send(input: ClaudeSteerInput): boolean;
+  session: Session;
+  /** Handed to the CLI and not yet started, keyed by host user message id. */
+  dispatched: Map<string, DispatchedSteer>;
+  /** Serializes dispatch so concurrent wake-ups never send a row twice. */
+  chain: Promise<void>;
+}
+
 export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): QueuedCliExecution {
   const active = new Map<string, AbortController>();
+  const steerable = new Map<string, ClaudeSteerRun>();
+  function dispatchSteers(sessionId: string): Promise<void> {
+    const run = steerable.get(sessionId);
+    if (!run) return Promise.resolve();
+    run.chain = run.chain.then(async () => {
+      for (const queued of pendingSteers(sessionId, run.dispatched.values())) {
+        // Unusable images stay queued; the drain reports them like any queued send.
+        const images = resolveClaudeImages(run.session, queued.attachments ?? []);
+        if (!images) continue;
+        let loaded: ClaudeImage[];
+        try { loaded = await loadClaudeImages(images); } catch { continue; }
+        if (steerable.get(sessionId) !== run) return;
+        const steer: DispatchedSteer = { queued, userMessageId: crypto.randomUUID(),
+          images: images.map(image => ({ id: image.id, accessKey: image.accessKey, mimeType: image.mimeType })) };
+        run.dispatched.set(steer.userMessageId, steer);
+        if (!run.send({ id: steer.userMessageId, text: queued.content, images: loaded })) {
+          run.dispatched.delete(steer.userMessageId);
+          return;
+        }
+        logHarness('claude-cli', 'steer dispatched', { sessionId, queueId: queued.id }, 'info');
+      }
+    }).catch((error: unknown) => {
+      logHarness('claude-cli', 'steer dispatch failed', { sessionId, ...describeError(error) });
+    });
+    return run.chain;
+  }
   const rollingBack = new Set<string>();
   const resubmitting = new Map<string, string>();
   const intent = (id: string): { phase: string; target_message_id: string } | null => getDatabase()
@@ -182,6 +218,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
   }
   return withCliMessageQueue({
     isSessionActive: id => active.has(id) || rollingBack.has(id),
+    steer: async (_wire, sessionId) => dispatchSteers(sessionId),
     async interruptSession(id) {
       const controller = active.get(id);
       controller?.abort();
@@ -254,6 +291,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       let terminalResult = false;
       const startedAt = Date.now();
       const stderr = new StderrTail();
+      const steers = new Map<string, DispatchedSteer>();
       let phase = 'setup';
       try {
         const imageData = await loadClaudeImages(images);
@@ -408,6 +446,11 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             controller.signal, id => children?.childSessionId(toolOwners.get(id) ?? '') ?? null),
           onToolOwner: (id, owner) => { if (owner) toolOwners.set(id, owner); },
           stderr: chunk => stderr.push(chunk),
+          onSteerable: send => {
+            steerable.set(sessionId, { send, session, dispatched: steers, chain: Promise.resolve() });
+            // Steer rows queued before this turn started enter it right away.
+            void dispatchSteers(sessionId);
+          },
           start: deps.start })) {
           if (event.type === 'goal-state') {
             if (event.active) {
@@ -424,6 +467,38 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
                 iterations: event.iterations ?? ((previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0) } } });
             if (!updated) throw new Error('Claude goal state could not be saved');
             wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
+            continue;
+          }
+          if (event.type === 'steer-started') {
+            const steer = steers.get(event.id);
+            if (!steer) continue;
+            steers.delete(event.id);
+            // The steered message follows everything streamed so far; the rest of the turn answers it.
+            settleOpenSegment();
+            openSegment = null;
+            if (segments.length === 0 && result) {
+              saveText(result);
+              settleOpenSegment();
+              openSegment = null;
+            }
+            const answered = updateMessage(assistant.id, { status: 'completed', completedAt: Date.now() });
+            if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered });
+            const steered = commitSteer(wire.delivery, sessionId, steer);
+            assistant = createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
+              modelId: selection.model, providerId: 'claude-cli', agent: session.agentId ?? undefined,
+              tokens: { prompt: 0, completion: 0 }, cost: 0,
+              createdAt: Math.max(Date.now(), steered.createdAt + 1) }) as AssistantMessage;
+            wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
+            segments.length = 0;
+            // The answer to the steered message ends with its own result; usage stays cumulative.
+            result = null;
+            logHarness('claude-cli', 'steer started', { sessionId, queueId: steer.queued.id }, 'info');
+            continue;
+          }
+          if (event.type === 'steer-cancelled') {
+            // The row stays queued and drains after this turn. Keeping the record
+            // stops a re-send in this turn and still records a late start.
+            if (steers.has(event.id)) logHarness('claude-cli', 'steer dropped by CLI', { sessionId }, 'info');
             continue;
           }
           if (event.type === 'child-start') {
@@ -613,6 +688,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           if (controller.signal.aborted) drainable = true;
         }
         active.delete(sessionId);
+        if (steerable.get(sessionId)?.dispatched === steers) steerable.delete(sessionId);
         if (resubmit) resubmitting.delete(sessionId);
       }
       if (drainable) return 'drainable';

@@ -55,6 +55,8 @@ export interface ChatOptions {
   /** The caller handles needs_compaction and resumes from persisted history. */
   compactBetweenSteps?: boolean;
   continueFromCompaction?: boolean;
+  /** True when a steer message waits; the stream stops at the next settled tool step and the caller delivers it. */
+  steerPending?: () => Promise<boolean>;
 }
 
 async function collectInterruptedToolPartEvents(
@@ -86,7 +88,7 @@ export interface ChatResult {
   toolCalls: ToolPart[];
 }
 
-export async function* streamChat(options: ChatOptions): AsyncGenerator<(MessageEvent & { continuation?: boolean }) | { type: 'usage'; usage: UsageEventData; model: string; variant: string | null } | { type: 'needs_compaction'; sessionId: string; resume?: boolean } | ErrorEvent> {
+export async function* streamChat(options: ChatOptions): AsyncGenerator<(MessageEvent & { continuation?: boolean }) | { type: 'usage'; usage: UsageEventData; model: string; variant: string | null } | { type: 'needs_compaction'; sessionId: string; resume?: boolean } | { type: 'steer_ready'; sessionId: string } | ErrorEvent> {
   const { sessionId: _sessionId, preconfig, messages, modelId, providerId, variant, workspacePath, workspaceId, maxSteps, compactionPolicy } = options;
 
   const managesSessionLifecycle = !options.retryAbortController;
@@ -211,6 +213,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
 
   const { experimental_onStepStart, onStepFinish } = createStepCallbacks(stepCtx);
   let stoppedForCompaction = false;
+  let stoppedForSteer = false;
 
   const result = streamText({
     model,
@@ -222,7 +225,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     ...(omitTemperature ? {} : { temperature: streamConfig.temperature }),
     stopWhen: [
       stepCountIs(streamConfig.maxSteps),
-      ({ steps }) => {
+      async ({ steps }) => {
         const step = steps.at(-1);
         const toolsSettled = step && step.toolCalls.length > 0
           && step.toolCalls.every(call => step.content.some(part =>
@@ -230,7 +233,11 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
         stoppedForCompaction = options.compactBetweenSteps === true
           && stepCtx.needsCompaction && Boolean(toolsSettled)
           && steps.length < streamConfig.maxSteps;
-        return stoppedForCompaction;
+        if (stoppedForCompaction) return true;
+        // Same settled boundary as compaction: every tool result is recorded before the user's message.
+        stoppedForSteer = Boolean(toolsSettled) && steps.length < streamConfig.maxSteps
+          && await (options.steerPending?.() ?? false);
+        return stoppedForSteer;
       },
     ],
     abortSignal: abortController.signal,
@@ -399,7 +406,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
   };
 
   await updateMessage(messageId, finalMessage, { syncFts: false });
-  yield { type: 'message.updated', message: finalMessage, continuation: stoppedForCompaction };
+  yield { type: 'message.updated', message: finalMessage, continuation: stoppedForCompaction || stoppedForSteer };
 
   // Sync FTS once after all final parts and message state are persisted
   await syncMessageFts(messageId);
@@ -426,6 +433,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
       && streamCtx.toolParts.every(part => part.state.status === 'completed' || part.state.status === 'error');
     yield { type: 'needs_compaction', sessionId: _sessionId, resume };
   }
+  if (stoppedForSteer) yield { type: 'steer_ready', sessionId: _sessionId };
 }
 
 export async function chat(options: ChatOptions): Promise<ChatResult> {

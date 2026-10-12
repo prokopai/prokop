@@ -218,6 +218,8 @@ export interface QueuedMessage {
   position: number;
   createdAt: number;
   attachments?: Array<{ id: string; kind: string; filename?: string; mimeType?: string; accessKey?: string }>;
+  /** Delivered into the running turn at its next safe point; otherwise sent after it like any queued message. */
+  steer?: true;
 }
 
 // ===========================================

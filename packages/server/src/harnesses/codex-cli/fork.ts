@@ -48,20 +48,23 @@ export async function forkCodexSession(
     if (!goalResponse || !Object.hasOwn(goalResponse, 'goal') || goalResponse.goal !== null) {
       throw new Error('Codex goal history cannot be forked');
     }
-    const turnIds = await readRollbackHistory(client, binding);
+    const spans = await readRollbackHistory(client, binding);
     const local = listMessagesWithParts(session.id);
     const targetIndex = local.findIndex(entry => entry.message.id === input.targetMessageId);
-    if (targetIndex < 1 || targetIndex % 2 !== 1 || local[targetIndex]?.message.role !== 'assistant'
+    // A fork keeps whole Codex turns, so it ends at a turn's last reply.
+    const spanIndex = spans.findIndex(span => span.end === targetIndex);
+    if (targetIndex < 1 || spanIndex < 0 || local[targetIndex]?.message.role !== 'assistant'
       || local[targetIndex].message.status !== 'completed') {
       throw new Error('Codex fork requires a completed assistant response');
     }
+    const kept = spans.slice(0, spanIndex + 1);
     const retained = local.slice(0, targetIndex + 1);
     // A copied image URL belongs to the source session. Do not create a fork
     // that breaks when its source attachments are removed.
     if (retained.some(entry => entry.parts.some(part => part.type === 'image'))) {
       throw new Error('Codex fork of image history is not supported');
     }
-    const cutoff = turnIds[(targetIndex - 1) / 2]!;
+    const cutoff = kept.at(-1)!.id;
     getDatabase().run(`INSERT INTO codex_fork_intents
       (source_session_id, target_message_id, before_turn_id, created_at) VALUES (?, ?, ?, ?)`,
     [session.id, input.targetMessageId, cutoff, new Date().toISOString()]);
@@ -88,23 +91,24 @@ export async function forkCodexSession(
     const history = codexObject(read?.thread);
     const turns = history?.turns;
     if (history?.id !== newThreadId || codexObject(history.status)?.type !== 'idle'
-      || !Array.isArray(turns) || turns.length !== retained.length / 2) {
+      || !Array.isArray(turns) || turns.length !== kept.length) {
       throw new Error('Codex fork history does not match the selected response');
     }
     const actual = turns.map((raw: unknown, index: number) => {
       const turn = codexObject(raw);
       const items = turn?.items;
-      const user = retained[index * 2]!.message;
+      const span = kept[index]!;
+      const users = retained.slice(span.start, span.end + 1).filter(entry => entry.message.role === 'user');
+      const upstream = Array.isArray(items) ? items.map(codexObject).filter(item => item?.type === 'userMessage') : [];
       if (typeof turn?.id !== 'string' || turn.itemsView !== 'full'
         || !['completed', 'failed', 'interrupted'].includes(String(turn.status)) || !Array.isArray(items)
-        || items.filter((item: unknown) => codexObject(item)?.type === 'userMessage').length !== 1
-        || !items.some((item: unknown) => codexObject(item)?.clientId === upstreamUserId(user.id)
-          && codexObject(item)?.type === 'userMessage')) {
+        || upstream.length !== users.length
+        || upstream.some((item, position) => item?.clientId !== upstreamUserId(users[position]!.message.id))) {
         throw new Error('Codex fork history does not match the selected response');
       }
       return turn.id;
     });
-    if (!sameTurns(actual, turnIds.slice(0, (targetIndex + 1) / 2))) {
+    if (!sameTurns(actual, kept.map(span => span.id))) {
       throw new Error('Codex fork history does not match the selected response');
     }
     return getDatabase().transaction(() => {

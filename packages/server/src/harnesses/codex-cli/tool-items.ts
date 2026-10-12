@@ -131,7 +131,7 @@ export class CodexToolItems {
 
   constructor(
     private readonly sessionId: string,
-    private readonly messageId: string,
+    private messageId: string,
     private readonly turnId: string,
     private readonly delivery: ApplicationDeliveryPort<unknown>,
     private readonly childSessionId?: (threadId: string) => string | null,
@@ -206,6 +206,11 @@ export class CodexToolItems {
       if (final) this.delivery.broadcastToSession(this.sessionId, { type: 'part.updated', sessionId: this.sessionId,
         part: projectToolPartForClient(final) });
     }
+  }
+
+  /** Later items belong to a new reply; items already open keep their rows. */
+  retarget(messageId: string): void {
+    this.messageId = messageId;
   }
 
   finish(): void {

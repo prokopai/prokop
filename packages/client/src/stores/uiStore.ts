@@ -31,6 +31,9 @@ export type ConfigurationSection =
 // --- Default File Open Mode ---
 export type DefaultFileOpenMode = 'preview' | 'edit';
 
+/** What a message sent while the agent works does: enter the running turn, or wait for it to end. */
+export type FollowUpMode = 'steer' | 'queue';
+
 interface ConfigurationSectionState {
   configurationSection: ConfigurationSection;
 }
@@ -81,6 +84,7 @@ interface SchedulerModalActions {
 const CHAT_FINISH_SOUND_KEY = 'prokopai_sound_chat_finish_enabled';
 const PERMISSION_SOUND_KEY = 'prokopai_sound_permission_enabled';
 const DEFAULT_FILE_OPEN_MODE_KEY = 'prokopai_default_file_open_mode';
+const FOLLOW_UP_MODE_KEY = 'prokopai_follow_up_mode';
 
 const getStoredBoolean = (key: string, fallback: boolean): boolean => {
   if (typeof window === 'undefined') return fallback;
@@ -94,11 +98,17 @@ function getStoredFileOpenMode(): DefaultFileOpenMode {
   return stored === 'edit' ? 'edit' : 'preview';
 }
 
+function getStoredFollowUpMode(): FollowUpMode {
+  if (typeof window === 'undefined') return 'steer';
+  return localStorage.getItem(FOLLOW_UP_MODE_KEY) === 'queue' ? 'queue' : 'steer';
+}
+
 interface SettingsState {
   workspaceOrder: WorkspaceOrder;
   chatFinishSoundEnabled: boolean;
   permissionSoundEnabled: boolean;
   defaultFileOpenMode: DefaultFileOpenMode;
+  followUpMode: FollowUpMode;
 }
 
 interface SettingsActions {
@@ -106,6 +116,7 @@ interface SettingsActions {
   setChatFinishSoundEnabled: (enabled: boolean) => void;
   setPermissionSoundEnabled: (enabled: boolean) => void;
   setDefaultFileOpenMode: (mode: DefaultFileOpenMode) => void;
+  setFollowUpMode: (mode: FollowUpMode) => void;
 }
 
 // --- Auto-Approve Severity ---
@@ -156,6 +167,7 @@ export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set
   chatFinishSoundEnabled: getStoredBoolean(CHAT_FINISH_SOUND_KEY, true),
   permissionSoundEnabled: getStoredBoolean(PERMISSION_SOUND_KEY, true),
   defaultFileOpenMode: getStoredFileOpenMode(),
+  followUpMode: getStoredFollowUpMode(),
   workspaceOrder: loadWorkspaceOrder(),
   setWorkspaceOrder: (order) => {
     if (!isWorkspaceOrder(order)) return;
@@ -180,6 +192,10 @@ export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set
       localStorage.setItem(DEFAULT_FILE_OPEN_MODE_KEY, mode);
     }
     set({ defaultFileOpenMode: mode });
+  },
+  setFollowUpMode: (mode) => {
+    try { localStorage.setItem(FOLLOW_UP_MODE_KEY, mode); } catch { /* Storage may be blocked. */ }
+    set({ followUpMode: mode });
   },
 
   // --- File Preview ---

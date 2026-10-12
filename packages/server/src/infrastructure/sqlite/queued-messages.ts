@@ -9,6 +9,7 @@ interface QueuedMessageRow {
   position: number;
   created_at: number;
   attachments: string | null;
+  steer?: number;
 }
 
 function rowToQueuedMessage(row: QueuedMessageRow): QueuedMessage {
@@ -19,6 +20,7 @@ function rowToQueuedMessage(row: QueuedMessageRow): QueuedMessage {
     position: row.position,
     createdAt: row.created_at,
     ...(row.attachments ? { attachments: JSON.parse(row.attachments) } : {}),
+    ...(row.steer ? { steer: true as const } : {}),
   };
 }
 
@@ -30,6 +32,7 @@ function queuedMessageToRow(msg: QueuedMessage): QueuedMessageRow {
     position: msg.position,
     created_at: msg.createdAt,
     attachments: msg.attachments ? JSON.stringify(msg.attachments) : null,
+    steer: msg.steer ? 1 : 0,
   };
 }
 
@@ -38,9 +41,9 @@ export function createQueuedMessage(msg: QueuedMessage): QueuedMessage {
   const row = queuedMessageToRow(msg);
 
   db.run(
-    `INSERT INTO queued_messages (id, session_id, content, position, created_at, attachments)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [row.id, row.session_id, row.content, row.position, row.created_at, row.attachments],
+    `INSERT INTO queued_messages (id, session_id, content, position, created_at, attachments, steer)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.session_id, row.content, row.position, row.created_at, row.attachments, row.steer ?? 0],
   );
 
   return msg;
@@ -94,6 +97,20 @@ export function getNextQueuedMessage(
   return row ? rowToQueuedMessage(row) : null;
 }
 
+/** Marks a queued message for delivery into the running turn. Returns the updated message. */
+export function markQueuedMessageSteer(id: string): QueuedMessage | null {
+  getDatabase().run('UPDATE queued_messages SET steer = 1 WHERE id = ?', [id]);
+  return getQueuedMessage(id);
+}
+
+/** Steer messages waiting for the running turn, oldest first. */
+export function listSteerQueuedMessages(sessionId: string): QueuedMessage[] {
+  const rows = getDatabase()
+    .query('SELECT * FROM queued_messages WHERE session_id = ? AND steer = 1 ORDER BY position ASC')
+    .all(sessionId) as QueuedMessageRow[];
+  return rows.map(rowToQueuedMessage);
+}
+
 export function getQueuedMessageCount(sessionId: string): number {
   const db = getDatabase();
   const row = db
@@ -107,6 +124,7 @@ export function addMessageToQueue(
   sessionId: string,
   content: string,
   attachments?: Array<{ id: string; kind: string }>,
+  steer?: boolean,
 ): QueuedMessage {
   const db = getDatabase();
 
@@ -135,6 +153,7 @@ export function addMessageToQueue(
     attachments: enrichedAttachments,
     position: nextPosition,
     createdAt: Date.now(),
+    ...(steer ? { steer: true as const } : {}),
   };
 
   return createQueuedMessage(msg);

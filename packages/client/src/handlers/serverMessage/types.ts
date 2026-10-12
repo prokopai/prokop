@@ -148,6 +148,7 @@ export type PermissionQueueHandlers = {
   'queue.added': (msg: { type: 'queue.added'; sessionId: string; message: import('@prokopai/sdk').QueuedMessage }, ctx: SessionHandlersContext) => void;
   'queue.removed': (msg: { type: 'queue.removed'; sessionId: string; queueId: string }, ctx: SessionHandlersContext) => void;
   'queue.sending': (msg: { type: 'queue.sending'; sessionId: string; queueId: string }, ctx: SessionHandlersContext) => void;
+  'queue.updated': (msg: { type: 'queue.updated'; sessionId: string; message: import('@prokopai/sdk').QueuedMessage }, ctx: SessionHandlersContext) => void;
 };
 
 export type ProviderHandlers = {

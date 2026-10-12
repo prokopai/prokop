@@ -18,7 +18,7 @@ import {
   handleGenerateTitleSession,
   handleInterruptSession,
 } from '@/transport/websocket/handlers/session-lifecycle';
-import { handleQueueAdd, handleQueueRemove } from '@/transport/websocket/handlers/queue';
+import { handleQueueAdd, handleQueueRemove, handleQueueSteer } from '@/transport/websocket/handlers/queue';
 import { handlePermissionList, handlePermissionRevoke, handlePermissionRevokeAll } from '@/transport/websocket/handlers/permissions';
 import { handleProviderConnect, handleProviderDisconnect } from '@/transport/websocket/handlers/providers';
 import {
@@ -93,6 +93,7 @@ const handlers: Record<string, Handler> = {
   'session.interrupt': cast(handleInterruptSession),
   'queue.add': cast(handleQueueAdd),
   'queue.remove': cast(handleQueueRemove),
+  'queue.steer': cast(handleQueueSteer),
   'provider.connect': cast(handleProviderConnect),
   'provider.disconnect': cast(handleProviderDisconnect),
   'notification.acknowledge': cast(handleNotificationAcknowledge),

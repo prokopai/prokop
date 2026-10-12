@@ -29,6 +29,7 @@ import {
   addMessageToQueue,
   deleteQueuedMessage,
   getNextQueuedMessage,
+  listSteerQueuedMessages,
 } from '@/infrastructure/sqlite/queued-messages';
 import { getAttachment } from '@/infrastructure/sqlite/attachments';
 import { getResponseFormat } from '@/infrastructure/sqlite/response-formats';
@@ -63,6 +64,7 @@ export const prokopStorageBundle: StorageBundle = {
     addMessage: async (...args) => addMessageToQueue(...args),
     delete: async (...args) => deleteQueuedMessage(...args),
     peek: async (...args) => getNextQueuedMessage(...args),
+    peekSteer: async (sessionId) => listSteerQueuedMessages(sessionId)[0] ?? null,
   },
   attachments: { get: async (...args) => getAttachment(...args) },
   workspaces: {

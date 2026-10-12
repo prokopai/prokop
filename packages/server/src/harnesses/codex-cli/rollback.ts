@@ -56,37 +56,53 @@ export function clearRollbackIntent(sessionId: string): void {
   getDatabase().run('DELETE FROM codex_rollback_intents WHERE session_id = ?', [sessionId]);
 }
 
-/** A missing, truncated, or extra Codex turn must never be treated as an editable transcript. */
-export async function readRollbackHistory(client: CodexAppServer, binding: CodexBinding): Promise<string[]> {
+/** One Codex turn and the local messages it owns, inclusive. */
+export interface CodexTurnSpan {
+  id: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * A missing, truncated, or extra Codex turn must never be treated as an editable transcript.
+ * A turn owns its user message and reply, followed by one user message and reply for each
+ * message steered into it; each user message matches a userMessage item of that turn in order.
+ */
+export async function readRollbackHistory(client: CodexAppServer, binding: CodexBinding): Promise<CodexTurnSpan[]> {
   const response = codexObject(await client.request('thread/read', { threadId: binding.threadId, includeTurns: true }));
   const thread = codexObject(response?.thread);
   if (thread?.id !== binding.threadId || codexObject(thread.status)?.type !== 'idle'
     || !Array.isArray(thread.turns)) throw new Error('Codex thread history is unavailable');
   const local = listMessagesWithParts(binding.sessionId);
-  const users = local.filter(entry => entry.message.role === 'user');
-  const assistants = local.filter(entry => entry.message.role === 'assistant');
   const inherited = getDatabase().query<{ upstream_client_id: string }, [string]>(
     'SELECT upstream_client_id FROM codex_inherited_user_ids WHERE message_id = ?',
   );
-  if (users.length !== assistants.length || users.length !== thread.turns.length
-    || local.length !== users.length + assistants.length) throw new Error('Codex transcript does not match turn history');
-  const ids = thread.turns.map((raw: unknown, index: number) => {
+  const turnUsers = thread.turns.map((raw: unknown) => {
+    const items = codexObject(raw)?.items;
+    return Array.isArray(items) ? items.map(codexObject).filter(item => item?.type === 'userMessage') : [];
+  });
+  const userCount = turnUsers.reduce((count: number, users: unknown[]) => count + users.length, 0);
+  if (local.length !== userCount * 2) throw new Error('Codex transcript does not match turn history');
+  let cursor = 0;
+  const spans = thread.turns.map((raw: unknown, index: number): CodexTurnSpan => {
     const turn = codexObject(raw);
     if (!turn || typeof turn.id !== 'string' || !turn.id || turn.itemsView !== 'full'
       || !['completed', 'failed', 'interrupted'].includes(String(turn.status)) || !Array.isArray(turn.items)
-      || turn.items.filter((rawItem: unknown) => codexObject(rawItem)?.type === 'userMessage').length !== 1
-      || !turn.items.some((rawItem: unknown) => {
-        const item = codexObject(rawItem);
-        return item?.type === 'userMessage' && item.clientId ===
-          (inherited.get(users[index]!.message.id)?.upstream_client_id ?? users[index]!.message.id);
-      }) || local[index * 2]?.message.id !== users[index]?.message.id
-      || local[index * 2 + 1]?.message.id !== assistants[index]?.message.id
-      || (assistants[index]?.message.role === 'assistant'
-        && assistants[index].message.status === 'streaming')) throw new Error('Codex turn identity is incomplete');
-    return turn.id;
+      || turnUsers[index]!.length === 0) throw new Error('Codex turn identity is incomplete');
+    const start = cursor;
+    for (const item of turnUsers[index]!) {
+      const user = local[cursor];
+      const reply = local[cursor + 1];
+      if (user?.message.role !== 'user' || reply?.message.role !== 'assistant' || reply.message.status === 'streaming'
+        || item?.clientId !== (inherited.get(user.message.id)?.upstream_client_id ?? user.message.id)) {
+        throw new Error('Codex turn identity is incomplete');
+      }
+      cursor += 2;
+    }
+    return { id: turn.id, start, end: cursor - 1 };
   });
-  if (new Set(ids).size !== ids.length) throw new Error('Codex turn identity is ambiguous');
-  return ids;
+  if (new Set(spans.map(span => span.id)).size !== spans.length) throw new Error('Codex turn identity is ambiguous');
+  return spans;
 }
 
 /** Recovery checks only the upstream IDs, not a locally inferred successful RPC response. */

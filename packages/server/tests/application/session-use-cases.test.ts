@@ -131,6 +131,7 @@ function makeRepository(overrides: Partial<SessionRepositoryPort> = {}): Session
     addMessageToQueue: () => ({ id: 'q-1', sessionId: 'sess-1', content: 'queued', position: 0, createdAt: 1 }),
     getQueuedMessage: () => null,
     deleteQueuedMessage: () => true,
+    markQueuedMessageSteer: () => null,
     markManualSessionTitle: (metadata) => ({ ...(metadata ?? {}), titleManuallyRenamed: true }),
     getWorkspacePermissionMode: () => 'standard',
     getPreconfigOrAgent: async () => null,
@@ -747,6 +748,59 @@ describe('application session use cases', () => {
 
       expect(gateCalls).toEqual([{ sessionId: 'other-session', action: 'queue.remove' }]);
       expect(spy.sent).toEqual([{ type: 'queue.removed', sessionId: 'other-session', queueId: 'q-1' }]);
+    });
+
+    test('add with steer stores the flag and wakes the running turn', async () => {
+      const added: unknown[] = [];
+      const steered: string[] = [];
+      const repository = makeRepository({
+        getSession: () => makeSession({ harness: 'claude-cli' }),
+        addMessageToQueue: (sessionId: string, content: string, _attachments?: unknown, steer?: boolean) => {
+          added.push(steer);
+          return { id: 'q-1', sessionId, content, position: 0, createdAt: 1, ...(steer ? { steer: true as const } : {}) };
+        },
+      });
+      const spy = makeSpy();
+      createSessionQueueApplication({ repository, gate: noGate(), execution: {
+        drainQueue: async () => {},
+        steerQueue: async (_wire, _origin, id) => { steered.push(id); },
+      } }).add(makeWire(spy), origin, { sessionId: 'sess-1', content: 'look at tests first', steer: true });
+      await Promise.resolve();
+      expect(added).toEqual([true]);
+      expect(spy.sent).toEqual([expect.objectContaining({ type: 'queue.added', message: expect.objectContaining({ steer: true }) })]);
+      expect(steered).toEqual(['sess-1']);
+    });
+
+    test('steer gates on the queued session, marks the row and broadcasts the update', async () => {
+      const gateCalls: string[] = [];
+      const steered: string[] = [];
+      const row = { id: 'q-1', sessionId: 'sess-1', content: 'x', position: 0, createdAt: 1 };
+      const repository = makeRepository({
+        getQueuedMessage: () => row,
+        markQueuedMessageSteer: () => ({ ...row, steer: true as const }),
+      });
+      const spy = makeSpy();
+      createSessionQueueApplication({ repository, gate: { checkControllerGate: (_id, action) => {
+        gateCalls.push(action);
+        return null;
+      } }, execution: { steerQueue: async (_wire, _origin, id) => { steered.push(id); } } })
+        .steer(makeWire(spy), origin, 'q-1');
+      await Promise.resolve();
+      expect(gateCalls).toEqual(['queue.steer']);
+      expect(spy.broadcastToSession).toEqual([{ sessionId: 'sess-1', exclude: undefined,
+        message: { type: 'queue.updated', sessionId: 'sess-1', message: { ...row, steer: true } } }]);
+      expect(steered).toEqual(['sess-1']);
+    });
+
+    test('steer reports not_found when the row was delivered or removed first', () => {
+      const repository = makeRepository({
+        getQueuedMessage: () => ({ id: 'q-1', sessionId: 'sess-1', content: 'x', position: 0, createdAt: 1 }),
+        markQueuedMessageSteer: () => null,
+      });
+      const spy = makeSpy();
+      createSessionQueueApplication({ repository, gate: noGate() }).steer(makeWire(spy), origin, 'q-1');
+      expect(spy.sent).toEqual([{ type: 'error', code: 'not_found', message: 'Queued message not found' }]);
+      expect(spy.broadcastToSession).toEqual([]);
     });
 
     test('remove reports not_found for unknown queue ids', () => {

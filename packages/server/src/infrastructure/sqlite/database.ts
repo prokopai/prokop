@@ -313,6 +313,7 @@ export function initializeSchema(db: Database): void {
     'ALTER TABLE workspaces ADD COLUMN settings TEXT DEFAULT "{}"',
     'ALTER TABLE terminal_sessions ADD COLUMN managed_worktree_id TEXT REFERENCES managed_worktrees(id)',
     'ALTER TABLE managed_worktrees ADD COLUMN name TEXT',
+    'ALTER TABLE queued_messages ADD COLUMN steer INTEGER NOT NULL DEFAULT 0',
   ]) {
     try { db.run(sql); } catch { /* existing column */ }
   }

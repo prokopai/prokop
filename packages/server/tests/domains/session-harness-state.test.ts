@@ -12,6 +12,7 @@ describe('session harness state derivation', () => {
       expect(state.nativeApprovalPrefix).toBeUndefined();
       expect(state.capabilities).toEqual({
         canRemoveQueuedMessages: true,
+        canSteerQueuedMessages: true,
         canInterruptSubagent: false,
         subagentActivityPropagates: false,
       });
@@ -24,6 +25,7 @@ describe('session harness state derivation', () => {
     expect(idle.fork).toEqual({ mode: 'assistant-only' });
     expect(idle.nativeApprovalPrefix).toBe('codex-approval:');
     expect(idle.capabilities.canRemoveQueuedMessages).toBe(false);
+    expect(idle.capabilities.canSteerQueuedMessages).toBe(true);
     expect(idle.capabilities.canInterruptSubagent).toBe(true);
     expect(idle.capabilities.subagentActivityPropagates).toBe(true);
 
@@ -41,6 +43,7 @@ describe('session harness state derivation', () => {
     expect(idle.goalUncertain).toBe(false);
     expect(idle.nativeApprovalPrefix).toBe('claude-approval:');
     expect(idle.capabilities.canRemoveQueuedMessages).toBe(true);
+    expect(idle.capabilities.canSteerQueuedMessages).toBe(true);
 
     const uncertain = deriveSessionHarnessState('claude-cli', {
       claudeCompactPending: true,

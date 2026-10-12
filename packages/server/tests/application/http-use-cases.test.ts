@@ -39,6 +39,7 @@ function makeRepository(overrides: Partial<SessionRepositoryPort> = {}): Session
     addMessageToQueue: () => { throw new Error('not used'); },
     getQueuedMessage: () => null,
     deleteQueuedMessage: () => true,
+    markQueuedMessageSteer: () => null,
     markManualSessionTitle: (metadata) => ({ ...(metadata ?? {}), titleManuallyRenamed: true }),
     getWorkspacePermissionMode: () => 'standard',
     getPreconfigOrAgent: async () => null,

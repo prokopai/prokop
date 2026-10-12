@@ -192,10 +192,18 @@ export interface QueueAddMessage {
   responseFormatId?: string;
   /** Client-generated id; the server answers with `chat.accepted` or `chat.rejected`. */
   clientMessageId?: string;
+  /** Deliver into the running turn instead of after it, when the runtime can. */
+  steer?: boolean;
 }
 
 export interface QueueRemoveMessage {
   type: 'queue.remove';
+  queueId: string;
+}
+
+/** Marks a queued message to be delivered into the running turn. */
+export interface QueueSteerMessage {
+  type: 'queue.steer';
   queueId: string;
 }
 
@@ -371,6 +379,7 @@ export type ClientMessage =
   | SessionInterruptMessage
   | QueueAddMessage
   | QueueRemoveMessage
+  | QueueSteerMessage
   | ProviderConnectMessage
   | ProviderDisconnectMessage
   | AskResponseMessage

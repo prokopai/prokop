@@ -244,6 +244,10 @@ async function runSingleChatTurn<Origin>(
           deliverToSession(ctx, sessionId, { kind: 'part', action: 'updated', sessionId, part: event.part });
           break;
 
+        case 'queue.sending':
+          deliverToSession(ctx, sessionId, { kind: 'queue', action: 'sending', sessionId, queueId: event.queueId });
+          break;
+
         case 'part.append':
           deliverToSession(ctx, sessionId, {
             kind: 'part',

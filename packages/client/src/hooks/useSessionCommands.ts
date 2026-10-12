@@ -20,6 +20,7 @@ import { usePendingSendStore, type SendChatOptions } from '@/stores/pendingSendS
 import { foreignClientFor } from '@/lib/hostClientPool';
 import { foreignSession } from '@/stores/foreignSessionsStore';
 import { useAskStore } from '@/stores/askStore';
+import { useUIStore } from '@/stores/uiStore';
 
 interface UseSessionCommandsParams {
   clientRef: React.RefObject<ProkopaiClient | null>;
@@ -58,6 +59,7 @@ interface UseSessionCommandsReturn {
   compactSession: (sessionId: string) => void;
   addToQueue: (sessionId: string, content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>) => void;
   removeFromQueue: (queueId: string) => void;
+  steerQueued: (queueId: string) => void;
   sendChatMessage: (content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number }) => void;
   sendChatMessageForSession: (sessionId: string, content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }, options?: SendChatOptions) => void;
   handleAskResponse: (toolCallId: string, response: AskResponse, requestId?: string) => void;
@@ -352,6 +354,15 @@ export function useSessionCommands({
     }
   }, [clientFor]);
 
+  const steerQueued = useCallback((queueId: string) => {
+    const queued = useSessionStore.getState().queuedMessages;
+    const owner = Object.keys(queued).find(sessionId => queued[sessionId]?.some(item => item.id === queueId));
+    const client = clientFor(owner);
+    if (client && client.connected) {
+      client.queue.steer(queueId);
+    }
+  }, [clientFor]);
+
   const sendChatMessageForSession = useCallback((sessionId: string, content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }, options?: SendChatOptions) => {
     const client = clientFor(sessionId);
     const session = sessionFor(sessionId);
@@ -372,7 +383,9 @@ export function useSessionCommands({
       return;
     }
     if (queue) {
-      client.queue.add(sessionId, content, { attachments, responseFormatId, clientMessageId });
+      const steer = useUIStore.getState().followUpMode === 'steer'
+        && session.harnessState?.capabilities?.canSteerQueuedMessages === true;
+      client.queue.add(sessionId, content, { attachments, responseFormatId, clientMessageId, steer });
     } else {
       client.chat.send(
         sessionId,
@@ -493,6 +506,7 @@ export function useSessionCommands({
     compactSession,
     addToQueue,
     removeFromQueue,
+    steerQueued,
     sendChatMessage,
     sendChatMessageForSession,
     handleAskResponse,

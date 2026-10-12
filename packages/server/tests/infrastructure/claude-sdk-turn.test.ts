@@ -550,3 +550,91 @@ test('SDK hook fails closed on denied tools and rejects changed session identity
     for await (const _message of runClaudeTurn(input)) { /* consume */ }
   }).toThrow('session identity changed');
 });
+
+test('a steered message enters the live prompt and keeps input open until the CLI starts it', async () => {
+  const steerId = crypto.randomUUID();
+  let steer!: Parameters<NonNullable<Parameters<typeof runClaudeTurn>[0]['onSteerable']>>[0];
+  let inputClosed = false;
+  const collected = [];
+  for await (const item of runClaudeTurn({ ...base, userMessageId: crypto.randomUUID(),
+    canUseTool: async () => ({ behavior: 'deny', message: 'denied' }),
+    onSteerable: send => { steer = send; },
+    start: (prompt) => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        if (typeof prompt === 'string') throw new Error('Expected streaming input');
+        const reader = prompt[Symbol.asyncIterator]();
+        await reader.next();
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        expect(steer({ id: 'not-a-uuid', text: 'x', images: [] })).toBe(false);
+        expect(steer({ id: steerId, text: 'use tabs', images: [] })).toBe(true);
+        expect(steer({ id: steerId, text: 'use tabs', images: [] })).toBe(false);
+        expect((await reader.next()).value).toMatchObject({ type: 'user', uuid: steerId, priority: 'next',
+          message: { role: 'user', content: [{ type: 'text', text: 'use tabs' }] } });
+        const end = reader.next().then(value => { inputClosed = value.done === true; });
+        // The turn's own result arrives before the CLI runs the steer as its next turn.
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'first', queued_turn_count: 1 });
+        await Bun.sleep(5);
+        expect(inputClosed).toBe(false);
+        yield event({ type: 'command_lifecycle', command_uuid: steerId, state: 'started', session_id: base.sessionId });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'assistant', session_id: base.sessionId, parent_tool_use_id: null,
+          message: { content: [{ type: 'text', text: 'switched to tabs' }] } });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'switched to tabs', queued_turn_count: 0 });
+        await end;
+        expect(inputClosed).toBe(true);
+        expect(steer({ id: crypto.randomUUID(), text: 'too late', images: [] })).toBe(false);
+      }
+      return stream();
+    },
+  })) collected.push(item);
+  expect(collected).toEqual([
+    { type: 'result', text: 'first', success: true, usage: null },
+    { type: 'steer-started', id: steerId },
+    { type: 'text-final', text: 'switched to tabs', streamed: '' },
+    { type: 'result', text: 'switched to tabs', success: true, usage: null },
+  ]);
+});
+
+test('a steer the CLI never queues is reported dropped and input closes', async () => {
+  const steerId = crypto.randomUUID();
+  let steer!: Parameters<NonNullable<Parameters<typeof runClaudeTurn>[0]['onSteerable']>>[0];
+  const collected = [];
+  for await (const item of runClaudeTurn({ ...base,
+    canUseTool: async () => ({ behavior: 'deny', message: 'denied' }),
+    onSteerable: send => { steer = send; },
+    start: (prompt) => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        if (typeof prompt === 'string') throw new Error('Expected streaming input');
+        const reader = prompt[Symbol.asyncIterator]();
+        await reader.next();
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        steer({ id: steerId, text: 'use tabs', images: [] });
+        await reader.next();
+        const end = reader.next();
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done', queued_turn_count: 0 });
+        expect((await end).done).toBe(true);
+      }
+      return stream();
+    },
+  })) collected.push(item);
+  expect(collected).toEqual([
+    { type: 'result', text: 'done', success: true, usage: null },
+    { type: 'steer-cancelled', id: steerId },
+  ]);
+});
+
+test('Goal turns use a one-shot prompt and never offer steering', async () => {
+  let offered = false;
+  for await (const _item of runClaudeTurn({ ...base, prompt: 'all tests pass', goalCondition: 'all tests pass',
+    canUseTool: async () => ({ behavior: 'deny', message: 'denied' }),
+    onSteerable: () => { offered = true; },
+    start: () => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done' });
+      }
+      return stream();
+    },
+  })) { /* consume */ }
+  expect(offered).toBe(false);
+});

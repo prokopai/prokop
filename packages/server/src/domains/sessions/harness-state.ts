@@ -178,6 +178,7 @@ export function deriveSessionHarnessState(
       nativeApprovalPrefix: 'codex-approval:',
       capabilities: {
         canRemoveQueuedMessages: false,
+        canSteerQueuedMessages: true,
         canInterruptSubagent: true,
         subagentActivityPropagates: true,
       },
@@ -208,6 +209,7 @@ export function deriveSessionHarnessState(
       nativeApprovalPrefix: 'claude-approval:',
       capabilities: {
         canRemoveQueuedMessages: true,
+        canSteerQueuedMessages: true,
         canInterruptSubagent: false,
         subagentActivityPropagates: false,
       },
@@ -222,6 +224,7 @@ export function deriveSessionHarnessState(
     goalUncertain: false,
     capabilities: {
       canRemoveQueuedMessages: true,
+      canSteerQueuedMessages: true,
       canInterruptSubagent: false,
       subagentActivityPropagates: false,
     },

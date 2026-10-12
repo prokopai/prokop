@@ -28,6 +28,8 @@ export interface SessionCommandsValue {
   editMessage: (sessionId: string, messageId: string, content: string) => void;
   compactSession: (sessionId: string) => void;
   removeFromQueue: (queueId: string) => void;
+  /** Delivers a queued message into the running turn at its next safe point. */
+  steerQueued: (queueId: string) => void;
   sendChatMessage: (
     content: string,
     attachments?: Array<{ id: string; kind: AttachmentKind }>,

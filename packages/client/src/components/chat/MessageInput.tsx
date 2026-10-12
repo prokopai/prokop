@@ -17,6 +17,7 @@ import { registerComposer } from '@/lib/composerTargets';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { randomUUID } from '@/lib/randomId';
+import { useUIStore } from '@/stores/uiStore';
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachments?: Array<{ id: string; kind: AttachmentKind }>, responseFormatId?: string, goal?: { condition: string; maxTurns?: number; tokenBudget?: number }) => void;
@@ -32,6 +33,8 @@ interface MessageInputProps {
   /** Checkout is locked once the session has messages. */
   checkoutLocked?: boolean;
   modelSupportsImage?: boolean;
+  /** Present while a queued message can still be steered; Enter in an empty box calls it. */
+  onSteerQueued?: () => void;
 }
 
 interface PendingAttachmentData {
@@ -84,6 +87,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   session,
   checkoutLocked,
   modelSupportsImage,
+  onSteerQueued,
 }: MessageInputProps, ref) {
   const codexSession = session?.harness === 'codex-cli';
   const claudeSession = session?.harness === 'claude-cli';
@@ -101,6 +105,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const [goalTokenBudget, setGoalTokenBudget] = useState(50_000);
   const editorRef = useRef<ComposerEditorHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const followUpMode = useUIStore(s => s.followUpMode);
   const { data: responseFormatsData } = useResponseFormatsQuery(sdkClient ?? null);
   const responseFormats = responseFormatsData?.formats ?? [];
 
@@ -261,8 +266,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = input.trim();
-    if ((!trimmed && pendingAttachments.length === 0) || effectiveDisabled
-      || pendingAttachments.some(a => a.isUploading)) return;
+    if (!trimmed && pendingAttachments.length === 0) {
+      if (onSteerQueued && !disabled && sendMode === 'chat') onSteerQueued();
+      return;
+    }
+    if (effectiveDisabled || pendingAttachments.some(a => a.isUploading)) return;
     if (claudeSession) {
       if (sendMode === 'goal') {
         if (!trimmed || trimmed.length > 4000 || /[\r\n]/.test(trimmed) || pendingAttachments.length) return;
@@ -394,8 +402,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const isDisabled = !canSend || effectiveDisabled || hasUploadingAttachment
     || (sendMode === 'goal' && (!trimmed || pendingAttachments.length > 0
       || claudeSession && (trimmed.length > 4000 || /[\r\n]/.test(trimmed)) || codexSession && !budgetValid));
+  const steerHint = onSteerQueued && sendMode === 'chat' && !disabled;
+  const steerByDefault = followUpMode === 'steer' && session?.harnessState?.capabilities?.canSteerQueuedMessages === true;
   const effectivePlaceholder = goalActive
     ? 'Goal active'
+    : steerHint ? 'Press Enter to steer the queued message'
     : claudeSession && sendMode !== 'goal' ? 'Message Claude CLI (text and images)'
       : codexSession && sendMode !== 'goal'
         ? 'Message Codex CLI (/ prompts, @ files)'
@@ -648,8 +659,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       ? 'text-warning'
                       : 'text-primary',
                 )}
-                aria-label={isStreaming ? 'Queue message' : sendMode === 'goal' ? 'Set goal' : 'Send message'}
-                title={isStreaming ? 'Queue message' : undefined}
+                aria-label={isStreaming ? (steerByDefault ? 'Steer message' : 'Queue message')
+                  : sendMode === 'goal' ? 'Set goal' : 'Send message'}
+                title={isStreaming ? (steerByDefault ? 'Steer message' : 'Queue message') : undefined}
               >
                 <ArrowUp className="size-4" />
               </button>

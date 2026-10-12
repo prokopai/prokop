@@ -12,6 +12,7 @@ export class QueueNamespace {
       goalCondition?: string;
       goalMaxTurns?: number;
       clientMessageId?: string;
+      steer?: boolean;
     },
   ): void {
     this.send({
@@ -23,10 +24,16 @@ export class QueueNamespace {
       ...(options?.goalCondition ? { goalCondition: options.goalCondition } : {}),
       ...(options?.goalMaxTurns ? { goalMaxTurns: options.goalMaxTurns } : {}),
       ...(options?.clientMessageId ? { clientMessageId: options.clientMessageId } : {}),
+      ...(options?.steer ? { steer: true } : {}),
     });
   }
 
   remove(queueId: string): void {
     this.send({ type: 'queue.remove', queueId });
+  }
+
+  /** Deliver a queued message into the running turn at its next safe point. */
+  steer(queueId: string): void {
+    this.send({ type: 'queue.steer', queueId });
   }
 }

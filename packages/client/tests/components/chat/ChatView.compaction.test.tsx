@@ -31,12 +31,12 @@ function view(harness: 'claude-cli' | 'codex-cli', pending: boolean, marker?: st
     ? {
       compaction: { pending: false, uncertain: pending, boundaryMessageId: marker ?? null },
       fork: { mode: 'any' }, goal: null, usage: null, goalUncertain: false, nativeApprovalPrefix: 'claude-approval:',
-      capabilities: { canRemoveQueuedMessages: true, canInterruptSubagent: false, subagentActivityPropagates: false },
+      capabilities: { canRemoveQueuedMessages: true, canSteerQueuedMessages: true, canInterruptSubagent: false, subagentActivityPropagates: false },
     }
     : {
       compaction: { pending, uncertain: false, boundaryMessageId: marker ?? null },
       fork: { mode: 'assistant-only' }, goal: null, usage: null, goalUncertain: false, nativeApprovalPrefix: 'codex-approval:',
-      capabilities: { canRemoveQueuedMessages: false, canInterruptSubagent: true, subagentActivityPropagates: true },
+      capabilities: { canRemoveQueuedMessages: false, canSteerQueuedMessages: true, canInterruptSubagent: true, subagentActivityPropagates: true },
     };
   const session: Session = { id: 's', workspaceId: 'ws', status: 'active', harness, parentId: null,
     preconfigId: null, title: 'Test', createdAt: '2026-01-01', updatedAt: '2026-01-01', agentName: null,

@@ -9,7 +9,7 @@ import { clientSends, type ClientSendRegistry } from './client-sends';
 export interface SessionQueueDeps<Origin> {
   repository: SessionRepositoryPort;
   gate: ControllerGatePort<Origin>;
-  execution?: Pick<SessionExecutionPort, 'drainQueue'>;
+  execution?: Pick<SessionExecutionPort, 'drainQueue' | 'steerQueue'>;
   /** Defaults to the process-wide registry shared with direct sends. */
   sends?: ClientSendRegistry;
 }
@@ -23,9 +23,12 @@ export interface SessionQueueApplication<Origin> {
       content: string;
       attachments?: Array<{ id: string; kind: string }>;
       clientMessageId?: string;
+      steer?: boolean;
     },
   ): void;
   remove(wire: SessionWirePorts<Origin>, origin: Origin, queueId: string): void;
+  /** Marks a queued message for delivery into the running turn and wakes the runtime. */
+  steer(wire: SessionWirePorts<Origin>, origin: Origin, queueId: string): void;
 }
 
 export function createSessionQueueApplication<Origin>(
@@ -71,7 +74,7 @@ export function createSessionQueueApplication<Origin>(
       return;
     }
 
-    const queuedMessage = deps.repository.addMessageToQueue(sessionId, input.content, input.attachments);
+    const queuedMessage = deps.repository.addMessageToQueue(sessionId, input.content, input.attachments, input.steer === true);
     wire.actor.attachOriginToSession(origin, sessionId);
 
     wire.delivery.send(origin, {
@@ -83,6 +86,15 @@ export function createSessionQueueApplication<Origin>(
     if (cli) void deps.execution?.drainQueue?.(wire, origin, sessionId).catch(() => {
       wire.delivery.send(origin, { type: 'error', code: 'invalid_session', sessionId,
         message: 'Queued message could not be sent' });
+    });
+    if (queuedMessage.steer) wakeSteering(wire, origin, sessionId);
+  }
+
+  /** Prokop checks for steer messages at each step boundary; CLI runs need a wake-up. */
+  function wakeSteering(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): void {
+    void deps.execution?.steerQueue?.(wire, origin, sessionId).catch(() => {
+      wire.delivery.send(origin, { type: 'error', code: 'invalid_session', sessionId,
+        message: 'Steering message could not be delivered; it stays queued' });
     });
   }
 
@@ -116,6 +128,33 @@ export function createSessionQueueApplication<Origin>(
         sessionId: queuedMsg.sessionId,
         queueId,
       });
+    },
+
+    steer(wire, origin, queueId): void {
+      const queuedMsg = deps.repository.getQueuedMessage(queueId);
+      if (!queuedMsg) {
+        wire.delivery.send(origin, { type: 'error', code: 'not_found', message: 'Queued message not found' });
+        return;
+      }
+      const gate = deps.gate.checkControllerGate(queuedMsg.sessionId, 'queue.steer', origin);
+      if (gate) {
+        sendGateRejection(wire, origin, gate);
+        return;
+      }
+      const session = deps.repository.getSession(queuedMsg.sessionId);
+      if (session?.harnessState?.capabilities.canSteerQueuedMessages === false) {
+        wire.delivery.send(origin, { type: 'error', code: 'invalid_session', sessionId: queuedMsg.sessionId,
+          message: 'This session cannot steer queued messages' });
+        return;
+      }
+      const updated = queuedMsg.steer ? queuedMsg : deps.repository.markQueuedMessageSteer(queueId);
+      if (!updated) {
+        // Delivered or removed between the read and the update.
+        wire.delivery.send(origin, { type: 'error', code: 'not_found', message: 'Queued message not found' });
+        return;
+      }
+      wire.delivery.broadcastToSession(updated.sessionId, { type: 'queue.updated', sessionId: updated.sessionId, message: updated });
+      wakeSteering(wire, origin, updated.sessionId);
     },
   };
 }

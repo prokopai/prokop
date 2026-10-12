@@ -16,7 +16,18 @@ export type ClaudeTurnEvent = (
   | { type: 'context-usage'; used: number; window: number }
   | { type: 'compact-boundary'; trigger: 'auto' | 'manual'; preTokens: number; postTokens: number | null }
   | { type: 'goal-state'; active: boolean; iterations: number | null }
+  /** A steered message entered the turn (folded between tool rounds, or run next in this process). */
+  | { type: 'steer-started'; id: string }
+  /** The CLI dropped a steered message; it never reached the model. */
+  | { type: 'steer-cancelled'; id: string }
 ) & { parentToolUseId?: string };
+
+export interface ClaudeSteerInput {
+  /** Host user message id, echoed back by command_lifecycle frames. */
+  id: string;
+  text: string;
+  images: ClaudeImage[];
+}
 
 export interface ClaudeTurnInput {
   cwd: string;
@@ -44,6 +55,21 @@ export interface ClaudeTurnInput {
   backgroundTaskWaitMs?: number;
   /** A fake query source for offline tests. */
   start?: (prompt: string | AsyncIterable<SDKUserMessage>, options: Options) => AsyncIterable<SDKMessage>;
+  /**
+   * Receives the function that hands a message to the running turn. It returns
+   * false once input has closed. Goal turns use a one-shot prompt and never steer.
+   */
+  onSteerable?: (steer: (input: ClaudeSteerInput) => boolean) => void;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function userContent(text: string, images: ClaudeImage[]): SDKUserMessage['message']['content'] {
+  return [
+    ...(text.trim() ? [{ type: 'text' as const, text }] : []),
+    ...images.map(image => ({ type: 'image' as const,
+      source: { type: 'base64' as const, media_type: image.mimeType as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif', data: image.data } })),
+  ];
 }
 
 const MAX_OUTPUT = 8_000;
@@ -77,7 +103,7 @@ function outsideTurn(message: SDKMessage): Error {
 /** The SDK drives the installed executable's native tool loop; Prokop never executes its tools. */
 export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<ClaudeTurnEvent> {
   if (!input.prompt.trim() && !input.images?.length) throw new Error('Claude CLI requires a nonempty prompt');
-  if (input.userMessageId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.userMessageId)) {
+  if (input.userMessageId !== undefined && !UUID.test(input.userMessageId)) {
     throw new Error('Invalid Claude user message identity');
   }
   if (input.goalCondition !== undefined && (input.goalCondition !== input.prompt || input.images?.length
@@ -155,23 +181,50 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
     },
     env: { ...env, ...(input.tempDirectory ? sessionTempEnvironment(input.tempDirectory) : {}), ENABLE_CLAUDEAI_MCP_SERVERS: 'false', CLAUDE_CODE_AUTO_CONNECT_IDE: '0' },
   };
-  let releaseInput!: () => void;
-  const inputReleased = new Promise<void>(resolve => { releaseInput = resolve; });
+  let resolveInput!: () => void;
+  const inputReleased = new Promise<void>(resolve => { resolveInput = resolve; });
+  let released = false;
+  const releaseInput = (): void => {
+    released = true;
+    resolveInput();
+  };
+  // Steered messages waiting for the CLI, and those it has not yet started or dropped.
+  const queuedInput: SDKUserMessage[] = [];
+  const pendingSteers = new Set<string>();
+  let wakeInput: (() => void) | null = null;
   // An exhausted streaming-input generator closes stdin and can stop background agents.
   // Keep it open until the terminal result and every observed background Agent settles,
   // and for a bounded time while background Bash tasks run, so the CLI can report them.
+  // A steered message keeps it open until the CLI starts or drops it.
   const prompt = (async function* (): AsyncGenerator<SDKUserMessage> {
     try {
       yield { type: 'user', parent_tool_use_id: null,
         ...(input.userMessageId ? { uuid: input.userMessageId as SDKUserMessage['uuid'] } : {}),
-        message: { role: 'user', content: [
-        ...(input.prompt.trim() ? [{ type: 'text' as const, text: input.prompt }] : []),
-        ...(input.images ?? []).map(image => ({ type: 'image' as const,
-          source: { type: 'base64' as const, media_type: image.mimeType as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif', data: image.data } })),
-      ] } };
-      await inputReleased;
+        message: { role: 'user', content: userContent(input.prompt, input.images ?? []) } };
+      while (!released) {
+        const next = queuedInput.shift();
+        if (next) {
+          yield next;
+          continue;
+        }
+        await Promise.race([inputReleased, new Promise<void>(resolve => { wakeInput = resolve; })]);
+        wakeInput = null;
+      }
     } finally { releaseInput(); }
   })();
+  if (input.goalCondition === undefined) {
+    input.onSteerable?.(steer => {
+      if (released || !UUID.test(steer.id) || pendingSteers.has(steer.id)
+        || (!steer.text.trim() && !steer.images.length)) return false;
+      pendingSteers.add(steer.id);
+      // Between tool rounds the CLI folds a 'next' message into the running turn; after the
+      // turn's result it runs it as the next turn in this process.
+      queuedInput.push({ type: 'user', parent_tool_use_id: null, priority: 'next',
+        uuid: steer.id as SDKUserMessage['uuid'], message: { role: 'user', content: userContent(steer.text, steer.images) } });
+      wakeInput?.();
+      return true;
+    });
+  }
   // Native /goal needs a one-shot slash command. Ordinary turns use streaming
   // input to keep background child work alive after the parent result.
   const sdkPrompt = input.goalCondition === undefined ? prompt : `/goal ${input.goalCondition}`;
@@ -188,7 +241,7 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   const streamedText = new Map<string, string>();
   const backgroundTasksPending = (): boolean => !taskWaitExpired && [...otherTasks.values()].some(Boolean);
   const releaseIfSettled = (): void => {
-    if (!finished || backgroundAgents.size > 0) return;
+    if (!finished || backgroundAgents.size > 0 || pendingSteers.size > 0) return;
     if (!backgroundTasksPending()) {
       releaseInput();
     } else if (!taskWaitTimer) {
@@ -225,9 +278,18 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
     if (input.controller.signal.aborted) throw new Error('Claude turn interrupted');
     if ('session_id' in message && message.session_id !== input.sessionId) throw new Error('Claude CLI session identity changed');
     // UUID-stamped streaming prompts get command_lifecycle queue bookkeeping
-    // (queued before system/init, completed after the result). Carry no turn
-    // content; ignore at any point in the stream.
-    if ((message as { type: string }).type === 'command_lifecycle') continue;
+    // (queued before system/init, completed after the result). They carry no
+    // turn content and may arrive at any point; only a steer's start or drop matters.
+    if ((message as { type: string }).type === 'command_lifecycle') {
+      const lifecycle = message as unknown as { command_uuid?: unknown; state?: unknown };
+      const id = typeof lifecycle.command_uuid === 'string' ? lifecycle.command_uuid : '';
+      if (pendingSteers.has(id) && (lifecycle.state === 'started' || lifecycle.state === 'cancelled')) {
+        pendingSteers.delete(id);
+        yield { type: lifecycle.state === 'started' ? 'steer-started' : 'steer-cancelled', id };
+        releaseIfSettled();
+      }
+      continue;
+    }
     // The SDK forwards active_goal but omits it from the public SDKMessage union.
     if (input.goalCondition !== undefined && (message as { type: string }).type === 'active_goal') {
       if (!initialized) throw new Error('Claude goal status arrived before init');
@@ -344,6 +406,13 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       yield { type: 'result', text: message.subtype === 'success' ? message.result : '', success,
         ...(error?.trim() ? { error: error.trim().slice(0, 500) } : {}),
         usage: parseClaudeUsage(message.modelUsage, input.model) };
+      // No send is left in the CLI's queue, so a steer it never started will not run here.
+      if (message.queued_turn_count === 0) {
+        for (const id of [...pendingSteers]) {
+          pendingSteers.delete(id);
+          yield { type: 'steer-cancelled', id };
+        }
+      }
       if (firstResult && message.subtype === 'success' && 'getContextUsage' in messages
         && typeof messages.getContextUsage === 'function') {
         let timeout: ReturnType<typeof setTimeout> | undefined;

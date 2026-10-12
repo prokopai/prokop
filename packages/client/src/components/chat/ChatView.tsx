@@ -27,6 +27,8 @@ export interface DisplayItem {
   parts: import('@prokopai/sdk').Part[];
   isQueued?: boolean;
   queueId?: string;
+  /** A queued message marked to enter the running turn. */
+  isSteer?: boolean;
   pendingSend?: PendingSend;
 }
 
@@ -158,6 +160,7 @@ function mergeMessagesWithQueue(
       ],
       isQueued: true,
       queueId: qm.id,
+      isSteer: qm.steer === true,
     };
   });
 
@@ -241,6 +244,15 @@ function ChatViewContent({
   const onCompactForMode = readOnlyTranscript ? undefined : onCompact;
   const onRemoveFromQueueForMode = readOnlyTranscript || harnessState?.capabilities.canRemoveQueuedMessages === false
     ? undefined : onRemoveFromQueue;
+  const steerQueued = useOptionalSessionCommands()?.steerQueued;
+  // Older servers do not report the capability and cannot steer.
+  const onSteerQueuedForMode = readOnlyTranscript || harnessState?.capabilities?.canSteerQueuedMessages !== true
+    ? undefined : steerQueued;
+  // Enter in an empty message box steers the oldest message still waiting for the turn to end.
+  const nextToSteer = isStreaming
+    ? [...queuedMessages].sort((a, b) => a.position - b.position).find(queued => !queued.steer) : undefined;
+  const steerNextQueued = nextToSteer && onSteerQueuedForMode
+    ? () => onSteerQueuedForMode(nextToSteer.id) : undefined;
   // The server derives the fork state from the harness and its metadata:
   // restricted modes carry the reason, so the affordance renders disabled
   // instead of failing the click.
@@ -398,6 +410,7 @@ function ChatViewContent({
           onClearCompactionSuccess={onClearCompactionSuccess}
           onNavigateToSubagent={onNavigateToSubagent}
           onRemoveFromQueue={onRemoveFromQueueForMode}
+          onSteerQueued={onSteerQueuedForMode}
           pendingSendActions={readOnlyTranscript ? undefined : pendingSendActions}
           onRevert={onRevertForMode}
           onFork={onForkForMode}
@@ -488,6 +501,7 @@ function ChatViewContent({
           onStopStreaming={onInterrupt}
           session={session}
           checkoutLocked={displayItems.length > 0}
+          onSteerQueued={steerNextQueued}
         />
       )}
 

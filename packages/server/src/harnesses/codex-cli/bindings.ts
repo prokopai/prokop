@@ -66,6 +66,13 @@ export function markCodexTurnStarted(sessionId: string, turnId: string, assistan
   if (result.changes !== 1) throw new Error('Codex continuation identity is unavailable');
 }
 
+/** A steered message starts a new reply in the same pending turn; recovery fills that reply. */
+export function markCodexSteerReply(sessionId: string, assistantId: string): void {
+  const result = getDatabase().run(`UPDATE codex_session_bindings SET pending_assistant_id = ?
+    WHERE session_id = ? AND pending_turn = 1`, [assistantId, sessionId]);
+  if (result.changes !== 1) throw new Error('Codex steer has no pending turn');
+}
+
 export function markCodexGoalRequested(sessionId: string): void {
   const result = getDatabase().run(`UPDATE codex_session_bindings SET goal_requested = 1
     WHERE session_id = ? AND pending_turn = 1 AND pending_turn_id IS NOT NULL`, [sessionId]);

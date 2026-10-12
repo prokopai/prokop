@@ -1,11 +1,11 @@
-import { Sun, Moon, Monitor, Eye, Pencil } from 'lucide-react';
+import { Sun, Moon, Monitor, Eye, Pencil, CornerDownRight, Clock } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import type { ThemeMode, ThemeScheme } from '@/components/providers/ThemeProvider';
 import { useUIStore } from '@/stores/uiStore';
-import type { DefaultFileOpenMode } from '@/stores/uiStore';
+import type { DefaultFileOpenMode, FollowUpMode } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { WorkspaceOrderControl } from '@/components/layout/WorkspaceOrderControl';
 
@@ -75,6 +75,11 @@ const OPEN_MODES: { value: DefaultFileOpenMode; icon: typeof Eye; label: string 
   { value: 'edit', icon: Pencil, label: 'Edit files' },
 ];
 
+const FOLLOW_UP_MODES: { value: FollowUpMode; icon: typeof Sun; label: string }[] = [
+  { value: 'steer', icon: CornerDownRight, label: 'Steer' },
+  { value: 'queue', icon: Clock, label: 'Queue' },
+];
+
 /** Segmented pill matching the shell's tab idiom. */
 function SegmentedControl<T extends string>({ label, options, value, onChange }: {
   label: string;
@@ -107,10 +112,12 @@ function SegmentedControl<T extends string>({ label, options, value, onChange }:
 
 export function AppearancePanel() {
   const { mode, scheme, setMode, setScheme } = useTheme();
-  const { defaultFileOpenMode, setDefaultFileOpenMode } = useUIStore(
+  const { defaultFileOpenMode, setDefaultFileOpenMode, followUpMode, setFollowUpMode } = useUIStore(
     useShallow((s) => ({
       defaultFileOpenMode: s.defaultFileOpenMode,
       setDefaultFileOpenMode: s.setDefaultFileOpenMode,
+      followUpMode: s.followUpMode,
+      setFollowUpMode: s.setFollowUpMode,
     })),
   );
 
@@ -160,6 +167,18 @@ export function AppearancePanel() {
         </p>
         <SegmentedControl label="File open mode" options={OPEN_MODES} value={defaultFileOpenMode}
           onChange={setDefaultFileOpenMode} />
+      </div>
+
+      <Separator />
+
+      <div>
+        <Label className="text-sm font-medium">Messages sent while the agent works</Label>
+        <p className="text-sm text-muted-foreground mb-3">
+          Steer delivers the message into the running turn at its next step. Queue sends it after the turn ends.
+          Either way, a queued message shows Steer, and Enter in an empty message box steers the oldest one.
+        </p>
+        <SegmentedControl label="Messages sent while the agent works" options={FOLLOW_UP_MODES} value={followUpMode}
+          onChange={setFollowUpMode} />
       </div>
     </div>
   );

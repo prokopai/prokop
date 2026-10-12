@@ -103,6 +103,8 @@ export const addMessageToQueue = (...args: Parameters<StorageBundle['queue']['ad
   activeStorage().queue.addMessage(...args);
 export const getNextQueuedMessage = (...args: Parameters<StorageBundle['queue']['peek']>) =>
   activeStorage().queue.peek(...args);
+export const getNextSteerQueuedMessage = (...args: Parameters<StorageBundle['queue']['peekSteer']>) =>
+  activeStorage().queue.peekSteer(...args);
 export const deleteQueuedMessage = (...args: Parameters<StorageBundle['queue']['delete']>) =>
   activeStorage().queue.delete(...args);
 export const getAttachment = (...args: Parameters<StorageBundle['attachments']['get']>) =>

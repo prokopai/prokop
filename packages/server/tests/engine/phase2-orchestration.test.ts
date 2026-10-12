@@ -823,6 +823,7 @@ describe.serial('Phase 2 orchestration contracts', () => {
         queue: {
           addMessage: async () => queued[0],
           peek: async () => queued[0] ?? null,
+          peekSteer: async () => null,
           delete: async (id) => {
             order.push(`queue.deleted:${id}`);
             queued.splice(0, 1);

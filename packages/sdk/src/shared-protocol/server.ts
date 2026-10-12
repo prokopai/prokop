@@ -278,6 +278,7 @@ export type ControllerGatedAction =
   | 'session.update_model'
   | 'queue.add'
   | 'queue.remove'
+  | 'queue.steer'
   | 'ask.response'
   | 'session.compact'
   | 'session.revert'
@@ -328,6 +329,12 @@ export interface QueueSendingMessage {
   type: 'queue.sending';
   sessionId: string;
   queueId: string;
+}
+
+export interface QueueUpdatedMessage {
+  type: 'queue.updated';
+  sessionId: string;
+  message: QueuedMessage;
 }
 
 // =============================================================================
@@ -492,6 +499,7 @@ export type ServerMessage =
   | QueueAddedMessage
   | QueueRemovedMessage
   | QueueSendingMessage
+  | QueueUpdatedMessage
   | RateLimitErrorMessage
   | ServerErrorMessage
   | TimeoutErrorMessage

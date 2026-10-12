@@ -1271,3 +1271,72 @@ test.each([
     message: 'Claude turn requires reconciliation or its workspace changed; edit the first message to start over' }));
   expect(getDatabase().query<{ cli_version: string }, []>('SELECT cli_version FROM claude_session_bindings').get()?.cli_version).toBe('2.1.270');
 });
+
+function transcriptOf(sessionId: string): string[] {
+  return listMessagesWithParts(sessionId).map(entry => `${entry.message.role}${entry.message.role === 'assistant'
+    ? `(${entry.message.status})` : ''}:${entry.parts.map(part => part.type === 'text' ? part.text : part.type).join('|')}`);
+}
+
+test('a steered message enters the running Claude turn and splits the transcript where it landed', async () => {
+  const { wire, events } = wireFixture();
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    async function* messages(): AsyncGenerator<SDKMessage> {
+      if (typeof prompt === 'string') throw new Error('Expected streaming input');
+      const reader = prompt[Symbol.asyncIterator]();
+      await reader.next();
+      const id = options.sessionId;
+      yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+      yield { type: 'assistant', session_id: id, parent_tool_use_id: null,
+        message: { content: [{ type: 'text', text: 'checking spaces' }] } } as SDKMessage;
+      addMessageToQueue('session', 'use tabs', undefined, true);
+      await exec.steerQueue!(wire, 'origin', 'session');
+      const steer = (await reader.next()).value as SDKUserMessage;
+      expect(steer).toMatchObject({ priority: 'next', message: { content: [{ type: 'text', text: 'use tabs' }] } });
+      yield { type: 'command_lifecycle', command_uuid: steer.uuid, state: 'started', session_id: id } as unknown as SDKMessage;
+      yield { type: 'assistant', session_id: id, parent_tool_use_id: null,
+        message: { content: [{ type: 'text', text: 'switched to tabs' }] } } as SDKMessage;
+      yield { type: 'result', subtype: 'success', session_id: id, is_error: false,
+        result: 'switched to tabs', queued_turn_count: 0 } as SDKMessage;
+    }
+    return messages();
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'indent the file');
+  expect(transcriptOf('session')).toEqual(['user:indent the file', 'assistant(completed):checking spaces',
+    'user:use tabs', 'assistant(completed):switched to tabs']);
+  expect(listQueuedMessages('session')).toEqual([]);
+  const steeredUser = listMessagesWithParts('session')[2]!.message;
+  expect(events).toContainEqual(expect.objectContaining({ type: 'queue.sending', sessionId: 'session' }));
+  expect(events).toContainEqual({ type: 'message.created', message: steeredUser });
+  expect(getSession('session')?.runningAt).toBeNull();
+});
+
+test('a steer the Claude CLI drops stays queued and is sent after the turn', async () => {
+  const { wire } = wireFixture();
+  const prompts: string[] = [];
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    async function* messages(): AsyncGenerator<SDKMessage> {
+      if (typeof prompt === 'string') throw new Error('Expected streaming input');
+      const reader = prompt[Symbol.asyncIterator]();
+      const first = (await reader.next()).value as SDKUserMessage;
+      prompts.push(JSON.stringify(first.message.content));
+      const id = options.sessionId ?? options.resume;
+      yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+      if (prompts.length === 1) {
+        addMessageToQueue('session', 'use tabs', undefined, true);
+        await exec.steerQueue!(wire, 'origin', 'session');
+        await reader.next();
+      }
+      yield { type: 'assistant', session_id: id, parent_tool_use_id: null,
+        message: { content: [{ type: 'text', text: `reply ${prompts.length}` }] } } as SDKMessage;
+      yield { type: 'result', subtype: 'success', session_id: id, is_error: false,
+        result: `reply ${prompts.length}`, queued_turn_count: 0 } as SDKMessage;
+    }
+    return messages();
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'indent the file');
+  expect(prompts).toHaveLength(2);
+  expect(prompts[1]).toContain('use tabs');
+  expect(transcriptOf('session')).toEqual(['user:indent the file', 'assistant(completed):reply 1',
+    'user:use tabs', 'assistant(completed):reply 2']);
+  expect(listQueuedMessages('session')).toEqual([]);
+});

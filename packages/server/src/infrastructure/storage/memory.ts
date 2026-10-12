@@ -282,6 +282,12 @@ export function createInMemoryMessageQueueStore(options: { attachments?: Attachm
         .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))[0];
       return message ? copy(message) : null;
     },
+    async peekSteer(sessionId) {
+      const message = [...records.values()]
+        .filter(record => record.sessionId === sessionId && record.steer)
+        .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))[0];
+      return message ? copy(message) : null;
+    },
     async delete(idToDelete) {
       return records.delete(idToDelete);
     },

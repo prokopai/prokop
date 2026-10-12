@@ -113,6 +113,7 @@ export default function ServerShell() {
       editMessage: (...args: Parameters<SessionCommandsValue['editMessage']>) => manager().editMessage(...args),
       compactSession: (...args: Parameters<SessionCommandsValue['compactSession']>) => manager().compactSession(...args),
       removeFromQueue: (...args: Parameters<SessionCommandsValue['removeFromQueue']>) => manager().removeFromQueue(...args),
+      steerQueued: (...args: Parameters<SessionCommandsValue['steerQueued']>) => manager().steerQueued(...args),
       sendChatMessage: (...args: Parameters<SessionCommandsValue['sendChatMessage']>) => manager().sendChatMessage(...args),
       sendChatMessageForSession: (...args: Parameters<SessionCommandsValue['sendChatMessageForSession']>) => manager().sendChatMessageForSession(...args),
       handleAskResponse: (...args: Parameters<SessionCommandsValue['handleAskResponse']>) => manager().handleAskResponse(...args),

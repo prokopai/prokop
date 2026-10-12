@@ -75,6 +75,13 @@ export function handleQueueSending(
   removeQueuedMessageById(sessionId, queueId);
 }
 
+export function handleQueueUpdated(
+  msg: { type: 'queue.updated'; sessionId: string; message: QueuedMessage },
+  ctx: SessionHandlersContext,
+): void {
+  ctx.addQueuedMessage(msg.sessionId, msg.message);
+}
+
 export const permissionQueueHandlers = {
   'permission.list': handlePermissionList,
   'permission.revoked': handlePermissionRevoked,
@@ -83,4 +90,5 @@ export const permissionQueueHandlers = {
   'queue.added': handleQueueAdded,
   'queue.removed': handleQueueRemoved,
   'queue.sending': handleQueueSending,
+  'queue.updated': handleQueueUpdated,
 } as const;

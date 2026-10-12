@@ -32,6 +32,7 @@ import type {
   QueueAddedMessage,
   QueueRemovedMessage,
   QueueSendingMessage,
+  QueueUpdatedMessage,
   ProviderStatusMessage,
   ProviderConnectedMessage,
   AskRequestMessage,
@@ -167,6 +168,7 @@ export interface SdkEventMap {
   'queue.added': [sessionId: QueueAddedMessage['sessionId'], message: QueueAddedMessage['message']];
   'queue.removed': [sessionId: QueueRemovedMessage['sessionId'], queueId: QueueRemovedMessage['queueId']];
   'queue.sending': [sessionId: QueueSendingMessage['sessionId'], queueId: QueueSendingMessage['queueId']];
+  'queue.updated': [sessionId: QueueUpdatedMessage['sessionId'], message: QueueUpdatedMessage['message']];
 
   'provider.status': [
     provider: ProviderStatusMessage['provider'],
@@ -375,6 +377,9 @@ export function routeServerMessage(
       break;
     case 'queue.sending':
       emitter.emit('queue.sending', msg.sessionId, msg.queueId);
+      break;
+    case 'queue.updated':
+      emitter.emit('queue.updated', msg.sessionId, msg.message);
       break;
     case 'provider.status':
       emitter.emit(

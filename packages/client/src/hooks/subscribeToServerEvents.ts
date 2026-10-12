@@ -210,6 +210,9 @@ export function subscribeToServerEvents(
   add('queue.sending', (sessionId: unknown, queueId: unknown) => {
     permissionQueueHandlers['queue.sending']({ type: 'queue.sending', sessionId: sessionId as string, queueId: queueId as string }, ctx()!);
   });
+  add('queue.updated', (sessionId: unknown, message: unknown) => {
+    permissionQueueHandlers['queue.updated']({ type: 'queue.updated', sessionId: sessionId as string, message: message as QueuedMessage }, ctx()!);
+  });
 
   add('provider.status', (provider: unknown, connected: unknown, authorizationUrl: unknown, error: unknown, reauthRequired: unknown) => {
     providerHandlers['provider.status']({ type: 'provider.status', provider: provider as string, connected: connected as boolean, authorizationUrl: authorizationUrl as string | undefined, error: error as string | undefined, reauthRequired: reauthRequired as boolean | undefined }, ctx()!);
