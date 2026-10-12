@@ -41,6 +41,8 @@ import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/
 import { isWithinRoot } from '@/domains/permissions';
 import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { createCodexMcpTools } from './mcp-tools';
+import { readHandoffBrief } from '@/infrastructure/sqlite/session-harness-switch';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 
 export { codexCliVersion } from './version';
 
@@ -289,7 +291,7 @@ const SAFE_EDIT_ERRORS = new Set([
   'Codex rollback history is unavailable', 'Codex rollback history is incomplete',
   'Codex rollback history is ambiguous', 'Codex rollback outcome is uncertain',
   'Codex thread is not idle after resume', 'Codex rollback is not pending', 'Codex rollback target disappeared',
-  'Codex edit text is unavailable', 'Codex transcript deletion failed',
+  'Codex edit text is unavailable', 'Codex transcript deletion failed', HARNESS_SWITCH_EDIT_REASON,
 ]);
 
 const SAFE_FORK_ERRORS = new Set([
@@ -299,6 +301,7 @@ const SAFE_FORK_ERRORS = new Set([
   'Codex thread history is unavailable', 'Codex transcript does not match turn history',
   'Codex turn identity is incomplete', 'Codex turn identity is ambiguous',
   'Codex fork requires a completed assistant response', 'Codex fork of image history is not supported',
+  HARNESS_SWITCH_FORK_REASON,
 ]);
 
 /** A parent-session connection owns native child threads across parent turns. */
@@ -368,6 +371,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     if (!session || session.harness !== 'codex-cli' || session.status === 'closed'
       || codexObject(session.metadata)?.codexCompactPending
       || active.has(sessionId) || starting.has(sessionId)) throw new Error('Codex session is unavailable or busy');
+    if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_EDIT_REASON);
     if (operation === 'edit' && (!content?.trim() || content !== content.trim())) {
       throw new Error('Codex edit requires nonempty text');
     }
@@ -644,9 +648,11 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           try { return isWithinRoot(realpathSync(cwd), tempDirectory); }
           catch { return false; }
         };
+        const handoffBrief = readHandoffBrief(sessionId);
         const instructions = await codexDeveloperInstructions(workspace, root, preconfig, {
           ...sources, getAgentDirectory: async () => agentDir,
-        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory);
+        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
+          + (handoffBrief ? `\n\n${handoffBrief}` : '');
         if (!session.preconfigId) {
           const updated = updateSession(sessionId, { preconfigId,
             agentId: agentDir ? preconfigId : null });
@@ -662,8 +668,10 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           throw new Error('Codex session root changed; reopen with the original host');
         }
         connection = connections.get(sessionId);
+        // A connection whose thread binding was detached by a harness switch belongs to the old thread.
         if (connection && (connection.root !== root || connection.version !== version
-          || connection.preconfigId !== preconfigId || connection.instructions !== instructions)) {
+          || connection.preconfigId !== preconfigId || connection.instructions !== instructions
+          || (!binding && connection.children))) {
           if (connection.children?.hasLiveTurns) throw new Error('Codex context changed while child agents are running');
           await closeConnection(sessionId, 'interrupted');
           connection = undefined;

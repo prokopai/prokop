@@ -3,6 +3,7 @@ import type { ForkExecutionResult, SessionExecutionPort } from '@/application/po
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
+import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import { getClaudeModelSelection, saveClaudeModelSelection } from './models';
 import { groupClaudeTurns, groupLocalTurns, localTurnEnd, matchClaudeHistory, type LocalTurn } from './rollback';
 
@@ -36,6 +37,7 @@ export async function forkClaudeSession(
   if (session.metadata?.claudeCompactPending || session.metadata?.claudeGoal || session.metadata?.claudeCompactedAt) {
     throw new Error('Claude Goal or Compact history cannot be forked');
   }
+  if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_FORK_REASON);
   if (getDatabase().query('SELECT 1 FROM claude_rollback_intents WHERE session_id = ?').get(session.id)) {
     throw new Error('Claude history requires recovery before fork');
   }

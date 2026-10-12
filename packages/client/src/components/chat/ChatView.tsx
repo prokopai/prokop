@@ -406,6 +406,7 @@ function ChatViewContent({
           sessionStatus={session.status}
           isCompacting={compactBusy}
           compactedAfterMessageId={harnessState?.compaction.boundaryMessageId ?? undefined}
+          harnessSwitches={session.harnessSwitches}
           compactionSuccess={compactionSuccess}
           onClearCompactionSuccess={onClearCompactionSuccess}
           onNavigateToSubagent={onNavigateToSubagent}

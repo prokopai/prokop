@@ -267,6 +267,7 @@ export function buildEffectiveContextHistory(
   messages: MessageWithParts[];
   latestCompactionBoundary: string | null;
   hasCompaction: boolean;
+  handoffBrief: string | null;
 } {
   return repo().buildEffectiveContextHistory(sessionId);
 }

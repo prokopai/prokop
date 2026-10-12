@@ -7,7 +7,9 @@ import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { Paths } from '@/infrastructure/runtime/paths';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { createSession } from '@/infrastructure/sqlite/session-store';
+import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
+import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import { createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
@@ -40,8 +42,12 @@ function fixture() {
   let failNextTurn = false;
   let splitReplies = false;
   let stopNextTurn = false;
+  const starts: Array<{ resume?: string; append?: string }> = [];
   const exec = createClaudeExecution({ version: () => '2.1.274',
     start: (prompt, options) => {
+      const systemPrompt = options.systemPrompt;
+      starts.push({ resume: options.resume, append: systemPrompt && typeof systemPrompt === 'object' && 'append' in systemPrompt
+        ? systemPrompt.append : undefined });
       const sessionId = options.sessionId ?? options.resume!;
       async function* messages(): AsyncGenerator<SDKMessage> {
         if (failNextTurn) { failNextTurn = false; throw new Error('fake failed after submission'); }
@@ -92,7 +98,7 @@ function fixture() {
   const binding = () => getDatabase().query<{ native_session_id: string; pending: number }, []>(
     'SELECT native_session_id, pending FROM claude_session_bindings').get();
   const pending = () => getDatabase().query<{ phase: string }, []>('SELECT phase FROM claude_rollback_intents').get();
-  return { exec, wire, events, histories, forkCalls, binding, pending,
+  return { exec, wire, events, histories, forkCalls, binding, pending, starts,
     failFork: () => { forkError = true; }, badFork: () => { badCopy = true; },
     failTurn: () => { failNextTurn = true; }, splitReplies: () => { splitReplies = true; },
     stopTurn: () => { stopNextTurn = true; } };
@@ -406,4 +412,33 @@ test('finished and stopped Claude replies reach the notification port once each'
   } finally {
     installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
   }
+});
+
+test('after switching away and back, Claude starts a fresh native session with the brief and locks Edit, Undo and Fork', async () => {
+  const f = fixture();
+  await twoTurns(f);
+  const oldNative = f.binding()!.native_session_id;
+  const away = switchSessionHarnessModel('session', 'claude-cli', getSession('session')!.updatedAt,
+    { harness: 'prokop', modelId: 'm', providerId: 'p' });
+  expect(away.ok).toBe(true);
+  expect(f.binding()).toBeNull();
+  const back = switchSessionHarnessModel('session', 'prokop', getSession('session')!.updatedAt,
+    { harness: 'claude-cli', modelId: 'claude-sonnet-5', effort: 'medium' });
+  expect(back.ok).toBe(true);
+
+  await f.exec.sendMessage(f.wire, 'origin', 'session', 'third');
+  const start = f.starts.at(-1)!;
+  expect(start.resume).toBeUndefined();
+  expect(start.append).toContain('## Conversation handoff');
+  expect(start.append).toContain('first');
+  expect(f.binding()!.native_session_id).not.toBe(oldNative);
+
+  const local = listMessagesWithParts('session');
+  expect(local).toHaveLength(6);
+  await expect(f.exec.revert({ sessionId: 'session', targetMessageId: local[5]!.message.id }))
+    .rejects.toThrow(HARNESS_SWITCH_EDIT_REASON);
+  await expect(f.exec.fork({ sessionId: 'session', targetMessageId: local[5]!.message.id }))
+    .rejects.toThrow(HARNESS_SWITCH_FORK_REASON);
+  expect(f.forkCalls).toEqual([]);
+  expect(listMessagesWithParts('session')).toHaveLength(6);
 });

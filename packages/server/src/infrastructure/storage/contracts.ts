@@ -27,6 +27,8 @@ export interface EffectiveContextHistory {
   messages: MessageWithParts[];
   latestCompactionBoundary: string | null;
   hasCompaction: boolean;
+  /** Frozen brief for the current segment after a harness switch. */
+  handoffBrief?: string | null;
 }
 
 export interface TranscriptPageResult {

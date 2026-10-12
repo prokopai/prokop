@@ -839,14 +839,34 @@ export function createMessageRepository(
     messages: MessageWithParts[];
     latestCompactionBoundary: string | null;
     hasCompaction: boolean;
+    handoffBrief: string | null;
   } {
     const boundary = getLatestCompactionBoundary(sessionId);
+    // After a harness switch the model sees only the current segment; the
+    // frozen handoff brief stands in for the turns another harness ran.
+    const segment = getDb().query(
+      `SELECT h.brief, m.sequence FROM session_harness_briefs h
+       LEFT JOIN messages m ON m.id = h.after_message_id AND m.session_id = h.session_id
+       WHERE h.session_id = ?`,
+    ).get(sessionId) as { brief: string; sequence: number | null } | undefined;
+    const handoffBrief = segment?.brief ?? null;
+
+    if (segment && (!boundary || boundary.triggerSequence <= (segment.sequence ?? Number.MAX_SAFE_INTEGER))) {
+      return {
+        // A missing boundary message hides everything rather than replaying another harness's tools.
+        messages: segment.sequence === null ? [] : listMessagesWithPartsFromSequence(sessionId, segment.sequence + 1),
+        latestCompactionBoundary: null,
+        hasCompaction: false,
+        handoffBrief,
+      };
+    }
 
     if (!boundary) {
       return {
         messages: listMessagesWithParts(sessionId),
         latestCompactionBoundary: null,
         hasCompaction: false,
+        handoffBrief,
       };
     }
 
@@ -857,6 +877,7 @@ export function createMessageRepository(
       ),
       latestCompactionBoundary: boundary.triggerId,
       hasCompaction: true,
+      handoffBrief,
     };
   }
 

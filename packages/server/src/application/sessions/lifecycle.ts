@@ -49,7 +49,9 @@ export interface SessionLifecycleDeps<Origin> {
   /** Ordered variant keys for a model; absent wiring means no variants. */
   modelVariantKeys?: (modelId?: string | null, providerId?: string | null) => string[];
   isHarnessDisabled?: (harness: SessionHarness) => boolean;
-  selectEmptySessionHarnessModel?: (id: string, expected: SessionHarness, updatedAt: string, choice: HarnessModelChoice) => Session | null;
+  /** Atomic owner swap; after the first message it also detaches the native thread and stores a handoff brief. */
+  switchSessionHarnessModel?: (id: string, expected: SessionHarness, updatedAt: string, choice: HarnessModelChoice) =>
+    { ok: true; session: Session } | { ok: false; message: string };
 }
 
 export interface SessionCreateInput {
@@ -409,7 +411,7 @@ export function createSessionLifecycleApplication<Origin>(
       }
       if (session.parentId || session.status !== 'active' || session.compacting || session.runningAt
         || deps.execution.isSessionActive(sessionId)) {
-        return invalid('Harness is locked after the first message or while a turn is active');
+        return invalid('Harness can change only while the session is idle');
       }
       const gate = deps.gate.checkControllerGate(sessionId, 'session.update_model', origin);
       if (gate) return sendGateRejection(wire, origin, gate);
@@ -462,13 +464,15 @@ export function createSessionLifecycleApplication<Origin>(
         return invalid('Invalid Prokop model selection');
       }
       // The store compare-and-swap prevents another send, queue, or switch from racing this selection.
-      let updated: Session | null | undefined;
+      let result: ReturnType<NonNullable<typeof deps.switchSessionHarnessModel>> | undefined;
       try {
-        updated = deps.selectEmptySessionHarnessModel?.(sessionId, session.harness ?? 'prokop', session.updatedAt, choice);
+        result = deps.switchSessionHarnessModel?.(sessionId, session.harness ?? 'prokop', session.updatedAt, choice);
       } catch {
         return invalid('Could not change the session harness');
       }
-      if (!updated) return invalid('Harness is locked after the first message or while a turn is active');
+      if (!result) return invalid('Could not change the session harness');
+      if (!result.ok) return invalid(result.message);
+      const updated = result.session;
       wire.delivery.send(origin, { type: 'session.updated', session: updated });
       wire.delivery.broadcast({ type: 'session.updated', session: updated }, origin);
     },

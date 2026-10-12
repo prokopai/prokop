@@ -26,6 +26,8 @@ import type { PermissionAsk, ServerMessage } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
+import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 
 beforeEach(() => { setupTestDatabase(); seedWorkspace({ id: 'ws', path: process.cwd() }); });
 afterEach(() => resetTestDatabase());
@@ -2690,4 +2692,44 @@ test('restart recovery after a steer fills only the reply to the steered message
   processes[2]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
   processes[2]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'completed' } } });
   await next;
+});
+
+test('Codex after a harness switch starts a new thread with the handoff brief and locks Edit, Undo and Fork', async () => {
+  createSession({ id: 's', workspaceId: 'ws', title: 'Test', status: 'active',
+    preconfigId: 'test', metadata: null, parentId: null, agentName: null, harness: 'claude-cli' });
+  createMessage({ id: 'old-user', sessionId: 's', role: 'user', createdAt: 1 });
+  createPart({ id: 'old-user-text', messageId: 'old-user', type: 'text', text: 'Earlier Claude request', createdAt: 1 }, 's');
+  createMessage({ id: 'old-reply', sessionId: 's', role: 'assistant', status: 'completed', modelId: 'sonnet',
+    providerId: 'claude-cli', tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: 2 });
+  createPart({ id: 'old-reply-text', messageId: 'old-reply', type: 'text', text: 'Earlier Claude reply', createdAt: 2 }, 's');
+  const switched = switchSessionHarnessModel('s', 'claude-cli', getSession('s')!.updatedAt,
+    { harness: 'codex-cli', modelId: 'gpt-5-codex', effort: 'low' });
+  expect(switched.ok).toBe(true);
+
+  const processes: ReturnType<typeof fakeCodex>[] = [];
+  const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => {
+    const fake = fakeCodex(); processes.push(fake); return fake.connection;
+  } });
+  const done = execution.sendMessage(wire([]), 'origin', 's', 'continue here');
+  await waitFor(() => processes[0]?.sent.some(message => message.method === 'turn/start') ?? false);
+  const current = processes[0]!;
+  expect(current.sent.some(message => message.method === 'thread/resume')).toBe(false);
+  const instructions = (current.sent.find(message => message.method === 'thread/start')?.params as Record<string, unknown>)
+    .developerInstructions as string;
+  expect(instructions).toContain('started in Claude Code (sonnet) and now continues in Codex CLI');
+  expect(instructions).toContain('Earlier Claude request');
+  current.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
+  current.send({ method: 'item/completed', params: { threadId: 'thread-1', turnId: 'turn-1',
+    item: { id: 'item-1', type: 'agentMessage', text: 'On it.' } } });
+  current.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
+  await done;
+  expect(getCodexBinding('s')?.threadId).toBe('thread-1');
+
+  const local = listMessagesWithParts('s');
+  expect(local).toHaveLength(4);
+  await expect(execution.revert({ sessionId: 's', targetMessageId: local[3]!.message.id }))
+    .rejects.toThrow(HARNESS_SWITCH_EDIT_REASON);
+  await expect(execution.fork({ sessionId: 's', targetMessageId: local[3]!.message.id }))
+    .rejects.toThrow(HARNESS_SWITCH_FORK_REASON);
+  expect(listMessagesWithParts('s')).toHaveLength(4);
 });

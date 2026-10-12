@@ -206,6 +206,7 @@ export interface MessageStorePort {
     messages: MessageWithParts[];
     latestCompactionBoundary: string | null;
     hasCompaction: boolean;
+    handoffBrief: string | null;
   };
   countMessagesInSession(sessionId: string): number;
   listLatestMessagesWithPartsPage(sessionId: string, limit?: number): TranscriptPageResult;

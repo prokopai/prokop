@@ -50,7 +50,20 @@ export interface Session {
    * its metadata; clients read these fields instead of per-harness metadata
    * keys or identity checks. */
   harnessState?: SessionHarnessState;
+  /** Harness changes made after the first message, oldest first. */
+  harnessSwitches?: SessionHarnessSwitch[];
   worktree?: SessionWorktreeBinding | null;
+}
+
+/** One harness change inside an existing conversation. */
+export interface SessionHarnessSwitch {
+  from: SessionHarness;
+  to: SessionHarness;
+  /** Target model label shown on the transcript marker. */
+  modelId: string;
+  /** Last message before the switch; the new segment starts after it. */
+  afterMessageId: string;
+  createdAt: string;
 }
 
 /**
@@ -117,8 +130,8 @@ export interface SessionHarnessCompactionState {
 
 export interface SessionHarnessForkState {
   /** 'any' = unrestricted; 'assistant-only' = fork target must be an
-   * assistant reply; 'restricted' = refused after Goal/Compact with the
-   * reason on this state. */
+   * assistant reply; 'restricted' = refused after Goal/Compact or a harness
+   * switch, with the reason on this state. */
   mode: 'any' | 'assistant-only' | 'restricted';
   /** Human-readable reason when the mode is 'restricted'. */
   reason?: string;

@@ -1,4 +1,5 @@
 import type { Message, MessageWithParts, Part, Session } from '@prokopai/sdk/types';
+import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import {
   createMessage,
   createPart,
@@ -59,6 +60,7 @@ export async function forkSession(options: ForkOptions): Promise<ForkResult> {
   const { sessionId, targetMessageId, title } = options;
   const sourceSession = await getSession(sessionId);
   if (!sourceSession) throw new Error('Source session not found');
+  if (sourceSession.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_FORK_REASON);
 
   const allMessages = await listMessagesWithParts(sessionId);
   const targetIndex = allMessages.findIndex((entry) => entry.message.id === targetMessageId);

@@ -1,4 +1,5 @@
 import type { ForkExecutionResult, SessionExecutionPort } from '@/application/ports/execution';
+import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
@@ -22,6 +23,7 @@ export async function forkCodexSession(
   if (!session || session.harness !== 'codex-cli' || session.status === 'closed' || deps.busy(session.id)) {
     throw new Error('Codex session is unavailable or busy');
   }
+  if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_FORK_REASON);
   const root = deps.root(session.id);
   const version = deps.version();
   const binding = getCodexBinding(session.id);

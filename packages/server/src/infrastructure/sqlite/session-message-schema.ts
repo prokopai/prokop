@@ -139,6 +139,18 @@ export function initializeSessionMessageSchema(
     created_at TEXT NOT NULL
   )`);
 
+  // Harness switches after the first message: the light records travel with
+  // the session row, the handoff brief for the current segment stays server-side.
+  if (!db.query<{ name: string }, []>('PRAGMA table_info(sessions)').all().some(column => column.name === 'harness_switches')) {
+    db.run("ALTER TABLE sessions ADD COLUMN harness_switches TEXT NOT NULL DEFAULT '[]'");
+  }
+  db.run(`CREATE TABLE IF NOT EXISTS session_harness_briefs (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    after_message_id TEXT NOT NULL,
+    brief TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+
   db.run('CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)');
   db.run('CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_id)');
 

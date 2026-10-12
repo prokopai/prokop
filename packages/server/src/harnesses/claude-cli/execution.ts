@@ -31,6 +31,8 @@ import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
 import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '@/harnesses/shared/domain-tools';
 import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/filesystem/session-temp';
+import { readHandoffBrief } from '@/infrastructure/sqlite/session-harness-switch';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { createClaudeWorkspaceMcp } from './mcp-tools';
 
@@ -127,6 +129,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       || active.has(sessionId) || rollingBack.has(sessionId)) throw new Error('Claude session is unavailable or busy');
     if (session.metadata?.claudeCompactPending || session.metadata?.claudeGoal
       || session.metadata?.claudeCompactedAt) throw new Error('Claude Goal or Compact history cannot be edited');
+    if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_EDIT_REASON);
     if (operation === 'edit' && (!content?.trim() || content !== content.trim() || content.length > 4000)) {
       throw new Error('Claude edit requires nonempty text');
     }
@@ -439,7 +442,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           openSegment = { part: { ...openSegment.part, text: next }, text: next };
         };
         for await (const event of runClaudeTurn({ cwd: root, prompt: content, images: imageData,
-          userMessageId: user.id, instructions: [developerInstructions, sessionTempInstructions(tempDirectory)].filter(Boolean).join('\n\n'), dynamicTools, workspaceMcp, tempDirectory,
+          userMessageId: user.id, instructions: [developerInstructions, sessionTempInstructions(tempDirectory), readHandoffBrief(sessionId)].filter(Boolean).join('\n\n'), dynamicTools, workspaceMcp, tempDirectory,
           goalCondition, sessionId: nativeId, resume: !!binding,
           model: selection.model, effort: selection.effort,
           controller, canUseTool: approvals.request(sessionId, session.workspaceId, root, wire.delivery,
@@ -703,7 +706,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         if (pending) throw new Error(recoveryHint(pending), { cause: error });
         const safe = new Set(['Claude session is unavailable or busy', 'Claude Goal or Compact history cannot be edited',
           'Claude native history is unavailable', 'Invalid Claude history target',
-          'Claude conversation history is not available for Edit or Undo']);
+          'Claude conversation history is not available for Edit or Undo', HARNESS_SWITCH_EDIT_REASON]);
         throw new Error(error instanceof Error && safe.has(error.message)
           ? error.message : 'Claude conversation cannot be undone at this point', { cause: error });
       }
@@ -733,7 +736,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           'Claude native history is unavailable', 'Claude Goal or Compact history cannot be forked',
           'Claude history requires recovery before fork', 'A Claude fork has an uncertain outcome; do not retry it',
           'Claude fork requires a completed assistant response or a user message', 'Claude fork of image history is not supported',
-          'Claude conversation history is not available for fork']);
+          'Claude conversation history is not available for fork', HARNESS_SWITCH_FORK_REASON]);
         throw new Error(error instanceof Error && safe.has(error.message)
           ? error.message : 'Claude conversation cannot be forked at this point', { cause: error });
       }

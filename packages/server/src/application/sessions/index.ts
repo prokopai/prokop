@@ -49,8 +49,9 @@ export interface SessionApplicationDeps<Origin> {
   prokopModelAvailable?: (modelId: string, providerId: string) => boolean;
   modelVariantKeys?: (modelId?: string | null, providerId?: string | null) => string[];
   isHarnessDisabled?: (harness: import('@prokopai/sdk').SessionHarness) => boolean;
-  selectEmptySessionHarnessModel?: (id: string, expected: import('@prokopai/sdk').SessionHarness, updatedAt: string,
-    choice: import('@prokopai/sdk').HarnessModelChoice) => import('@prokopai/sdk').Session | null;
+  switchSessionHarnessModel?: (id: string, expected: import('@prokopai/sdk').SessionHarness, updatedAt: string,
+    choice: import('@prokopai/sdk').HarnessModelChoice) =>
+    { ok: true; session: import('@prokopai/sdk').Session } | { ok: false; message: string };
 }
 
 /**

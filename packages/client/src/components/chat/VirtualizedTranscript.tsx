@@ -13,10 +13,10 @@ import type {
   AssistantMessage,
   StructuredOutputData,
 } from '@prokopai/sdk';
-import { isAssistantMessage } from '@prokopai/sdk';
+import { isAssistantMessage, type SessionHarness, type SessionHarnessSwitch } from '@prokopai/sdk';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Minimize2, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeftRight, Minimize2, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
 import { UserPromptText } from './UserPromptText';
@@ -78,6 +78,7 @@ interface VirtualizedTranscriptProps {
   isMainActiveSession?: boolean;
   isCompacting?: boolean;
   compactedAfterMessageId?: string;
+  harnessSwitches?: SessionHarnessSwitch[];
   compactionSuccess?: boolean;
   onClearCompactionSuccess?: () => void;
   autoFollow?: boolean;
@@ -754,6 +755,12 @@ function keyExtractor(item: DisplayItem): string {
   return item.message.id;
 }
 
+const HARNESS_NAMES: Record<SessionHarness, string> = {
+  prokop: 'Prokop',
+  'codex-cli': 'Codex CLI',
+  'claude-cli': 'Claude CLI',
+};
+
 export function VirtualizedTranscript({
   displayItems: sourceItems,
   messagesWithParts,
@@ -761,6 +768,7 @@ export function VirtualizedTranscript({
   sessionStatus,
   isCompacting = false,
   compactedAfterMessageId,
+  harnessSwitches,
   compactionSuccess = false,
   onClearCompactionSuccess,
   onNavigateToSubagent,
@@ -1074,6 +1082,9 @@ export function VirtualizedTranscript({
     return ids;
   }, [messagesWithParts]);
 
+  const switchMarkers = useMemo(() => new Map((harnessSwitches ?? []).map(entry =>
+    [entry.afterMessageId, `Switched to ${HARNESS_NAMES[entry.to]} · ${entry.modelId}`])), [harnessSwitches]);
+
   const renderItem = useCallback(({ item }: { item: DisplayItem }) => (
     <div
       className={cn(
@@ -1107,6 +1118,14 @@ export function VirtualizedTranscript({
         }
         isPinningMessage={isPinningMessage}
       />
+      {switchMarkers.has(item.message.id) && (
+        <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground" role="status">
+          <span className="h-px w-8 bg-border" />
+          <ArrowLeftRight className="size-3" />
+          {switchMarkers.get(item.message.id)}
+          <span className="h-px w-8 bg-border" />
+        </div>
+      )}
       {item.message.id === compactedAfterMessageId && (
         <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground" role="status">
           <span className="h-px w-8 bg-border" />
@@ -1131,6 +1150,7 @@ export function VirtualizedTranscript({
     isMainActiveSession,
     isCompacting,
     compactedAfterMessageId,
+    switchMarkers,
     onCompact,
     serverUrl,
     pinnedMessageIds,
@@ -1153,6 +1173,7 @@ export function VirtualizedTranscript({
     onEditMessage,
     onCompact,
     compactedAfterMessageId,
+    switchMarkers,
   }), [
     pinnedMessageIds,
     isPinningMessage,
@@ -1164,6 +1185,7 @@ export function VirtualizedTranscript({
     onEditMessage,
     onCompact,
     compactedAfterMessageId,
+    switchMarkers,
   ]);
 
   const header = (

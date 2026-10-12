@@ -51,7 +51,7 @@ import { listPreconfigs } from '@/infrastructure/config/preconfig';
 import { spawnCodexAppServer } from '@/harnesses/codex-cli/app-server';
 import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '@/harnesses/shared/domain-tools';
 import { createPretoolChannel } from '@/harnesses/codex-cli/pretool-hook';
-import { selectEmptySessionHarnessModel } from '@/infrastructure/sqlite/session-store';
+import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { getModelsConfigWithStatus } from '@/config/models';
 import { findModelVariantKeys } from '@/config';
 import { getDatabase } from '@/infrastructure/sqlite/database';
@@ -341,7 +341,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     prokopModelAvailable: (modelId, providerId) => getModelsConfigWithStatus().providers
       .some(provider => provider.id === providerId && provider.models.some(model => model.id === modelId && model.runtimeStatus.usable)),
     modelVariantKeys: findModelVariantKeys,
-    selectEmptySessionHarnessModel,
+    switchSessionHarnessModel,
   });
 
   const control = createSessionControlApplication<ConnectionId>({

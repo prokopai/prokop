@@ -36,7 +36,8 @@ import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
 import { getApiKeyForProvider } from '@/infrastructure/providers/configuration/runtime';
 import { getProvider } from '@/infrastructure/providers/registry';
 import { resolveModelId, resolveProviderId } from '@/infrastructure/providers/model-selection';
-import { revertToStep } from '@/harnesses/prokop/execution/revert';
+import { revertCrossesHarnessSwitch, revertToStep } from '@/harnesses/prokop/execution/revert';
+import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@/domains/sessions/harness-state';
 import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
 
 export type RuntimeRequestContext<Origin = unknown> = RuntimeEventContext<Origin>;
@@ -177,7 +178,7 @@ async function runSingleChatTurn<Origin>(
     }
   }
 
-  const { messages: history } = await buildEffectiveContextHistory(sessionId);
+  const { messages: history, handoffBrief } = await buildEffectiveContextHistory(sessionId);
 
   const askBroadcastFn: AskBroadcastFn = (message) => {
     if (message.type === 'ask.request') {
@@ -212,6 +213,7 @@ async function runSingleChatTurn<Origin>(
       sessionId,
       preconfig,
       messages: history,
+      handoffBrief,
       modelId: modelId,
       providerId: effectiveProvider,
       variant: session.selectedVariant || undefined,
@@ -730,6 +732,17 @@ export async function handleSessionEditMessage<Origin>(
         category: 'generic',
         code: 'invalid_message',
         message: 'Only user messages can be edited.',
+        sessionId: msg.sessionId,
+      });
+      return;
+    }
+
+    if (await revertCrossesHarnessSwitch(msg.sessionId, msg.messageId, true)) {
+      deliverToOrigin(ctx, origin, {
+        kind: 'failure',
+        category: 'generic',
+        code: 'invalid_message',
+        message: HARNESS_SWITCH_PRIOR_EDIT_REASON,
         sessionId: msg.sessionId,
       });
       return;

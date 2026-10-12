@@ -81,13 +81,12 @@ export function ChatHeader({
   const [editTitle, setEditTitle] = useState(session.title || '');
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const contentMeta = useSessionStore(s => s.contentMetaBySession[session.id]);
-  const messages = useSessionStore(s => s.messagesBySession[session.id]);
   const queued = useSessionStore(s => s.queuedMessages[session.id]);
   const workspace = useScopedServerData(s => s.workspaces.find(w => w.id === session.workspaceId));
-  const emptyRoot = !session.parentId && session.status === 'active' && !session.runningAt
-    && !isStreaming && contentMeta?.status === 'ready' && !contentMeta.hasOlder
-    && messages?.length === 0 && !queued?.length;
+  // Any idle root session may change harness; after the first message the
+  // server detaches the native thread and hands the new harness a brief.
+  const switchableRoot = !session.parentId && session.status === 'active' && !session.runningAt
+    && !isStreaming && !session.compacting && !queued?.length;
   const codexSession = session.harness === 'codex-cli';
   const claudeSession = session.harness === 'claude-cli';
   const harnessesData = useHarnessesQuery(sdkClient).data;
@@ -98,7 +97,7 @@ export function ChatHeader({
   const claudeCatalog = useQuery({
     queryKey: ['claude-catalog', serverUrl],
     queryFn: () => sdkClient!.http.sessions.claudeCatalog(),
-    enabled: !!sdkClient && !!serverUrl && emptyRoot && !claudeSession && claudeHarnessEnabled
+    enabled: !!sdkClient && !!serverUrl && switchableRoot && !claudeSession && claudeHarnessEnabled
       && !!workspace?.path,
     staleTime: 60_000,
     retry: false,
@@ -112,7 +111,7 @@ export function ChatHeader({
     retry: false,
   });
   const claudeModels = claudeSession ? claudeSelection.data?.models ?? []
-    : emptyRoot && !!workspace?.path && claudeHarnessEnabled ? claudeCatalog.data?.models ?? [] : [];
+    : switchableRoot && !!workspace?.path && claudeHarnessEnabled ? claudeCatalog.data?.models ?? [] : [];
   const claudeModel = claudeSelection.data?.selection?.model ?? session.selectedModel;
   const claudeEffort = claudeSelection.data?.selection?.effort ?? null;
   const selectClaude = async (modelId: string, effort: string) => {
@@ -131,7 +130,7 @@ export function ChatHeader({
   const catalog = useQuery({
     queryKey: ['codex-catalog', serverUrl],
     queryFn: () => sdkClient!.http.sessions.codexCatalog(),
-    enabled: !!sdkClient && !!serverUrl && emptyRoot && !codexSession && codexHarnessEnabled
+    enabled: !!sdkClient && !!serverUrl && switchableRoot && !codexSession && codexHarnessEnabled
       && !!workspace?.path,
     staleTime: 60_000,
     retry: false,
@@ -145,7 +144,7 @@ export function ChatHeader({
     retry: false,
   });
   const codexModels = codexSession ? codexSelection.data?.models ?? []
-    : emptyRoot && !!workspace?.path && codexHarnessEnabled ? catalog.data?.models ?? [] : [];
+    : switchableRoot && !!workspace?.path && codexHarnessEnabled ? catalog.data?.models ?? [] : [];
   const codexModel = codexSelection.data?.selection?.model ?? session.selectedModel;
   const codexEffort = codexSelection.data?.selection?.effort ?? null;
   const selectCodex = async (modelId: string, effort: string) => {
@@ -287,7 +286,7 @@ export function ChatHeader({
 
           <div className="flex items-center gap-1 flex-wrap md:flex-nowrap shrink-0">
             <ModelVariantConfigSelector
-              models={(codexSession || claudeSession) && !emptyRoot ? [] : models}
+              models={(codexSession || claudeSession) && !switchableRoot ? [] : models}
               claudeModels={claudeModels}
               claudeSession={claudeSession}
               claudeSelectedModel={claudeModel}

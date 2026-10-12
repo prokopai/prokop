@@ -9,7 +9,7 @@
  */
 
 import type { Database } from 'bun:sqlite';
-import type { Session, SessionStatus, SubagentStatus, SessionListFilter, SessionCategory, SessionCategoryCounts, PermissionMode } from '@prokopai/sdk';
+import type { Session, SessionStatus, SubagentStatus, SessionListFilter, SessionCategory, SessionCategoryCounts, PermissionMode, SessionHarnessSwitch } from '@prokopai/sdk';
 import { withDerivedHarnessState } from '@/domains/sessions/harness-state';
 import { resolveSessionVariant } from '@/domains/sessions/variant';
 import { findModelVariantKeys, getModelsConfig } from '@/config';
@@ -69,6 +69,7 @@ interface SessionRow {
   tags: string;
   permission_mode: string | null;
   agent_id: string | null;
+  harness_switches?: string | null;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -101,6 +102,23 @@ function resolveRowVariant(modelId: string | null, providerId: string | null, st
     );
   } catch {
     return storedParam;
+  }
+}
+
+const HARNESSES = new Set(['prokop', 'codex-cli', 'claude-cli']);
+
+/** Malformed records are dropped rather than failing the whole session read. */
+function parseHarnessSwitches(raw: string | null | undefined): SessionHarnessSwitch[] {
+  if (!raw || raw === '[]') return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is SessionHarnessSwitch => !!entry && typeof entry === 'object'
+      && HARNESSES.has(entry.from) && HARNESSES.has(entry.to) && typeof entry.modelId === 'string'
+      && typeof entry.afterMessageId === 'string' && typeof entry.createdAt === 'string')
+      .map(({ from, to, modelId, afterMessageId, createdAt }) => ({ from, to, modelId, afterMessageId, createdAt }));
+  } catch {
+    return [];
   }
 }
 
@@ -137,6 +155,7 @@ function mapRowToSession(row: SessionRow): Session {
     permissionMode: (row.permission_mode as PermissionMode | null)
       ?? getWorkspacePermissionMode(row.workspace_id || ''),
     agentId: row.agent_id ?? null,
+    harnessSwitches: parseHarnessSwitches(row.harness_switches),
   });
 }
 

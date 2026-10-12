@@ -155,8 +155,25 @@ function prokopUsageState(session: UsageSource): SessionHarnessUsageState | null
   };
 }
 
+export const HARNESS_SWITCH_FORK_REASON = 'Fork unavailable after a harness switch';
+/** Native CLI history holds only the current segment, so whole-transcript rollback cannot match. */
+export const HARNESS_SWITCH_EDIT_REASON = 'Edit and Undo are unavailable after a harness switch';
+/** Prokop owns its transcript; only turns before the latest switch are locked. */
+export const HARNESS_SWITCH_PRIOR_EDIT_REASON = 'Edit and Undo are unavailable for turns before the harness switch';
+
 /** Derive the normalized harness state for a persisted session. */
 export function deriveSessionHarnessState(
+  harness: SessionHarness | undefined,
+  metadata: Record<string, unknown> | null | undefined,
+  usageSource?: UsageSource,
+  switched = false,
+): SessionHarnessState {
+  const state = deriveOwnerHarnessState(harness, metadata, usageSource);
+  // Native history after a switch no longer matches the whole transcript.
+  return switched ? { ...state, fork: { mode: 'restricted', reason: HARNESS_SWITCH_FORK_REASON } } : state;
+}
+
+function deriveOwnerHarnessState(
   harness: SessionHarness | undefined,
   metadata: Record<string, unknown> | null | undefined,
   usageSource?: UsageSource,
@@ -239,6 +256,7 @@ export function withDerivedHarnessState<T extends Session>(session: T): T {
       session.harness,
       session.metadata,
       session as UsageSource,
+      (session.harnessSwitches?.length ?? 0) > 0,
     ),
   };
 }

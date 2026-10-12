@@ -55,6 +55,8 @@ export interface ChatOptions {
   /** The caller handles needs_compaction and resumes from persisted history. */
   compactBetweenSteps?: boolean;
   continueFromCompaction?: boolean;
+  /** Frozen conversation brief after a harness switch; appended to the system prompt. */
+  handoffBrief?: string | null;
   /** True when a steer message waits; the stream stops at the next settled tool step and the caller delivers it. */
   steerPending?: () => Promise<boolean>;
 }
@@ -150,13 +152,15 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     })).some((candidate: { id: string }) => candidate.id === preconfig.id);
 
   // Build system message through the ordered context assembler contract
-  const systemMessage = await getContextAssembler().build({
+  const assembledSystemMessage = await getContextAssembler().build({
     preconfig,
     workspacePath,
     workspaceId,
     additionalPaths: effectiveAdditionalPaths,
     selfDelegationAvailable,
   });
+  const systemMessage = options.handoffBrief
+    ? `${assembledSystemMessage}\n\n${options.handoffBrief}` : assembledSystemMessage;
 
   const { model, replayReasoning, useProviderInstructions, omitMaxOutputTokens, omitTemperature, providerOptions: baseProviderOptions } =
     await getModelWithMetadata({

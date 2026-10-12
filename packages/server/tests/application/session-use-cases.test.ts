@@ -1119,7 +1119,7 @@ describe('application session use cases', () => {
         codexModels: async () => [{ model: 'codex-model', name: 'Codex', isDefault: true,
           defaultEffort: 'medium', supportedEfforts: ['medium', 'high'] }],
         prokopModelAvailable: (model, provider) => model === 'prokop-model' && provider === 'provider',
-        selectEmptySessionHarnessModel: (...args) => { writes.push(args); return selected; },
+        switchSessionHarnessModel: (...args) => { writes.push(args); return { ok: true, session: selected }; },
       });
       const wire = makeWire(spy);
       await app.selectHarnessModel(wire, origin, { sessionId: 'sess-1', choice: {
@@ -1137,6 +1137,21 @@ describe('application session use cases', () => {
         harness: 'codex-cli', modelId: 'codex-model', effort: 'high',
       }]]);
       expect(spy.sent.at(-1)).toEqual({ type: 'session.updated', session: selected });
+    });
+
+    test('cross-harness selection after the first message reports the store rejection reason', async () => {
+      const spy = makeSpy();
+      const current = makeSession({ updatedAt: 'current', harness: 'claude-cli' });
+      const app = createSessionLifecycleApplication({
+        ...makeDeps({ repository: makeRepository({ getSession: () => current }) }),
+        prokopModelAvailable: () => true,
+        switchSessionHarnessModel: () => ({ ok: false, message: 'Answer pending approvals before switching harness' }),
+      });
+      await app.selectHarnessModel(makeWire(spy), origin, { sessionId: 'sess-1', choice: {
+        harness: 'prokop', modelId: 'prokop-model', providerId: 'provider',
+      } });
+      expect(spy.sent.at(-1)).toEqual(expect.objectContaining({ type: 'error', code: 'invalid_session',
+        message: 'Answer pending approvals before switching harness' }));
     });
 
     test('update enriches preconfig selection and sends session.updated', async () => {
