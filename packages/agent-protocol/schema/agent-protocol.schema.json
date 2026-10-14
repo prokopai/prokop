@@ -1,0 +1,4057 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Prokop agent protocol",
+  "protocolVersion": 1,
+  "methods": {
+    "hostToAgent": {
+      "requests": {
+        "initialize": {
+          "description": "First request after spawn. The host passes settings the agent used to read synchronously.",
+          "params": {
+            "$ref": "#/$defs/initialize.params"
+          },
+          "result": {
+            "$ref": "#/$defs/initialize.result"
+          }
+        },
+        "turn.start": {
+          "description": "SessionExecutionPort.sendMessage. Resolves when the turn ends. A queued prompt carries queueId; the agent retires that row in the same store.commit that writes the user message.",
+          "params": {
+            "$ref": "#/$defs/turn.start.params"
+          },
+          "result": {
+            "$ref": "#/$defs/turn.start.result"
+          }
+        },
+        "turn.edit": {
+          "description": "SessionExecutionPort.editMessage.",
+          "params": {
+            "$ref": "#/$defs/turn.edit.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "turn.steer": {
+          "description": "SessionExecutionPort.steerQueue: deliver waiting steer messages into the running turn.",
+          "params": {
+            "$ref": "#/$defs/turn.steer.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "turn.interrupt": {
+          "description": "SessionExecutionPort.interruptSession, including child sessions.",
+          "params": {
+            "$ref": "#/$defs/turn.interrupt.params"
+          },
+          "result": {
+            "$ref": "#/$defs/turn.interrupt.result"
+          }
+        },
+        "turn.headless": {
+          "description": "HeadlessSessionRunPort.run (scheduled jobs, learning reviews). Prokop only today.",
+          "params": {
+            "$ref": "#/$defs/turn.headless.params"
+          },
+          "result": {
+            "$ref": "#/$defs/turn.headless.result"
+          }
+        },
+        "compact": {
+          "description": "SessionExecutionPort.compact (manual). Auto-compaction runs inside turns.",
+          "params": {
+            "$ref": "#/$defs/compact.params"
+          },
+          "result": {
+            "$ref": "#/$defs/compact.result"
+          }
+        },
+        "revert": {
+          "description": "SessionExecutionPort.revert. Claude/Codex also roll back their native thread.",
+          "params": {
+            "$ref": "#/$defs/revert.params"
+          },
+          "result": {
+            "$ref": "#/$defs/revert.result"
+          }
+        },
+        "fork": {
+          "description": "SessionExecutionPort.fork. Claude/Codex also fork their native thread.",
+          "params": {
+            "$ref": "#/$defs/fork.params"
+          },
+          "result": {
+            "$ref": "#/$defs/fork.result"
+          }
+        },
+        "title.generate": {
+          "description": "SessionExecutionPort.regenerateTitle (LLM call in the agent).",
+          "params": {
+            "$ref": "#/$defs/title.generate.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "title.native": {
+          "description": "Title the CLI wrote itself (readClaudeSessionTitle).",
+          "params": {
+            "$ref": "#/$defs/title.native.params"
+          },
+          "result": {
+            "$ref": "#/$defs/title.native.result"
+          }
+        },
+        "ask.resolve": {
+          "description": "The user answered a pending ask. Replaces the three in-process resolution ports (decision 6 A).",
+          "params": {
+            "$ref": "#/$defs/ask.resolve.params"
+          },
+          "result": {
+            "$ref": "#/$defs/ask.resolve.result"
+          }
+        },
+        "harness.status": {
+          "description": "CLI availability and version probe (codexCliAvailable, claudeCliVersion, ...).",
+          "params": {
+            "$ref": "#/$defs/HarnessParams"
+          },
+          "result": {
+            "$ref": "#/$defs/harness.status.result"
+          }
+        },
+        "models.list": {
+          "description": "Cached model catalog of a CLI harness.",
+          "params": {
+            "$ref": "#/$defs/HarnessParams"
+          },
+          "result": {
+            "$ref": "#/$defs/models.list.result"
+          }
+        },
+        "usage.limits": {
+          "description": "Cached plan usage limits of a CLI harness.",
+          "params": {
+            "$ref": "#/$defs/HarnessParams"
+          },
+          "result": {
+            "$ref": "#/$defs/usage.limits.result"
+          }
+        },
+        "shutdown": {
+          "description": "Finish cleanup (close Codex app-server connections) and exit. Sent only with no active turns.",
+          "params": {
+            "$ref": "#/$defs/shutdown.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        }
+      },
+      "notifications": {
+        "$/cancel": {
+          "description": "Cancel an in-flight host-to-agent request.",
+          "params": {
+            "$ref": "#/$defs/CancelParams"
+          }
+        }
+      }
+    },
+    "agentToHost": {
+      "requests": {
+        "store.session.create": {
+          "description": "Create a session (child sessions, forks).",
+          "params": {
+            "$ref": "#/$defs/store.session.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Session"
+          }
+        },
+        "store.session.get": {
+          "description": "Read a session mid-turn. Turn start already carries a snapshot.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeSession"
+          }
+        },
+        "store.session.update": {
+          "description": "Update session columns. metadataPatch is shallow-merged in the host, so concurrent writers do not lose keys.",
+          "params": {
+            "$ref": "#/$defs/store.session.update.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeSession"
+          }
+        },
+        "store.session.children": {
+          "description": "Child sessions (subagents, workflows) for interrupt cascade.",
+          "params": {
+            "$ref": "#/$defs/store.session.children.params"
+          },
+          "result": {
+            "$ref": "#/$defs/store.session.children.result"
+          }
+        },
+        "store.message.create": {
+          "description": "Create a message with an agent-generated ID (upsert by ID).",
+          "params": {
+            "$ref": "#/$defs/store.message.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Message"
+          }
+        },
+        "store.message.get": {
+          "description": "Read one message.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeMessage"
+          }
+        },
+        "store.message.getWithParts": {
+          "description": "Read one message and its parts.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/store.message.getWithParts.result"
+          }
+        },
+        "store.message.update": {
+          "description": "Patch a message (status, tokens, completion).",
+          "params": {
+            "$ref": "#/$defs/store.message.update.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeMessage"
+          }
+        },
+        "store.message.delete": {
+          "description": "Delete a message and its parts.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Deleted"
+          }
+        },
+        "store.message.list": {
+          "description": "Full transcript.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/store.message.list.result"
+          }
+        },
+        "store.message.page": {
+          "description": "Latest transcript page.",
+          "params": {
+            "$ref": "#/$defs/store.message.page.params"
+          },
+          "result": {
+            "$ref": "#/$defs/TranscriptPage"
+          }
+        },
+        "store.history.effective": {
+          "description": "History after the latest compaction boundary, with handoff brief.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/EffectiveContextHistory"
+          }
+        },
+        "store.part.create": {
+          "description": "Create a part with an agent-generated ID (upsert by ID).",
+          "params": {
+            "$ref": "#/$defs/store.part.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Part"
+          }
+        },
+        "store.part.get": {
+          "description": "Read one part.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybePart"
+          }
+        },
+        "store.part.update": {
+          "description": "Patch a part.",
+          "params": {
+            "$ref": "#/$defs/store.part.update.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybePart"
+          }
+        },
+        "store.part.listByMessage": {
+          "description": "Parts of one message.",
+          "params": {
+            "$ref": "#/$defs/store.part.listByMessage.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Parts"
+          }
+        },
+        "store.part.listBySession": {
+          "description": "Parts of one session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Parts"
+          }
+        },
+        "store.part.byCallId": {
+          "description": "Tool part by provider call ID.",
+          "params": {
+            "$ref": "#/$defs/store.part.byCallId.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeToolPart"
+          }
+        },
+        "store.part.snapshot": {
+          "description": "Persist streamed text/reasoning so far. Deltas themselves travel as deliver part.append.",
+          "params": {
+            "$ref": "#/$defs/store.part.snapshot.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "store.tool.transition": {
+          "description": "Move a tool part through its state machine. The host also derives files-changed notices from it.",
+          "params": {
+            "$ref": "#/$defs/store.tool.transition.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeToolPart"
+          }
+        },
+        "store.index.sync": {
+          "description": "Refresh full-text search for a finished message.",
+          "params": {
+            "$ref": "#/$defs/store.index.sync.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "store.artifact.create": {
+          "description": "Store oversized tool output.",
+          "params": {
+            "$ref": "#/$defs/store.artifact.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/ToolOutputArtifact"
+          }
+        },
+        "store.artifact.page": {
+          "description": "Read a page of stored tool output.",
+          "params": {
+            "$ref": "#/$defs/store.artifact.page.params"
+          },
+          "result": {
+            "$ref": "#/$defs/store.artifact.page.result"
+          }
+        },
+        "store.commit": {
+          "description": "Atomic checks + writes in one host transaction (plan F3).",
+          "params": {
+            "$ref": "#/$defs/store.commit.params"
+          },
+          "result": {
+            "$ref": "#/$defs/store.commit.result"
+          }
+        },
+        "native.get": {
+          "description": "Read one native record. Writes go through store.commit.",
+          "params": {
+            "$ref": "#/$defs/NativeKey"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeNative"
+          }
+        },
+        "native.find": {
+          "description": "Reverse lookup, e.g. Codex thread ID to session.",
+          "params": {
+            "$ref": "#/$defs/native.find.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeNative"
+          }
+        },
+        "queue.peekSteer": {
+          "description": "Oldest steer message for a running turn. Retire it with queue.delete in store.commit.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/queue.peekSteer.result"
+          }
+        },
+        "attachment.get": {
+          "description": "Attachment metadata; the agent reads absolutePath directly.",
+          "params": {
+            "$ref": "#/$defs/attachment.get.params"
+          },
+          "result": {
+            "$ref": "#/$defs/attachment.get.result"
+          }
+        },
+        "attachment.create": {
+          "description": "Store a tool-produced file (Codex image outputs).",
+          "params": {
+            "$ref": "#/$defs/attachment.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/AttachmentRecord"
+          }
+        },
+        "workspace.get": {
+          "description": "Read a workspace (child sessions, tools).",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/workspace.get.result"
+          }
+        },
+        "workspace.addRoot": {
+          "description": "Persist an extra workspace root granted during a turn.",
+          "params": {
+            "$ref": "#/$defs/WorkspaceRootParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "workspace.removeRoot": {
+          "description": "Remove an extra workspace root.",
+          "params": {
+            "$ref": "#/$defs/WorkspaceRootParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "interaction.createPendingAsk": {
+          "description": "Store a pending ask row.",
+          "params": {
+            "$ref": "#/$defs/interaction.createPendingAsk.params"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.createPendingAsk.result"
+          }
+        },
+        "interaction.removePendingAsk": {
+          "description": "Delete a pending ask row.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "interaction.removeByToolCallId": {
+          "description": "Delete pending ask rows for a tool call.",
+          "params": {
+            "$ref": "#/$defs/interaction.removeByToolCallId.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "interaction.getRequest": {
+          "description": "Read a permission request by request ID.",
+          "params": {
+            "$ref": "#/$defs/interaction.getRequest.params"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybePendingAsk"
+          }
+        },
+        "interaction.resolveRequest": {
+          "description": "Mark a pending request approved or denied. resolved=false: it was no longer pending.",
+          "params": {
+            "$ref": "#/$defs/interaction.resolveRequest.params"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.resolveRequest.result"
+          }
+        },
+        "interaction.resolveWithGrant": {
+          "description": "Resolve and persist the remembered grant atomically (F3 approval transactions). A grant failure denies.",
+          "params": {
+            "$ref": "#/$defs/interaction.resolveWithGrant.params"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.resolveWithGrant.result"
+          }
+        },
+        "interaction.expireRequest": {
+          "description": "Expire one pending request.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.expireRequest.result"
+          }
+        },
+        "interaction.expireOld": {
+          "description": "Expire requests older than maxAgeMs.",
+          "params": {
+            "$ref": "#/$defs/interaction.expireOld.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "interaction.cancelBySession": {
+          "description": "Cancel pending requests of a session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "interaction.listBySession": {
+          "description": "Pending asks of a session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/PendingAsks"
+          }
+        },
+        "interaction.listByRoot": {
+          "description": "Pending asks under a root session.",
+          "params": {
+            "$ref": "#/$defs/RootSessionParams"
+          },
+          "result": {
+            "$ref": "#/$defs/PendingAsks"
+          }
+        },
+        "interaction.listRequestsByRoot": {
+          "description": "Pending permission requests under a root session.",
+          "params": {
+            "$ref": "#/$defs/RootSessionParams"
+          },
+          "result": {
+            "$ref": "#/$defs/PendingAsks"
+          }
+        },
+        "interaction.matchGrant": {
+          "description": "Find a remembered grant covering this action.",
+          "params": {
+            "$ref": "#/$defs/interaction.matchGrant.params"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.matchGrant.result"
+          }
+        },
+        "interaction.createGrant": {
+          "description": "Persist a remembered grant.",
+          "params": {
+            "$ref": "#/$defs/CreateGrantParams"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.createGrant.result"
+          }
+        },
+        "tool.list": {
+          "description": "Effective tool definitions for a session and workspace.",
+          "params": {
+            "$ref": "#/$defs/tool.list.params"
+          },
+          "result": {
+            "$ref": "#/$defs/tool.list.result"
+          }
+        },
+        "tool.call": {
+          "description": "Run a host-owned tool. Cancel with $/cancel; the agent re-checks its own turn authorization after the reply.",
+          "params": {
+            "$ref": "#/$defs/tool.call.params"
+          },
+          "result": {
+            "$ref": "#/$defs/ToolResult"
+          }
+        },
+        "terminal.create": {
+          "description": "Start a detached terminal. terminalId=null: cwd missing or spawn failed.",
+          "params": {
+            "$ref": "#/$defs/terminal.create.params"
+          },
+          "result": {
+            "$ref": "#/$defs/terminal.create.result"
+          }
+        },
+        "terminal.get": {
+          "description": "Terminal info, with the current execution cwd.",
+          "params": {
+            "$ref": "#/$defs/TerminalIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/terminal.get.result"
+          }
+        },
+        "terminal.list": {
+          "description": "Terminals opened in a workspace path.",
+          "params": {
+            "$ref": "#/$defs/terminal.list.params"
+          },
+          "result": {
+            "$ref": "#/$defs/terminal.list.result"
+          }
+        },
+        "terminal.write": {
+          "description": "Write input to a running terminal.",
+          "params": {
+            "$ref": "#/$defs/terminal.write.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Written"
+          }
+        },
+        "terminal.read": {
+          "description": "Read buffered output from a byte offset.",
+          "params": {
+            "$ref": "#/$defs/terminal.read.params"
+          },
+          "result": {
+            "$ref": "#/$defs/terminal.read.result"
+          }
+        },
+        "terminal.setCwd": {
+          "description": "Record the cwd a command left behind.",
+          "params": {
+            "$ref": "#/$defs/terminal.setCwd.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Written"
+          }
+        },
+        "terminal.destroy": {
+          "description": "Kill a terminal.",
+          "params": {
+            "$ref": "#/$defs/TerminalIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        }
+      },
+      "notifications": {
+        "deliver": {
+          "description": "Broadcast a client wire message. seq increases by one per deliver, so the host can detect gaps and keep part.append deltas in order.",
+          "params": {
+            "$ref": "#/$defs/deliver.params"
+          }
+        },
+        "host.notify": {
+          "description": "Side effects the host owns: push notifications and file-change notices.",
+          "params": {
+            "$ref": "#/$defs/host.notify.params"
+          }
+        },
+        "$/cancel": {
+          "description": "Cancel an in-flight agent-to-host request (tool.call).",
+          "params": {
+            "$ref": "#/$defs/CancelParams"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Ack": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "Ask": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": {}
+    },
+    "AskAuthority": {
+      "type": "object",
+      "properties": {
+        "visibilityScope": {
+          "type": "string",
+          "enum": [
+            "controller_only",
+            "session_participants",
+            "global"
+          ]
+        },
+        "resolutionMode": {
+          "type": "string",
+          "enum": [
+            "controller_only",
+            "designated_clients",
+            "first_eligible"
+          ]
+        },
+        "allowedResponderClientIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "visibilityScope",
+        "resolutionMode"
+      ],
+      "additionalProperties": {}
+    },
+    "AttachmentRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "file"
+          ]
+        },
+        "filename": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "absolutePath": {
+          "type": "string",
+          "description": "Same machine: the agent reads the file directly."
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "accessKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "workspaceId",
+        "kind",
+        "filename",
+        "mimeType",
+        "sizeBytes",
+        "absolutePath",
+        "createdAt",
+        "accessKey"
+      ]
+    },
+    "Audience": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "global"
+            },
+            "excludeOrigin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "session"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "excludeOrigin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "sessionId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "origin"
+            },
+            "origin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "origin"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "controller"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "sessionId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "ask_targets"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "authority": {
+              "$ref": "#/$defs/AskAuthority"
+            }
+          },
+          "required": [
+            "scope",
+            "sessionId",
+            "authority"
+          ]
+        }
+      ]
+    },
+    "CancelParams": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "ID of the in-flight request to cancel."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "CommitCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "check": {
+              "type": "string",
+              "const": "native.equals"
+            },
+            "target": {
+              "$ref": "#/$defs/NativeKey"
+            },
+            "value": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {},
+              "description": "Every listed field must equal the stored value field."
+            }
+          },
+          "required": [
+            "check",
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "check": {
+              "type": "string",
+              "const": "native.absent"
+            },
+            "target": {
+              "$ref": "#/$defs/NativeKey"
+            }
+          },
+          "required": [
+            "check",
+            "target"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "check": {
+              "type": "string",
+              "const": "session.messageIds"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The transcript, in order, is exactly these messages (unchanged since the agent read it)."
+            }
+          },
+          "required": [
+            "check",
+            "sessionId",
+            "ids"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "check": {
+              "type": "string",
+              "const": "session.harness"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "harness": {
+              "type": "string",
+              "description": "The session exists and is still owned by this harness."
+            }
+          },
+          "required": [
+            "check",
+            "sessionId",
+            "harness"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "check": {
+              "type": "string",
+              "const": "queue.present"
+            },
+            "id": {
+              "type": "string",
+              "description": "A queued prompt is still waiting (not removed by the user)."
+            }
+          },
+          "required": [
+            "check",
+            "id"
+          ]
+        }
+      ]
+    },
+    "CommitWrite": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "session.create"
+            },
+            "session": {
+              "$ref": "#/$defs/Session"
+            }
+          },
+          "required": [
+            "op",
+            "session"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "session.update"
+            },
+            "id": {
+              "type": "string"
+            },
+            "updates": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "metadataPatch": {
+              "description": "Shallow-merged into current metadata inside the transaction, replacing agent-side read-modify-write.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "updates"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "message.create"
+            },
+            "message": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "op",
+            "message"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "message.update"
+            },
+            "id": {
+              "type": "string"
+            },
+            "updates": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "updates"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "message.delete"
+            },
+            "id": {
+              "type": "string"
+            },
+            "ifExists": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "part.create"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "part": {
+              "$ref": "#/$defs/Part"
+            }
+          },
+          "required": [
+            "op",
+            "sessionId",
+            "part"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "part.update"
+            },
+            "id": {
+              "type": "string"
+            },
+            "updates": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "updates"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "queue.delete"
+            },
+            "id": {
+              "type": "string"
+            },
+            "ifExists": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "native.put"
+            },
+            "record": {
+              "$ref": "#/$defs/NativeRecord"
+            }
+          },
+          "required": [
+            "op",
+            "record"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "native.delete"
+            },
+            "target": {
+              "$ref": "#/$defs/NativeKey"
+            },
+            "ifExists": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "target"
+          ]
+        }
+      ]
+    },
+    "Count": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "count"
+      ]
+    },
+    "CreateGrantParams": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string",
+          "description": "SDK PermissionResource."
+        },
+        "action": {
+          "type": "string"
+        },
+        "permissionKey": {
+          "type": "string"
+        },
+        "grantOptions": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {},
+          "description": "SDK PermissionGrantOptions."
+        }
+      },
+      "required": [
+        "workspaceId",
+        "toolName",
+        "resource",
+        "permissionKey",
+        "grantOptions"
+      ]
+    },
+    "Deleted": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ]
+    },
+    "EffectiveContextHistory": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageWithParts"
+          }
+        },
+        "latestCompactionBoundary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasCompaction": {
+          "type": "boolean"
+        },
+        "handoffBrief": {
+          "description": "Frozen brief for the current segment after a harness switch.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "messages",
+        "latestCompactionBoundary",
+        "hasCompaction"
+      ]
+    },
+    "HarnessParams": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        }
+      },
+      "required": [
+        "harness"
+      ]
+    },
+    "IdParams": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "MaybeMessage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Message"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaybeNative": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NativeRecord"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaybePart": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Part"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaybePendingAsk": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PendingAskRecord"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaybeSession": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Session"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaybeToolPart": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolPart"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "role"
+      ],
+      "additionalProperties": {}
+    },
+    "MessageWithParts": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "$ref": "#/$defs/Message"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Part"
+          }
+        }
+      },
+      "required": [
+        "message",
+        "parts"
+      ]
+    },
+    "NativeKey": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "type": "string",
+          "enum": [
+            "codex-cli",
+            "claude-cli"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "harness",
+        "kind",
+        "key"
+      ]
+    },
+    "NativeRecord": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "type": "string",
+          "enum": [
+            "codex-cli",
+            "claude-cli"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "description": "e.g. 'binding', 'rollback-intent', 'fork-intent', 'inherited-user', 'model'"
+        },
+        "key": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Owning session; rows are deleted with it."
+        },
+        "messageId": {
+          "description": "Owning message; rows are deleted with it.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lookup": {
+          "description": "Unique per harness + kind; reverse lookup such as a Codex thread ID.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocksSwitch": {
+          "type": "boolean",
+          "description": "While present, the host refuses a harness switch for the session."
+        },
+        "value": {
+          "description": "Opaque to the host, except kind \"model\" ({ model, effort })."
+        }
+      },
+      "required": [
+        "harness",
+        "kind",
+        "key",
+        "sessionId",
+        "blocksSwitch",
+        "value"
+      ]
+    },
+    "OriginToken": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Part": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "messageId",
+        "type"
+      ],
+      "additionalProperties": {}
+    },
+    "Parts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Part"
+      }
+    },
+    "PendingAskRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "rootSessionId": {
+          "type": "string"
+        },
+        "originSessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "ask": {
+          "$ref": "#/$defs/Ask"
+        },
+        "status": {
+          "$ref": "#/$defs/PermissionRequestStatus"
+        },
+        "isPermission": {
+          "type": "boolean"
+        },
+        "expiresAt": {
+          "type": "number"
+        },
+        "resolvedAt": {
+          "type": "number"
+        },
+        "resolution": {},
+        "createdAt": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "requestId",
+        "sessionId",
+        "toolCallId",
+        "toolName",
+        "ask",
+        "status",
+        "isPermission",
+        "createdAt"
+      ]
+    },
+    "PendingAsks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PendingAskRecord"
+      }
+    },
+    "PermissionGrant": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": {}
+    },
+    "PermissionRequestStatus": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "denied",
+        "expired",
+        "cancelled"
+      ]
+    },
+    "Preconfig": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": {}
+    },
+    "QueuedMessage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "content"
+      ],
+      "additionalProperties": {}
+    },
+    "RequestId": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "RootSessionParams": {
+      "type": "object",
+      "properties": {
+        "rootSessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rootSessionId"
+      ]
+    },
+    "RpcError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {}
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "RpcNotification": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "type": "string",
+          "const": "2.0"
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {}
+      },
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ]
+    },
+    "RpcRequest": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "type": "string",
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {}
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    "RpcResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "jsonrpc": {
+              "type": "string",
+              "const": "2.0"
+            },
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "result": {}
+          },
+          "required": [
+            "jsonrpc",
+            "id",
+            "result"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "jsonrpc": {
+              "type": "string",
+              "const": "2.0"
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RequestId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "$ref": "#/$defs/RpcError"
+            }
+          },
+          "required": [
+            "jsonrpc",
+            "id",
+            "error"
+          ]
+        }
+      ]
+    },
+    "ServerMessage": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": {}
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
+        "parentId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId"
+      ],
+      "additionalProperties": {}
+    },
+    "SessionHarness": {
+      "type": "string",
+      "enum": [
+        "prokop",
+        "codex-cli",
+        "claude-cli"
+      ]
+    },
+    "SessionIdParams": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "StreamingPartSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "reasoning"
+          ]
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "messageId",
+        "sessionId",
+        "type",
+        "createdAt",
+        "text"
+      ]
+    },
+    "TerminalIdParams": {
+      "type": "object",
+      "properties": {
+        "terminalId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminalId"
+      ]
+    },
+    "TerminalInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "cwd",
+        "workspaceId",
+        "status"
+      ],
+      "additionalProperties": {}
+    },
+    "ToolOutputArtifact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ToolOutputArtifactFormat"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "createdAt": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "toolCallId",
+        "toolName",
+        "content",
+        "format",
+        "size",
+        "createdAt"
+      ]
+    },
+    "ToolOutputArtifactFormat": {
+      "type": "string",
+      "enum": [
+        "json",
+        "text"
+      ]
+    },
+    "ToolOutputArtifactPage": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ToolOutputArtifactFormat"
+        },
+        "content": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "totalChars": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifactId",
+        "toolCallId",
+        "toolName",
+        "format",
+        "content",
+        "offset",
+        "limit",
+        "totalChars",
+        "nextOffset",
+        "complete"
+      ]
+    },
+    "ToolPart": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "tool"
+        }
+      },
+      "required": [
+        "id",
+        "messageId",
+        "type"
+      ],
+      "additionalProperties": {}
+    },
+    "ToolResult": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "structuredContent": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "ToolSource": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "domain"
+      ],
+      "description": "mcp: global and workspace MCP servers. domain: memory, skills, session search, scheduler."
+    },
+    "TranscriptPage": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageWithParts"
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "hasOlder": {
+              "type": "boolean"
+            },
+            "oldestSequence": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "newestSequence": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "hasOlder",
+            "oldestSequence",
+            "newestSequence",
+            "limit"
+          ]
+        }
+      },
+      "required": [
+        "messages",
+        "pagination"
+      ]
+    },
+    "TurnSnapshot": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/Session"
+        },
+        "workspace": {
+          "$ref": "#/$defs/Workspace"
+        },
+        "root": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "description": "Resolved session root (managed worktree or workspace path).",
+              "type": "string"
+            },
+            "additionalPaths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowedRoots": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Read-only roots: uploads and the agent directory."
+            },
+            "tempDir": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "additionalPaths",
+            "allowedRoots",
+            "tempDir"
+          ]
+        },
+        "responseFormat": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "session",
+        "workspace",
+        "root"
+      ]
+    },
+    "Workspace": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "path"
+      ],
+      "additionalProperties": {}
+    },
+    "WorkspaceRootParams": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "path"
+      ]
+    },
+    "Written": {
+      "type": "object",
+      "properties": {
+        "written": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "written"
+      ]
+    },
+    "ask.resolve.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "response": {}
+      },
+      "required": [
+        "sessionId",
+        "toolCallId",
+        "response"
+      ]
+    },
+    "ask.resolve.result": {
+      "type": "object",
+      "properties": {
+        "resolved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "resolved"
+      ]
+    },
+    "attachment.create.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "dataBase64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "workspaceId",
+        "filename",
+        "mimeType",
+        "sizeBytes",
+        "dataBase64"
+      ]
+    },
+    "attachment.get.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "attachmentId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "attachmentId"
+      ]
+    },
+    "attachment.get.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AttachmentRecord"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compact.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "const": "manual"
+        }
+      },
+      "required": [
+        "sessionId",
+        "reason"
+      ]
+    },
+    "compact.result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": true
+            },
+            "result": {
+              "type": "object",
+              "properties": {
+                "tokensUsed": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "number"
+                    },
+                    "completion": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "prompt",
+                    "completion"
+                  ]
+                }
+              },
+              "required": [
+                "tokensUsed"
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "result"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": false
+            },
+            "error": {
+              "type": "string"
+            },
+            "skipped": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ok",
+            "error"
+          ]
+        }
+      ]
+    },
+    "deliver.params": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "audience": {
+          "$ref": "#/$defs/Audience"
+        },
+        "message": {
+          "$ref": "#/$defs/ServerMessage"
+        }
+      },
+      "required": [
+        "seq",
+        "audience",
+        "message"
+      ]
+    },
+    "fork.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "targetMessageId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "targetMessageId"
+      ]
+    },
+    "fork.result": {
+      "type": "object",
+      "properties": {
+        "forkedSession": {
+          "$ref": "#/$defs/Session"
+        },
+        "messages": {
+          "type": "array",
+          "items": {}
+        }
+      },
+      "required": [
+        "forkedSession",
+        "messages"
+      ]
+    },
+    "harness.status.result": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "available",
+        "version"
+      ]
+    },
+    "host.notify.params": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "turn.finished"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "message": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "kind",
+            "sessionId",
+            "message"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "permission.required"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "rootSessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "requestId",
+            "rootSessionId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "files.changed"
+            },
+            "sessionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "sessionId"
+          ]
+        }
+      ]
+    },
+    "initialize.params": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "host": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "version"
+          ]
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "sandboxActive": {
+              "type": "boolean"
+            },
+            "permissionTimeoutMs": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "sandboxActive",
+            "permissionTimeoutMs"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "host",
+        "settings"
+      ]
+    },
+    "initialize.result": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "agent": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "version"
+          ]
+        },
+        "harnesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SessionHarness"
+          }
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "agent",
+        "harnesses"
+      ]
+    },
+    "interaction.createGrant.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PermissionGrant"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "interaction.createPendingAsk.params": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "rootSessionId": {
+              "type": "string"
+            },
+            "originSessionId": {
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "toolCallId": {
+              "type": "string"
+            },
+            "toolName": {
+              "type": "string"
+            },
+            "ask": {
+              "$ref": "#/$defs/Ask"
+            },
+            "status": {
+              "$ref": "#/$defs/PermissionRequestStatus"
+            },
+            "isPermission": {
+              "type": "boolean"
+            },
+            "expiresAt": {
+              "type": "number"
+            },
+            "resolvedAt": {
+              "type": "number"
+            },
+            "resolution": {},
+            "createdAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "requestId",
+            "sessionId",
+            "toolCallId",
+            "toolName",
+            "ask",
+            "status",
+            "isPermission",
+            "createdAt"
+          ]
+        }
+      },
+      "required": [
+        "record"
+      ]
+    },
+    "interaction.createPendingAsk.result": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "interaction.expireOld.params": {
+      "type": "object",
+      "properties": {
+        "maxAgeMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "maxAgeMs"
+      ]
+    },
+    "interaction.expireRequest.result": {
+      "type": "object",
+      "properties": {
+        "expired": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expired"
+      ]
+    },
+    "interaction.getRequest.params": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "interaction.matchGrant.params": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string",
+          "description": "SDK PermissionResource."
+        },
+        "action": {
+          "type": "string"
+        },
+        "permissionKey": {
+          "type": "string"
+        },
+        "rootSessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "toolName",
+        "resource",
+        "permissionKey"
+      ]
+    },
+    "interaction.matchGrant.result": {
+      "type": "object",
+      "properties": {
+        "matched": {
+          "type": "boolean"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionGrant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "matched",
+        "grant"
+      ]
+    },
+    "interaction.removeByToolCallId.params": {
+      "type": "object",
+      "properties": {
+        "toolCallId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "toolCallId"
+      ]
+    },
+    "interaction.resolveRequest.params": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "denied"
+          ]
+        },
+        "resolution": {}
+      },
+      "required": [
+        "requestId",
+        "status"
+      ]
+    },
+    "interaction.resolveRequest.result": {
+      "type": "object",
+      "properties": {
+        "resolved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "resolved"
+      ]
+    },
+    "interaction.resolveWithGrant.params": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "denied"
+          ]
+        },
+        "resolution": {},
+        "grant": {
+          "$ref": "#/$defs/CreateGrantParams"
+        }
+      },
+      "required": [
+        "requestId",
+        "status"
+      ]
+    },
+    "interaction.resolveWithGrant.result": {
+      "type": "object",
+      "properties": {
+        "resolved": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/PermissionRequestStatus"
+        }
+      },
+      "required": [
+        "resolved",
+        "status"
+      ]
+    },
+    "models.list.result": {
+      "type": "object",
+      "properties": {
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "models"
+      ]
+    },
+    "native.find.params": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "type": "string",
+          "enum": [
+            "codex-cli",
+            "claude-cli"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "lookup": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "harness",
+        "kind",
+        "lookup"
+      ]
+    },
+    "queue.peekSteer.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QueuedMessage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revert.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "targetMessageId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "targetMessageId"
+      ]
+    },
+    "revert.result": {
+      "type": "object",
+      "properties": {
+        "revertedTo": {
+          "type": "object",
+          "properties": {
+            "messageId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "messageCount": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "messageId",
+            "messageCount"
+          ]
+        },
+        "removed": {
+          "type": "object",
+          "properties": {
+            "messageIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "partCount": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "messageIds",
+            "partCount"
+          ]
+        }
+      },
+      "required": [
+        "revertedTo",
+        "removed"
+      ]
+    },
+    "shutdown.params": {
+      "type": "object",
+      "properties": {}
+    },
+    "store.artifact.create.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ToolOutputArtifactFormat"
+        }
+      },
+      "required": [
+        "sessionId",
+        "toolCallId",
+        "toolName",
+        "content",
+        "format"
+      ]
+    },
+    "store.artifact.page.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "artifactId": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sessionId",
+        "artifactId"
+      ]
+    },
+    "store.artifact.page.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolOutputArtifactPage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "store.commit.params": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommitCheck"
+          }
+        },
+        "writes": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommitWrite"
+          }
+        }
+      },
+      "required": [
+        "writes"
+      ]
+    },
+    "store.commit.result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": true
+            },
+            "results": {
+              "type": "array",
+              "items": {},
+              "description": "One entry per write: the stored entity for create/update, true for delete/put."
+            }
+          },
+          "required": [
+            "ok",
+            "results"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": false
+            },
+            "failed": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "check",
+                    "write"
+                  ]
+                },
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "index"
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "failed"
+          ]
+        }
+      ]
+    },
+    "store.index.sync.params": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId"
+      ]
+    },
+    "store.message.create.params": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "$ref": "#/$defs/Message"
+        }
+      },
+      "required": [
+        "message"
+      ]
+    },
+    "store.message.getWithParts.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageWithParts"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "store.message.list.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MessageWithParts"
+      }
+    },
+    "store.message.page.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "store.message.update.params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "updates": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "id",
+        "updates"
+      ]
+    },
+    "store.part.byCallId.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "callId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "callId"
+      ]
+    },
+    "store.part.create.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "part": {
+          "$ref": "#/$defs/Part"
+        }
+      },
+      "required": [
+        "sessionId",
+        "part"
+      ]
+    },
+    "store.part.listByMessage.params": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId"
+      ]
+    },
+    "store.part.snapshot.params": {
+      "type": "object",
+      "properties": {
+        "snapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamingPartSnapshot"
+          }
+        }
+      },
+      "required": [
+        "snapshots"
+      ]
+    },
+    "store.part.update.params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "updates": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "id",
+        "updates"
+      ]
+    },
+    "store.session.children.params": {
+      "type": "object",
+      "properties": {
+        "parentId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "parentId"
+      ]
+    },
+    "store.session.children.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Session"
+      }
+    },
+    "store.session.create.params": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/Session"
+        }
+      },
+      "required": [
+        "session"
+      ]
+    },
+    "store.session.update.params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "updates": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "metadataPatch": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "id",
+        "updates"
+      ]
+    },
+    "store.tool.transition.params": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "partId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partId"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string"
+                },
+                "callId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sessionId",
+                "callId"
+              ]
+            }
+          ]
+        },
+        "to": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "const": "running"
+                },
+                "childSessionId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "const": "completed"
+                },
+                "output": {}
+              },
+              "required": [
+                "state",
+                "output"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "const": "error"
+                },
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "error"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "const": "interrupted"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "user_request",
+                    "timeout",
+                    "error",
+                    "cascade"
+                  ]
+                }
+              },
+              "required": [
+                "state",
+                "reason"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "target",
+        "to"
+      ]
+    },
+    "terminal.create.params": {
+      "type": "object",
+      "properties": {
+        "cwd": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "shell": {
+          "type": "string"
+        },
+        "cols": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "user",
+            "agent"
+          ]
+        },
+        "agentEnv": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "managedWorktreeId": {
+          "type": "string"
+        },
+        "ownerSessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cwd",
+        "workspaceId"
+      ]
+    },
+    "terminal.create.result": {
+      "type": "object",
+      "properties": {
+        "terminalId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "terminalId"
+      ]
+    },
+    "terminal.get.result": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TerminalInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executionCwd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "info",
+        "executionCwd"
+      ]
+    },
+    "terminal.list.params": {
+      "type": "object",
+      "properties": {
+        "workspacePath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspacePath"
+      ]
+    },
+    "terminal.list.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TerminalInfo"
+      }
+    },
+    "terminal.read.params": {
+      "type": "object",
+      "properties": {
+        "terminalId": {
+          "type": "string"
+        },
+        "fromOffset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "terminalId"
+      ]
+    },
+    "terminal.read.result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "nextOffset": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "totalBytes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "text",
+            "nextOffset",
+            "totalBytes"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terminal.setCwd.params": {
+      "type": "object",
+      "properties": {
+        "terminalId": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminalId",
+        "cwd"
+      ]
+    },
+    "terminal.write.params": {
+      "type": "object",
+      "properties": {
+        "terminalId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminalId",
+        "data"
+      ]
+    },
+    "title.generate.params": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "origin",
+        "sessionId"
+      ]
+    },
+    "title.native.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "title.native.result": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title"
+      ]
+    },
+    "tool.call.params": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/ToolSource"
+        },
+        "name": {
+          "type": "string"
+        },
+        "workspacePath": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "source",
+        "name",
+        "workspacePath",
+        "arguments"
+      ]
+    },
+    "tool.list.params": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/ToolSource"
+        },
+        "workspacePath": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "workspacePath"
+      ]
+    },
+    "tool.list.result": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "serverName": {
+                "type": "string"
+              },
+              "toolName": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "inputSchema": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "inputSchema"
+            ]
+          }
+        }
+      },
+      "required": [
+        "tools"
+      ]
+    },
+    "turn.edit.params": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/TurnSnapshot"
+        }
+      },
+      "required": [
+        "origin",
+        "sessionId",
+        "messageId",
+        "content",
+        "snapshot"
+      ]
+    },
+    "turn.headless.params": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
+        "parentSessionId": {
+          "type": "string"
+        },
+        "childSessionId": {
+          "type": "string"
+        },
+        "preconfig": {
+          "$ref": "#/$defs/Preconfig"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "workspacePath": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "providerId": {
+          "type": "string"
+        },
+        "resumeFromHistory": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "harness",
+        "parentSessionId",
+        "childSessionId",
+        "preconfig",
+        "prompt",
+        "workspaceId",
+        "modelId",
+        "providerId",
+        "resumeFromHistory"
+      ]
+    },
+    "turn.headless.result": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "turn.interrupt.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "turn.interrupt.result": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "cascadedTo": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "interruptedTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rejectedAsks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "success",
+        "cascadedTo",
+        "interruptedTools",
+        "rejectedAsks"
+      ]
+    },
+    "turn.start.params": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind"
+            ]
+          }
+        },
+        "responseFormatId": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "object",
+          "properties": {
+            "condition": {
+              "type": "string"
+            },
+            "maxTurns": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "tokenBudget": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "condition"
+          ]
+        },
+        "queueId": {
+          "type": "string"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/TurnSnapshot"
+        }
+      },
+      "required": [
+        "origin",
+        "sessionId",
+        "content",
+        "snapshot"
+      ]
+    },
+    "turn.start.result": {
+      "type": "object",
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "rejected",
+            "drainable"
+          ],
+          "description": "drainable: the host may start the next queued prompt."
+        }
+      },
+      "required": [
+        "outcome"
+      ]
+    },
+    "turn.steer.params": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "sessionId"
+      ]
+    },
+    "usage.limits.result": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "workspace.get.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workspace"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
