@@ -5,6 +5,7 @@ import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
 import type {
   PendingAskRecord, RuntimeHost, TitleHost, ToolPolicyHost, WorkspaceCapabilityBindings,
 } from '@/infrastructure/runtime/host';
+import { nextDeliverSeq } from './deliver-seq';
 
 type ToolWorkspaceOptions = Parameters<WorkspaceCapabilityBindings['createToolWorkspaceHost']>[0];
 
@@ -41,7 +42,6 @@ export interface AgentRuntimeHostLocal {
  */
 export function createProtocolRuntimeHost(endpoint: AgentEndpoint, local: AgentRuntimeHostLocal): RuntimeHost {
   const request = endpoint.request.bind(endpoint);
-  let seq = 0;
   const roots: WorkspaceRootPersistence = {
     add: async (workspaceId, path) => (await request('workspace.addRoot', { workspaceId, path })).changed,
     remove: async (workspaceId, path) => (await request('workspace.removeRoot', { workspaceId, path })).changed,
@@ -90,7 +90,7 @@ export function createProtocolRuntimeHost(endpoint: AgentEndpoint, local: AgentR
           return;
         }
         const wire = local.toWire(delivery);
-        if (wire) endpoint.notify('deliver', { seq: seq++, audience: wire.audience, message: wire.message });
+        if (wire) endpoint.notify('deliver', { seq: nextDeliverSeq(endpoint), audience: wire.audience, message: wire.message });
       },
     },
     titles: local.titles,

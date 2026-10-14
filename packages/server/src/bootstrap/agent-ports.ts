@@ -1,5 +1,9 @@
 import { join } from 'node:path';
-import type { Audience } from '@prokopai/agent-protocol';
+import type { AgentHandlers, Audience } from '@prokopai/agent-protocol';
+import type { SessionHarness } from '@prokopai/sdk';
+import { installHarnessNotificationPort, type HarnessNotificationPort } from '@/application/ports/harness-notifications';
+import { createTurnHandlers, type AgentExecutor } from '@/agent-bridge/agent-turns';
+import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
 import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
 import {
@@ -55,6 +59,26 @@ export function terminalPortFromManager(manager: () => ReturnType<typeof getTerm
   };
 }
 
+let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor }>>(registrations: R) => R =
+  registrations => registrations;
+
+/**
+ * The harness registrations the host's execution port routes to. With the
+ * agent loopback each one forwards over `turn.*` to the same executor
+ * running agent-side; otherwise they are returned unchanged.
+ */
+export function bindHarnessExecutors<R extends Record<SessionHarness, { execution: AgentExecutor }>>(registrations: R): R {
+  return bindExecutors(registrations);
+}
+
+/** In-process harness push notifications. */
+const localHarnessNotifications = {
+  notifyTerminalMessage: (message: Parameters<HarnessNotificationPort['notifyTerminalMessage']>[0], sessionId: string) =>
+    getProkopNotificationsApplication().notifyTerminalMessage(message, sessionId),
+  notifyPermissionRequired: (requestId: string, rootSessionId: string) =>
+    getProkopNotificationsApplication().notifyPermissionRequired(requestId, rootSessionId),
+};
+
 /**
  * Installs the agent-facing host ports. In-process by default. With
  * PROKOPAI_AGENT_LOOPBACK=1 (host/agent split experiment,
@@ -71,6 +95,8 @@ export function configureAgentPorts(): void {
   configureHarnessMcpTools({ tools: getWorkspaceTools });
   if (!agentLoopbackEnabled()) {
     installAgentAskPort(createAgentAskPort(directAskDelivery));
+    installHarnessNotificationPort(localHarnessNotifications);
+    bindExecutors = registrations => registrations;
     return;
   }
 
@@ -103,11 +129,28 @@ export function configureAgentPorts(): void {
       : { ...await executeSkillManageTool(input, directory, 'none', undefined, { local: true }) },
     terminals,
   });
+  const turns = createTurnForwarding(() => host, params => runtime.notifications.deliver?.(params as never));
+  // Filled when the application registers its harnesses (bindHarnessExecutors).
+  const agentHandlers: AgentHandlers = { ...askResolveHandlers };
   const { agent, host } = createAgentLoopback({
     handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
       ...createHarnessAskHandlers(localHarnessAsks) },
-    notifications: runtime.notifications,
-  }, askResolveHandlers);
+    notifications: { ...runtime.notifications, ...turns.notifications },
+  }, agentHandlers);
+  installHarnessNotificationPort({
+    notifyTerminalMessage: (message, sessionId) =>
+      agent.notify('host.notify', { kind: 'turn.finished', sessionId, message }),
+    notifyPermissionRequired: (requestId, rootSessionId) =>
+      agent.notify('host.notify', { kind: 'permission.required', requestId, rootSessionId }),
+  });
+  bindExecutors = (registrations) => {
+    const executors = Object.fromEntries(Object.entries(registrations)
+      .map(([harness, registration]) => [harness, registration.execution])) as Record<SessionHarness, AgentExecutor>;
+    Object.assign(agentHandlers, createTurnHandlers(agent, executors));
+    return Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => [harness, {
+      ...registration, execution: turns.executorFor(harness as SessionHarness, registration.execution),
+    }])) as typeof registrations;
+  };
   installAgentAskPort(createAgentAskPort(async answer => (await host.request('ask.resolve', answer)).resolved));
 
   // Sync lookups the agent cannot ask the host for, filled from host answers.

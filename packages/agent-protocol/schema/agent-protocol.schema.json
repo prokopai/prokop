@@ -15,12 +15,12 @@
           }
         },
         "turn.start": {
-          "description": "SessionExecutionPort.sendMessage. Resolves when the turn ends. A queued prompt carries queueId; the agent retires that row in the same store.commit that writes the user message.",
+          "description": "SessionExecutionPort.sendMessage. Resolves when the turn (and the queue drain it starts) ends. Rejections reach the origin as deliver messages.",
           "params": {
             "$ref": "#/$defs/turn.start.params"
           },
           "result": {
-            "$ref": "#/$defs/turn.start.result"
+            "$ref": "#/$defs/Ack"
           }
         },
         "turn.edit": {
@@ -36,6 +36,15 @@
           "description": "SessionExecutionPort.steerQueue: deliver waiting steer messages into the running turn.",
           "params": {
             "$ref": "#/$defs/turn.steer.params"
+          },
+          "result": {
+            "$ref": "#/$defs/Ack"
+          }
+        },
+        "turn.drain": {
+          "description": "SessionExecutionPort.drainQueue: start queued prompts of an idle session.",
+          "params": {
+            "$ref": "#/$defs/turn.drain.params"
           },
           "result": {
             "$ref": "#/$defs/Ack"
@@ -761,6 +770,18 @@
           "description": "Broadcast a client wire message. seq increases by one per deliver, so the host can detect gaps and keep part.append deltas in order.",
           "params": {
             "$ref": "#/$defs/deliver.params"
+          }
+        },
+        "origin.attach": {
+          "description": "OriginRegistryPort.attachOriginToSession: the origin connection now participates in the session.",
+          "params": {
+            "$ref": "#/$defs/origin.attach.params"
+          }
+        },
+        "session.activity": {
+          "description": "The agent's isSessionActive changed outside a host request (e.g. Codex child turns). The host combines it with its in-flight requests.",
+          "params": {
+            "$ref": "#/$defs/session.activity.params"
           }
         },
         "host.notify": {
@@ -2544,6 +2565,12 @@
     "compact.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
         "sessionId": {
           "type": "string"
         },
@@ -2553,6 +2580,8 @@
         }
       },
       "required": [
+        "harness",
+        "origin",
         "sessionId",
         "reason"
       ]
@@ -2629,6 +2658,10 @@
         },
         "message": {
           "$ref": "#/$defs/ServerMessage"
+        },
+        "origin": {
+          "description": "The host request this delivery belongs to: the host routes it through that request's connection context.",
+          "$ref": "#/$defs/OriginToken"
         }
       },
       "required": [
@@ -2640,6 +2673,9 @@
     "fork.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "sessionId": {
           "type": "string"
         },
@@ -2651,6 +2687,7 @@
         }
       },
       "required": [
+        "harness",
         "sessionId",
         "targetMessageId"
       ]
@@ -3174,6 +3211,21 @@
         "lookup"
       ]
     },
+    "origin.attach.params": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "sessionId"
+      ]
+    },
     "queue.add.params": {
       "type": "object",
       "properties": {
@@ -3220,6 +3272,9 @@
     "revert.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "sessionId": {
           "type": "string"
         },
@@ -3228,6 +3283,7 @@
         }
       },
       "required": [
+        "harness",
         "sessionId",
         "targetMessageId"
       ]
@@ -3283,6 +3339,21 @@
       "required": [
         "revertedTo",
         "removed"
+      ]
+    },
+    "session.activity.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "active"
       ]
     },
     "sessionSearch.call.params": {
@@ -4017,6 +4088,9 @@
     "title.generate.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "origin": {
           "$ref": "#/$defs/OriginToken"
         },
@@ -4028,6 +4102,7 @@
         }
       },
       "required": [
+        "harness",
         "origin",
         "sessionId"
       ]
@@ -4155,9 +4230,31 @@
         "tools"
       ]
     },
+    "turn.drain.params": {
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
+        "origin": {
+          "$ref": "#/$defs/OriginToken"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "harness",
+        "origin",
+        "sessionId"
+      ]
+    },
     "turn.edit.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "origin": {
           "$ref": "#/$defs/OriginToken"
         },
@@ -4169,17 +4266,14 @@
         },
         "content": {
           "type": "string"
-        },
-        "snapshot": {
-          "$ref": "#/$defs/TurnSnapshot"
         }
       },
       "required": [
+        "harness",
         "origin",
         "sessionId",
         "messageId",
-        "content",
-        "snapshot"
+        "content"
       ]
     },
     "turn.headless.params": {
@@ -4239,6 +4333,9 @@
     "turn.interrupt.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "sessionId": {
           "type": "string"
         },
@@ -4247,6 +4344,7 @@
         }
       },
       "required": [
+        "harness",
         "sessionId"
       ]
     },
@@ -4289,6 +4387,9 @@
     "turn.start.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "origin": {
           "$ref": "#/$defs/OriginToken"
         },
@@ -4319,61 +4420,37 @@
         "responseFormatId": {
           "type": "string"
         },
-        "goal": {
-          "type": "object",
-          "properties": {
-            "condition": {
-              "type": "string"
-            },
-            "maxTurns": {
-              "type": "integer",
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991
-            },
-            "tokenBudget": {
-              "type": "integer",
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "condition"
-          ]
-        },
-        "queueId": {
+        "goalCondition": {
           "type": "string"
         },
+        "goalMaxTurns": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "goalTokenBudget": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
         "snapshot": {
+          "description": "Not sent yet: in Phase 1 harnesses read the session through store.*.",
           "$ref": "#/$defs/TurnSnapshot"
         }
       },
       "required": [
+        "harness",
         "origin",
         "sessionId",
-        "content",
-        "snapshot"
-      ]
-    },
-    "turn.start.result": {
-      "type": "object",
-      "properties": {
-        "outcome": {
-          "type": "string",
-          "enum": [
-            "completed",
-            "rejected",
-            "drainable"
-          ],
-          "description": "drainable: the host may start the next queued prompt."
-        }
-      },
-      "required": [
-        "outcome"
+        "content"
       ]
     },
     "turn.steer.params": {
       "type": "object",
       "properties": {
+        "harness": {
+          "$ref": "#/$defs/SessionHarness"
+        },
         "origin": {
           "$ref": "#/$defs/OriginToken"
         },
@@ -4382,6 +4459,7 @@
         }
       },
       "required": [
+        "harness",
         "origin",
         "sessionId"
       ]

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AskAuthoritySchema, MessageEntity, ServerMessageEntity } from './entities';
 import { named, notifications } from './registry';
+import { OriginToken } from './host-to-agent';
 
 /**
  * Who receives a delivered message. Mirrors `RuntimeAudience` and
@@ -26,7 +27,17 @@ export const agentToHostNotifications = notifications({
       seq: z.number().int().nonnegative(),
       audience: Audience,
       message: ServerMessageEntity,
+      origin: OriginToken.optional()
+        .describe('The host request this delivery belongs to: the host routes it through that request\'s connection context.'),
     }),
+  },
+  'origin.attach': {
+    description: 'OriginRegistryPort.attachOriginToSession: the origin connection now participates in the session.',
+    params: z.object({ origin: z.string(), sessionId: z.string() }),
+  },
+  'session.activity': {
+    description: 'The agent\'s isSessionActive changed outside a host request (e.g. Codex child turns). The host combines it with its in-flight requests.',
+    params: z.object({ sessionId: z.string(), active: z.boolean() }),
   },
   'host.notify': {
     description: 'Side effects the host owns: push notifications and file-change notices.',

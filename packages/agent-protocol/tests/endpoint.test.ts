@@ -147,7 +147,7 @@ describe('close', () => {
       },
     });
     const turn = host.request('turn.start', {
-      origin: null, sessionId: 's1', content: 'hi',
+      harness: 'prokop', origin: null, sessionId: 's1', content: 'hi',
       snapshot: { session, workspace: { id: 'w1', path: '/w' }, root: { additionalPaths: [], allowedRoots: [], tempDir: '/tmp/s1' } },
     });
     await Bun.sleep(1);

@@ -106,7 +106,6 @@ import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
 import { createProkopHarness } from '@/harnesses/prokop';
 import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
-import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { installAskResolutionPort } from '@/application/ports/ask-resolution';
 import {
   codexCliAvailable,
@@ -120,6 +119,7 @@ import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution, type HarnessRegistration } from '@/application/sessions/harness-execution';
+import { bindHarnessExecutors } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
 import { claudeCliAvailable, claudeCliVersion, createClaudeCliHarness, createClaudeExecution,
   listCachedClaudeModels, readCachedClaudeUsageLimits, readClaudeSessionTitle } from '@/harnesses/claude-cli';
@@ -219,12 +219,6 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const worktreeAttachments = {
     changed: (worktreeId: string): void => refreshWorktreeAttachments?.(worktreeId),
   };
-  const notificationApplication = getProkopNotificationsApplication();
-  installHarnessNotificationPort({
-    notifyTerminalMessage: (message, sessionId) => notificationApplication.notifyTerminalMessage(message, sessionId),
-    notifyPermissionRequired: (requestId, rootSessionId) =>
-      notificationApplication.notifyPermissionRequired(requestId, rootSessionId),
-  });
   // The prokop composition owns the ask waiters; wire-side resolution must
   // land in the same composed permission runtime execution enters.
   installAskResolutionPort(prokopAskResolution);
@@ -266,7 +260,9 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     'codex-cli': createCodexCliHarness(codexExecution, codexTitleRegeneration),
     'claude-cli': createClaudeCliHarness(claudeExecution, claudeTitleRegeneration),
   };
-  const execution = createHarnessExecution(repository, harnessRegistrations);
+  // With the agent loopback the registrations forward over the agent protocol.
+  const boundRegistrations = bindHarnessExecutors(harnessRegistrations);
+  const execution = createHarnessExecution(repository, boundRegistrations);
   // Headless (scheduled) dispatch routes through the harness registry: the
   // Prokop registration owns the composed-scope child run; harnesses
   // without headless support fail closed per run and are rejected at job
@@ -351,10 +347,10 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     codexCliAvailable,
     codexWorkspaceAvailable,
     { list: listCachedCodexModels, get: getCodexModelSelection, save: saveCodexModelSelection,
-      isActive: codexExecution.isSessionActive },
+      isActive: boundRegistrations['codex-cli'].execution.isSessionActive },
     claudeCliAvailable,
     { list: listCachedClaudeModels, get: getClaudeModelSelection, save: saveClaudeModelSelection,
-      isActive: claudeExecution.isSessionActive },
+      isActive: boundRegistrations['claude-cli'].execution.isSessionActive },
     codexWorkspaceAvailable,
     { settings: harnessSettings, codexVersion: codexCliVersion, claudeVersion: claudeCliVersion,
       usage: { 'codex-cli': readCachedCodexUsageLimits, 'claude-cli': readCachedClaudeUsageLimits } },
