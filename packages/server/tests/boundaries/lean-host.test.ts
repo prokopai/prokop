@@ -71,6 +71,12 @@ const heavyIn = (packages: Map<string, string>): string[] => [...packages]
   .filter(([specifier]) => heavyPackages.some(name => specifier === name || specifier.startsWith(name.endsWith('/') ? name : `${name}/`)))
   .map(([specifier, file]) => `${file} imports ${specifier}`);
 
+/** Harness runtimes: each loads on its harness's first call. */
+const harnessRuntimes = [
+  'harnesses/prokop/execution.ts', 'harnesses/prokop/composition/composition.ts', 'harnesses/prokop/tools/index.ts',
+  'harnesses/codex-cli/execution.ts', 'harnesses/claude-cli/execution.ts',
+];
+
 describe('2.6 gate: lean host', () => {
   test('the light agent entry loads no heavy package and no agent runtime', () => {
     const { files, packages } = staticGraph(join(agentSource, 'host.ts'));
@@ -85,5 +91,13 @@ describe('2.6 gate: lean host', () => {
     const agentFiles = [...files].filter(file => isWithin(file, agentSource) && !light.has(file));
     expect(agentFiles.map(file => relative(repositoryRoot, file))).toEqual([]);
     expect(heavyIn(packages)).toEqual([]);
+  });
+});
+
+describe('2.6b gate: lazy agent', () => {
+  test('the agent process starts with no harness runtime and no heavy package', () => {
+    const { files, packages } = staticGraph(join(agentSource, 'main.ts'));
+    expect(heavyIn(packages)).toEqual([]);
+    expect(harnessRuntimes.filter(file => files.has(join(agentSource, file)))).toEqual([]);
   });
 });

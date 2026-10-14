@@ -7,7 +7,7 @@
  */
 
 // Harness registrations and the agent process.
-export { createHarnessRegistrations } from '#agent/composition/harness-registrations';
+export { createHarnessRegistration, createHarnessRegistrations } from '#agent/composition/harness-registrations';
 export { composeAgentSide, type AgentRegistrations, type AgentSideSettings } from '#agent/composition/agent-side';
 export { runAgentProcessOverStdio, startAgentProcess, type AgentProcessOptions } from '#agent/composition/agent-process';
 export { askHandlers, directAgentAsks } from '#agent/composition/asks';

@@ -30,4 +30,6 @@ export {
   prokopWorkspacePolicyOptions,
 } from '#agent/harnesses/prokop/bindings/workspace-policy';
 export { createProkopAskAuthorityPort } from '#agent/harnesses/prokop/bindings/ask-authority';
-export { configureProkopRuntimeDefaults, prokopAgentBindings, type ProkopAgentBindings } from '#agent/harnesses/prokop/bindings/agent';
+export { prokopAgentBindings, type ProkopAgentBindings } from '#agent/harnesses/prokop/bindings/agent';
+export { configureProkopRuntimeDefaults } from '#agent/harnesses/prokop/bindings/runtime-defaults';
+export { configureSharedDomainToolDefaults } from '#agent/harnesses/prokop/bindings/shared-defaults';

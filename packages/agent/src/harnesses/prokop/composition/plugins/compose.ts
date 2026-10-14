@@ -29,9 +29,9 @@ import { withSandboxController } from '@prokopai/core/infrastructure/sandbox/con
 import { withStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import { withWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-import { capekGoalDomainKey } from '#agent/harnesses/prokop/composition/plugins/goal-domain';
 import {
   capekContextAssemblerKey,
+  capekGoalDomainKey,
   capekContextSourcesKey,
   capekProviderOverridesKey,
   capekRuntimeConfigurationKey,

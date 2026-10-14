@@ -1,4 +1,3 @@
-import { createOpenAiResponsesModel } from './ai-sdk';
 import {
   CODEX_OAUTH_DUMMY_KEY, codexProviderDescriptor, createCodexFetch, type CodexCredentialSource,
 } from './codex-access';
@@ -6,6 +5,8 @@ import type { ConnectableProvider, ModelFactoryOptions, ModelFactoryResult } fro
 
 /** A Codex subscription model (OpenAI Responses API through the ChatGPT backend). */
 export async function createCodexModel(options: ModelFactoryOptions, source: CodexCredentialSource): Promise<ModelFactoryResult> {
+  // The AI SDK loads with the first model call, not with provider registration.
+  const { createOpenAiResponsesModel } = await import('./ai-sdk');
   return createOpenAiResponsesModel({
     modelId: options.modelId,
     apiKey: CODEX_OAUTH_DUMMY_KEY,

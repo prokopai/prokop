@@ -4,7 +4,7 @@
  * (packages/agent-protocol) over its stdin and stdout. The process exits
  * when the host closes its stdin.
  */
-import { runAgentProcessOverStdio } from './index';
+import { runAgentProcessOverStdio } from '#agent/composition/agent-process';
 import agentPackage from '../package.json' with { type: 'json' };
 
 if (!process.argv.includes('--stdio')) {

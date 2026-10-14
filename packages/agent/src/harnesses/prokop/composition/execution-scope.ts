@@ -1,8 +1,5 @@
 import { enterAgentScope, type AgentScopeHandle } from '#agent/harnesses/prokop/composition/plugins/compose';
-import {
-  createProkopRuntimeComposition,
-  type ProkopRuntimeComposition,
-} from './composition';
+import type { ProkopRuntimeComposition } from './composition';
 
 type ProkopRuntimeCompositionFactory = () => Promise<ProkopRuntimeComposition>;
 type ExecutionLifecycle = 'open' | 'closing' | 'closed';
@@ -10,6 +7,11 @@ type ExecutionLifecycle = 'open' | 'closing' | 'closed';
 const CLOSED_ERROR = 'Jean2 execution scope is shutting down';
 
 let executionCompositionPromise: Promise<ProkopRuntimeComposition> | null = null;
+/** The runtime composition (AI SDK, tools, plugins) loads with the first
+ * Prokop execution, not when this module does. */
+const createProkopRuntimeComposition: ProkopRuntimeCompositionFactory = () =>
+  (require('./composition') as typeof import('./composition')).createProkopRuntimeComposition();
+
 let compositionFactory: ProkopRuntimeCompositionFactory = createProkopRuntimeComposition;
 let lifecycle: ExecutionLifecycle = 'open';
 let disposalPromise: Promise<void> | null = null;
@@ -43,7 +45,8 @@ export function getProkopExecutionComposition(): Promise<ProkopRuntimeCompositio
   return executionCompositionPromise;
 }
 
-export function initializeProkopExecutionScope(): Promise<ProkopRuntimeComposition> {
+/** Reopens a disposed scope without composing it; the composition loads on first use. */
+export function openProkopExecutionScope(): void {
   if (lifecycle === 'closing') {
     throw new Error(CLOSED_ERROR);
   }
@@ -51,6 +54,10 @@ export function initializeProkopExecutionScope(): Promise<ProkopRuntimeCompositi
     lifecycle = 'open';
     disposalPromise = null;
   }
+}
+
+export function initializeProkopExecutionScope(): Promise<ProkopRuntimeComposition> {
+  openProkopExecutionScope();
   return getProkopExecutionComposition();
 }
 

@@ -17,6 +17,7 @@ import type { LoadedTool, ToolDefinition } from '@prokopai/sdk/tool';
 import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
 import type { ContextSources } from '#agent/harnesses/prokop/context/sources';
 import type { ContextAssembler } from '#agent/harnesses/prokop/context/assembler';
+import type { GoalDomainService } from '#agent/harnesses/prokop/goals/service';
 export type { ContextAssembler, ContextAssemblyData } from '#agent/harnesses/prokop/context/assembler';
 import type { RetryPolicy } from '#agent/harnesses/prokop/retry/policy';
 import type { CompactionService } from '#agent/harnesses/prokop/compaction/policy';
@@ -292,3 +293,9 @@ export const C2_PROCESS_KEYS = [
   capekSessionSearchHostKey,
   capekSchedulerHostKey,
 ] as const;
+
+/** Agent-scoped goal evaluation and loop (`goal-domain.ts`); here so scope entry does not load the evaluator. */
+export const capekGoalDomainKey = serviceKey<GoalDomainService>(
+  'capek.goal-domain',
+  'agent',
+);

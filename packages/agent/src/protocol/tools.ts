@@ -1,6 +1,5 @@
 import type { AgentEndpoint } from '@prokopai/agent-protocol';
 import type { WorkspaceMcpResult, WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
-import { capabilityToolFromMcp } from '@prokopai/core/infrastructure/mcp/capability-tool';
 import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import type { Session, Workspace } from '@prokopai/sdk/types';
 
@@ -59,6 +58,9 @@ export function createProtocolToolDiscovery(endpoint: AgentEndpoint): WorkspaceT
       if (!sessionId) return {};
       const { tools, context } = await request('tool.list', { source: 'mcp', workspacePath, sessionId });
       if (!context) return {};
+      // The AI SDK loads with the first Prokop turn, not with the agent process.
+      const { capabilityToolFromMcp } = require('@prokopai/core/infrastructure/mcp/capability-tool') as
+        typeof import('@prokopai/core/infrastructure/mcp/capability-tool');
       return Object.fromEntries(tools.map(definition => [definition.name, capabilityToolFromMcp({
         ...definition,
         serverName: definition.serverName ?? '',

@@ -1,4 +1,3 @@
-import { serviceKey } from '#agent/harnesses/prokop/composition/kernel/service-key';
 import type { RuntimePlugin, PluginContext } from '#agent/harnesses/prokop/composition/kernel/types';
 import type { Session } from '@prokopai/sdk/types';
 import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
@@ -7,6 +6,7 @@ import type { GoalDomainService } from '#agent/harnesses/prokop/goals/service';
 import { evaluateGoalWithDeps, type GoalEvaluatorDeps } from '#agent/harnesses/prokop/goals/evaluator';
 import { runGoalLoopWithDeps, type GoalLoopDeps } from '#agent/harnesses/prokop/goals/loop';
 import {
+  capekGoalDomainKey,
   capekOrchestratorSessionKey,
   capekRuntimeHostKey,
   capekStorageKey,
@@ -28,10 +28,7 @@ export const CURRENT_GOAL_DOMAIN_PLUGIN_ID = 'current.goal-domain';
 
 export type { GoalDomainService };
 
-export const capekGoalDomainKey = serviceKey<GoalDomainService>(
-  'capek.goal-domain',
-  'agent',
-);
+export { capekGoalDomainKey };
 
 function sessionUpdatedBroadcast(host: RuntimeHost): (session: Session) => void {
   return (session) => {

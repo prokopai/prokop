@@ -8,18 +8,16 @@ import { createAgentsApplication } from '@prokopai/core/application/agents';
 import type { AgentWorkspacePort } from '@prokopai/core/application/ports/agents';
 import { installBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
 import { getPreconfig, listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
+import { prokopAgentBindings } from '#agent/harnesses/prokop/bindings/agent';
 import {
   configureProkopAgentSource,
   configureProkopInstructionSource,
   configureProkopPreconfigSource,
-  configureProkopRuntimeConfiguration,
-  configureProkopWorkspacePolicy,
-  configureProkopRuntimeDefaults,
-  prokopAgentBindings,
-} from '#agent/harnesses/prokop/bindings/index';
-import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '#agent/harnesses/prokop/composition/execution-scope';
-import { warmInstalledToolsCache } from '#agent/harnesses/prokop/bindings/tool-resolver';
-import { builtinTools } from '#agent/harnesses/prokop/tools/index';
+} from '#agent/harnesses/prokop/bindings/context-sources';
+import { configureProkopRuntimeConfiguration } from '#agent/harnesses/prokop/bindings/runtime-configuration';
+import { configureSharedDomainToolDefaults } from '#agent/harnesses/prokop/bindings/shared-defaults';
+import { configureProkopWorkspacePolicy } from '#agent/harnesses/prokop/bindings/workspace-policy';
+import { disposeProkopExecutionScope, openProkopExecutionScope } from '#agent/harnesses/prokop/composition/execution-scope';
 import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
 import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { configureWorkspaceKnowledgeRoot } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
@@ -44,6 +42,14 @@ const hostOnlyWorkspaces: AgentWorkspacePort = {
   delete: hostOnly('Agent workspace deletion'),
 };
 
+/** Prokop's process defaults (task and workflow fallbacks, installed tools), right before its runtime loads. */
+function prepareProkopRuntime(): void {
+  (require('#agent/harnesses/prokop/bindings/runtime-defaults') as typeof import('#agent/harnesses/prokop/bindings/runtime-defaults'))
+    .configureProkopRuntimeDefaults();
+  void (require('#agent/harnesses/prokop/bindings/tool-resolver') as typeof import('#agent/harnesses/prokop/bindings/tool-resolver'))
+    .warmInstalledToolsCache();
+}
+
 export interface AgentProcessOptions {
   version: string;
 }
@@ -63,14 +69,17 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
     workspaces: hostOnlyWorkspaces,
     preconfigs: { get: getPreconfig, list: listPreconfigs },
   });
-  installBuiltinToolsPort({ tools: () => builtinTools });
+  // The built-in tools (and their parsers) load with the first Prokop turn.
+  installBuiltinToolsPort({
+    tools: () => (require('#agent/harnesses/prokop/tools/index') as typeof import('#agent/harnesses/prokop/tools/index')).builtinTools,
+  });
   configureProkopRuntimeConfiguration();
   configureProkopWorkspacePolicy();
   configureProkopPreconfigSource(agents);
   configureProkopAgentSource(agents);
   configureProkopInstructionSource();
-  void warmInstalledToolsCache();
-  configureProkopRuntimeDefaults();
+  // The Claude Code and Codex drivers publish these domain tools; the rest load with the Prokop runtime.
+  configureSharedDomainToolDefaults();
 
   const settings = { sandboxActive: false, permissionTimeoutMs: 30 * 60 * 1000 };
   const handlers: AgentHandlers = {};
@@ -93,6 +102,8 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
     agents,
     // The host forwards CLI title regeneration here in process mode (`title.generate`).
     titles: createAgentTitleRegeneration(),
+    // Each harness loads on its first call; the Prokop runtime brings its process defaults.
+    prepare: { prokop: prepareProkopRuntime },
   });
   side.registerExecutors(registrations);
   // CLI memory and skill tools resolve worktree knowledge from the roots the host resolved.
@@ -106,7 +117,8 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
     settings.sandboxActive = params.settings.sandboxActive;
     settings.permissionTimeoutMs = params.settings.permissionTimeoutMs;
     if (settings.sandboxActive) activateSandbox();
-    await initializeProkopExecutionScope();
+    // The Prokop composition loads with the first Prokop execution.
+    openProkopExecutionScope();
     return {
       protocolVersion: PROTOCOL_VERSION,
       agent: { version: options.version },

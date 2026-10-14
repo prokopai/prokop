@@ -19,7 +19,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { jsonSchema, tool, type Tool as AiTool } from 'ai';
+import type { Tool as AiTool } from 'ai';
 import type { LoadedTool } from '@prokopai/sdk/tool'
 import { ToolContext, ToolDefinition, ToolResult } from '@prokopai/sdk/tool';
 import {
@@ -202,6 +202,8 @@ export function createToolOutputService(
   }
 
   function buildRetrieveToolOutputAiTool(sessionId: string): AiTool {
+    // The AI SDK loads with the first model turn, not with this policy (compose.ts imports it).
+    const { jsonSchema, tool } = require('ai') as typeof import('ai');
     return tool({
       description: retrievalDefinitionBase.description,
       inputSchema: jsonSchema(retrievalDefinitionBase.inputSchema),
