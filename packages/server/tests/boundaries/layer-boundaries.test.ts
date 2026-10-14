@@ -282,9 +282,9 @@ const layerRules: DependencyRule[] = [
   },
   {
     name: 'layer-agent-bridge',
-    rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure ports and @prokopai/agent-protocol, never transport, application or harness internals.',
+    rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure, application port contracts and @prokopai/agent-protocol, never transport, application services or harness internals.',
     appliesTo: [agentBridgeDir],
-    allowedResolvedDirs: [agentBridgeDir, infrastructureDir],
+    allowedResolvedDirs: [agentBridgeDir, infrastructureDir, resolve(applicationDir, 'ports')],
   },
   {
     name: 'layer-transport',

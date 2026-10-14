@@ -40,6 +40,11 @@ const CreateGrantParams = named('CreateGrantParams', z.object({
 
 const ToolSource = named('ToolSource', z.enum(['mcp', 'domain']).describe(
   'mcp: global and workspace MCP servers. domain: memory, skills, session search, scheduler.'));
+const ToolContextSchema = named('ToolContext', z.object({
+  workspaceId: z.string(),
+  preconfigId: z.string().nullable(),
+  path: z.string(),
+}).describe('Session state captured when MCP access was granted; a change revokes access.'));
 const ToolResult = named('ToolResult', z.object({
   content: z.array(z.record(z.string(), z.unknown())),
   structuredContent: z.record(z.string(), z.unknown()).optional(),
@@ -49,9 +54,11 @@ const ToolResult = named('ToolResult', z.object({
 const TerminalInfo = named('TerminalInfo', z.looseObject({
   id: z.string(),
   cwd: z.string(),
-  workspaceId: z.string(),
   status: z.string(),
-  title: z.string().optional(),
+  title: z.string(),
+  exitCode: z.number().int().nullable().optional(),
+  origin: z.enum(['user', 'agent']).optional(),
+  lastActivityAt: z.number().optional(),
 }));
 const TerminalIdParams = named('TerminalIdParams', z.object({ terminalId: z.string() }));
 const Written = named('Written', z.object({ written: z.boolean() }));
@@ -153,7 +160,12 @@ export const agentToHostRequests = requests({
       sessionId: z.string(), workspaceId: z.string().optional(), workspaceRootId: z.string().optional(),
       workspacePath: z.string().optional(), additionalPaths: z.array(z.string()).optional(),
     }),
-    result: z.object({ workspacePath: z.string().optional(), additionalPaths: z.array(z.string()).optional() }),
+    result: z.object({
+      workspacePath: z.string().optional(),
+      additionalPaths: z.array(z.string()).optional(),
+      knowledgeRoot: z.string().optional()
+        .describe('Workspace whose memory and skills the resolved path shares (a managed worktree maps to its main workspace).'),
+    }),
   },
   'workspace.addRoot': { description: 'Persist an extra workspace root granted during a turn.', params: WorkspaceRootParams, result: Changed },
   'workspace.removeRoot': { description: 'Remove an extra workspace root.', params: WorkspaceRootParams, result: Changed },
@@ -188,22 +200,43 @@ export const agentToHostRequests = requests({
 
   // Host-owned tools (MCP, browser, visuals, memory, skills, session search, scheduler)
   'tool.list': {
-    description: 'Effective tool definitions for a session and workspace.',
+    description: 'Effective tool definitions for a session and workspace. For MCP, `context` captures the session state access was granted for; pass it back on every call.',
     params: z.object({ source: ToolSource, workspacePath: z.string(), sessionId: z.string().optional() }),
     result: z.object({
       tools: z.array(z.object({
         name: z.string(), serverName: z.string().optional(), toolName: z.string().optional(),
         description: z.string(), inputSchema: z.record(z.string(), z.unknown()),
       })),
+      context: ToolContextSchema.optional(),
     }),
   },
   'tool.call': {
-    description: 'Run a host-owned tool. Cancel with $/cancel; the agent re-checks its own turn authorization after the reply.',
+    description: 'Run a host-owned tool. The host re-checks access against `context` before running. Cancel with $/cancel.',
     params: z.object({
       source: ToolSource, name: z.string(), workspacePath: z.string(), sessionId: z.string().optional(),
       arguments: z.record(z.string(), z.unknown()),
+      context: ToolContextSchema.optional(),
     }),
     result: ToolResult,
+  },
+  'sessionSearch.call': {
+    description: 'One SessionSearchHost port call (shared/session-search/host.ts). Typed per op later; the agent-side tool owns validation and the permission ask.',
+    params: z.object({
+      op: z.enum(['getWorkspace', 'getSession', 'listWorkspaceSessions', 'listAgentSessions', 'countSessionMessages',
+        'searchMessages', 'countMessagesBefore', 'countMessagesAfter', 'getLatestMessage', 'getMessage',
+        'listMessagesBefore', 'listMessagesAfter', 'getMessageSummary']),
+      args: z.array(z.unknown()),
+    }),
+    result: z.object({ value: z.unknown() }),
+  },
+  'knowledge.apply': {
+    description: 'Apply an approved memory or skill write on the host, which serializes knowledge writes with learning and settings. The agent already validated and asked.',
+    params: z.object({
+      kind: z.enum(['memory', 'skill']),
+      directory: z.string(),
+      input: z.record(z.string(), z.unknown()),
+    }),
+    result: z.record(z.string(), z.unknown()),
   },
 
   // Terminals (host owns the PTY) ----------------------------------------------
@@ -222,7 +255,7 @@ export const agentToHostRequests = requests({
   'terminal.write': { description: 'Write input to a running terminal.', params: z.object({ terminalId: z.string(), data: z.string() }), result: Written },
   'terminal.read': {
     description: 'Read buffered output from a byte offset.',
-    params: z.object({ terminalId: z.string(), fromOffset: z.number().int().nonnegative().optional(), maxBytes: z.number().int().positive().optional() }),
+    params: z.object({ terminalId: z.string(), fromOffset: z.number().int().nonnegative().optional(), maxBytes: z.number().int().nonnegative().optional() }),
     result: z.object({ text: z.string(), nextOffset: z.number().int(), totalBytes: z.number().int() }).nullable(),
   },
   'terminal.setCwd': { description: 'Record the cwd a command left behind.', params: z.object({ terminalId: z.string(), cwd: z.string() }), result: Written },

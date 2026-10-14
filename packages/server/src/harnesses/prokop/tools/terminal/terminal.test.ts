@@ -5,6 +5,8 @@ import { resolve } from 'path';
 import type { PermissionAsk, ToolContext } from '@prokopai/sdk/tool';
 import { execute, definition } from './tool';
 import { getTerminalManager, installTerminalSessionStore } from '@/transport/terminal';
+import { terminalPortFromManager } from '@/bootstrap/agent-ports';
+import { configureAgentTerminals } from './port';
 import type { TerminalSessionStorePort } from '@/application/ports/terminal';
 
 // ---------------------------------------------------------------------------
@@ -132,6 +134,7 @@ async function createSession(ctx: ToolContext): Promise<string> {
 beforeEach(() => {
   ptyState.options = [];
   installTerminalSessionStore(makeNoopStore());
+  configureAgentTerminals(terminalPortFromManager(getTerminalManager));
 });
 
 test('agent terminal inherits session temp and rejected commands never reach the PTY', async () => {

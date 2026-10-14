@@ -15,7 +15,7 @@ import { getBuiltinToolsPort } from '@/application/ports/builtin-tools';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { prokopPreconfigSource } from '@/harnesses/prokop/host/context-sources';
-import { createProkopMcpDiscovery } from '@/harnesses/prokop/host/mcp-discovery';
+import { createMcpAccess, createProkopMcpDiscovery } from '@/harnesses/prokop/host/mcp-discovery';
 import { browserTools } from '@/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
 
@@ -27,14 +27,18 @@ function exposedBuiltinTools(): readonly LoadedTool[] {
 
 /** The Jean2 workspace tool discovery: the MCP manager's per-workspace
  * client lifecycle and tool listing. */
-export const prokopWorkspaceToolDiscovery = createProkopMcpDiscovery({
+const mcpAccessDeps = {
   session: getSession,
-  workspacePath: id => getWorkspace(id)?.path ?? null,
-  preconfig: async id => id
+  workspacePath: (id: string) => getWorkspace(id)?.path ?? null,
+  preconfig: async (id: string | null) => id
     ? await prokopPreconfigSource.getForAgent?.(id) ?? await prokopPreconfigSource.get(id)
     : prokopPreconfigSource.getDefault(),
-  tools: getTools,
-});
+};
+
+export const prokopWorkspaceToolDiscovery = createProkopMcpDiscovery({ ...mcpAccessDeps, tools: getTools });
+
+/** The same MCP access rule, for hosts that serve tool calls across the agent protocol. */
+export const prokopMcpAccess = createMcpAccess(mcpAccessDeps);
 
 /** Capek tool catalog seam for the tools route (S4): the Jean2 tools
  * adapter consumes this so no non-Capek adapter imports the compat

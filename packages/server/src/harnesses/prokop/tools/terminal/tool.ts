@@ -1,7 +1,8 @@
 /**
  * Terminal tool: LLM-facing management of persistent PTY sessions.
  *
- * Sessions live in the shared TerminalManager, so everything the tool
+ * Sessions live in the host's terminal manager (reached through the
+ * terminal port), so everything the tool
  * creates is visible (and killable) in the user's terminal panel, and
  * dies with the workspace. Completion detection uses a random sentinel:
  * the tool wraps the command with an echo that prints `<marker><exit>`
@@ -21,7 +22,7 @@ import {
   type ConcernsPermissionAsk,
   type ShellRiskContext,
 } from '@/domains/permissions';
-import { getTerminalManager } from '@/transport/terminal';
+import { agentTerminals } from './port';
 import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
 import { isToolPathAllowed } from '@/harnesses/prokop/tools/file-permission';
 
@@ -128,7 +129,7 @@ async function waitForMarker(
   fromOffset: number,
   abortSignal: AbortSignal,
 ): Promise<MarkerOutcome> {
-  const manager = getTerminalManager();
+  const terminals = agentTerminals();
   // null deadline: wait until the sentinel appears or the session dies.
   // Only interrupt can stop the wait early.
   const deadline = timeoutMs === null ? Infinity : Date.now() + timeoutMs;
@@ -143,10 +144,10 @@ async function waitForMarker(
   // not the response-size cap. A verbose test can put the sentinel beyond
   // the first 128 KiB and would otherwise wait forever when timeoutMs is null.
   const markerScanBytes = Number.MAX_SAFE_INTEGER;
-  let read = manager.readBuffer(sessionId, fromOffset, markerScanBytes);
+  let read = await terminals.read(sessionId, fromOffset, markerScanBytes);
   while (read && !hasCompletionMarker(read.text) && Date.now() < deadline && !abortSignal.aborted) {
     await Bun.sleep(50);
-    read = manager.readBuffer(sessionId, fromOffset, markerScanBytes);
+    read = await terminals.read(sessionId, fromOffset, markerScanBytes);
   }
 
   // readBuffer null = the session was destroyed mid-wait (e.g. killed
@@ -241,9 +242,9 @@ export async function execute(input: TerminalInput, ctx: ToolContext): Promise<T
       case 'send':
         return await handleSend(input, ctx);
       case 'output':
-        return handleOutput(input);
+        return await handleOutput(input);
       case 'list':
-        return handleList(ctx);
+        return await handleList(ctx);
       case 'kill':
         return await handleKill(input, ctx);
       default:
@@ -273,8 +274,8 @@ async function handleCreate(input: TerminalInput, ctx: ToolContext): Promise<Too
     if (approved !== true) return { success: false, error: 'USER_REJECTION' };
   }
 
-  const manager = getTerminalManager();
-  const sessionId = manager.createSessionDetached({
+  const terminals = agentTerminals();
+  const sessionId = await terminals.create({
     cwd: resolvedCwd,
     workspaceId: ctx.workspaceId ?? resolvedCwd,
     origin: 'agent',
@@ -291,7 +292,7 @@ async function handleCreate(input: TerminalInput, ctx: ToolContext): Promise<Too
     success: true,
     result: {
       sessionId,
-      title: manager.getSession(sessionId)?.title,
+      title: (await terminals.get(sessionId))?.title,
       cwd: resolvedCwd,
       hint: 'Session is visible in the user terminal panel. Use send to run commands.',
     },
@@ -304,8 +305,8 @@ async function handleSend(input: TerminalInput, ctx: ToolContext): Promise<ToolR
   const command = input.command;
   if (!command || !command.trim()) return { success: false, error: 'command is required for send' };
 
-  const manager = getTerminalManager();
-  const session = manager.getSession(sessionId);
+  const terminals = agentTerminals();
+  const session = await terminals.get(sessionId);
   if (!session) return { success: false, error: `Session not found: ${sessionId}` };
   if (session.status !== 'running') {
     return { success: false, error: `Session has exited (code ${session.exitCode ?? 'unknown'}). Create a new one.` };
@@ -314,12 +315,12 @@ async function handleSend(input: TerminalInput, ctx: ToolContext): Promise<ToolR
     return { success: false, error: 'A command is already pending in this session. Wait for it to complete (or read its output) before sending another.' };
   }
 
-  const executionCwd = manager.getSessionExecutionCwd(sessionId) ?? session.cwd;
+  const executionCwd = (await terminals.executionCwd(sessionId)) ?? session.cwd;
   const approved = await requestPermission(command, executionCwd, ctx);
   if (!approved) return { success: false, error: 'USER_REJECTION' };
 
   if (input.raw === true) {
-    const written = manager.writeToSession(sessionId, command);
+    const written = await terminals.write(sessionId, command);
     if (!written) return { success: false, error: 'Failed to write to session (it may have just exited)' };
     return {
       success: true,
@@ -338,10 +339,10 @@ async function handleSend(input: TerminalInput, ctx: ToolContext): Promise<ToolR
   // Record the buffer size BEFORE writing: the capture window starts at
   // the echoed command and excludes all earlier output. The prompt for
   // this line was printed before this offset, so it stays excluded too.
-  const before = manager.readBuffer(sessionId, 0, 0);
+  const before = await terminals.read(sessionId, 0, 0);
   const fromOffset = before ? before.totalBytes : 0;
 
-  const written = manager.writeToSession(sessionId, `${wrapped}\n`);
+  const written = await terminals.write(sessionId, `${wrapped}\n`);
   if (!written) {
     return { success: false, error: 'Failed to write to session (it may have just exited)' };
   }
@@ -351,7 +352,7 @@ async function handleSend(input: TerminalInput, ctx: ToolContext): Promise<ToolR
     const outcome = await waitForMarker(sessionId, marker, wrapped, timeoutMs, fromOffset, ctx.abortSignal);
     if (outcome.completed) {
       if (outcome.cwd) {
-        manager.updateSessionCwd(sessionId, outcome.cwd);
+        await terminals.setCwd(sessionId, outcome.cwd);
       }
       const success = outcome.exitCode === 0;
       return {
@@ -391,16 +392,16 @@ async function handleSend(input: TerminalInput, ctx: ToolContext): Promise<ToolR
   }
 }
 
-function handleOutput(input: TerminalInput): ToolResult {
+async function handleOutput(input: TerminalInput): Promise<ToolResult> {
   const sessionId = input.sessionId;
   if (!sessionId) return { success: false, error: 'sessionId is required for output' };
 
-  const manager = getTerminalManager();
-  const session = manager.getSession(sessionId);
+  const terminals = agentTerminals();
+  const session = await terminals.get(sessionId);
   if (!session) return { success: false, error: `Session not found: ${sessionId}` };
 
   const fromOffset = typeof input.fromOffset === 'number' && input.fromOffset >= 0 ? input.fromOffset : 0;
-  const read = manager.readBuffer(sessionId, fromOffset, MAX_OUTPUT_BYTES);
+  const read = await terminals.read(sessionId, fromOffset, MAX_OUTPUT_BYTES);
   if (!read) return { success: false, error: `Session not found: ${sessionId}` };
 
   return {
@@ -417,9 +418,8 @@ function handleOutput(input: TerminalInput): ToolResult {
   };
 }
 
-function handleList(ctx: ToolContext): ToolResult {
-  const manager = getTerminalManager();
-  const sessions = manager.listSessionsForWorkspace(ctx.workspacePath);
+async function handleList(ctx: ToolContext): Promise<ToolResult> {
+  const sessions = await agentTerminals().list(ctx.workspacePath);
 
   return {
     success: true,
@@ -442,8 +442,8 @@ async function handleKill(input: TerminalInput, ctx: ToolContext): Promise<ToolR
   const sessionId = input.sessionId;
   if (!sessionId) return { success: false, error: 'sessionId is required for kill' };
 
-  const manager = getTerminalManager();
-  const session = manager.getSession(sessionId);
+  const terminals = agentTerminals();
+  const session = await terminals.get(sessionId);
   if (!session) return { success: false, error: `Session not found: ${sessionId}` };
 
   // Agent sessions are ours to clean up. Killing a session the user
@@ -463,6 +463,6 @@ async function handleKill(input: TerminalInput, ctx: ToolContext): Promise<ToolR
     if (approved !== true) return { success: false, error: 'USER_REJECTION' };
   }
 
-  manager.destroySessionById(sessionId);
+  await terminals.destroy(sessionId);
   return { success: true, result: { sessionId, status: 'destroyed' } };
 }

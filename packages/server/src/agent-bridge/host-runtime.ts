@@ -13,6 +13,8 @@ export interface HostDeliveryRouter {
 export interface RuntimeHostServices {
   interaction: InteractionHost;
   resolveSessionWorkspace: NonNullable<WorkspaceCapabilityBindings['resolveSessionWorkspace']>;
+  /** Workspace whose memory and skills a path shares (managed worktrees map to their workspace). */
+  knowledgeRoot?(workspacePath: string): string;
   addWorkspaceRoot(workspaceId: string, path: string): boolean | Promise<boolean>;
   removeWorkspaceRoot(workspaceId: string, path: string): boolean | Promise<boolean>;
   router: HostDeliveryRouter;
@@ -68,7 +70,11 @@ export function createRuntimeHostHandlers(services: RuntimeHostServices): {
       'interaction.matchGrant': params => interaction.matchGrant(params),
       'interaction.createGrant': params => interaction.createGrantFromOptions(params as Parameters<InteractionHost['createGrantFromOptions']>[0]),
 
-      'workspace.resolveRoot': options => services.resolveSessionWorkspace(options),
+      'workspace.resolveRoot': async (options) => {
+        const resolved = await services.resolveSessionWorkspace(options);
+        const knowledgeRoot = resolved.workspacePath && services.knowledgeRoot?.(resolved.workspacePath);
+        return knowledgeRoot ? { ...resolved, knowledgeRoot } : resolved;
+      },
       'workspace.addRoot': async ({ workspaceId, path }) => ({ changed: await services.addWorkspaceRoot(workspaceId, path) }),
       'workspace.removeRoot': async ({ workspaceId, path }) => ({ changed: await services.removeWorkspaceRoot(workspaceId, path) }),
     },

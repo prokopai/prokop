@@ -27,6 +27,8 @@ export interface AgentRuntimeHostLocal {
   autoApproveSeverity?(sessionId: string): Promise<AutoApproveSeverity | undefined>;
   /** Builds the tool workspace locally; `roots` persists root changes over the protocol. */
   createToolWorkspaceHost(options: ToolWorkspaceOptions, roots: WorkspaceRootPersistence): WorkspaceCapabilityHost;
+  /** Sees the knowledge root the host reported for each resolved session root. */
+  onResolvedRoot?(workspacePath: string, knowledgeRoot: string): void;
   /** Maps a runtime delivery to its wire form; null drops it, as host delivery does. */
   toWire(delivery: RuntimeDelivery): { audience: Audience; message: ServerMessage } | null;
 }
@@ -93,7 +95,11 @@ export function createProtocolRuntimeHost(endpoint: AgentEndpoint, local: AgentR
     },
     titles: local.titles,
     workspace: {
-      resolveSessionWorkspace: options => request('workspace.resolveRoot', options),
+      resolveSessionWorkspace: async (options) => {
+        const { knowledgeRoot, ...resolved } = await request('workspace.resolveRoot', options);
+        if (resolved.workspacePath && knowledgeRoot) local.onResolvedRoot?.(resolved.workspacePath, knowledgeRoot);
+        return resolved;
+      },
       createToolWorkspaceHost: options => local.createToolWorkspaceHost(options, roots),
     },
     ...(local.toolPolicy ? { toolPolicy: local.toolPolicy } : {}),

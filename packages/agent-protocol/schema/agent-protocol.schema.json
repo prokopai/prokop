@@ -621,7 +621,7 @@
           }
         },
         "tool.list": {
-          "description": "Effective tool definitions for a session and workspace.",
+          "description": "Effective tool definitions for a session and workspace. For MCP, `context` captures the session state access was granted for; pass it back on every call.",
           "params": {
             "$ref": "#/$defs/tool.list.params"
           },
@@ -630,12 +630,30 @@
           }
         },
         "tool.call": {
-          "description": "Run a host-owned tool. Cancel with $/cancel; the agent re-checks its own turn authorization after the reply.",
+          "description": "Run a host-owned tool. The host re-checks access against `context` before running. Cancel with $/cancel.",
           "params": {
             "$ref": "#/$defs/tool.call.params"
           },
           "result": {
             "$ref": "#/$defs/ToolResult"
+          }
+        },
+        "sessionSearch.call": {
+          "description": "One SessionSearchHost port call (shared/session-search/host.ts). Typed per op later; the agent-side tool owns validation and the permission ask.",
+          "params": {
+            "$ref": "#/$defs/sessionSearch.call.params"
+          },
+          "result": {
+            "$ref": "#/$defs/sessionSearch.call.result"
+          }
+        },
+        "knowledge.apply": {
+          "description": "Apply an approved memory or skill write on the host, which serializes knowledge writes with learning and settings. The agent already validated and asked.",
+          "params": {
+            "$ref": "#/$defs/knowledge.apply.params"
+          },
+          "result": {
+            "$ref": "#/$defs/knowledge.apply.result"
           }
         },
         "terminal.create": {
@@ -2002,23 +2020,69 @@
         "cwd": {
           "type": "string"
         },
-        "workspaceId": {
-          "type": "string"
-        },
         "status": {
           "type": "string"
         },
         "title": {
           "type": "string"
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "user",
+            "agent"
+          ]
+        },
+        "lastActivityAt": {
+          "type": "number"
         }
       },
       "required": [
         "id",
         "cwd",
-        "workspaceId",
-        "status"
+        "status",
+        "title"
       ],
       "additionalProperties": {}
+    },
+    "ToolContext": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        },
+        "preconfigId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "preconfigId",
+        "path"
+      ],
+      "description": "Session state captured when MCP access was granted; a change revokes access."
     },
     "ToolOutputArtifact": {
       "type": "object",
@@ -2973,6 +3037,40 @@
         "status"
       ]
     },
+    "knowledge.apply.params": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "memory",
+            "skill"
+          ]
+        },
+        "directory": {
+          "type": "string"
+        },
+        "input": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "kind",
+        "directory",
+        "input"
+      ]
+    },
+    "knowledge.apply.result": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
     "models.list.result": {
       "type": "object",
       "properties": {
@@ -3123,6 +3221,46 @@
       "required": [
         "revertedTo",
         "removed"
+      ]
+    },
+    "sessionSearch.call.params": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "getWorkspace",
+            "getSession",
+            "listWorkspaceSessions",
+            "listAgentSessions",
+            "countSessionMessages",
+            "searchMessages",
+            "countMessagesBefore",
+            "countMessagesAfter",
+            "getLatestMessage",
+            "getMessage",
+            "listMessagesBefore",
+            "listMessagesAfter",
+            "getMessageSummary"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {}
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ]
+    },
+    "sessionSearch.call.result": {
+      "type": "object",
+      "properties": {
+        "value": {}
+      },
+      "required": [
+        "value"
       ]
     },
     "shutdown.params": {
@@ -3713,7 +3851,7 @@
         },
         "maxBytes": {
           "type": "integer",
-          "exclusiveMinimum": 0,
+          "minimum": 0,
           "maximum": 9007199254740991
         }
       },
@@ -3849,6 +3987,9 @@
             "type": "string"
           },
           "additionalProperties": {}
+        },
+        "context": {
+          "$ref": "#/$defs/ToolContext"
         }
       },
       "required": [
@@ -3910,6 +4051,9 @@
               "inputSchema"
             ]
           }
+        },
+        "context": {
+          "$ref": "#/$defs/ToolContext"
         }
       },
       "required": [
@@ -4201,6 +4345,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "knowledgeRoot": {
+          "description": "Workspace whose memory and skills the resolved path shares (a managed worktree maps to its main workspace).",
+          "type": "string"
         }
       }
     }

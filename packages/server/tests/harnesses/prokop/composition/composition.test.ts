@@ -68,8 +68,8 @@ const expectedCompositionSteps = [
   'configureProkopSessionSearchHost',
   'configureProkopWorkspaceToolDiscovery',
   'configureProkopBindings',
-  // Host/agent split experiment: no-op unless PROKOPAI_AGENT_LOOPBACK=1.
-  'configureAgentLoopback',
+  // Agent-facing host ports; protocol-backed only with PROKOPAI_AGENT_LOOPBACK=1.
+  'configureAgentPorts',
   'installExecutionLifecyclePort',
 ];
 
@@ -143,7 +143,7 @@ describe('Čapek composition root', () => {
       '@/infrastructure/sqlite/database',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/workspaces',
-      '@/bootstrap/agent-loopback',
+      '@/bootstrap/agent-ports',
     ];
     for (const imp of imports) {
       expect(allowedSpecifiers).toContain(imp.specifier);
