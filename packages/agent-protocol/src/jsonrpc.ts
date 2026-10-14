@@ -41,6 +41,8 @@ export const RpcErrorCode = {
   InternalError: -32603,
   /** The request was cancelled with `$/cancel`. */
   Cancelled: -32800,
-  /** The agent process is gone; in-flight turns are marked interrupted. */
-  AgentUnavailable: -32001,
+  /** The channel closed (peer exited); every in-flight request fails with this. */
+  ChannelClosed: -32001,
+  /** The peer answered with a result that does not match the method's schema. */
+  InvalidResult: -32002,
 } as const;

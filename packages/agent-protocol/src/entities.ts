@@ -8,6 +8,7 @@ import type {
   PermissionGrant,
   Preconfig,
   QueuedMessage,
+  ResponseFormat,
   ServerMessage,
   Session,
   ToolPart,
@@ -60,6 +61,10 @@ export const QueuedMessageEntity = entity<QueuedMessage>('QueuedMessage', {
   sessionId: z.string(),
   content: z.string(),
 }, 'SDK QueuedMessage.');
+
+export const ResponseFormatEntity = entity<ResponseFormat>('ResponseFormat', {
+  id: z.string(),
+}, 'SDK ResponseFormat (structured output schema).');
 
 export const PreconfigEntity = entity<Preconfig>('Preconfig', {
   id: z.string(),

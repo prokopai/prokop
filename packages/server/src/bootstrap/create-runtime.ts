@@ -21,6 +21,7 @@ import { createProkopSessionRepository } from '@/adapters/prokop/session-reposit
 import { createSessionSearchQueryRepository } from '@/infrastructure/sqlite/session-search-query-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
+import { configureAgentLoopbackStorage } from '@/agent-bridge/loopback';
 
 /** S5 session-search host dependencies. The query port is the SQLite
  * infrastructure repository with an injected store accessor; session and
@@ -62,6 +63,7 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   installBuiltinToolsPort({ tools: () => builtinTools });
 
   configureProkopStorage();
+  configureAgentLoopbackStorage();
   configureProkopRuntimeConfiguration();
   configureProkopWorkspacePolicy();
   configureProkopPreconfigSource(agents);

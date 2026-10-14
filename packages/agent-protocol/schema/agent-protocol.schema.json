@@ -401,7 +401,43 @@
             "$ref": "#/$defs/SessionIdParams"
           },
           "result": {
-            "$ref": "#/$defs/queue.peekSteer.result"
+            "$ref": "#/$defs/MaybeQueued"
+          }
+        },
+        "queue.add": {
+          "description": "Queue a prompt behind the running turn.",
+          "params": {
+            "$ref": "#/$defs/queue.add.params"
+          },
+          "result": {
+            "$ref": "#/$defs/QueuedMessage"
+          }
+        },
+        "queue.peek": {
+          "description": "Oldest queued prompt of a session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/MaybeQueued"
+          }
+        },
+        "queue.delete": {
+          "description": "Remove a queued prompt.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Deleted"
+          }
+        },
+        "responseFormat.get": {
+          "description": "Read a structured response format.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/responseFormat.get.result"
           }
         },
         "attachment.get": {
@@ -1379,6 +1415,16 @@
         }
       ]
     },
+    "MaybeQueued": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QueuedMessage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "MaybeSession": {
       "anyOf": [
         {
@@ -1690,6 +1736,18 @@
           "type": "string"
         }
       ]
+    },
+    "ResponseFormat": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": {}
     },
     "RootSessionParams": {
       "type": "object",
@@ -2936,10 +2994,43 @@
         "lookup"
       ]
     },
-    "queue.peekSteer.result": {
+    "queue.add.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind"
+            ]
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "content"
+      ]
+    },
+    "responseFormat.get.result": {
       "anyOf": [
         {
-          "$ref": "#/$defs/QueuedMessage"
+          "$ref": "#/$defs/ResponseFormat"
         },
         {
           "type": "null"

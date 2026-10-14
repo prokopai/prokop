@@ -27,3 +27,12 @@ export { AttachmentRecord, NativeRecord, PendingAskRecord } from './entities';
 export { OriginToken, TurnSnapshot } from './host-to-agent';
 export { RpcErrorCode, RpcNotification, RpcRequest, RpcResponse } from './jsonrpc';
 export { protocolRegistry } from './registry';
+export {
+  createEndpoint, RpcRequestError,
+  type Endpoint, type MessageChannel, type NotificationHandlers, type ProtocolSide, type RequestContext, type RequestHandlers,
+} from './endpoint';
+export { createLoopback } from './loopback';
+export {
+  createAgentEndpoint, createHostEndpoint,
+  type AgentEndpoint, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type HostSide,
+} from './peers';

@@ -1,0 +1,62 @@
+import type { AgentEndpoint } from '@prokopai/agent-protocol';
+import type { Session } from '@prokopai/sdk/types';
+import type { StorageBundle } from '@/infrastructure/storage/contracts';
+
+/**
+ * Agent side of the storage protocol: a `StorageBundle` whose every call is a
+ * host request. The Prokop engine uses it unchanged through `getStorage()`.
+ *
+ * `workspaces.getAutoApproveSeverity` is deliberately absent, as in the
+ * production SQLite bundle; consumers treat it as inherited.
+ */
+export function createProtocolStorageBundle(endpoint: AgentEndpoint): StorageBundle {
+  const request = endpoint.request.bind(endpoint);
+  return {
+    conversation: {
+      createSession: session => request('store.session.create', { session: session as Session }),
+      getSession: id => request('store.session.get', { id }),
+      updateSession: (id, updates) => request('store.session.update', { id, updates }),
+      getChildSessions: parentId => request('store.session.children', { parentId }),
+
+      createMessage: message => request('store.message.create', { message }),
+      getMessage: id => request('store.message.get', { id }),
+      getMessageWithParts: id => request('store.message.getWithParts', { id }),
+      updateMessage: (id, updates) => request('store.message.update', { id, updates }),
+      deleteMessage: async id => (await request('store.message.delete', { id })).deleted,
+      listMessagesWithParts: sessionId => request('store.message.list', { sessionId }),
+      listLatestMessagesWithPartsPage: (sessionId, limit) => request('store.message.page', { sessionId, limit }),
+      buildEffectiveContextHistory: sessionId => request('store.history.effective', { sessionId }),
+
+      createPart: (part, sessionId) => request('store.part.create', { sessionId, part }),
+      getPart: id => request('store.part.get', { id }),
+      getPartsByMessage: messageId => request('store.part.listByMessage', { messageId }),
+      getPartsBySession: sessionId => request('store.part.listBySession', { sessionId }),
+      updatePart: (id, updates) => request('store.part.update', { id, updates }),
+      persistStreamingPartSnapshots: async snapshots => (await request('store.part.snapshot', { snapshots })).count,
+      transitionToolToRunningByCallId: (sessionId, callId, childSessionId) => request('store.tool.transition', {
+        target: { sessionId, callId }, to: { state: 'running', childSessionId },
+      }),
+      transitionToolToInterrupted: (partId, reason) => request('store.tool.transition', {
+        target: { partId }, to: { state: 'interrupted', reason },
+      }),
+    },
+    toolOutputArtifacts: {
+      create: input => request('store.artifact.create', input),
+      getPage: (sessionId, artifactId, offset, limit) => request('store.artifact.page', { sessionId, artifactId, offset, limit }),
+    },
+    queue: {
+      addMessage: (sessionId, content, attachments) => request('queue.add', { sessionId, content, attachments }),
+      peek: sessionId => request('queue.peek', { sessionId }),
+      peekSteer: sessionId => request('queue.peekSteer', { sessionId }),
+      delete: async id => (await request('queue.delete', { id })).deleted,
+    },
+    attachments: { get: (sessionId, attachmentId) => request('attachment.get', { sessionId, attachmentId }) },
+    workspaces: { get: id => request('workspace.get', { id }) },
+    responseFormats: { get: id => request('responseFormat.get', { id }) },
+    index: {
+      syncMessage: async (messageId) => {
+        await request('store.index.sync', { messageId });
+      },
+    },
+  };
+}

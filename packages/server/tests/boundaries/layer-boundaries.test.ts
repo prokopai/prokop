@@ -24,7 +24,10 @@ const harnessesDir = resolve(serverSourceRoot, 'harnesses');
 const prokopHarnessDir = resolve(harnessesDir, 'prokop');
 const routesDir = resolve(serverSourceRoot, 'transport/http/routes');
 const utilsDir = resolve(serverSourceRoot, 'utils');
-const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir];
+// Host/agent split experiment (docs/plans/host-agent-split.md): protocol
+// handlers and agent-side ports. Bootstrap wires it behind a flag.
+const agentBridgeDir = resolve(serverSourceRoot, 'agent-bridge');
+const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir, agentBridgeDir];
 const infrastructureSqliteDir = resolve(infrastructureDir, 'sqlite');
 const prokopToolsDir = resolve(prokopHarnessDir, 'tools');
 
@@ -276,6 +279,12 @@ const layerRules: DependencyRule[] = [
     appliesTo: [bootstrapDir],
     allowedResolvedDirs: layerDirs,
     exceptions: layerBootstrapExceptions,
+  },
+  {
+    name: 'layer-agent-bridge',
+    rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure ports and @prokopai/agent-protocol, never transport, application or harness internals.',
+    appliesTo: [agentBridgeDir],
+    allowedResolvedDirs: [agentBridgeDir, infrastructureDir],
   },
   {
     name: 'layer-transport',

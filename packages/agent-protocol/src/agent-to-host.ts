@@ -3,7 +3,7 @@ import { CommitParams, CommitResult } from './commit';
 import {
   AttachmentRecord, EffectiveContextHistory, MessageEntity, MessageWithPartsEntity, NativeKey,
   NativeRecord, PartEntity, PendingAskRecord, PermissionGrantEntity, PermissionRequestStatus,
-  QueuedMessageEntity, SessionEntity, StreamingPartSnapshot, ToolOutputArtifact,
+  QueuedMessageEntity, ResponseFormatEntity, SessionEntity, StreamingPartSnapshot, ToolOutputArtifact,
   ToolOutputArtifactFormat, ToolOutputArtifactPage, ToolPartEntity, TranscriptPage, WorkspaceEntity,
 } from './entities';
 import { Ack, named, requests } from './registry';
@@ -20,6 +20,7 @@ const MaybeToolPart = named('MaybeToolPart', ToolPartEntity.nullable());
 const MaybeNative = named('MaybeNative', NativeRecord.nullable());
 const MaybePendingAsk = named('MaybePendingAsk', PendingAskRecord.nullable());
 const PendingAsks = named('PendingAsks', z.array(PendingAskRecord));
+const MaybeQueued = named('MaybeQueued', QueuedMessageEntity.nullable());
 const Parts = named('Parts', z.array(PartEntity));
 const RootSessionParams = named('RootSessionParams', z.object({ rootSessionId: z.string() }));
 const WorkspaceRootParams = named('WorkspaceRootParams', z.object({ workspaceId: z.string(), path: z.string() }));
@@ -125,7 +126,16 @@ export const agentToHostRequests = requests({
   },
 
   // Queue, attachments, workspaces ---------------------------------------------
-  'queue.peekSteer': { description: 'Oldest steer message for a running turn. Retire it with queue.delete in store.commit.', params: SessionIdParams, result: QueuedMessageEntity.nullable() },
+  'queue.peekSteer': { description: 'Oldest steer message for a running turn. Retire it with queue.delete in store.commit.', params: SessionIdParams, result: MaybeQueued },
+  // queue.add/peek/delete serve the Prokop chat handler until queue drain moves host-side (1i).
+  'queue.add': {
+    description: 'Queue a prompt behind the running turn.',
+    params: z.object({ sessionId: z.string(), content: z.string(), attachments: z.array(z.object({ id: z.string(), kind: z.string() })).optional() }),
+    result: QueuedMessageEntity,
+  },
+  'queue.peek': { description: 'Oldest queued prompt of a session.', params: SessionIdParams, result: MaybeQueued },
+  'queue.delete': { description: 'Remove a queued prompt.', params: Id, result: Deleted },
+  'responseFormat.get': { description: 'Read a structured response format.', params: Id, result: ResponseFormatEntity.nullable() },
   'attachment.get': { description: 'Attachment metadata; the agent reads absolutePath directly.', params: z.object({ sessionId: z.string(), attachmentId: z.string() }), result: AttachmentRecord.nullable() },
   'attachment.create': {
     description: 'Store a tool-produced file (Codex image outputs).',
