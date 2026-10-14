@@ -1,11 +1,10 @@
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import type { SessionExecutionPort } from '@/application/ports/execution';
-import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
-import { deleteQueuedMessage, getNextQueuedMessage, getQueuedMessage } from '@/infrastructure/sqlite/queued-messages';
+import { getStorage } from '@/infrastructure/storage/runtime';
 import { describeError, logHarness, type HarnessName } from './diagnostics';
 
 /** Persists and announces whether a CLI session is busy. */
-export type CliRunningFlag = <Origin>(wire: SessionWirePorts<Origin>, sessionId: string, running: boolean) => void;
+export type CliRunningFlag = <Origin>(wire: SessionWirePorts<Origin>, sessionId: string, running: boolean) => void | Promise<void>;
 
 /**
  * Only Čapek runs wrote `runningAt`, so CLI turns looked idle to session
@@ -13,14 +12,16 @@ export type CliRunningFlag = <Origin>(wire: SessionWirePorts<Origin>, sessionId:
  * learning idle check. The update goes to every client, not only those
  * with the session open, because session lists read it.
  */
-export const persistCliSessionRunning: CliRunningFlag = (wire, sessionId, running) => {
-  const updated = updateSession(sessionId, { runningAt: running ? new Date().toISOString() : null });
+export const persistCliSessionRunning: CliRunningFlag = async (wire, sessionId, running) => {
+  const updated = await getStorage().conversation.updateSession(sessionId,
+    { runningAt: running ? new Date().toISOString() : null });
   if (updated) wire.delivery.broadcast({ type: 'session.updated', session: updated });
 };
 
 export interface QueuedTurnInput {
-  isPending(): boolean;
-  accepted(): void;
+  isPending(): Promise<boolean>;
+  /** Retires the queue row; await it before continuing the turn. */
+  accepted(): Promise<void>;
 }
 
 export type QueuedCliExecution = Pick<SessionExecutionPort,
@@ -32,8 +33,8 @@ export interface CliTurnExecution extends Omit<QueuedCliExecution, 'sendMessage'
     content: string, attachments?: Array<{ id: string; kind: string }>, responseFormatId?: string,
     goalCondition?: string, goalMaxTurns?: number, goalTokenBudget?: number,
     queued?: QueuedTurnInput,
-    /** Called once the user message is persisted; rejected prompts never call it. */
-    onTurnStarted?: () => void,
+    /** Called once the user message is persisted; rejected prompts never call it. Await it. */
+    onTurnStarted?: () => Promise<void>,
   ): Promise<'drainable' | void>;
   /** Hands steer messages to the running turn. A session with no steerable turn leaves them queued. */
   steer?<Origin>(wire: SessionWirePorts<Origin>, sessionId: string): Promise<void>;
@@ -75,17 +76,21 @@ export function withCliMessageQueue(
 ): QueuedCliExecution {
   const running = new Set<string>();
   const flagged = new Set<string>();
+  /** Flag writes per session, in call order; the last one wins. */
+  const flagWrites = new Map<string, Promise<void>>();
 
-  function setRunning<Origin>(wire: SessionWirePorts<Origin>, sessionId: string, value: boolean): void {
-    if (value === flagged.has(sessionId)) return;
+  function setRunning<Origin>(wire: SessionWirePorts<Origin>, sessionId: string, value: boolean): Promise<void> {
+    const previous = flagWrites.get(sessionId) ?? Promise.resolve();
+    if (value === flagged.has(sessionId)) return previous;
     if (value) flagged.add(sessionId);
     else flagged.delete(sessionId);
-    try {
-      markRunning(wire, sessionId, value);
-    } catch (error) {
+    const next = previous.then(() => markRunning(wire, sessionId, value)).catch((error: unknown) => {
       // The flag is presentation and guard state; never fail a turn over it.
       logHarness(harness, 'running flag update failed', { sessionId, running: value, ...describeError(error) });
-    }
+    });
+    flagWrites.set(sessionId, next);
+    void next.then(() => { if (flagWrites.get(sessionId) === next) flagWrites.delete(sessionId); });
+    return next;
   }
 
   async function send<Origin>(
@@ -104,25 +109,27 @@ export function withCliMessageQueue(
   }
 
   async function drain<Origin>(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): Promise<void> {
-    while (getSession(sessionId)?.status === 'active') {
-      const next = getNextQueuedMessage(sessionId);
+    const { conversation, queue } = getStorage();
+    while ((await conversation.getSession(sessionId))?.status === 'active') {
+      const next = await queue.peek(sessionId);
       if (!next) return;
       let accepted = false;
       const result = await send(wire, origin, sessionId, true, next.content, next.attachments,
         undefined, undefined, undefined, undefined, {
-          isPending: () => getQueuedMessage(next.id) !== null && getSession(sessionId)?.status === 'active',
-          accepted: () => {
+          isPending: async () => await queue.get(next.id) !== null
+            && (await conversation.getSession(sessionId))?.status === 'active',
+          accepted: async () => {
             accepted = true;
             // Input is already persisted. Never replay it if delivery subsequently fails.
             try {
               wire.delivery.broadcastToSession(sessionId, { type: 'queue.sending', sessionId, queueId: next.id });
             } finally {
-              deleteQueuedMessage(next.id);
+              await queue.delete(next.id);
             }
           },
         });
-      if (result !== 'drainable' || !accepted && getQueuedMessage(next.id)) {
-        if (getQueuedMessage(next.id)) {
+      if (result !== 'drainable' || !accepted && await queue.get(next.id)) {
+        if (await queue.get(next.id)) {
           logHarness(harness, 'queue stopped', { sessionId, queueId: next.id, accepted,
             reason: result === 'drainable' ? 'not accepted' : 'turn did not finish cleanly' });
         }
@@ -165,7 +172,7 @@ export function withCliMessageQueue(
         const result = await send(wire, origin, sessionId, false, ...input);
         if (result === 'drainable') await drain(wire, origin, sessionId);
       } finally {
-        setRunning(wire, sessionId, false);
+        await setRunning(wire, sessionId, false);
         running.delete(sessionId);
       }
     },
@@ -178,7 +185,7 @@ export function withCliMessageQueue(
       try {
         await drain(wire, origin, sessionId);
       } finally {
-        setRunning(wire, sessionId, false);
+        await setRunning(wire, sessionId, false);
         running.delete(sessionId);
       }
     },

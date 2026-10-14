@@ -1,11 +1,18 @@
 import type { Message, MessageWithParts, Part, QueuedMessage, ResponseFormat, Session, ToolPart, Workspace } from '@prokopai/sdk/types';
 import { createInMemoryToolOutputArtifactStore } from '@/infrastructure/storage/tool-output-artifacts';
+import { CommitFailure, nativeValueMatches } from '@/infrastructure/storage/commit-guards';
 import type {
   AttachmentRecord,
   AttachmentStore,
+  CommitCheck,
+  CommitRequest,
+  CommitResult,
+  CommitWrite,
   ConversationIndex,
   ConversationStore,
   MessageQueueStore,
+  NativeKey,
+  NativeRecord,
   ResponseFormatStore,
   SessionUpdates,
   StorageBundle,
@@ -223,6 +230,28 @@ export function createInMemoryConversationStore(): ConversationStore {
         },
       }) as ToolPart;
     },
+    async getToolPartByCallId(sessionId, callId) {
+      const match = [...parts.values()]
+        .filter(record => record.sessionId === sessionId && record.part.type === 'tool' && record.part.callId === callId)
+        .sort((left, right) => right.part.createdAt - left.part.createdAt || right.insertionOrder - left.insertionOrder)[0];
+      return match ? copy(match.part) as ToolPart : null;
+    },
+    async transitionToolToCompleted(partId, output) {
+      const current = parts.get(partId)?.part;
+      if (!current || current.type !== 'tool' || current.state.status !== 'running') return null;
+      return await store.updatePart(partId, { state: { status: 'completed', input: current.state.input, output,
+        startedAt: current.state.startedAt, completedAt: Date.now(),
+        ...(current.state.childSessionId ? { childSessionId: current.state.childSessionId } : {}) } }) as ToolPart;
+    },
+    async transitionToolToError(partId, error) {
+      const current = parts.get(partId)?.part;
+      if (!current || current.type !== 'tool') return null;
+      const now = Date.now();
+      return await store.updatePart(partId, { state: { status: 'error', input: current.state.input, error,
+        startedAt: current.state.status === 'running' ? current.state.startedAt : now, failedAt: now,
+        ...('childSessionId' in current.state && current.state.childSessionId
+          ? { childSessionId: current.state.childSessionId } : {}) } }) as ToolPart;
+    },
     async transitionToolToInterrupted(partId, reason) {
       const current = parts.get(partId)?.part;
       if (!current || current.type !== 'tool') return null;
@@ -288,6 +317,16 @@ export function createInMemoryMessageQueueStore(options: { attachments?: Attachm
         .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))[0];
       return message ? copy(message) : null;
     },
+    async listSteer(sessionId) {
+      return [...records.values()]
+        .filter(record => record.sessionId === sessionId && record.steer)
+        .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+        .map(copy);
+    },
+    async get(id) {
+      const message = records.get(id);
+      return message ? copy(message) : null;
+    },
     async delete(idToDelete) {
       return records.delete(idToDelete);
     },
@@ -306,6 +345,14 @@ export function createInMemoryStorageBundle(records: InMemoryAuxiliaryRecords = 
   const responseFormats = new Map(records.responseFormats?.map(record => [record.id, copy(record)]));
   const attachmentStore: AttachmentStore = {
     get: async (sessionId, attachmentId) => copy(attachments.get(`${sessionId}:${attachmentId}`) ?? null),
+    /** Keeps metadata only; there is no file behind an in-memory attachment. */
+    create: async ({ data, ...input }) => {
+      const record: AttachmentRecord = { ...input, id: crypto.randomUUID(), kind: input.mimeType.startsWith('image/')
+        ? 'image' : 'file', sizeBytes: data.byteLength, absolutePath: '', createdAt: new Date().toISOString(),
+      accessKey: crypto.randomUUID().replaceAll('-', '') };
+      attachments.set(`${record.sessionId}:${record.id}`, record);
+      return copy(record);
+    },
   };
   const workspaceStore: WorkspaceStore = {
     get: async id => copy(workspaces.get(id) ?? null),
@@ -315,13 +362,89 @@ export function createInMemoryStorageBundle(records: InMemoryAuxiliaryRecords = 
     get: async id => copy(responseFormats.get(id) ?? null),
   };
   const index: ConversationIndex = { syncMessage: async () => {} };
+  const conversation = createInMemoryConversationStore();
+  const queue = createInMemoryMessageQueueStore({ attachments: attachmentStore });
+  const native = new Map<string, NativeRecord>();
+  const nativeId = (target: NativeKey): string => `${target.harness}\u0000${target.kind}\u0000${target.key}`;
+
+  async function passes(check: CommitCheck): Promise<boolean> {
+    switch (check.check) {
+      case 'native.equals': {
+        const stored = native.get(nativeId(check.target));
+        return !!stored && nativeValueMatches(stored.value, check.value);
+      }
+      case 'native.absent': return !native.has(nativeId(check.target));
+      case 'session.messageIds': {
+        const ids = (await conversation.listMessagesWithParts(check.sessionId)).map(entry => entry.message.id);
+        return ids.length === check.ids.length && ids.every((id, index) => id === check.ids[index]);
+      }
+      case 'session.harness': {
+        // SQLite defaults the column to 'prokop'; test sessions often omit it.
+        const current = await conversation.getSession(check.sessionId);
+        return !!current && (current.harness ?? 'prokop') === check.harness;
+      }
+      case 'queue.present': return !!await queue.get(check.id);
+    }
+  }
+
+  async function apply(write: CommitWrite): Promise<unknown> {
+    switch (write.op) {
+      case 'session.create': return conversation.createSession(write.session);
+      case 'session.update': {
+        const current = await conversation.getSession(write.id);
+        if (!current) return null;
+        return conversation.updateSession(write.id, { ...write.updates, ...(write.metadataPatch
+          ? { metadata: { ...(current.metadata ?? {}), ...write.metadataPatch } } : {}) } as SessionUpdates);
+      }
+      case 'message.create': return conversation.createMessage(write.message);
+      case 'message.update': return conversation.updateMessage(write.id, write.updates as Partial<Message>);
+      case 'message.delete': return await conversation.deleteMessage(write.id) || !!write.ifExists;
+      case 'part.create': return conversation.createPart(write.part, write.sessionId);
+      case 'part.update': return conversation.updatePart(write.id, write.updates);
+      case 'queue.delete': return await queue.delete(write.id) || !!write.ifExists;
+      case 'native.put': {
+        const id = nativeId(write.record);
+        if (write.record.lookup != null && [...native.entries()].some(([other, record]) => other !== id
+          && record.harness === write.record.harness && record.kind === write.record.kind
+          && record.lookup === write.record.lookup)) throw new Error('Native lookup already bound');
+        native.set(id, copy(write.record));
+        return true;
+      }
+      case 'native.delete': return native.delete(nativeId(write.target)) || !!write.ifExists;
+    }
+  }
+
+  /** Checks first; writes apply in order. Not rolled back on a failed write (test store). */
+  async function commit(request: CommitRequest): Promise<CommitResult> {
+    for (const [index, check] of (request.checks ?? []).entries()) {
+      if (!(await passes(check))) return { ok: false, failed: { kind: 'check', index } };
+    }
+    const results: unknown[] = [];
+    for (const [index, write] of request.writes.entries()) {
+      try {
+        const result = await apply(write);
+        if (result === null || result === false) throw new CommitFailure('write', index, `${write.op} matched no row`);
+        results.push(result);
+      } catch (error) {
+        return { ok: false, failed: { kind: 'write', index, message: error instanceof Error ? error.message : String(error) } };
+      }
+    }
+    return { ok: true, results };
+  }
+
   return {
-    conversation: createInMemoryConversationStore(),
+    conversation,
     toolOutputArtifacts: createInMemoryToolOutputArtifactStore(),
-    queue: createInMemoryMessageQueueStore({ attachments: attachmentStore }),
+    queue,
     attachments: attachmentStore,
     workspaces: workspaceStore,
     responseFormats: responseFormatStore,
     index,
+    native: {
+      get: async <V>(target: NativeKey) => copy(native.get(nativeId(target)) ?? null) as NativeRecord<V> | null,
+      find: async <V>(harness: NativeKey['harness'], kind: string, lookup: string) => copy([...native.values()]
+        .find(record => record.harness === harness && record.kind === kind && record.lookup === lookup) ?? null) as NativeRecord<V> | null,
+    },
+    commit,
   };
 }

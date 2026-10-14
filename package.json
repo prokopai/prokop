@@ -29,14 +29,14 @@
     "build:bin:windows": "cd packages/server && bun run build:bin:windows",
     "build:all": "cd packages/server && bun run build:all",
     "test:client": "cd packages/client && bun vitest run",
-    "test:server": "bun test ./packages/server/tests ./packages/server/src --path-ignore-patterns '**/tests/engine/**'",
-    "test:server:coverage": "bun test ./packages/server/tests ./packages/server/src --path-ignore-patterns '**/tests/engine/**' --coverage",
+    "test:server": "cd packages/server && bun test ./tests ./src --path-ignore-patterns '**/tests/engine/**'",
+    "test:server:coverage": "cd packages/server && bun test ./tests ./src --path-ignore-patterns '**/tests/engine/**' --coverage",
     "test": "bun run test:engine && bun run test:server && bun test ./packages/sdk/tests && bun test ./packages/agent-protocol/tests && bun run test:browser && bun run test:client",
     "test:browser": "bun test ./packages/browser/src",
     "sandbox": "bun packages/sandbox-cli/src/cli.ts",
     "screenshots": "bun scripts/screenshots/run.ts",
     "clips": "bun scripts/screenshots/record.ts",
-    "test:engine": "bun test ./packages/server/tests/engine"
+    "test:engine": "cd packages/server && bun test ./tests/engine"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

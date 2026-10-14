@@ -27,19 +27,19 @@ test('Codex token usage requires complete nonnegative integer counts and a posit
   expect(parseCodexContextUsage(null)).toBeNull();
 });
 
-test('Codex usage persists beside existing metadata and broadcasts the updated session', () => {
+test('Codex usage persists beside existing metadata and broadcasts the updated session', async () => {
   createSession({ id: 's', workspaceId: 'ws', title: 'Test', status: 'active',
     preconfigId: null, metadata: { other: 'kept' }, parentId: null, agentName: null, harness: 'codex-cli' });
   const messages: ServerMessage[] = [];
   const delivery = { broadcastToSession: (_id: string, message: ServerMessage) => { messages.push(message); } } as
     unknown as ApplicationDeliveryPort<unknown>;
   const usage = parseCodexContextUsage(raw)!;
-  publishCodexContextUsage('s', usage, delivery);
+  await publishCodexContextUsage('s', usage, delivery);
   expect(getSession('s')?.metadata).toEqual({ other: 'kept', codexUsage: usage });
   expect(messages).toMatchObject([{ type: 'session.updated', session: { metadata: { codexUsage: usage } } }]);
   createSession({ id: 'prokop', workspaceId: 'ws', title: 'Other', status: 'active',
     preconfigId: null, metadata: null, parentId: null, agentName: null, harness: 'prokop' });
-  publishCodexContextUsage('prokop', usage, delivery);
+  await publishCodexContextUsage('prokop', usage, delivery);
   expect(getSession('prokop')?.metadata).toBeNull();
   expect(messages).toHaveLength(1);
 });

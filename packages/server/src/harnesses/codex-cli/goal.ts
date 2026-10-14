@@ -1,6 +1,6 @@
 import type { CodexGoalState, Session } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
+import { getSession, updateSession } from '@/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
 
 const GOAL_STATUSES = new Set(['active', 'paused', 'blocked', 'usageLimited', 'budgetLimited', 'complete']);
@@ -21,12 +21,12 @@ export function parseCodexGoal(raw: unknown, threadId: string): CodexGoalState |
     tokenBudget: goal.tokenBudget, tokensUsed: goal.tokensUsed };
 }
 
-export function publishCodexGoal(session: Session, goal: CodexGoalState | null,
-  delivery: ApplicationDeliveryPort<unknown>): void {
-  const latest = getSession(session.id);
+export async function publishCodexGoal(session: Session, goal: CodexGoalState | null,
+  delivery: ApplicationDeliveryPort<unknown>): Promise<void> {
+  const latest = await getSession(session.id);
   if (!latest || latest.harness !== 'codex-cli') return;
   const { codexGoalPending: pending, ...current } = codexObject(latest.metadata) ?? {};
-  const updated = updateSession(session.id, { metadata: {
+  const updated = await updateSession(session.id, { metadata: {
     ...current, codexGoal: goal, ...(goal === null && pending !== undefined ? { codexGoalPending: pending } : {}),
   } });
   if (updated) delivery.broadcastToSession(session.id, { type: 'session.updated', session: updated });

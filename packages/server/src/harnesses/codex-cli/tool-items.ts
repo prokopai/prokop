@@ -1,11 +1,12 @@
 import { HTML_RENDER_TOOL_NAME, resolveToolSummary, type AnyVisualization, type ToolPart } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
 import { projectToolPartForClient } from '@/application/sessions/tool-debug';
-import { createPart, getToolPartByCallId, transitionToolToCompleted,
-  transitionToolToError, transitionToolToInterrupted, updatePart } from '@/infrastructure/sqlite/message-store';
+import {
+  createPart, getStorage, getSession, getToolPartByCallId, transitionToolToCompleted, transitionToolToError,
+  transitionToolToInterrupted, updatePart,
+} from '@/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
-import { createAttachmentSync, MAX_ATTACHMENT_SIZE } from '@/infrastructure/sqlite/attachments';
-import { getSession } from '@/infrastructure/sqlite/session-store';
+import { MAX_ATTACHMENT_SIZE } from '@/infrastructure/sqlite/attachments';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,
@@ -55,18 +56,17 @@ const IMAGE_TYPES: Array<{ mimeType: string; extension: string; matches(bytes: B
  * Codex sends the generated image as base64 in `result`. It is saved as a
  * session attachment and shown inline; the transcript keeps only its URL.
  */
-function imageGenerationVisualization(item: Record<string, unknown>, sessionId: string): AnyVisualization | null {
+async function imageGenerationVisualization(item: Record<string, unknown>, sessionId: string): Promise<AnyVisualization | null> {
   if (item.type !== 'imageGeneration') return null;
   if (codexObject(item.failure)?.type === 'usageLimitExceeded') return { type: 'none', message: 'Image limit reached' };
   const saved = typeof item.savedPath === 'string' ? `Image saved: ${preview(item.savedPath)}` : 'Image generated';
   const bytes = typeof item.result === 'string' && item.result ? Buffer.from(item.result, 'base64') : null;
   const type = bytes && IMAGE_TYPES.find(candidate => candidate.matches(bytes));
-  const workspaceId = getSession(sessionId)?.workspaceId;
+  const workspaceId = (await getSession(sessionId))?.workspaceId;
   if (!bytes || !type || bytes.byteLength > MAX_ATTACHMENT_SIZE || !workspaceId) return { type: 'none', message: saved };
   try {
-    const attachment = createAttachmentSync({ sessionId, workspaceId, filename: `generated.${type.extension}`,
-      mimeType: type.mimeType, sizeBytes: bytes.byteLength,
-      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer });
+    const attachment = await getStorage().attachments.create({ sessionId, workspaceId,
+      filename: `generated.${type.extension}`, mimeType: type.mimeType, data: new Uint8Array(bytes) });
     const alt = typeof item.revisedPrompt === 'string' ? item.revisedPrompt : typeof item.prompt === 'string' ? item.prompt : undefined;
     return { type: 'image', mimeType: type.mimeType,
       url: `/api/sessions/${sessionId}/attachments/${attachment.id}/content?key=${attachment.accessKey}`,
@@ -174,7 +174,10 @@ function itemIdentity(item: Record<string, unknown>): { name: string; summary: s
   }
 }
 
-/** Projects app-server items into the existing transcript, never into Codex's approval policy. */
+/**
+ * Projects app-server items into the existing transcript, never into Codex's
+ * approval policy. Callers await each method in event order.
+ */
 export class CodexToolItems {
   private readonly open = new Set<string>();
 
@@ -191,12 +194,12 @@ export class CodexToolItems {
       ? `codex-item:${this.turnId}:${item.id}` : null;
   }
 
-  started(raw: unknown): void {
+  async started(raw: unknown): Promise<void> {
     const item = codexObject(raw);
     if (!item) return;
     const identity = itemIdentity(item);
     const callId = this.callId(item);
-    if (!identity || !callId || getToolPartByCallId(this.sessionId, callId)) return;
+    if (!identity || !callId || await getToolPartByCallId(this.sessionId, callId)) return;
     const threadId = item.type === 'subAgentActivity' ? item.agentThreadId
       : item.type === 'collabAgentToolCall' && item.tool === 'spawnAgent'
         && Array.isArray(item.receiverThreadIds) && item.receiverThreadIds.length === 1
@@ -207,24 +210,24 @@ export class CodexToolItems {
       state: { status: 'running', input: identity.input, startedAt: Date.now(),
         ...(childSessionId ? { childSessionId } : {}) },
       presentation: { summary: identity.summary, debugAvailable: false } };
-    createPart(part, this.sessionId);
+    await createPart(part, this.sessionId);
     this.open.add(part.id);
     this.delivery.broadcastToSession(this.sessionId, { type: 'part.created', sessionId: this.sessionId,
       part: projectToolPartForClient(part) });
   }
 
-  completed(raw: unknown): void {
+  async completed(raw: unknown): Promise<void> {
     const item = codexObject(raw);
     if (!item || !itemIdentity(item) || !this.callId(item)) return;
-    this.started(item); // A completed event may arrive without a started event.
-    const part = getToolPartByCallId(this.sessionId, this.callId(item)!);
+    await this.started(item); // A completed event may arrive without a started event.
+    const part = await getToolPartByCallId(this.sessionId, this.callId(item)!);
     if (!part || part.state.status !== 'running') return;
     const status = item.status;
     let updated: ToolPart | null;
     if (status === 'declined' || status === 'interrupted') {
-      updated = transitionToolToInterrupted(part.id, 'user_request');
+      updated = await transitionToolToInterrupted(part.id, 'user_request');
     } else if (status === 'failed' || status === 'error' || status === 'inProgress') {
-      updated = transitionToolToError(part.id, 'Codex tool failed');
+      updated = await transitionToolToError(part.id, 'Codex tool failed');
     } else {
       const content = item.type === 'commandExecution' ? commandStdout(item.aggregatedOutput)
         : preview(item.type === 'dynamicToolCall'
@@ -240,8 +243,8 @@ export class CodexToolItems {
               ? { type: 'none' as const,
                 message: `Subagent ${typeof item.tool === 'string' && item.tool ? item.tool : 'task'} completed` }
               : (item.type === 'webSearch' ? webSearchVisualization(item) : null)
-                ?? imageGenerationVisualization(item, this.sessionId) ?? fallback);
-      updated = transitionToolToCompleted(part.id, { status: typeof status === 'string' ? status : 'completed',
+                ?? await imageGenerationVisualization(item, this.sessionId) ?? fallback);
+      updated = await transitionToolToCompleted(part.id, { status: typeof status === 'string' ? status : 'completed',
         ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}),
         // Unclassified output is inspectable through raw data, never an automatic preview.
         ...(visualization === fallback ? { result: content } : {}),
@@ -251,7 +254,7 @@ export class CodexToolItems {
     if (updated) {
       const summary = itemIdentity(item)!.summary;
       const final = summary !== part.presentation?.summary
-        ? updatePart(updated.id, { presentation: { summary, debugAvailable: false } }) as ToolPart | null
+        ? await updatePart(updated.id, { presentation: { summary, debugAvailable: false } }) as ToolPart | null
         : updated;
       if (final) this.delivery.broadcastToSession(this.sessionId, { type: 'part.updated', sessionId: this.sessionId,
         part: projectToolPartForClient(final) });
@@ -263,9 +266,9 @@ export class CodexToolItems {
     this.messageId = messageId;
   }
 
-  finish(): void {
-    for (const id of this.open) {
-      const updated = transitionToolToInterrupted(id, 'error');
+  async finish(): Promise<void> {
+    for (const id of [...this.open]) {
+      const updated = await transitionToolToInterrupted(id, 'error');
       if (updated) this.delivery.broadcastToSession(this.sessionId, { type: 'part.updated', sessionId: this.sessionId,
         part: projectToolPartForClient(updated) });
     }

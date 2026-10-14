@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite';
+import type { NativeHarness, NativeKey, NativeRecord } from '@/infrastructure/storage/contracts';
 import { getDatabase } from './database';
 
 /**
@@ -9,23 +10,9 @@ import { getDatabase } from './database';
  * JSON. Writes are compare-and-set so they map onto `store.commit` checks.
  */
 
-export type NativeHarness = 'codex-cli' | 'claude-cli';
-
-export interface HarnessStateKey {
-  harness: NativeHarness;
-  kind: string;
-  key: string;
-}
-
-export interface HarnessStateRecord<V = unknown> extends HarnessStateKey {
-  sessionId: string;
-  messageId?: string | null;
-  /** Unique per harness and kind; a reverse lookup such as a native thread ID. */
-  lookup?: string | null;
-  /** While present, the host refuses a harness switch for the session. */
-  blocksSwitch: boolean;
-  value: V;
-}
+export type { NativeHarness } from '@/infrastructure/storage/contracts';
+export type HarnessStateKey = NativeKey;
+export type HarnessStateRecord<V = unknown> = NativeRecord<V>;
 
 interface Row {
   harness: NativeHarness; kind: string; key: string; session_id: string; message_id: string | null;

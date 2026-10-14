@@ -4,7 +4,7 @@ import { runHeadlessTurn } from '@/application/ports/headless-execution';
 
 export { createClaudeExecution } from './execution';
 export { claudeCliAvailable, claudeCliVersion } from './version';
-export { listClaudeModels, listCachedClaudeModels, getClaudeModelSelection, saveClaudeModelSelection } from './models';
+export { listClaudeModels, listCachedClaudeModels, getClaudeModelSelection } from './models';
 export { readCachedClaudeUsageLimits } from './usage-limits';
 export { readClaudeSessionTitle } from './title';
 

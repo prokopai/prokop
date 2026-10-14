@@ -5,7 +5,7 @@ import type { Session } from '@prokopai/sdk';
 import { agentDirectoryPath } from '@/domains/agents/home';
 import { effectivePath } from '@/domains/permissions';
 import { getDataDir, getUploadDir } from '@/infrastructure/runtime/paths';
-import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
+import { getWorkspace } from '@/infrastructure/storage/runtime';
 import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
 
 /** Allowed roots for a session's permission checks. */
@@ -36,11 +36,11 @@ export function harnessSkillRoots(home: string = homedir(), env: NodeJS.ProcessE
  * harness skill folders are readable without an outside-workspace ask. Paths are symlink-resolved so
  * they compare against the classifiers' effective paths.
  */
-export function sessionPermissionRoots(
+export async function sessionPermissionRoots(
   session: Pick<Session, 'id' | 'workspaceId' | 'workspaceRootId' | 'agentId'>,
   root: string,
-): SessionPermissionRoots {
-  const additional = session.workspaceRootId ? [] : getWorkspace(session.workspaceId)?.additionalPaths ?? [];
+): Promise<SessionPermissionRoots> {
+  const additional = session.workspaceRootId ? [] : (await getWorkspace(session.workspaceId))?.additionalPaths ?? [];
   const agentDir = session.agentId ? agentDirectoryPath(getDataDir(), session.agentId) : null;
   const existing = (paths: Array<string | null>): string[] =>
     [...new Set(paths.filter((path): path is string => !!path && existsSync(path)).map(effectivePath))];

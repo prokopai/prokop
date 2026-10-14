@@ -31,8 +31,8 @@ function call(tool: string, callId: string, args: unknown, turnId = 'turn'): unk
 test('memory allowlist is scoped to enabled workspace memory and the selected agent directory', async () => {
   let active = true;
   let validRoot = true;
-  const tools = createCodexMemoryTools({ bridge, sessionId: 's', workspaceId: 'ws', root,
-    agentDir, isActive: turn => active && turn === 'turn', authorizeRoot: () => validRoot });
+  const tools = await createCodexMemoryTools({ bridge, sessionId: 's', workspaceId: 'ws', root,
+    agentDir, isActive: turn => active && turn === 'turn', authorizeRoot: async () => validRoot });
   expect(tools.definitions.map(def => def.name)).toEqual(['agent_memory']);
   expect((await tools.call(call('memory', 'disabled', { action: 'list', target: 'user' }))).success).toBe(false);
   expect((await tools.call(call('shell', 'shell', {}))).success).toBe(false);
@@ -50,8 +50,8 @@ test('memory allowlist is scoped to enabled workspace memory and the selected ag
 
 test('workspace memory always writes without an ask when enabled', async () => {
   updateWorkspace('ws', { settings: { memory: { enabled: true, permissionRisk: 'high' } } });
-  const tools = createCodexMemoryTools({ bridge, sessionId: 's', workspaceId: 'ws', root,
-    agentDir: null, isActive: () => true, authorizeRoot: () => true });
+  const tools = await createCodexMemoryTools({ bridge, sessionId: 's', workspaceId: 'ws', root,
+    agentDir: null, isActive: () => true, authorizeRoot: async () => true });
   expect(tools.definitions.map(def => def.name)).toEqual(['memory']);
   const input = { action: 'add', target: 'memory', content: 'workspace fact' };
   expect((await tools.call(call('memory', 'allowed', input))).success).toBe(true);

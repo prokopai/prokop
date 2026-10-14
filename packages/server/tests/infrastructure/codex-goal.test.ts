@@ -41,7 +41,7 @@ test('Codex goal status is terminal only when upstream stops continuation', () =
   expect(goalIsTerminal(rawGoal as CodexGoalState)).toBe(false);
 });
 
-test('goal metadata publication preserves other metadata and broadcasts session update', () => {
+test('goal metadata publication preserves other metadata and broadcasts session update', async () => {
   createSession({ id: 's', workspaceId: 'ws', title: 'Test', status: 'active',
     preconfigId: null, metadata: null, parentId: null, agentName: null, harness: 'codex-cli' });
   const session = updateSession('s', { metadata: { other: 'kept' } })!;
@@ -51,7 +51,7 @@ test('goal metadata publication preserves other metadata and broadcasts session 
   } as ApplicationDeliveryPort<unknown>;
   const goal = parseCodexGoal(rawGoal, 'thread-1')!;
   updateSession('s', { metadata: { other: 'kept', newer: true } });
-  publishCodexGoal(session, goal, delivery);
+  await publishCodexGoal(session, goal, delivery);
   expect(getSession('s')?.metadata).toEqual({ other: 'kept', newer: true, codexGoal: goal });
   expect(messages).toMatchObject([{ type: 'session.updated', session: { metadata: { other: 'kept', newer: true, codexGoal: goal } } }]);
 });

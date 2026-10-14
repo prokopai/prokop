@@ -14,7 +14,7 @@ import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
 import { createPendingAsk, expirePermissionRequest,
   resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
-import { getSession } from '@/infrastructure/sqlite/session-store';
+import { getSession } from '@/infrastructure/storage/runtime';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { logCodexPermissionDenial, type CodexPermissionReason } from './permission-diagnostics';
 import { unwrapCodexApprovalCommand } from './approval-command';
@@ -65,7 +65,7 @@ export class CodexApprovals {
     threadId: string, turnId: string, sessionId: string, root: string,
     workspaceId: string, delivery: ApplicationDeliveryPort<unknown>, controllerSessionId = sessionId,
   ): Promise<boolean> {
-    const session = getSession(sessionId);
+    const session = await getSession(sessionId);
     if (session?.harness !== 'codex-cli') return false;
     if (!shouldAutoApproveAsk(ask, session.permissionMode ?? 'standard')) {
       const decision = await this.enqueue(ask, toolName === 'Bash' ? COMMAND_TOOL : FILE_TOOL,
@@ -101,7 +101,7 @@ export class CodexApprovals {
         delivery.sendToAskTargets(controllerSessionId, AUTHORITY, { type: 'ask.request',
           sessionId: controllerSessionId, toolCallId, toolName, requestId, authority: AUTHORITY,
           ask: deliveredAsk });
-        notifyHarnessPermissionRequired(requestId, controllerSessionId);
+        void notifyHarnessPermissionRequired(requestId, controllerSessionId);
       } catch {
         this.settle(requestId, DECLINE, 'expired');
       }
@@ -183,12 +183,12 @@ export class CodexApprovals {
       }
     }
 
-    const session = getSession(sessionId);
+    const session = await getSession(sessionId);
+    // Permissions v2: the native approval ask carries the classified
+    // concerns, so the mode ceiling decides exactly like the hook path.
+    const permissionSession = command ? await getSession(controllerSessionId) ?? session : null;
+    const allowed = permissionSession ? await sessionPermissionRoots(permissionSession, root) : { roots: [root], readRoots: [] };
     const ask: PermissionAsk = command ? (() => {
-      // Permissions v2: the native approval ask carries the classified
-      // concerns, so the mode ceiling decides exactly like the hook path.
-      const permissionSession = getSession(controllerSessionId) ?? session;
-      const allowed = permissionSession ? sessionPermissionRoots(permissionSession, root) : { roots: [root], readRoots: [] };
       const classification = classifyShellCommand(params.command as string, allowed.roots, params.cwd as string,
         { readRoots: allowed.readRoots });
       return classification ? { ...classification.ask,
@@ -220,7 +220,8 @@ export class CodexApprovals {
   async resolve(toolCallId: string, response: unknown, requestId?: string): Promise<boolean> {
     if (!requestId || this.byTool.get(toolCallId) !== requestId) return false;
     const pending = this.pending.get(requestId);
-    if (!pending || pending.toolCallId !== toolCallId || getSession(pending.sessionId)?.harness !== 'codex-cli') return false;
+    if (!pending || pending.toolCallId !== toolCallId
+      || (await getSession(pending.sessionId))?.harness !== 'codex-cli') return false;
     const value = object(response);
     const grant = value?.type === 'permission' ? value.grant : undefined;
     const allowed = pending.key ? pending.scopes : ['once'];

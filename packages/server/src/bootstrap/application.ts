@@ -116,16 +116,16 @@ import {
   codexCliVersion,
   createCodexCliHarness,
   createCodexExecution,
-  getCodexModelSelection,
   listCachedCodexModels,
   readCachedCodexUsageLimits,
-  saveCodexModelSelection,
 } from '@/harnesses/codex-cli';
+import {
+  getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
+} from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution, type HarnessRegistration } from '@/application/sessions/harness-execution';
 import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
 import { claudeCliAvailable, claudeCliVersion, createClaudeCliHarness, createClaudeExecution,
-  getClaudeModelSelection, listCachedClaudeModels, readCachedClaudeUsageLimits, readClaudeSessionTitle,
-  saveClaudeModelSelection } from '@/harnesses/claude-cli';
+  listCachedClaudeModels, readCachedClaudeUsageLimits, readClaudeSessionTitle } from '@/harnesses/claude-cli';
 import { fallbackSessionTitle } from '@/infrastructure/session-title';
 import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';

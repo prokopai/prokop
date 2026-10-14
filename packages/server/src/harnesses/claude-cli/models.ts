@@ -1,7 +1,7 @@
 import { probeClaudeModels } from './model-probe';
 import type { ModelInfo } from '@anthropic-ai/claude-agent-sdk';
 import type { CodexModel, CodexModelSelection } from '@prokopai/sdk';
-import { readClaudeModelSelection, writeClaudeModelSelection } from './native-state';
+import { readClaudeModelSelection } from './native-state';
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -93,10 +93,7 @@ export async function listClaudeModels(discover: () => Promise<unknown> = probeC
   return models;
 }
 
-export function getClaudeModelSelection(id: string): CodexModelSelection | null {
+/** The model and effort the host saved for this session (host-owned, read at turn start). */
+export function getClaudeModelSelection(id: string): Promise<CodexModelSelection | null> {
   return readClaudeModelSelection(id);
-}
-
-export function saveClaudeModelSelection(id: string, selection: CodexModelSelection): void {
-  writeClaudeModelSelection(id, selection);
 }

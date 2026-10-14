@@ -10,7 +10,7 @@ import { createSession, getSession } from '@/infrastructure/sqlite/session-store
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import { createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
-import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
+import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { deleteLegacyRow, insertLegacyRow, legacyRows, pick, updateLegacyRows } from '#tests/helpers/legacy-native';

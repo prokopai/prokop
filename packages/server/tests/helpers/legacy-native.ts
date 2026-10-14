@@ -5,7 +5,7 @@
  */
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import {
-  deleteHarnessState, insertHarnessState, putHarnessState, type HarnessStateRecord, type NativeHarness,
+  deleteHarnessState, getHarnessState, insertHarnessState, putHarnessState, type HarnessStateRecord, type NativeHarness,
 } from '@/infrastructure/sqlite/harness-state';
 
 type Row = Record<string, unknown>;
@@ -141,4 +141,17 @@ export function updateLegacyRows(table: string, patch: Row): void {
 export function deleteLegacyRow(table: string, key: string): void {
   const { harness, kind } = mapping(table);
   deleteHarnessState({ harness, kind, key });
+}
+
+/** Synchronous reads for assertions and `waitFor` predicates (the harness reads are async). */
+export function codexBinding(sessionId: string): import('@/harnesses/codex-cli/bindings').CodexBinding | null {
+  const record = getHarnessState<Row>({ harness: 'codex-cli', kind: 'binding', key: sessionId });
+  if (!record) return null;
+  const { createdAt: _createdAt, ...value } = record.value;
+  return { sessionId, ...value } as unknown as import('@/harnesses/codex-cli/bindings').CodexBinding;
+}
+
+export function codexRollbackIntent(sessionId: string): import('@/harnesses/codex-cli/rollback').RollbackIntent | null {
+  const record = getHarnessState<Row>({ harness: 'codex-cli', kind: 'rollback-intent', key: sessionId });
+  return record ? { sessionId, ...record.value } as unknown as import('@/harnesses/codex-cli/rollback').RollbackIntent : null;
 }

@@ -1,6 +1,6 @@
-import type { AgentEndpoint } from '@prokopai/agent-protocol';
+import type { AgentEndpoint, CommitWrite } from '@prokopai/agent-protocol';
 import type { Session } from '@prokopai/sdk/types';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { NativeHarness, NativeKey, NativeRecord, StorageBundle } from '@/infrastructure/storage/contracts';
 
 /**
  * Agent side of the storage protocol: a `StorageBundle` whose every call is a
@@ -53,6 +53,13 @@ export function createProtocolStorageBundle(
       transitionToolToInterrupted: (partId, reason) => request('store.tool.transition', {
         target: { partId }, to: { state: 'interrupted', reason },
       }),
+      getToolPartByCallId: (sessionId, callId) => request('store.part.byCallId', { sessionId, callId }),
+      transitionToolToCompleted: (partId, output) => request('store.tool.transition', {
+        target: { partId }, to: { state: 'completed', output },
+      }),
+      transitionToolToError: (partId, error) => request('store.tool.transition', {
+        target: { partId }, to: { state: 'error', error },
+      }),
     },
     toolOutputArtifacts: {
       create: input => request('store.artifact.create', input),
@@ -62,15 +69,35 @@ export function createProtocolStorageBundle(
       addMessage: (sessionId, content, attachments) => request('queue.add', { sessionId, content, attachments }),
       peek: sessionId => request('queue.peek', { sessionId }),
       peekSteer: sessionId => request('queue.peekSteer', { sessionId }),
+      listSteer: sessionId => request('queue.listSteer', { sessionId }),
+      get: id => request('queue.get', { id }),
       delete: async id => (await request('queue.delete', { id })).deleted,
     },
-    attachments: { get: (sessionId, attachmentId) => request('attachment.get', { sessionId, attachmentId }) },
+    attachments: {
+      get: (sessionId, attachmentId) => request('attachment.get', { sessionId, attachmentId }),
+      create: ({ data, ...input }) => request('attachment.create', { ...input, sizeBytes: data.byteLength,
+        dataBase64: Buffer.from(data).toString('base64') }),
+    },
     workspaces: { get: id => request('workspace.get', { id }) },
     responseFormats: { get: id => request('responseFormat.get', { id }) },
     index: {
       syncMessage: async (messageId) => {
         await request('store.index.sync', { messageId });
       },
+    },
+    native: {
+      get: async <V>(target: NativeKey) => await request('native.get', target) as NativeRecord<V> | null,
+      find: async <V>(harness: NativeHarness, kind: string, lookup: string) =>
+        await request('native.find', { harness, kind, lookup }) as NativeRecord<V> | null,
+    },
+    commit: async ({ checks, writes }) => {
+      const result = await request('store.commit', { checks: checks ?? [], writes: writes as CommitWrite[] });
+      if (result.ok) {
+        for (const [index, write] of writes.entries()) {
+          if (write.op === 'session.create' || write.op === 'session.update') seen(result.results[index] as Session | null);
+        }
+      }
+      return result;
     },
   };
 }

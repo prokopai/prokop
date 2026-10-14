@@ -86,7 +86,67 @@ export interface ConversationStore {
   persistStreamingPartSnapshots(snapshots: StreamingPartSnapshot[]): Promise<number>;
   transitionToolToRunningByCallId(sessionId: string, callId: string, childSessionId?: string): Promise<ToolPart | null>;
   transitionToolToInterrupted(partId: string, reason: 'user_request' | 'timeout' | 'error' | 'cascade'): Promise<ToolPart | null>;
+  getToolPartByCallId(sessionId: string, callId: string): Promise<ToolPart | null>;
+  transitionToolToCompleted(partId: string, output: unknown): Promise<ToolPart | null>;
+  transitionToolToError(partId: string, error: string): Promise<ToolPart | null>;
 }
+
+/** Claude Code and Codex native state (plan F4): bindings, intents, inherited IDs, model selections. */
+export type NativeHarness = 'codex-cli' | 'claude-cli';
+
+export interface NativeKey {
+  harness: NativeHarness;
+  kind: string;
+  key: string;
+}
+
+export interface NativeRecord<V = unknown> extends NativeKey {
+  sessionId: string;
+  messageId?: string | null;
+  /** Unique per harness and kind; a reverse lookup such as a native thread ID. */
+  lookup?: string | null;
+  /** While present, the host refuses a harness switch for the session. */
+  blocksSwitch: boolean;
+  value: V;
+}
+
+/** Reads only. Native writes go through `StorageBundle.commit`. */
+export interface NativeStateStore {
+  get<V = unknown>(target: NativeKey): Promise<NativeRecord<V> | null>;
+  find<V = unknown>(harness: NativeHarness, kind: string, lookup: string): Promise<NativeRecord<V> | null>;
+}
+
+type Updates = Record<string, unknown>;
+
+/** One write of an atomic commit; mirrors `CommitWrite` in `@prokopai/agent-protocol`. */
+export type CommitWrite =
+  | { op: 'session.create'; session: Parameters<ConversationStore['createSession']>[0] }
+  | { op: 'session.update'; id: string; updates: Updates; metadataPatch?: Record<string, unknown> }
+  | { op: 'message.create'; message: Message }
+  | { op: 'message.update'; id: string; updates: Updates }
+  | { op: 'message.delete'; id: string; ifExists?: boolean }
+  | { op: 'part.create'; sessionId: string; part: Part }
+  | { op: 'part.update'; id: string; updates: Updates }
+  | { op: 'queue.delete'; id: string; ifExists?: boolean }
+  | { op: 'native.put'; record: NativeRecord }
+  | { op: 'native.delete'; target: NativeKey; ifExists?: boolean };
+
+/** A compare-and-set guard of an atomic commit; mirrors `CommitCheck`. */
+export type CommitCheck =
+  | { check: 'native.equals'; target: NativeKey; value: Record<string, unknown> }
+  | { check: 'native.absent'; target: NativeKey }
+  | { check: 'session.messageIds'; sessionId: string; ids: string[] }
+  | { check: 'session.harness'; sessionId: string; harness: string }
+  | { check: 'queue.present'; id: string };
+
+export interface CommitRequest {
+  checks?: CommitCheck[];
+  writes: CommitWrite[];
+}
+
+export type CommitResult =
+  | { ok: true; results: unknown[] }
+  | { ok: false; failed: { kind: 'check' | 'write'; index: number; message?: string } };
 
 export type ToolOutputArtifactFormat = 'json' | 'text';
 
@@ -127,11 +187,25 @@ export interface MessageQueueStore {
   peek(sessionId: string): Promise<QueuedMessage | null>;
   /** The oldest message marked for delivery into the running turn. */
   peekSteer(sessionId: string): Promise<QueuedMessage | null>;
+  /** Every steer message, oldest first. */
+  listSteer(sessionId: string): Promise<QueuedMessage[]>;
+  /** One queued message; null once sent or removed. */
+  get(id: string): Promise<QueuedMessage | null>;
   delete(id: string): Promise<boolean>;
+}
+
+export interface CreateAttachmentInput {
+  sessionId: string;
+  workspaceId: string;
+  filename: string;
+  mimeType: string;
+  data: Uint8Array;
 }
 
 export interface AttachmentStore {
   get(sessionId: string, attachmentId: string): Promise<AttachmentRecord | null>;
+  /** Stores a tool-produced file (Codex image outputs). */
+  create(input: CreateAttachmentInput): Promise<AttachmentRecord>;
 }
 
 export interface WorkspaceStore {
@@ -158,4 +232,11 @@ export interface StorageBundle {
   workspaces: WorkspaceStore;
   responseFormats: ResponseFormatStore;
   index: ConversationIndex;
+  native: NativeStateStore;
+  /**
+   * Runs every check, then every write, atomically. A failed check, or an
+   * update or delete that matches no row (unless `ifExists`), changes nothing.
+   * Use `storeTransaction` (`./transaction`) rather than calling this directly.
+   */
+  commit(request: CommitRequest): Promise<CommitResult>;
 }

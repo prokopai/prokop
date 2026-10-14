@@ -1,5 +1,5 @@
 import type { CodexModel, CodexModelSelection } from '@prokopai/sdk';
-import { readCodexModelSelection, writeCodexModelSelection } from './native-state';
+import { readCodexModelSelection } from './native-state';
 import { CodexAppServer, codexObject, spawnCodexAppServer, type CodexConnection } from './app-server';
 import { codexCliVersion } from './version';
 
@@ -10,7 +10,8 @@ export interface CodexModelDependencies {
 
 const defaultDependencies: CodexModelDependencies = { connect: spawnCodexAppServer, version: codexCliVersion };
 
-export function getCodexModelSelection(sessionId: string): CodexModelSelection | null {
+/** The model and effort the host saved for this session (host-owned, read at turn start). */
+export function getCodexModelSelection(sessionId: string): Promise<CodexModelSelection | null> {
   return readCodexModelSelection(sessionId);
 }
 
@@ -59,10 +60,6 @@ export async function listCodexModels(deps: CodexModelDependencies = defaultDepe
   } finally {
     await client.close();
   }
-}
-
-export function saveCodexModelSelection(sessionId: string, selection: CodexModelSelection): void {
-  writeCodexModelSelection(sessionId, selection);
 }
 
 /** Listing spawns a Codex app-server process; callers share one catalog per TTL window. */

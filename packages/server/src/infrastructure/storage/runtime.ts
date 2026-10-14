@@ -94,6 +94,12 @@ export const transitionToolToRunningByCallId = async (...args: Parameters<Storag
   activeStorage().conversation.transitionToolToRunningByCallId(...args);
 export const transitionToolToInterrupted = async (...args: Parameters<StorageBundle['conversation']['transitionToolToInterrupted']>) =>
   activeStorage().conversation.transitionToolToInterrupted(...args);
+export const getToolPartByCallId = async (...args: Parameters<StorageBundle['conversation']['getToolPartByCallId']>) =>
+  activeStorage().conversation.getToolPartByCallId(...args);
+export const transitionToolToCompleted = async (...args: Parameters<StorageBundle['conversation']['transitionToolToCompleted']>) =>
+  activeStorage().conversation.transitionToolToCompleted(...args);
+export const transitionToolToError = async (...args: Parameters<StorageBundle['conversation']['transitionToolToError']>) =>
+  activeStorage().conversation.transitionToolToError(...args);
 export const syncMessageFts = async (messageId: string): Promise<void> => activeStorage().index.syncMessage(messageId);
 export const createToolOutputArtifact = (...args: Parameters<StorageBundle['toolOutputArtifacts']['create']>) =>
   activeStorage().toolOutputArtifacts.create(...args);

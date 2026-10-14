@@ -1,39 +1,40 @@
 import type { ForkExecutionResult, SessionExecutionPort } from '@/application/ports/execution';
 import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
-import { getDatabase } from '@/infrastructure/sqlite/database';
-import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
-import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
+import type { Session } from '@prokopai/sdk';
+import { getSession, listMessagesWithParts } from '@/infrastructure/storage/runtime';
+import { storeTransaction } from '@/infrastructure/storage/transaction';
 import { CodexAppServer, codexObject, type CodexConnection } from './app-server';
 import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import {
-  codexInheritedUserId, deleteCodexForkIntent, hasCodexForkIntent, insertCodexForkIntent, insertCodexInheritedUserId,
+  codexInheritedUserId, copyCodexModelSelection, deleteCodexForkIntent, hasCodexForkIntent, insertCodexForkIntent,
+  insertCodexInheritedUserId,
 } from './native-state';
-import { getCodexModelSelection, saveCodexModelSelection } from './models';
+import { getCodexModelSelection } from './models';
 import { getRollbackIntent, readRollbackHistory, sameTurns } from './rollback';
 
-export function upstreamUserId(messageId: string): string {
-  return codexInheritedUserId(messageId) ?? messageId;
+export async function upstreamUserId(messageId: string): Promise<string> {
+  return await codexInheritedUserId(messageId) ?? messageId;
 }
 
 export async function forkCodexSession(
   input: Parameters<SessionExecutionPort['fork']>[0],
-  deps: { connect(): CodexConnection; version(): string; root(sessionId: string): string; busy(sessionId: string): boolean },
+  deps: { connect(): CodexConnection; version(): string; root(sessionId: string): Promise<string>; busy(sessionId: string): boolean },
 ): Promise<ForkExecutionResult> {
-  const session = getSession(input.sessionId);
+  const session = await getSession(input.sessionId);
   if (!session || session.harness !== 'codex-cli' || session.status === 'closed' || deps.busy(session.id)) {
     throw new Error('Codex session is unavailable or busy');
   }
   if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_FORK_REASON);
-  const root = deps.root(session.id);
+  const root = await deps.root(session.id);
   const version = deps.version();
-  const binding = getCodexBinding(session.id);
+  const binding = await getCodexBinding(session.id);
   if (!binding || binding.workspaceRoot !== root) {
     throw new Error('Codex thread binding is unavailable or changed');
   }
   const metadata = codexObject(session.metadata);
   if (binding.pendingTurn || binding.goalRequested || metadata?.codexGoal || metadata?.codexGoalPending
-    || getRollbackIntent(session.id)) throw new Error('Codex history requires recovery before fork');
-  if (hasCodexForkIntent(session.id)) {
+    || await getRollbackIntent(session.id)) throw new Error('Codex history requires recovery before fork');
+  if (await hasCodexForkIntent(session.id)) {
     throw new Error('A Codex fork has an uncertain outcome; do not retry it');
   }
   const client = new CodexAppServer(deps.connect(), () => {});
@@ -51,7 +52,7 @@ export async function forkCodexSession(
       throw new Error('Codex goal history cannot be forked');
     }
     const spans = await readRollbackHistory(client, binding);
-    const local = listMessagesWithParts(session.id);
+    const local = await listMessagesWithParts(session.id);
     const targetIndex = local.findIndex(entry => entry.message.id === input.targetMessageId);
     // A fork keeps whole Codex turns, so it ends at a turn's last reply.
     const spanIndex = spans.findIndex(span => span.end === targetIndex);
@@ -67,7 +68,7 @@ export async function forkCodexSession(
       throw new Error('Codex fork of image history is not supported');
     }
     const cutoff = kept.at(-1)!.id;
-    insertCodexForkIntent(session.id, input.targetMessageId, cutoff);
+    await insertCodexForkIntent(session.id, input.targetMessageId, cutoff);
     // An uncertain RPC cannot be issued a second time. The intent remains on
     // disconnect, malformed response, or failure to persist the local fork.
     const forked = codexObject(await client.request('thread/fork', {
@@ -77,7 +78,7 @@ export async function forkCodexSession(
     const thread = codexObject(forked?.thread);
     const newThreadId = thread?.id;
     if (typeof newThreadId !== 'string' || !newThreadId || newThreadId === binding.threadId
-      || findCodexBindingByThread(newThreadId)) {
+      || await findCodexBindingByThread(newThreadId)) {
       throw new Error('Codex fork returned an invalid thread');
     }
     const forkResume = codexObject(await client.request('thread/resume', {
@@ -94,16 +95,20 @@ export async function forkCodexSession(
       || !Array.isArray(turns) || turns.length !== kept.length) {
       throw new Error('Codex fork history does not match the selected response');
     }
+    const upstream = new Map<string, string>();
+    for (const entry of retained) {
+      if (entry.message.role === 'user') upstream.set(entry.message.id, await upstreamUserId(entry.message.id));
+    }
     const actual = turns.map((raw: unknown, index: number) => {
       const turn = codexObject(raw);
       const items = turn?.items;
       const span = kept[index]!;
       const users = retained.slice(span.start, span.end + 1).filter(entry => entry.message.role === 'user');
-      const upstream = Array.isArray(items) ? items.map(codexObject).filter(item => item?.type === 'userMessage') : [];
+      const userItems = Array.isArray(items) ? items.map(codexObject).filter(item => item?.type === 'userMessage') : [];
       if (typeof turn?.id !== 'string' || turn.itemsView !== 'full'
         || !['completed', 'failed', 'interrupted'].includes(String(turn.status)) || !Array.isArray(items)
-        || upstream.length !== users.length
-        || upstream.some((item, position) => item?.clientId !== upstreamUserId(users[position]!.message.id))) {
+        || userItems.length !== users.length
+        || userItems.some((item, position) => item?.clientId !== upstream.get(users[position]!.message.id))) {
         throw new Error('Codex fork history does not match the selected response');
       }
       return turn.id;
@@ -111,34 +116,37 @@ export async function forkCodexSession(
     if (!sameTurns(actual, kept.map(span => span.id))) {
       throw new Error('Codex fork history does not match the selected response');
     }
-    return getDatabase().transaction(() => {
+    const selection = await getCodexModelSelection(session.id);
+    const forkedSessionId = crypto.randomUUID();
+    const forkedSession = await storeTransaction(async (tx) => {
       const { codexGoal: _goal, codexGoalPending: _pending, ...sourceMetadata } = metadata ?? {};
-      const forkedSession = createSession({
-        id: crypto.randomUUID(), workspaceId: session.workspaceId, workspaceRootId: session.workspaceRootId,
+      const created = tx.write<Session>({ op: 'session.create', session: {
+        id: forkedSessionId, workspaceId: session.workspaceId, workspaceRootId: session.workspaceRootId,
         harness: 'codex-cli', preconfigId: session.preconfigId,
         title: input.title || `${session.title || 'Untitled'} (fork)`, status: 'active',
         metadata: { ...sourceMetadata, forkedFrom: session.id }, parentId: null, agentName: null,
         agentId: session.agentId, selectedModel: session.selectedModel,
         selectedProvider: session.selectedProvider, permissionMode: session.permissionMode,
-      });
-      bindCodexThread({ sessionId: forkedSession.id, threadId: newThreadId, cliVersion: version, workspaceRoot: root });
-      const selection = getCodexModelSelection(session.id);
-      if (selection) saveCodexModelSelection(forkedSession.id, selection);
+      } });
+      await bindCodexThread({ sessionId: forkedSessionId, threadId: newThreadId, cliVersion: version, workspaceRoot: root },
+        tx, { createdInTransaction: true });
+      if (selection) copyCodexModelSelection(tx, forkedSessionId, selection);
       const ids = new Map(retained.map(entry => [entry.message.id, crypto.randomUUID()]));
       for (const entry of retained) {
         const message = entry.message;
         const id = ids.get(message.id)!;
-        createMessage({ ...message, id, sessionId: forkedSession.id,
+        tx.write({ op: 'message.create', message: { ...message, id, sessionId: forkedSessionId,
           ...(message.role === 'assistant' && message.parentId
-            ? { parentId: ids.get(message.parentId) } : {}) });
-        if (message.role === 'user') {
-          insertCodexInheritedUserId(forkedSession.id, id, upstreamUserId(message.id));
+            ? { parentId: ids.get(message.parentId) } : {}) } });
+        if (message.role === 'user') insertCodexInheritedUserId(tx, forkedSessionId, id, upstream.get(message.id)!);
+        for (const part of entry.parts) {
+          tx.write({ op: 'part.create', sessionId: forkedSessionId, part: { ...part, id: crypto.randomUUID(), messageId: id } });
         }
-        for (const part of entry.parts) createPart({ ...part, id: crypto.randomUUID(), messageId: id }, forkedSession.id);
       }
-      deleteCodexForkIntent(session.id);
-      return { forkedSession, messages: listMessagesWithParts(forkedSession.id) };
-    })();
+      deleteCodexForkIntent(tx, session.id);
+      return created;
+    });
+    return { forkedSession: forkedSession.value, messages: await listMessagesWithParts(forkedSession.value.id) };
   } finally {
     await client.close();
   }

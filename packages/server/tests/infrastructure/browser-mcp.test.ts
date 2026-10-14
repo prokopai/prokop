@@ -263,11 +263,11 @@ test('Prokop, Claude and Codex preserve screenshot image blocks', async () => {
   expect(await prokop.toModelOutput!({ toolCallId: 'p', input: {}, output })).toMatchObject({ type: 'content',
     value: [{ type: 'text' }, { type: 'image-data', data: 'iVBORw0KGgo=' }] });
   const codex = createCodexMcpTools({ bridge: { tools: manager.getWorkspaceTools }, path: root,
-    sessionId: 'session', signal: abort.signal, authorized: () => true });
+    sessionId: 'session', signal: abort.signal, authorized: async () => true });
   expect(await codex.call({ namespace: null, turnId: 'turn', callId: 'c', tool: 'mcp_call_tool',
     arguments: { tool: 'browser_screenshot', arguments: {} } })).toMatchObject({ success: true,
     contentItems: [{ type: 'inputText' }, { type: 'inputImage', imageUrl: 'data:image/png;base64,iVBORw0KGgo=' }] });
-  const claude = createClaudeWorkspaceMcp(await manager.getWorkspaceTools(root, 'session'), abort.signal, () => true)!;
+  const claude = createClaudeWorkspaceMcp(await manager.getWorkspaceTools(root, 'session'), abort.signal, async () => true)!;
   const client = new Client({ name: 'test', version: '1' });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await claude.instance.connect(b); await client.connect(a);

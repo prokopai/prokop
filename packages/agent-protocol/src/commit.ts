@@ -59,6 +59,9 @@ export const CommitResult = z.discriminatedUnion('ok', [
   }),
   z.object({
     ok: z.literal(false),
-    failed: z.object({ kind: z.enum(['check', 'write']), index: z.number().int().nonnegative() }),
+    failed: z.object({
+      kind: z.enum(['check', 'write']), index: z.number().int().nonnegative(),
+      message: z.string().optional().describe('Why a write failed (constraint, missing row); for logs only.'),
+    }),
   }),
 ]);

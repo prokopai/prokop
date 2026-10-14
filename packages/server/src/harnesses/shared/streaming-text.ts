@@ -1,5 +1,5 @@
 import type { Part, TextPart } from '@prokopai/sdk';
-import { persistStreamingPartSnapshots, updatePart } from '@/infrastructure/sqlite/message-store';
+import { getStorage, updatePart } from '@/infrastructure/storage/runtime';
 
 const STREAM_PERSIST_INTERVAL_MS = 300;
 
@@ -19,11 +19,17 @@ interface StreamingText {
  * search index sees it once. Callers broadcast the settled part as
  * `part.updated`, which repairs any client that loaded the transcript
  * between snapshots. Mirrors Čapek's stream handlers.
+ *
+ * `append` stays synchronous on the delta hot path: snapshots are written in
+ * order in the background, and `settle` waits for them, then reports the
+ * first snapshot failure, if any.
  */
 export class StreamingTextWriter {
   private readonly open = new Map<string, StreamingText>();
   private readonly intervalMs: number;
   private readonly now: () => number;
+  private snapshots: Promise<void> = Promise.resolve();
+  private failure: { error: unknown } | null = null;
 
   constructor(options: { intervalMs?: number; now?: () => number } = {}) {
     this.intervalMs = options.intervalMs ?? STREAM_PERSIST_INTERVAL_MS;
@@ -40,8 +46,11 @@ export class StreamingTextWriter {
     }
     entry.text = text;
     if (now - entry.persistedAt < this.intervalMs) return;
-    persistStreamingPartSnapshots([{ id: part.id, messageId: part.messageId, sessionId,
-      type: 'text', createdAt: part.createdAt, text }]);
+    const snapshot = { id: part.id, messageId: part.messageId, sessionId, type: 'text' as const,
+      createdAt: part.createdAt, text };
+    this.snapshots = this.snapshots
+      .then(async () => { await getStorage().conversation.persistStreamingPartSnapshots([snapshot]); })
+      .catch((error: unknown) => { this.failure ??= { error }; });
     entry.persistedAt = now;
   }
 
@@ -49,19 +58,25 @@ export class StreamingTextWriter {
    * Ends throttling for the part and writes `finalText` (else the last
    * streamed text) with search indexing. Null when there is nothing to write.
    */
-  settle(partId: string, finalText?: string): Part | null {
+  async settle(partId: string, finalText?: string): Promise<Part | null> {
     const entry = this.open.get(partId);
     this.open.delete(partId);
     const text = finalText ?? entry?.text;
+    await this.snapshots;
+    if (this.failure) {
+      const { error } = this.failure;
+      this.failure = null;
+      throw error;
+    }
     if (text === undefined) return null;
     return updatePart(partId, { text });
   }
 
   /** Settles every open part, returning each stored part with its session. */
-  settleAll(): Array<{ sessionId: string; part: Part }> {
+  async settleAll(): Promise<Array<{ sessionId: string; part: Part }>> {
     const settled: Array<{ sessionId: string; part: Part }> = [];
     for (const [partId, entry] of [...this.open]) {
-      const part = this.settle(partId);
+      const part = await this.settle(partId);
       if (part) settled.push({ sessionId: entry.sessionId, part });
     }
     return settled;

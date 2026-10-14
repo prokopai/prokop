@@ -1,6 +1,7 @@
 import { Database } from 'bun:sqlite';
-import { dirname } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolveDatabasePath } from '@/config';
 import { isPerfDiagnosticsEnabled } from '@/utils/perf';
 import { initializeSessionMessageSchema } from './session-message-schema';
@@ -10,6 +11,24 @@ import { initializeDeviceAccessSchema } from './device-access';
 import { initializeFts, migrateFtsForAgents } from '@/infrastructure/session-search/fts';
 
 const PERF_DIAGNOSTICS_ENABLED = isPerfDiagnosticsEnabled();
+
+const TEST_ENTRY = /\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/**
+ * A `bun test` process never opens the user's real database, even when the
+ * test preload did not run (for example `bun test` started outside
+ * `packages/server`, which inherits a live server's PROKOPAI_DATA_DIR).
+ * Throws before anything is created on disk.
+ */
+export function assertTestSafeDatabasePath(dbPath: string, entry: string = Bun.main, home: string = homedir()): void {
+  if (!TEST_ENTRY.test(entry)) return;
+  const resolved = resolve(dbPath);
+  for (const root of [join(home, '.prokopai'), join(home, '.jean2')]) {
+    if (resolved === root || resolved.startsWith(root + sep)) {
+      throw new Error(`Test process refused to open the real database at ${resolved}; run tests from packages/server so tests/preload.ts applies`);
+    }
+  }
+}
 
 class DatabaseSingleton {
   private dbOverride: Database | null = null;
@@ -44,6 +63,7 @@ class DatabaseSingleton {
     if (this.dbOverride) return this.dbOverride;
     if (!this.dbDefault) {
       const dbPath = resolveDatabasePath();
+      assertTestSafeDatabasePath(dbPath);
       mkdirSync(dirname(dbPath), { recursive: true });
       const db = new Database(dbPath);
       configureConnection(db);

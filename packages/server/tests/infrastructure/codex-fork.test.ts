@@ -5,13 +5,13 @@ import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { bindCodexThread, getCodexBinding } from '@/harnesses/codex-cli/bindings';
-import { getCodexModelSelection, saveCodexModelSelection } from '@/harnesses/codex-cli/models';
+import { bindCodexThread } from '@/harnesses/codex-cli/bindings';
+import { getCodexModelSelection, saveCodexModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { forkCodexSession, upstreamUserId } from '@/harnesses/codex-cli/fork';
 import { createCodexExecution } from '@/harnesses/codex-cli/execution';
 import { applyRollback, readRollbackHistory, saveRollbackIntent } from '@/harnesses/codex-cli/rollback';
 import { CodexAppServer, type CodexConnection } from '@/harnesses/codex-cli/app-server';
-import { legacyRow, legacyRows, updateLegacyRow } from '#tests/helpers/legacy-native';
+import { codexBinding, legacyRow, legacyRows, updateLegacyRow } from '#tests/helpers/legacy-native';
 
 const root = realpathSync(process.cwd());
 const version = 'codex-cli 0.156.1';
@@ -19,10 +19,10 @@ const version = 'codex-cli 0.156.1';
 beforeEach(() => { setupTestDatabase(); seedWorkspace({ id: 'ws', path: root }); });
 afterEach(() => resetTestDatabase());
 
-function seed(count = 3): { users: string[]; assistants: string[]; turns: Array<Record<string, unknown>> } {
+async function seed(count = 3): Promise<{ users: string[]; assistants: string[]; turns: Array<Record<string, unknown>> }> {
   createSession({ id: 's', workspaceId: 'ws', title: 'Original', status: 'active',
     harness: 'codex-cli', preconfigId: 'test', metadata: null, parentId: null, agentName: null });
-  bindCodexThread({ sessionId: 's', threadId: 'source', workspaceRoot: root, cliVersion: version });
+  await bindCodexThread({ sessionId: 's', threadId: 'source', workspaceRoot: root, cliVersion: version });
   saveCodexModelSelection('s', { model: 'gpt-5-codex', effort: 'high' });
   const users: string[] = [];
   const assistants: string[] = [];
@@ -85,11 +85,11 @@ function fake(history: Record<string, Array<Record<string, unknown>>>, options: 
 }
 
 function deps(connection: CodexConnection) {
-  return { connect: () => connection, version: () => version, root: () => root, busy: () => false };
+  return { connect: () => connection, version: () => version, root: async () => root, busy: () => false };
 }
 
 test('native fork keeps selected assistant turn, binding, model and inherited user identities', async () => {
-  const { users, assistants, turns } = seed();
+  const { users, assistants, turns } = await seed();
   const history = { source: turns };
   const upstream = fake(history);
   const result = await forkCodexSession({ sessionId: 's', targetMessageId: assistants[1]! }, deps(upstream.connection));
@@ -99,26 +99,26 @@ test('native fork keeps selected assistant turn, binding, model and inherited us
   expect(result.forkedSession).toMatchObject({ harness: 'codex-cli', workspaceId: 'ws',
     title: 'Original (fork)', metadata: { forkedFrom: 's' } });
   const forkId = result.forkedSession.id;
-  expect(getCodexBinding(forkId)).toMatchObject({ threadId: 'fork-1', pendingTurn: false,
+  expect(codexBinding(forkId)).toMatchObject({ threadId: 'fork-1', pendingTurn: false,
     cliVersion: version, workspaceRoot: root });
   expect(getCodexModelSelection(forkId)).toEqual({ model: 'gpt-5-codex', effort: 'high' });
   const copy = listMessagesWithParts(forkId);
   expect(copy).toHaveLength(4);
   expect(copy[0]!.message.id).not.toBe(users[0]);
   expect(copy[0]!.parts[0]).toMatchObject({ text: 'prompt 0', messageId: copy[0]!.message.id });
-  expect(upstreamUserId(copy[0]!.message.id)).toBe(users[0]);
-  expect(upstreamUserId(copy[2]!.message.id)).toBe(users[1]);
+  expect(await upstreamUserId(copy[0]!.message.id)).toBe(users[0]);
+  expect(await upstreamUserId(copy[2]!.message.id)).toBe(users[1]);
   expect(listMessagesWithParts('s')).toHaveLength(6);
   const reader = fake(history);
   const client = new CodexAppServer(reader.connection, () => {});
   try { await client.initialize();
-    expect((await readRollbackHistory(client, getCodexBinding(forkId)!)).map(span => span.id)).toEqual(['turn-0', 'turn-1']);
+    expect((await readRollbackHistory(client, codexBinding(forkId)!)).map(span => span.id)).toEqual(['turn-0', 'turn-1']);
   } finally { await client.close(); }
   expect(legacyRow('codex_fork_intents', 's')).toBeNull();
 });
 
 test('new message in a fork resumes native forked history instead of starting an empty thread', async () => {
-  const { assistants, turns } = seed(2);
+  const { assistants, turns } = await seed(2);
   const history: Record<string, Array<Record<string, unknown>>> = { source: turns };
   const initial = fake(history);
   const { forkedSession } = await forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! },
@@ -142,11 +142,11 @@ test('new message in a fork resumes native forked history instead of starting an
   expect(running.sent.find(entry => entry.method === 'thread/resume')?.params).toMatchObject({ threadId: 'fork-1' });
   expect(running.sent.find(entry => entry.method === 'turn/start')?.params).toMatchObject({ threadId: 'fork-1' });
   expect(listMessagesWithParts(forkedSession.id)).toHaveLength(4);
-  expect(getCodexBinding(forkedSession.id)?.pendingTurn).toBe(false);
+  expect(codexBinding(forkedSession.id)?.pendingTurn).toBe(false);
 });
 
 test('fork of a fork retains native client IDs and may fork its own later turn', async () => {
-  const { assistants, turns } = seed(2);
+  const { assistants, turns } = await seed(2);
   const history: Record<string, Array<Record<string, unknown>>> = { source: turns };
   const first = fake(history);
   const result = await forkCodexSession({ sessionId: 's', targetMessageId: assistants[1]! }, deps(first.connection));
@@ -154,28 +154,28 @@ test('fork of a fork retains native client IDs and may fork its own later turn',
   const second = fake(history);
   const nested = await forkCodexSession({ sessionId: result.forkedSession.id,
     targetMessageId: copy[1]!.message.id }, deps(second.connection));
-  expect(upstreamUserId(listMessagesWithParts(nested.forkedSession.id)[0]!.message.id)).toBe('user-0');
-  expect(getCodexBinding(nested.forkedSession.id)?.threadId).toBe('fork-2');
+  expect(await upstreamUserId(listMessagesWithParts(nested.forkedSession.id)[0]!.message.id)).toBe('user-0');
+  expect(codexBinding(nested.forkedSession.id)?.threadId).toBe('fork-2');
 });
 
 test('editing an inherited user replaces its upstream client identity before resubmission', async () => {
-  const { assistants, turns } = seed(2);
+  const { assistants, turns } = await seed(2);
   const upstream = fake({ source: turns });
   const { forkedSession } = await forkCodexSession({ sessionId: 's', targetMessageId: assistants[1]! },
     deps(upstream.connection));
   const messages = listMessagesWithParts(forkedSession.id);
   const userId = messages[0]!.message.id;
-  expect(upstreamUserId(userId)).toBe('user-0');
-  saveRollbackIntent({ sessionId: forkedSession.id, operation: 'edit', targetMessageId: userId,
+  expect(await upstreamUserId(userId)).toBe('user-0');
+  await saveRollbackIntent({ sessionId: forkedSession.id, operation: 'edit', targetMessageId: userId,
     content: 'revised', beforeTurnId: 'turn-0', turnIds: ['turn-0', 'turn-1'], phase: 'rollback' });
-  applyRollback({ sessionId: forkedSession.id, operation: 'edit', targetMessageId: userId,
+  await applyRollback({ sessionId: forkedSession.id, operation: 'edit', targetMessageId: userId,
     content: 'revised', beforeTurnId: 'turn-0', turnIds: ['turn-0', 'turn-1'], phase: 'rollback' });
-  expect(upstreamUserId(userId)).toBe(userId);
+  expect(await upstreamUserId(userId)).toBe(userId);
   expect(listMessagesWithParts(forkedSession.id)).toHaveLength(1);
 });
 
 test('fork rejects user cutoff, images, pending turn, goals and incomplete history before native RPC', async () => {
-  const { users, assistants, turns } = seed(1);
+  const { users, assistants, turns } = await seed(1);
   const history = { source: turns };
   const user = fake(history);
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: users[0]! }, deps(user.connection)))
@@ -198,7 +198,7 @@ test('fork rejects user cutoff, images, pending turn, goals and incomplete histo
 });
 
 test('failed local copy rolls back the new binding and retains the uncertain native fork intent', async () => {
-  const { assistants, turns } = seed(1);
+  const { assistants, turns } = await seed(1);
   getDatabase().run(`CREATE TRIGGER fail_fork_copy BEFORE INSERT ON messages
     WHEN NEW.session_id != 's' BEGIN SELECT RAISE(ABORT, 'copy failed'); END`);
   const history = { source: turns };
@@ -211,7 +211,7 @@ test('failed local copy rolls back the new binding and retains the uncertain nat
 });
 
 test('execution reports an uncertain native fork without exposing upstream errors', async () => {
-  const { assistants, turns } = seed(1);
+  const { assistants, turns } = await seed(1);
   const upstream = fake({ source: turns }, { rejectFork: true });
   const execution = createCodexExecution({ connect: () => upstream.connection, version: () => version,
     instructions: {
@@ -225,13 +225,13 @@ test('execution reports an uncertain native fork without exposing upstream error
 });
 
 test('uncertain or invalid native fork never publishes a local session or retries the RPC', async () => {
-  const { assistants, turns } = seed(1);
+  const { assistants, turns } = await seed(1);
   const history = { source: turns };
   const upstream = fake(history, { malformedFork: true });
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(upstream.connection)))
     .rejects.toThrow('history does not match');
   expect(legacyRow('codex_fork_intents', 's')).not.toBeNull();
-  expect(getCodexBinding('s')?.threadId).toBe('source');
+  expect(codexBinding('s')?.threadId).toBe('source');
   const retry = fake(history);
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(retry.connection)))
     .rejects.toThrow('uncertain outcome');
@@ -242,7 +242,7 @@ test('uncertain or invalid native fork never publishes a local session or retrie
 test('a fork keeps a steered turn whole and maps every user message upstream', async () => {
   createSession({ id: 's', workspaceId: 'ws', title: 'Original', status: 'active',
     harness: 'codex-cli', preconfigId: 'test', metadata: null, parentId: null, agentName: null });
-  bindCodexThread({ sessionId: 's', threadId: 'source', workspaceRoot: root, cliVersion: version });
+  await bindCodexThread({ sessionId: 's', threadId: 'source', workspaceRoot: root, cliVersion: version });
   const ids = ['user-0', 'assistant-0', 'steered', 'steered-reply', 'user-1', 'assistant-1'];
   ids.forEach((id, index) => {
     if (id.startsWith('user') || id === 'steered') {
@@ -267,5 +267,5 @@ test('a fork keeps a steered turn whole and maps every user message upstream', a
   const copy = listMessagesWithParts(result.forkedSession.id);
   expect(copy.map(entry => entry.parts[0] && 'text' in entry.parts[0] ? entry.parts[0].text : entry.message.role))
     .toEqual(['user-0', 'assistant', 'steered', 'assistant']);
-  expect(upstreamUserId(copy[2]!.message.id)).toBe('steered');
+  expect(await upstreamUserId(copy[2]!.message.id)).toBe('steered');
 });

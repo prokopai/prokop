@@ -38,13 +38,13 @@ test('unclassified native tool items get bounded generic rows on live events and
   const long = 'a'.repeat(12_000);
   const call = { id: 'external-1', type: 'extensionToolCall', server: 'user-plugin',
     tool: 'lookup', arguments: { query: long }, status: 'inProgress' };
-  items.started(call);
-  items.started(call);
-  items.completed({ ...call, status: 'completed', result: long });
-  items.completed({ id: 'external-2', type: 'pluginInvocation', tool: 'search', status: 'failed' });
-  items.started({ id: 'not-a-tool', type: 'agentMessage', text: 'Do not show as a tool' });
-  items.started({ id: 'missing-tool', type: 'extensionToolCall', arguments: {} });
-  items.started({ id: '', type: 'extensionToolCall', tool: 'search' });
+  await items.started(call);
+  await items.started(call);
+  await items.completed({ ...call, status: 'completed', result: long });
+  await items.completed({ id: 'external-2', type: 'pluginInvocation', tool: 'search', status: 'failed' });
+  await items.started({ id: 'not-a-tool', type: 'agentMessage', text: 'Do not show as a tool' });
+  await items.started({ id: 'missing-tool', type: 'extensionToolCall', arguments: {} });
+  await items.started({ id: '', type: 'extensionToolCall', tool: 'search' });
   const stored = listMessagesWithParts('s');
   const parts = stored[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
   expect(parts).toHaveLength(2);
@@ -87,8 +87,8 @@ test('Codex web search and MCP results stay in raw data on live events and reloa
       arguments: { token: 'private-input' }, result: 'private-result' },
   ];
   for (const item of cases) {
-    items.started({ ...item, status: 'inProgress' });
-    items.completed({ ...item, status: 'completed' });
+    await items.started({ ...item, status: 'inProgress' });
+    await items.completed({ ...item, status: 'completed' });
   }
   const stored = listMessagesWithParts('s');
   const projected = await projectMessagesForClient(stored);
@@ -116,7 +116,7 @@ test('Codex web search and MCP results stay in raw data on live events and reloa
   expect(getToolDebugData(rawCall!).input).toHaveProperty('arguments');
 });
 
-test('Codex command rows with JSON-encoded empty output render no stdout body', () => {
+test('Codex command rows with JSON-encoded empty output render no stdout body', async () => {
   const assistant = createMessage(createTestAssistantMessage('s'));
   const sent: ServerMessage[] = [];
   const items = new CodexToolItems('s', assistant.id, 'turn', {
@@ -129,10 +129,10 @@ test('Codex command rows with JSON-encoded empty output render no stdout body', 
   const command = (id: string, aggregatedOutput: unknown) =>
     items.completed({ id, type: 'commandExecution', command: `cmd-${id}`, status: 'completed',
       aggregatedOutput, exitCode: 0 });
-  command('empty-quoted', '""');
-  command('empty-array', '[]');
-  command('whitespace', '   ');
-  command('real', 'clean output');
+  await command('empty-quoted', '""');
+  await command('empty-array', '[]');
+  await command('whitespace', '   ');
+  await command('real', 'clean output');
   const stored = listMessagesWithParts('s');
   const viz = (id: string) => {
     const part = stored[0]!.parts.find((part): part is ToolPart => part.type === 'tool' && part.callId === `codex-item:turn:${id}`);
@@ -160,18 +160,18 @@ test('Codex memory and session search use the Prokop row shapes on live events a
   const complete = (id: string, tool: string, args: Record<string, unknown>, result: unknown) =>
     items.completed({ id, type: 'dynamicToolCall', namespace: null, tool, status: 'completed',
       arguments: args, contentItems: [{ type: 'inputText', text: JSON.stringify(result) }] });
-  complete('workspace', 'memory', { action: 'list', target: 'user' },
+  await complete('workspace', 'memory', { action: 'list', target: 'user' },
     { action: 'list', target: 'user', usage: { chars: 12, limit: 1500 }, entries: ['[0] private entry'] });
-  complete('agent', 'agent_memory', { action: 'list', target: 'memory' },
+  await complete('agent', 'agent_memory', { action: 'list', target: 'memory' },
     { action: 'list', target: 'memory', usage: { chars: 4, limit: 2500 }, entries: ['[0] secret'] });
-  complete('updated', 'agent_memory', { action: 'add', target: 'user' },
+  await complete('updated', 'agent_memory', { action: 'add', target: 'user' },
     { action: 'add', target: 'user' });
-  complete('list', 'session_search', { action: 'list' },
+  await complete('list', 'session_search', { action: 'list' },
     { success: true, mode: 'list', sessions: [{ id: 's', title: 'Earlier discussion' }] });
-  complete('read', 'session_search', { action: 'read', sessionId: 's' },
+  await complete('read', 'session_search', { action: 'read', sessionId: 's' },
     { success: true, mode: 'read', sessionTitle: 'Earlier discussion',
       messages: [{ content: '![image](https://example.com/external.png)' }] });
-  complete('denied', 'session_search', { query: 'private' }, { error: 'USER_REJECTION' });
+  await complete('denied', 'session_search', { query: 'private' }, { error: 'USER_REJECTION' });
   const stored = listMessagesWithParts('s');
   const parts = stored[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
   const viz = (id: string) => {
@@ -222,14 +222,14 @@ test('Codex agent skill management projects list, mutation and failure results w
     items.completed({ id, type: 'dynamicToolCall', namespace: null, tool: 'agent_skill_manage',
       status: 'completed', arguments: args,
       contentItems: [{ type: 'inputText', text: typeof result === 'string' ? result : JSON.stringify(result) }] });
-  complete('list', { action: 'list' }, { success: true, action: 'list', skills: [
+  await complete('list', { action: 'list' }, { success: true, action: 'list', skills: [
     { name: 'review', description: 'Review changes' }, { name: 'build', description: 'Build project' },
   ] });
-  complete('create', { action: 'create', name: 'review', content: 'Sensitive skill body' },
+  await complete('create', { action: 'create', name: 'review', content: 'Sensitive skill body' },
     { success: true, action: 'create', title: 'Skill created: review',
       path: 'review/SKILL.md', summary: 'Created workspace skill.' });
-  complete('denied', { action: 'patch', name: 'review' }, { error: 'Skill not found' });
-  complete('malformed', { action: 'update', name: 'review' }, '{"invalid":');
+  await complete('denied', { action: 'patch', name: 'review' }, { error: 'Skill not found' });
+  await complete('malformed', { action: 'update', name: 'review' }, '{"invalid":');
   const stored = listMessagesWithParts('s');
   const parts = stored[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
   const viz = (id: string) => {
@@ -270,7 +270,7 @@ test('Codex agent wait shows a status instead of raw JSON in live events and on 
     sendToController: (_id, message) => { sent.push(message); },
     sendToAskTargets: (_id, _authority, message) => { sent.push(message); },
   });
-  items.completed({ id: 'wait', type: 'collabAgentToolCall', tool: 'wait', status: 'completed',
+  await items.completed({ id: 'wait', type: 'collabAgentToolCall', tool: 'wait', status: 'completed',
     prompt: 'Explore privately', result: { status: 'completed', secret: 'private response' } });
   const stored = listMessagesWithParts('s');
   const part = stored[0]!.parts.find(entry => entry.type === 'tool') as ToolPart;
@@ -317,17 +317,17 @@ test('agent skill rows with malformed results stay bounded on reload', async () 
   expect(JSON.stringify(projected)).not.toContain('"success":true');
 });
 
-test('Codex image generation shows the image from a session attachment and stores no image data', () => {
+test('Codex image generation shows the image from a session attachment and stores no image data', async () => {
   const assistant = createMessage(createTestAssistantMessage('s'));
   const items = new CodexToolItems('s', assistant.id, 'turn', {
     send: () => {}, broadcast: () => {}, broadcastToSession: () => {}, sendToController: () => {}, sendToAskTargets: () => {},
   });
   const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(30_000, 7)]).toString('base64');
-  items.completed({ id: 'ok', type: 'imageGeneration', status: 'completed', revisedPrompt: 'a golden retriever',
+  await items.completed({ id: 'ok', type: 'imageGeneration', status: 'completed', revisedPrompt: 'a golden retriever',
     result: png, savedPath: '/Users/me/.codex/generated_images/t/ok.png' });
-  items.completed({ id: 'odd', type: 'imageGeneration', status: 'completed', result: Buffer.from('not an image').toString('base64'),
+  await items.completed({ id: 'odd', type: 'imageGeneration', status: 'completed', result: Buffer.from('not an image').toString('base64'),
     savedPath: '/Users/me/.codex/generated_images/t/odd.png' });
-  items.completed({ id: 'limit', type: 'imageGeneration', status: 'completed', result: '',
+  await items.completed({ id: 'limit', type: 'imageGeneration', status: 'completed', result: '',
     failure: { type: 'usageLimitExceeded', limitId: 'x', resetsAt: null } });
   const parts = listMessagesWithParts('s')[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
   const viz = (id: string) => ((parts.find(part => part.callId === `codex-item:turn:${id}`)!.state as { output: unknown })

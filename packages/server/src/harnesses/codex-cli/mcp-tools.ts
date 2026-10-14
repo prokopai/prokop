@@ -9,7 +9,7 @@ const fail = (text: string): CodexMcpCallResult => ({ success: false, contentIte
 /** Stable entrypoints let a new Codex thread discover future workspace configuration changes. */
 export function createCodexMcpTools(options: {
   bridge: WorkspaceMcpToolsPort; path: string; sessionId?: string; signal?: AbortSignal;
-  authorized(turnId: string): boolean;
+  authorized(turnId: string): Promise<boolean>;
 }): { definitions: Array<{ type: 'function'; name: string; description: string; inputSchema: Record<string, unknown> }>;
   call(raw: unknown): Promise<CodexMcpCallResult> } {
   const seen = new Set<string>();
@@ -24,16 +24,21 @@ export function createCodexMcpTools(options: {
     async call(raw) {
       const request = codexObject(raw);
       if (!request || request.namespace !== null || typeof request.turnId !== 'string'
-        || !options.authorized(request.turnId) || typeof request.callId !== 'string'
-        || !request.callId || request.callId.length > 256
+        || typeof request.callId !== 'string' || !request.callId || request.callId.length > 256
         || !['mcp_list_tools', 'mcp_call_tool'].includes(String(request.tool))) return fail('MCP tool unavailable');
-      if (seen.has(request.callId)) return fail('Duplicate MCP call');
-      seen.add(request.callId);
+      // Claimed before the authorization read so a concurrent duplicate is refused.
+      const callId = request.callId;
+      if (seen.has(callId)) return fail('Duplicate MCP call');
+      seen.add(callId);
+      if (!await options.authorized(request.turnId)) {
+        seen.delete(callId);
+        return fail('MCP tool unavailable');
+      }
       const input = codexObject(request.arguments);
       if (!input || JSON.stringify(input).length > 256_000) return fail('Invalid MCP arguments');
       try {
         const tools = await options.bridge.tools(options.path, options.sessionId);
-        if (!options.authorized(request.turnId)) return fail('MCP tool unavailable');
+        if (!await options.authorized(request.turnId)) return fail('MCP tool unavailable');
         if (request.tool === 'mcp_list_tools') {
           if (Object.keys(input).length) return fail('Invalid MCP arguments');
           return { success: true, contentItems: [{ type: 'inputText', text: JSON.stringify(tools.map(

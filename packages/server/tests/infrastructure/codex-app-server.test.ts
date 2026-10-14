@@ -31,7 +31,7 @@ function fixture() {
 test('initialize waits for its response before the initialized notification', async () => {
   const f = fixture();
   const events: unknown[] = [];
-  const client = new CodexAppServer(f.io, event => events.push(event));
+  const client = new CodexAppServer(f.io, event => { events.push(event); });
   const initialized = client.initialize();
   await f.waitFor(1);
   expect(f.outgoing[0]?.method).toBe('initialize');
@@ -109,7 +109,7 @@ test('request timeout removes its waiter without reusing a request id', async ()
 test('a generated image arriving as a multi-megabyte line in small chunks keeps the connection', async () => {
   const f = fixture();
   const events: Array<{ method: string; params: unknown }> = [];
-  const client = new CodexAppServer(f.io, event => events.push(event));
+  const client = new CodexAppServer(f.io, event => { events.push(event); });
   // A 2.2 MB PNG is about 2.9 MB of base64, past the old 2 MB limit.
   const image = 'A'.repeat(3 * 1024 * 1024);
   const line = new TextEncoder().encode(`${JSON.stringify({ method: 'item/completed', params: {
@@ -127,7 +127,7 @@ test('a generated image arriving as a multi-megabyte line in small chunks keeps 
 test('two messages split across chunks are both delivered in order', async () => {
   const f = fixture();
   const events: Array<{ method: string }> = [];
-  const client = new CodexAppServer(f.io, event => events.push(event));
+  const client = new CodexAppServer(f.io, event => { events.push(event); });
   const bytes = new TextEncoder().encode('{"method":"a","params":{"x":"é"}}\n{"method":"b","params":{}}\n');
   // Split inside the two-byte é and between the messages.
   for (const [start, end] of [[0, 30], [30, 40], [40, bytes.length]] as const) f.sendBytes(bytes.subarray(start, end));

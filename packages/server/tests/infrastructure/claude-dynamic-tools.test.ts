@@ -21,7 +21,7 @@ import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
-import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
+import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { Paths } from '@/infrastructure/runtime/paths';
 import { mkdirSync } from 'node:fs';
 
@@ -103,9 +103,9 @@ test('zod schema matches the live Capek agent skill definition', () => {
   }
 });
 
-test('agent skill manage registers only with a selected agent home', () => {
-  expect(skillTools({ agentDir: null })).toEqual([]);
-  expect(skillTools().map(item => item.name)).toEqual(['agent_skill_manage']);
+test('agent skill manage registers only with a selected agent home', async () => {
+  expect((await skillTools({ agentDir: null }))).toEqual([]);
+  expect((await skillTools()).map(item => item.name)).toEqual(['agent_skill_manage']);
 });
 
 test('agent skill writes stay in the selected agent home without any ask', async () => {
@@ -117,7 +117,7 @@ test('agent skill writes stay in the selected agent home without any ask', async
       seen.push(directory);
       return agentSkillsDomainTools.execute(input, directory);
     } };
-  const registered = skillTools({ bridge });
+  const registered = (await skillTools({ bridge }));
   const result = await registered.find(item => item.name === 'agent_skill_manage')!.handler(
     { action: 'create', name: 'Deploy Helper', description: 'Ship the app', content: 'Steps.' } as never, {});
   expect(result.isError).toBeFalsy();
@@ -132,11 +132,11 @@ test('agent skill writes stay in the selected agent home without any ask', async
 test('a stale turn, unbound agent, or changed preconfig refuses skill calls', async () => {
   mkdirSync(join(agentDir, 'skills'), { recursive: true });
   const controller = new AbortController();
-  const registered = skillTools({ signal: controller.signal });
+  const registered = (await skillTools({ signal: controller.signal }));
   const handler = registered.find(item => item.name === 'agent_skill_manage')!.handler;
   controller.abort();
   expect((await handler({ action: 'list' } as never, {})).isError).toBe(true);
-  const fresh = skillTools();
+  const fresh = (await skillTools());
   const call = fresh.find(item => item.name === 'agent_skill_manage')!.handler;
   // The session has not bound its agent identity to the preconfig yet.
   expect((await call({ action: 'list' } as never, {})).isError).toBe(true);
@@ -146,11 +146,11 @@ test('a stale turn, unbound agent, or changed preconfig refuses skill calls', as
   expect((await call({ action: 'list' } as never, {})).isError).toBe(true);
 });
 
-test('session search registers unconditionally: the read policy keeps it always on', () => {
-  expect(searchTools().map(item => item.name)).toEqual(['session_search']);
+test('session search registers unconditionally: the read policy keeps it always on', async () => {
+  expect((await searchTools()).map(item => item.name)).toEqual(['session_search']);
   updateWorkspace('ws', { settings: { sessionSearch: {
     enabled: false, permissionRisk: 'low', includeToolResults: false } } });
-  expect(searchTools().map(item => item.name)).toEqual(['session_search']);
+  expect((await searchTools()).map(item => item.name)).toEqual(['session_search']);
 });
 
 test('session search routes settings and agent scope without any ask', async () => {
@@ -166,13 +166,13 @@ test('session search routes settings and agent scope without any ask', async () 
       seen.push({ input, includeToolResults, risk, agentId: agentId ?? null });
       return { success: true, mode: 'search', title: 'ok', results: [] };
     } };
-  const registered = searchTools({ bridge });
+  const registered = (await searchTools({ bridge }));
   const handler = registered.find(item => item.name === 'session_search')!.handler;
   const result = await handler({ query: 'deploy steps', scope: 'workspace' } as never, {});
   expect(result.isError).toBeFalsy();
   expect(seen[0]).toMatchObject({ includeToolResults: false, risk: 'none', agentId: 'agent' });
   // Agent scope without an agent home refuses before reaching the bridge.
-  const noAgent = searchTools({ bridge, agentDir: null });
+  const noAgent = (await searchTools({ bridge, agentDir: null }));
   const refused = await noAgent.find(item => item.name === 'session_search')!
     .handler({ action: 'list', scope: 'agent' } as never, {});
   expect(refused.isError).toBe(true);
@@ -185,11 +185,11 @@ test('session search routes settings and agent scope without any ask', async () 
   expect(off.isError).toBeFalsy();
 });
 
-test('registration follows the workspace memory setting and the agent home', () => {
-  expect(tools({ agentDir: null }).map(item => item.name)).toEqual([]);
-  expect(tools().map(item => item.name)).toEqual(['agent_memory']);
+test('registration follows the workspace memory setting and the agent home', async () => {
+  expect((await tools({ agentDir: null })).map(item => item.name)).toEqual([]);
+  expect((await tools()).map(item => item.name)).toEqual(['agent_memory']);
   updateWorkspace('ws', { settings: { memory: { enabled: true, permissionRisk: 'low' } } });
-  expect(tools().map(item => item.name)).toEqual(['memory', 'agent_memory']);
+  expect((await tools()).map(item => item.name)).toEqual(['memory', 'agent_memory']);
 });
 
 test('each tool routes to its own directory and never asks', async () => {
@@ -200,7 +200,7 @@ test('each tool routes to its own directory and never asks', async () => {
       seen.push({ directory, risk, asked: ask !== undefined });
       return { success: true, result: { action: 'list', entries: [] } };
     } };
-  const registered = tools({ bridge });
+  const registered = (await tools({ bridge }));
   const list = async (name: 'memory' | 'agent_memory'): Promise<ToolResult> =>
     registered.find(item => item.name === name)!.handler({ action: 'list', target: 'user' } as never, {});
   expect(await list('memory')).toMatchObject({ isError: false,
@@ -213,7 +213,7 @@ test('each tool routes to its own directory and never asks', async () => {
 });
 
 test('agent memory writes through the in-process tool without any ask', async () => {
-  const registered = tools({ bridge: fakeBridge });
+  const registered = (await tools({ bridge: fakeBridge }));
   const result = await registered.find(item => item.name === 'agent_memory')!
     .handler({ action: 'add', target: 'user', content: 'prefers concise output' } as never, {});
   expect(result.isError).toBeFalsy();
@@ -222,7 +222,7 @@ test('agent memory writes through the in-process tool without any ask', async ()
 
 test('workspace memory writes without any ask and still refuses when disabled', async () => {
   updateWorkspace('ws', { settings: { memory: { enabled: true, permissionRisk: 'high' } } });
-  const registered = tools({});
+  const registered = (await tools({}));
   const memory = registered.find(item => item.name === 'memory')!;
   const write = (): Promise<ToolResult> =>
     memory.handler({ action: 'add', target: 'memory', content: 'a fact' } as never, {});
@@ -237,12 +237,12 @@ test('workspace memory writes without any ask and still refuses when disabled', 
 test('a stale turn or changed preconfig refuses before executing', async () => {
   updateWorkspace('ws', { settings: { memory: { enabled: true, permissionRisk: 'low' } } });
   const controller = new AbortController();
-  const registered = tools({ signal: controller.signal });
+  const registered = (await tools({ signal: controller.signal }));
   controller.abort();
   const aborted = await registered.find(item => item.name === 'agent_memory')!
     .handler({ action: 'list', target: 'user' } as never, {});
   expect(aborted.isError).toBe(true);
-  const fresh = tools();
+  const fresh = (await tools());
   updateSession('s', { preconfigId: 'other' });
   const changed = await fresh.find(item => item.name === 'agent_memory')!
     .handler({ action: 'list', target: 'user' } as never, {});

@@ -93,13 +93,13 @@ test('manager uses published executor and rejects malformed, duplicate, switched
   let validRoot = true;
   const tools = createCodexAgentSkillTools({ bridge, sessionId: 's', workspaceId: 'ws',
     preconfigId: 'agent', agentDir, isActive: turn => active && turn === 'turn',
-    authorizeRoot: () => validRoot });
+    authorizeRoot: async () => validRoot });
   expect(tools.definitions.map(item => item.name)).toEqual(['agent_skill_manage']);
   const wrongWorkspace = createCodexAgentSkillTools({ bridge, sessionId: 's', workspaceId: 'other',
-    preconfigId: 'agent', agentDir, isActive: () => true, authorizeRoot: () => true });
+    preconfigId: 'agent', agentDir, isActive: () => true, authorizeRoot: async () => true });
   expect((await wrongWorkspace.call(call('wrong-workspace', { action: 'list' }))).success).toBe(false);
   const plain = createCodexAgentSkillTools({ bridge, sessionId: 's', workspaceId: 'ws',
-    preconfigId: 'agent', agentDir: null, isActive: () => true, authorizeRoot: () => true });
+    preconfigId: 'agent', agentDir: null, isActive: () => true, authorizeRoot: async () => true });
   expect(plain.definitions).toEqual([]);
   expect((await plain.call(call('plain', { action: 'list' }))).success).toBe(false);
   expect((await tools.call(call('bad-tool', {}, { tool: 'skill_manage' }))).success).toBe(false);
@@ -139,7 +139,7 @@ test('symlinked skill files and directories are not delegated to the core manage
   rmSync(join(agentDir, 'skills', 'personal', 'SKILL.md'));
   symlinkSync(outside, join(agentDir, 'skills', 'personal', 'SKILL.md'));
   const tools = createCodexAgentSkillTools({ bridge, sessionId: 's', workspaceId: 'ws',
-    preconfigId: 'agent', agentDir, isActive: () => true, authorizeRoot: () => true });
+    preconfigId: 'agent', agentDir, isActive: () => true, authorizeRoot: async () => true });
   expect((await tools.call(call('patch-link', { action: 'patch', name: 'personal',
     oldString: 'Do not edit', newString: 'Bad' }))).success).toBe(false);
   expect(readFileSync(outside, 'utf8')).toBe('Do not edit');

@@ -1,8 +1,9 @@
 import type { AssistantMessage, Session, TextPart, ToolPart } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
-import { createMessage, createPart, getToolPartByCallId, transitionToolToCompleted,
-  transitionToolToError, transitionToolToInterrupted, updateMessage } from '@/infrastructure/sqlite/message-store';
+import {
+  createMessage, createPart, createSession, getToolPartByCallId, transitionToolToCompleted, transitionToolToError,
+  transitionToolToInterrupted, updateMessage, updateSession,
+} from '@/infrastructure/storage/runtime';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
 import type { ClaudeTurnEvent } from './sdk-turn';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
@@ -27,7 +28,11 @@ interface Child {
 const MAX_CHILDREN = 32;
 const MAX_CHILD_TEXT = 100_000;
 
-/** Child ownership is the Agent tool-use ID, not the SDK session ID shared with its parent. */
+/**
+ * Child ownership is the Agent tool-use ID, not the SDK session ID shared with
+ * its parent. Callers await each method in event order (the turn's event loop
+ * is sequential), so writes keep the order of the CLI stream.
+ */
 export class ClaudeChildTimelines {
   private readonly children = new Map<string, Child>();
   private readonly early = new Map<string, ClaudeTurnEvent[]>();
@@ -36,28 +41,32 @@ export class ClaudeChildTimelines {
   constructor(private readonly parent: Session, private readonly nativeId: string,
     private readonly delivery: ApplicationDeliveryPort<unknown>) {}
 
-  start(id: string, owner?: string): string | null {
+  async start(id: string, owner?: string): Promise<string | null> {
     if (!id || id.length > 256 || this.children.has(id) || this.children.size >= MAX_CHILDREN) return null;
     const parentId = owner ? this.children.get(owner)?.sessionId : this.parent.id;
     if (!parentId) return null;
-    const session = createSession({ id: crypto.randomUUID(), workspaceId: this.parent.workspaceId,
+    const sessionId = crypto.randomUUID();
+    const assistantId = crypto.randomUUID();
+    // Claimed before the first await so a concurrent start of the same ID is refused.
+    this.children.set(id, { sessionId, assistant: { id: assistantId } as AssistantMessage, segments: [],
+      openSegment: null, textLength: 0, partClock: 0, openTools: new Set(), status: 'running' });
+    if (owner) this.owners.set(id, owner);
+    const session = await createSession({ id: sessionId, workspaceId: this.parent.workspaceId,
       workspaceRootId: this.parent.workspaceRootId, harness: 'claude-cli', parentId,
       preconfigId: this.parent.preconfigId, agentId: this.parent.agentId,
       selectedModel: this.parent.selectedModel, selectedProvider: this.parent.selectedProvider,
       permissionMode: this.parent.permissionMode, title: 'Claude agent (subagent)',
       status: 'active', metadata: null, agentName: 'Claude agent', subagentStatus: 'running' });
-    const assistant = createMessage({ id: crypto.randomUUID(), sessionId: session.id, role: 'assistant',
+    const assistant = await createMessage({ id: assistantId, sessionId: session.id, role: 'assistant',
       status: 'streaming', providerId: 'claude-cli', modelId: this.parent.selectedModel ?? 'claude-cli',
       agent: this.parent.agentId ?? undefined,
       tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
-    this.children.set(id, { sessionId: session.id, assistant, segments: [], openSegment: null,
-      textLength: 0, partClock: 0, openTools: new Set(), status: 'running' });
-    if (owner) this.owners.set(id, owner);
+    this.children.get(id)!.assistant = assistant;
     this.delivery.broadcast({ type: 'session.created', session });
     this.delivery.broadcastToSession(session.id, { type: 'message.created', message: assistant });
     const buffered = this.early.get(id) ?? [];
     this.early.delete(id);
-    for (const event of buffered) this.receive(event);
+    for (const event of buffered) await this.receive(event);
     return session.id;
   }
 
@@ -65,7 +74,7 @@ export class ClaudeChildTimelines {
     return this.children.get(agentToolId)?.sessionId ?? null;
   }
 
-  receive(event: ClaudeTurnEvent): void {
+  async receive(event: ClaudeTurnEvent): Promise<void> {
     const owner = event.parentToolUseId;
     if (!owner || event.type === 'result') return;
     const child = this.children.get(owner);
@@ -95,7 +104,7 @@ export class ClaudeChildTimelines {
       }
       if (!child.openSegment) {
         child.partClock = Math.max(Date.now(), child.partClock + 1);
-        const part = createPart({ id: crypto.randomUUID(), messageId: assistant.id,
+        const part = await createPart({ id: crypto.randomUUID(), messageId: assistant.id,
           type: 'text', text: delta === undefined ? next : '', createdAt: child.partClock }, sessionId) as TextPart;
         this.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
         child.openSegment = { part, text: delta === undefined ? next : '' };
@@ -106,32 +115,32 @@ export class ClaudeChildTimelines {
         this.delivery.broadcastToSession(sessionId, { type: 'part.append', sessionId,
           partId: child.openSegment.part.id, field: 'text', delta });
       } else if (child.openSegment.part.text !== next) {
-        const updated = this.streamText.settle(child.openSegment.part.id, next);
+        const updated = await this.streamText.settle(child.openSegment.part.id, next);
         if (updated) this.delivery.broadcastToSession(sessionId, { type: 'part.updated', sessionId, part: updated });
       }
       child.textLength = child.textLength - current.length + next.length;
       child.openSegment = { part: { ...child.openSegment.part, text: next }, text: next };
     } else if (event.type === 'tool-start') {
-      this.settleOpenSegment(child);
+      await this.settleOpenSegment(child);
       child.openSegment = null;
       const callId = `claude-tool:${this.nativeId}:${event.id}`;
-      if (getToolPartByCallId(sessionId, callId)) throw new Error('Duplicate Claude child tool identity');
+      if (await getToolPartByCallId(sessionId, callId)) throw new Error('Duplicate Claude child tool identity');
       const input = claudeToolInput(event.input);
-      const nestedId = event.name === 'Agent' ? this.start(event.id, owner) : null;
+      const nestedId = event.name === 'Agent' ? await this.start(event.id, owner) : null;
       const name = claudeToolName(event.name);
       const part: ToolPart = { id: crypto.randomUUID(), messageId: assistant.id, type: 'tool', callId,
         name, createdAt: (child.partClock = Math.max(Date.now(), child.partClock + 1)),
         state: { status: 'running', input, startedAt: Date.now(), ...(nestedId ? { childSessionId: nestedId } : {}) },
         presentation: { summary: claudeToolSummary(name, input), debugAvailable: false } };
-      createPart(part, sessionId);
+      await createPart(part, sessionId);
       child.openTools.add(part.id);
       this.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
     } else if (event.type === 'tool-end') {
-      const part = getToolPartByCallId(sessionId, `claude-tool:${this.nativeId}:${event.id}`);
+      const part = await getToolPartByCallId(sessionId, `claude-tool:${this.nativeId}:${event.id}`);
       if (!part || !child.openTools.delete(part.id)) throw new Error('Unknown Claude child tool result');
-      if (this.children.has(event.id)) this.finish(event.id, event.failed ? 'error' : 'completed');
-      const updated = event.failed ? transitionToolToError(part.id, 'Claude tool failed')
-        : transitionToolToCompleted(part.id, {
+      if (this.children.has(event.id)) await this.finish(event.id, event.failed ? 'error' : 'completed');
+      const updated = event.failed ? await transitionToolToError(part.id, 'Claude tool failed')
+        : await transitionToolToCompleted(part.id, {
           _visualization: claudeToolVisualization(part.name, part.state.input,
             typeof event.output === 'string' ? event.output : '', event.failed),
           preview: event.output });
@@ -139,39 +148,39 @@ export class ClaudeChildTimelines {
     }
   }
 
-  finish(id: string, status: 'completed' | 'error' | 'interrupted'): void {
+  async finish(id: string, status: 'completed' | 'error' | 'interrupted'): Promise<void> {
     const child = this.children.get(id);
     if (!child || child.status !== 'running') return;
     child.status = status;
-    this.settleOpenSegment(child);
+    await this.settleOpenSegment(child);
     for (const partId of child.openTools) {
-      const part = transitionToolToInterrupted(partId, 'error');
+      const part = await transitionToolToInterrupted(partId, 'error');
       if (part) this.delivery.broadcastToSession(child.sessionId,
         { type: 'part.updated', sessionId: child.sessionId, part });
     }
     child.openTools.clear();
-    const message = updateMessage(child.assistant.id, { status, completedAt: Date.now() });
+    const message = await updateMessage(child.assistant.id, { status, completedAt: Date.now() });
     if (message) this.delivery.broadcastToSession(child.sessionId, { type: 'message.updated', message });
-    const session = updateSession(child.sessionId, { subagentStatus: status });
+    const session = await updateSession(child.sessionId, { subagentStatus: status });
     if (session) this.delivery.broadcast({ type: 'session.updated', session });
-    for (const [nestedId, nested] of this.children) {
+    for (const [nestedId, nested] of [...this.children]) {
       if (nested.sessionId !== child.sessionId && nested.status === 'running'
-        && this.parentOf(nestedId) === id) this.finish(nestedId, status === 'completed' ? 'interrupted' : status);
+        && this.parentOf(nestedId) === id) await this.finish(nestedId, status === 'completed' ? 'interrupted' : status);
     }
   }
 
   private readonly owners = new Map<string, string>();
   private parentOf(id: string): string | undefined { return this.owners.get(id); }
 
-  private settleOpenSegment(child: Child): void {
+  private async settleOpenSegment(child: Child): Promise<void> {
     if (!child.openSegment) return;
-    const updated = this.streamText.settle(child.openSegment.part.id);
+    const updated = await this.streamText.settle(child.openSegment.part.id);
     if (updated) this.delivery.broadcastToSession(child.sessionId,
       { type: 'part.updated', sessionId: child.sessionId, part: updated });
   }
 
-  close(status: 'error' | 'interrupted'): void {
-    for (const id of this.children.keys()) this.finish(id, status);
+  async close(status: 'error' | 'interrupted'): Promise<void> {
+    for (const id of [...this.children.keys()]) await this.finish(id, status);
     this.early.clear();
   }
 }

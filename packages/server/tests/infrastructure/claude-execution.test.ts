@@ -8,7 +8,7 @@ import { createSession, getSession, selectEmptySessionHarnessModel, updateSessio
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { runClaudeCompact } from '@/harnesses/claude-cli/compact';
-import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
+import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';

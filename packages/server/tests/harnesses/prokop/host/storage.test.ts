@@ -51,9 +51,9 @@ describe('Čapek storage adapter', () => {
     expect(Object.keys(prokopStorageBundle.conversation).sort()).toEqual([
       'buildEffectiveContextHistory', 'createMessage', 'createPart', 'createSession',
       'deleteMessage', 'getChildSessions', 'getMessage', 'getMessageWithParts',
-      'getPart', 'getPartsByMessage', 'getPartsBySession', 'getSession',
+      'getPart', 'getPartsByMessage', 'getPartsBySession', 'getSession', 'getToolPartByCallId',
       'listLatestMessagesWithPartsPage', 'listMessagesWithParts',
-      'persistStreamingPartSnapshots', 'transitionToolToInterrupted',
+      'persistStreamingPartSnapshots', 'transitionToolToCompleted', 'transitionToolToError', 'transitionToolToInterrupted',
       'transitionToolToRunningByCallId', 'updateMessage', 'updatePart', 'updateSession',
     ].sort());
 

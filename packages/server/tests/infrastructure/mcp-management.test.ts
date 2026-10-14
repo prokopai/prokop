@@ -30,10 +30,10 @@ describe('workspace MCP management', () => {
     await saveServer(null, 'search', config);
     const tools = await getWorkspaceTools(root);
     const tool = tools[0]!;
-    const codex = createCodexMcpTools({ bridge: { tools: getWorkspaceTools }, path: root, authorized: () => true });
+    const codex = createCodexMcpTools({ bridge: { tools: getWorkspaceTools }, path: root, authorized: async () => true });
     const request = (callId: string) => ({ namespace: null, turnId: 'turn', callId, tool: 'mcp_call_tool', arguments: { tool: tool.name, arguments: {} } });
     expect((await codex.call(request('first'))).success).toBe(true);
-    const claude = createClaudeWorkspaceMcp(tools, new AbortController().signal, () => true)!;
+    const claude = createClaudeWorkspaceMcp(tools, new AbortController().signal, async () => true)!;
     const client = new Client({ name: 'test', version: '1' });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await claude.instance.connect(serverTransport);

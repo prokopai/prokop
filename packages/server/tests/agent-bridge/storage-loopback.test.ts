@@ -10,7 +10,7 @@ import {
 } from '#tests/factories';
 import { seedWorkspace } from '#tests/seed';
 
-const TIME_KEYS = new Set(['createdAt', 'updatedAt', 'startedAt', 'interruptedAt', 'completedAt', 'runningAt']);
+const TIME_KEYS = new Set(['createdAt', 'updatedAt', 'startedAt', 'interruptedAt', 'completedAt', 'runningAt', 'failedAt']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** JSON view with clock values and generated IDs masked, so two runs compare. */
@@ -61,6 +61,13 @@ async function storageScript(storage: StorageBundle, workspaceId: string): Promi
   ]));
   await step('transitionToolToRunningByCallId', () => conversation.transitionToolToRunningByCallId('s1', 'call-1'));
   await step('transitionToolToInterrupted', () => conversation.transitionToolToInterrupted('p3', 'user_request'));
+  await step('createPart tool 2', () => conversation.createPart(createTestToolPart('m2', { id: 'p4', callId: 'call-2', createdAt: 13 }), 's1'));
+  await step('createPart tool 3', () => conversation.createPart(createTestToolPart('m2', { id: 'p5', callId: 'call-3', createdAt: 14 }), 's1'));
+  await step('transitionToolToRunningByCallId 2', () => conversation.transitionToolToRunningByCallId('s1', 'call-2'));
+  await step('transitionToolToCompleted', () => conversation.transitionToolToCompleted('p4', { ok: true }));
+  await step('transitionToolToError', () => conversation.transitionToolToError('p5', 'failed'));
+  await step('getToolPartByCallId', () => conversation.getToolPartByCallId('s1', 'call-2'));
+  await step('getToolPartByCallId missing', () => conversation.getToolPartByCallId('s1', 'call-9'));
   await step('updatePart', () => conversation.updatePart('p2', { text: 'final answer' }));
   await step('getPart', () => conversation.getPart('p2'));
   await step('getPartsByMessage', () => conversation.getPartsByMessage('m2'));
@@ -82,6 +89,46 @@ async function storageScript(storage: StorageBundle, workspaceId: string): Promi
   await step('queue.delete', () => queue.delete(queued.id));
   await step('queue.peek empty', () => queue.peek('s1'));
 
+  const binding = { harness: 'codex-cli' as const, kind: 'binding', key: 's1' };
+  const queuedAgain = await queue.addMessage('s1', 'steer me');
+  await step('commit', () => storage.commit({
+    checks: [
+      { check: 'native.absent', target: binding },
+      { check: 'session.messageIds', sessionId: 's1', ids: ['m1', 'm2'] },
+      { check: 'session.harness', sessionId: 's1', harness: session.harness ?? 'prokop' },
+      { check: 'queue.present', id: queuedAgain.id },
+    ],
+    writes: [
+      { op: 'native.put', record: { ...binding, sessionId: 's1', lookup: 'thread-1', blocksSwitch: true,
+        value: { threadId: 'thread-1', turnIds: ['a', 'b'], pending: true } } },
+      { op: 'queue.delete', id: queuedAgain.id },
+      { op: 'message.create', message: createTestUserMessage('s1', { id: 'm3', createdAt: 3 }) },
+      { op: 'part.create', sessionId: 's1', part: createTestTextPart('m3', 'steered', { id: 'p6', createdAt: 20 }) },
+      { op: 'session.update', id: 's1', updates: { title: 'Committed' }, metadataPatch: { b: 2 } },
+      { op: 'message.update', id: 'm3', updates: { status: 'completed' } },
+    ],
+  }));
+  await step('native.get', () => storage.native.get(binding));
+  await step('native.find', () => storage.native.find('codex-cli', 'binding', 'thread-1'));
+  await step('native.find missing', () => storage.native.find('codex-cli', 'binding', 'thread-9'));
+  await step('commit stale native check', () => storage.commit({
+    checks: [{ check: 'native.equals', target: binding, value: { pending: false } }],
+    writes: [{ op: 'message.delete', id: 'm3' }],
+  }));
+  await step('commit stale transcript check', () => storage.commit({
+    checks: [{ check: 'native.equals', target: binding, value: { turnIds: ['a', 'b'], pending: true } },
+      { check: 'session.messageIds', sessionId: 's1', ids: ['m1', 'm2'] }],
+    writes: [{ op: 'message.delete', id: 'm3' }],
+  }));
+  await step('commit missing row', () => storage.commit({ writes: [{ op: 'message.update', id: 'missing', updates: {} }] }));
+  await step('commit deletes', () => storage.commit({
+    checks: [{ check: 'native.equals', target: binding, value: { threadId: 'thread-1', turnIds: ['a', 'b'] } }],
+    writes: [{ op: 'native.delete', target: binding }, { op: 'queue.delete', id: queuedAgain.id, ifExists: true },
+      { op: 'native.delete', target: binding, ifExists: true }],
+  }));
+  await step('native.get deleted', () => storage.native.get(binding));
+  await step('listMessagesWithParts after commit', () => conversation.listMessagesWithParts('s1'));
+
   await step('deleteMessage', () => conversation.deleteMessage('m2'));
   await step('deleteMessage missing', () => conversation.deleteMessage('m2'));
   await step('listMessagesWithParts after delete', () => conversation.listMessagesWithParts('s1'));
@@ -94,7 +141,20 @@ async function storageScript(storage: StorageBundle, workspaceId: string): Promi
 /** Guards against a vacuous comparison: the script must really read back what it wrote. */
 function expectRealResults(steps: Array<[string, unknown]>): void {
   const result = (name: string): unknown => steps.find(([step]) => step === name)?.[1];
-  expect(steps).toHaveLength(38);
+  expect(steps).toHaveLength(55);
+  expect(result('transitionToolToCompleted')).toMatchObject({ state: { status: 'completed', output: { ok: true } } });
+  expect(result('transitionToolToError')).toMatchObject({ state: { status: 'error', error: 'failed' } });
+  expect(result('getToolPartByCallId')).toMatchObject({ id: 'p4' });
+  expect(result('commit')).toMatchObject({ ok: true, results: [true, true, { id: 'm3' }, { id: 'p6' },
+    { title: 'Committed', metadata: { a: 1, b: 2 } }, { id: 'm3', status: 'completed' }] });
+  expect(result('native.find')).toMatchObject({ key: 's1', lookup: 'thread-1', blocksSwitch: true });
+  expect(result('commit stale native check')).toEqual({ ok: false, failed: { kind: 'check', index: 0 } });
+  expect(result('commit stale transcript check')).toEqual({ ok: false, failed: { kind: 'check', index: 1 } });
+  expect(result('commit missing row')).toMatchObject({ ok: false, failed: { kind: 'write', index: 0 } });
+  expect(result('commit deletes')).toEqual({ ok: true, results: [true, true, true] });
+  expect(result('native.get deleted')).toBeNull();
+  expect(result('listMessagesWithParts after commit')).toMatchObject([{ message: { id: 'm1' } },
+    { message: { id: 'm2' } }, { message: { id: 'm3' }, parts: [{ text: 'steered' }] }]);
   expect(result('getPart')).toMatchObject({ id: 'p2', text: 'final answer' });
   expect(result('transitionToolToInterrupted')).toMatchObject({ state: { status: 'interrupted', reason: 'user_request' } });
   expect(result('listMessagesWithParts')).toMatchObject([{ message: { id: 'm1' } }, { message: { id: 'm2', status: 'completed' } }]);
@@ -136,6 +196,25 @@ describe('storage over the agent protocol loopback', () => {
 
     expectRealResults(direct);
     expect(viaProtocol).toEqual(direct);
+  });
+
+  test('SQLite commit: a failed write rolls back the writes before it', async () => {
+    setupTestDatabase();
+    seedWorkspace();
+    try {
+      const storage = loopback(prokopStorageBundle);
+      const { createdAt: _c, updatedAt: _u, ...session } = createTestSession({ id: 's1', workspaceId: 'ws1' });
+      await storage.conversation.createSession(session);
+      const result = await storage.commit({ writes: [
+        { op: 'message.create', message: createTestUserMessage('s1', { id: 'm1', createdAt: 1 }) },
+        { op: 'native.put', record: { harness: 'claude-cli', kind: 'binding', key: 's1', sessionId: 's1',
+          blocksSwitch: false, value: {} } },
+        { op: 'message.create', message: createTestUserMessage('s1', { id: 'm1', createdAt: 2 }) },
+      ] });
+      expect(result).toMatchObject({ ok: false, failed: { kind: 'write', index: 2 } });
+      expect(await storage.conversation.listMessagesWithParts('s1')).toEqual([]);
+      expect(await storage.native.get({ harness: 'claude-cli', kind: 'binding', key: 's1' })).toBeNull();
+    } finally { resetTestDatabase(); }
   });
 
   test('host errors reach the engine as rejections with the host message', async () => {

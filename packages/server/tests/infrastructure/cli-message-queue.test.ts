@@ -100,11 +100,13 @@ describe('CLI sessions are flagged running for every client', () => {
     const turnDone = new Promise<void>(resolve => { finish = resolve; });
     const { flags, markRunning } = recorder();
     const execution = queueWith(async (_wire, _origin, _sessionId, _content, ...rest) => {
-      rest[6]?.();
+      await rest[6]?.();
       await turnDone;
     }, markRunning);
 
     const turn = execution.sendMessage(quietWire, 'origin', 'session', 'hello');
+    // The flag write is awaited by the turn before it continues.
+    for (let attempt = 0; attempt < 50 && !flags.length; attempt++) await Bun.sleep(0);
     expect(flags).toEqual([['session', true]]);
     finish();
     await turn;
@@ -130,7 +132,7 @@ describe('CLI sessions are flagged running for every client', () => {
     try {
       let ran = false;
       const execution = queueWith(async (_wire, _origin, _sessionId, _content, ...rest) => {
-        rest[6]?.();
+        await rest[6]?.();
         ran = true;
       }, () => { throw new Error('database is locked'); });
       await execution.sendMessage(quietWire, 'origin', 'session', 'hello');
@@ -152,8 +154,8 @@ describe('CLI sessions are flagged running for every client', () => {
       const { flags, markRunning } = recorder();
       const execution = queueWith(async (_wire, _origin, _sessionId, content, ...rest) => {
         turns.push(content);
-        rest[5]?.accepted();
-        rest[6]?.();
+        await rest[5]?.accepted();
+        await rest[6]?.();
         return 'drainable';
       }, markRunning);
 
@@ -168,19 +170,19 @@ describe('CLI sessions are flagged running for every client', () => {
     }
   });
 
-  test('the stored flag is what session lists read, broadcast to all clients', () => {
+  test('the stored flag is what session lists read, broadcast to all clients', async () => {
     setupTestDatabase();
     try {
       const { sessionId } = seedWorkspaceWithSession({ id: 'ws-flag-store' });
       const broadcasts: unknown[] = [];
       const wire = { delivery: { broadcast: (message: unknown) => { broadcasts.push(message); } } } as unknown as SessionWirePorts<string>;
 
-      persistCliSessionRunning(wire, sessionId, true);
+      await persistCliSessionRunning(wire, sessionId, true);
       expect(getSession(sessionId)?.runningAt).toEqual(expect.any(String));
       expect(broadcasts).toEqual([{ type: 'session.updated',
         session: expect.objectContaining({ id: sessionId, runningAt: expect.any(String) }) }]);
 
-      persistCliSessionRunning(wire, sessionId, false);
+      await persistCliSessionRunning(wire, sessionId, false);
       expect(getSession(sessionId)?.runningAt ?? null).toBeNull();
       expect(broadcasts[1]).toEqual({ type: 'session.updated', session: expect.objectContaining({ id: sessionId, runningAt: null }) });
     } finally {

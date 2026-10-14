@@ -11,8 +11,7 @@ import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
 import { createPendingAsk, expirePermissionRequest, resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { getSession } from '@/infrastructure/sqlite/session-store';
-import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
+import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
 import { getControllerConnections, isControlled } from '@/transport/websocket/control-registry';
 
 const AUTHORITY = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } as const;
@@ -58,7 +57,7 @@ export class ClaudeApprovals {
     delivery: ApplicationDeliveryPort<unknown>, signal: AbortSignal,
     childForTool?: (toolUseId: string) => string | null): CanUseTool {
     return async (toolName, input, options) => {
-      const session = getSession(sessionId);
+      const session = await getSession(sessionId);
       if (signal.aborted || options.signal.aborted || session?.harness !== 'claude-cli'
         || session.workspaceId !== workspaceId) return denied('Claude tool request is no longer active');
       if (options.blockedPath) return denied('Claude tool path is blocked');
@@ -70,11 +69,11 @@ export class ClaudeApprovals {
       if (toolName === 'mcp__prokop__memory' || toolName === 'mcp__prokop__agent_memory'
         || toolName === 'mcp__prokop__session_search' || toolName === 'mcp__prokop__agent_skill_manage') {
         if (toolName === 'mcp__prokop__memory'
-          && getWorkspace(workspaceId)?.settings.memory?.enabled !== true) {
+          && (await getWorkspace(workspaceId))?.settings.memory?.enabled !== true) {
           return denied('Workspace memory is disabled');
         }
         if (toolName === 'mcp__prokop__session_search'
-          && getWorkspace(workspaceId)?.settings.sessionSearch?.enabled !== true) {
+          && (await getWorkspace(workspaceId))?.settings.sessionSearch?.enabled !== true) {
           return denied('Session search is disabled');
         }
         return { behavior: 'allow' };
@@ -90,7 +89,7 @@ export class ClaudeApprovals {
           { questions, input: input as Record<string, unknown> });
       }
       const ask = classifyClaudeTool(toolName, input as Record<string, unknown>, root,
-        sessionPermissionRoots(session, root));
+        await sessionPermissionRoots(session, root));
       if (ask === null) return denied('Malformed Claude tool');
       // Tools without a Prokop risk rule use the SDK's native behavior, regardless of the session ceiling.
       if (ask === undefined) return { behavior: 'allow' };
@@ -119,14 +118,15 @@ export class ClaudeApprovals {
   }
 
   /** Stores the ask, delivers it to the controller and waits for its answer. */
-  private open(sessionId: string, workspaceId: string, toolName: string,
+  private async open(sessionId: string, workspaceId: string, toolName: string,
     delivery: ApplicationDeliveryPort<unknown>, signal: AbortSignal,
     options: Parameters<CanUseTool>[2], childForTool: ((toolUseId: string) => string | null) | undefined,
     ask: Ask, grant: Pick<Pending, 'key' | 'scopes'>, question: PendingQuestion | null,
   ): Promise<PermissionResult> {
     const childId = options.toolUseID ? childForTool?.(options.toolUseID) : null;
-    if (childId && (getSession(childId)?.parentId == null || getSession(childId)?.harness !== 'claude-cli')) {
-      return Promise.resolve(denied('Claude child tool identity is invalid'));
+    const child = childId ? await getSession(childId) : null;
+    if (childId && (child?.parentId == null || child.harness !== 'claude-cli')) {
+      return denied('Claude child tool identity is invalid');
     }
     const requestId = crypto.randomUUID();
     const toolCallId = `claude-approval:${crypto.randomUUID()}`;
@@ -152,7 +152,7 @@ export class ClaudeApprovals {
         if (signal.aborted || options.signal.aborted) abort();
         // Questions surface in the attention feed without a permission push,
         // like the Prokop question tool.
-        else if (!question) notifyHarnessPermissionRequired(requestId, sessionId);
+        else if (!question) void notifyHarnessPermissionRequired(requestId, sessionId);
       } catch { abort(); }
     });
   }
@@ -160,7 +160,8 @@ export class ClaudeApprovals {
   async resolve(toolCallId: string, response: unknown, requestId?: string): Promise<boolean> {
     if (!requestId || this.byTool.get(toolCallId) !== requestId) return false;
     const pending = this.pending.get(requestId);
-    if (!pending || pending.toolCallId !== toolCallId || getSession(pending.sessionId)?.harness !== 'claude-cli') return false;
+    if (!pending || pending.toolCallId !== toolCallId
+      || (await getSession(pending.sessionId))?.harness !== 'claude-cli') return false;
     const controlled = isControlled(pending.controllerSessionId)
       && getControllerConnections(pending.controllerSessionId).length > 0;
     if (pending.question) {

@@ -25,8 +25,8 @@ afterEach(() => resetTestDatabase());
 
 test('session search uses the Prokop definition and is always available', async () => {
   expect(sessionSearchDomainTools.definitions().map(def => def.name)).toEqual(['session_search']);
-  const tools = createCodexSessionSearchTools({ bridge: sessionSearchDomainTools, sessionId: 's', workspaceId: 'ws',
-    preconfigId: 'agent', agentDir: null, isActive: () => true, authorizeRoot: () => true });
+  const tools = await createCodexSessionSearchTools({ bridge: sessionSearchDomainTools, sessionId: 's', workspaceId: 'ws',
+    preconfigId: 'agent', agentDir: null, isActive: () => true, authorizeRoot: async () => true });
   expect(tools.definitions.map(def => def.name)).toEqual(['session_search']);
   expect((await tools.call(call('enabled', { action: 'list' }))).success).toBe(true);
 });
@@ -44,9 +44,9 @@ test('execution always runs without an ask and captures the always-on policy', a
       contexts.push({ workspaceId, sessionId, risk, agentId, includeTools });
       return { success: true, mode: input.action ?? 'search', results: [{ sessionId: 's' }] };
     } };
-  const tools = createCodexSessionSearchTools({ bridge, sessionId: 's', workspaceId: 'ws',
+  const tools = await createCodexSessionSearchTools({ bridge, sessionId: 's', workspaceId: 'ws',
     preconfigId: 'agent', agentDir: null, isActive: id => active && id === 'turn',
-    authorizeRoot: () => root });
+    authorizeRoot: async () => root });
   expect(tools.definitions.map(def => def.name)).toEqual(['session_search']);
   expect((await tools.call(call('list', { action: 'list' }))).success).toBe(true);
   expect((await tools.call(call('search', { query: 'hello' }))).success).toBe(true);
@@ -81,8 +81,8 @@ test('execution rechecks current settings and selected agent scope', async () =>
       ids.push(agentId);
       return { success: true };
     } };
-  const tools = createCodexSessionSearchTools({ bridge, sessionId: 's', workspaceId: 'ws',
-    preconfigId: 'agent', agentDir: '/agent', isActive: () => true, authorizeRoot: () => true });
+  const tools = await createCodexSessionSearchTools({ bridge, sessionId: 's', workspaceId: 'ws',
+    preconfigId: 'agent', agentDir: '/agent', isActive: () => true, authorizeRoot: async () => true });
   expect((await tools.call(call('read', { sessionId: 's', scope: 'agent' }))).success).toBe(true);
   expect(ids).toEqual(['agent']);
   updateSession('s', { agentId: 'other' });

@@ -142,6 +142,11 @@ export const agentToHostRequests = requests({
     result: QueuedMessageEntity,
   },
   'queue.peek': { description: 'Oldest queued prompt of a session.', params: SessionIdParams, result: MaybeQueued },
+  'queue.get': { description: 'One queued prompt, or null once sent or removed by the user.', params: Id, result: MaybeQueued },
+  'queue.listSteer': {
+    description: 'Every steer message of a session, oldest first (a run skips rows it already dispatched).',
+    params: SessionIdParams, result: named('QueuedMessages', z.array(QueuedMessageEntity)),
+  },
   'queue.delete': { description: 'Remove a queued prompt.', params: Id, result: Deleted },
   'responseFormat.get': { description: 'Read a structured response format.', params: Id, result: ResponseFormatEntity.nullable() },
   'attachment.get': { description: 'Attachment metadata; the agent reads absolutePath directly.', params: z.object({ sessionId: z.string(), attachmentId: z.string() }), result: AttachmentRecord.nullable() },

@@ -36,6 +36,6 @@ export async function readClaudeAiTitle(input: { root: string; nativeId: string 
 
 /** Claude Code's own title for a Prokop session bound to a native Claude session. */
 export async function readClaudeSessionTitle(sessionId: string): Promise<string | null> {
-  const binding = getClaudeBinding(sessionId);
+  const binding = await getClaudeBinding(sessionId);
   return binding ? readClaudeAiTitle({ root: binding.workspace_root, nativeId: binding.native_session_id }) : null;
 }

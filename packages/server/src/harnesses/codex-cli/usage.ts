@@ -1,6 +1,6 @@
 import type { CodexContextUsage, CodexTokenBreakdown } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
+import { getSession, updateSession } from '@/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
 
 const FIELDS = ['totalTokens', 'inputTokens', 'cachedInputTokens', 'cacheWriteInputTokens',
@@ -26,10 +26,10 @@ export function parseCodexContextUsage(value: unknown): CodexContextUsage | null
   return { last, total, modelContextWindow: window };
 }
 
-export function publishCodexContextUsage(sessionId: string, usage: CodexContextUsage,
-  delivery: ApplicationDeliveryPort<unknown>): void {
-  const session = getSession(sessionId);
+export async function publishCodexContextUsage(sessionId: string, usage: CodexContextUsage,
+  delivery: ApplicationDeliveryPort<unknown>): Promise<void> {
+  const session = await getSession(sessionId);
   if (session?.harness !== 'codex-cli') return;
-  const updated = updateSession(sessionId, { metadata: { ...(codexObject(session.metadata) ?? {}), codexUsage: usage } });
+  const updated = await updateSession(sessionId, { metadata: { ...(codexObject(session.metadata) ?? {}), codexUsage: usage } });
   if (updated) delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
 }

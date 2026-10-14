@@ -12,7 +12,7 @@ describe('harness MCP adapters', () => {
     const tool: WorkspaceMcpTool = { name: 'mcp_fixture', serverName: 'crm', toolName: 'read',
       description: 'Read', inputSchema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
       execute: async input => { calls++; return { content: [{ type: 'text', text: String(input.id) }], structuredContent: { id: input.id } }; } };
-    const config = createClaudeWorkspaceMcp([tool], controller.signal, () => true)!;
+    const config = createClaudeWorkspaceMcp([tool], controller.signal, async () => true)!;
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'test', version: '1' });
     await config.instance.connect(serverTransport);
@@ -33,7 +33,7 @@ describe('harness MCP adapters', () => {
     const tool: WorkspaceMcpTool = { name: 'crm_read', serverName: 'crm', toolName: 'read', description: 'Read',
       inputSchema: { type: 'object' }, execute: async () => { calls++; return { content: [{ type: 'text', text: 'ok' }] }; } };
     const adapter = createCodexMcpTools({ bridge: { tools: async () => enabled ? [tool] : [] },
-      path: '/workspace', authorized: id => active && id === 'turn' });
+      path: '/workspace', authorized: async id => active && id === 'turn' });
     const request = (callId: string, name = 'mcp_call_tool', args: unknown = { tool: 'crm_read', arguments: {} }) =>
       ({ namespace: null, turnId: 'turn', callId, tool: name, arguments: args });
     const first = (await adapter.call(request('list', 'mcp_list_tools', {}))).contentItems[0];

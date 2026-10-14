@@ -82,13 +82,20 @@ export class CodexAppServer {
   private readonly decoder = new TextDecoder('utf-8', { fatal: true });
   private readonly encoder = new TextEncoder();
   private closed = false;
+  /**
+   * Inbound messages in arrival order. Notification handlers may await host
+   * storage; responses and server requests wait for every notification that
+   * arrived before them, so code after `await request(...)` sees the same
+   * state as with synchronous handlers.
+   */
+  private inbound: Promise<void> = Promise.resolve();
   readonly disconnected: Promise<never>;
   private rejectDisconnected!: (error: Error) => void;
   private readonly reading: Promise<void>;
 
   constructor(
     private readonly io: CodexConnection,
-    private readonly onNotification: (notification: CodexNotification) => void,
+    private readonly onNotification: (notification: CodexNotification) => void | Promise<void>,
     private readonly onApproval?: (method: string, params: unknown) => Promise<{ decision: 'accept' | 'decline' }>,
     private readonly onToolCall?: (params: unknown) => Promise<{ contentItems: Array<{ type: 'inputText'; text: string } | { type: 'inputImage'; imageUrl: string }>; success: boolean }>,
     private readonly dynamicToolsEnabled = false,
@@ -202,6 +209,23 @@ export class CodexAppServer {
     }
   }
 
+  /** Resolves once every message received so far has been handled. Never rejects. */
+  idle(): Promise<void> {
+    return this.inbound;
+  }
+
+  /** Runs `task` after earlier inbound messages; a failing task ends the connection like a malformed line. */
+  private inOrder(task: () => void | Promise<void>, evenIfClosed = false): void {
+    this.inbound = this.inbound.then(async () => {
+      if (this.closed && !evenIfClosed) return;
+      await task();
+    }).catch(() => {
+      if (this.closed) return;
+      this.fail(new Error('Codex app-server connection lost'));
+      this.io.kill();
+    });
+  }
+
   private receive(raw: unknown): void {
     const message = record(raw);
     if (!message) throw new Error('Invalid Codex message');
@@ -209,16 +233,20 @@ export class CodexAppServer {
     if ((typeof id === 'number' || typeof id === 'string') && typeof message.method === 'string') {
       if (message.method === 'item/commandExecution/requestApproval'
         || message.method === 'item/fileChange/requestApproval') {
-        void (this.onApproval?.(message.method, message.params) ?? Promise.resolve({ decision: 'decline' as const }))
-          .catch(() => ({ decision: 'decline' as const }))
-          .then(result => { if (!this.closed) void this.write({ id, result }); });
+        this.inOrder(() => {
+          void (this.onApproval?.(message.method as string, message.params) ?? Promise.resolve({ decision: 'decline' as const }))
+            .catch(() => ({ decision: 'decline' as const }))
+            .then(result => { if (!this.closed) void this.write({ id, result }); });
+        });
         return;
       }
       if (message.method === 'item/tool/call') {
         const denied = { contentItems: [{ type: 'inputText' as const, text: 'Tool unavailable' }], success: false };
-        void (this.onToolCall?.(message.params) ?? Promise.resolve(denied))
-          .catch(() => denied)
-          .then(result => { if (!this.closed) void this.write({ id, result }).catch(() => {}); });
+        this.inOrder(() => {
+          void (this.onToolCall?.(message.params) ?? Promise.resolve(denied))
+            .catch(() => denied)
+            .then(result => { if (!this.closed) void this.write({ id, result }).catch(() => {}); });
+        });
         return;
       }
       let result: unknown;
@@ -243,19 +271,23 @@ export class CodexAppServer {
       if (!pending) return;
       this.pending.delete(id);
       clearTimeout(pending.timer);
-      if (message.error) {
-        const code = record(message.error)?.code;
-        const detail = record(message.error)?.message;
-        pending.reject(new CodexRequestError(typeof code === 'number' && Number.isInteger(code) ? code : null,
-          typeof detail === 'string' ? detail : undefined));
-      } else if ('result' in message) pending.resolve(message.result);
-      else pending.reject(new Error('Invalid Codex response'));
+      // Delivered even after a close: the entry left `pending`, so `fail` no longer settles it.
+      this.inOrder(() => {
+        if (message.error) {
+          const code = record(message.error)?.code;
+          const detail = record(message.error)?.message;
+          pending.reject(new CodexRequestError(typeof code === 'number' && Number.isInteger(code) ? code : null,
+            typeof detail === 'string' ? detail : undefined));
+        } else if ('result' in message) pending.resolve(message.result);
+        else pending.reject(new Error('Invalid Codex response'));
+      }, true);
       return;
     }
     if (typeof message.method !== 'string' || !('params' in message)) {
       throw new Error('Invalid Codex notification');
     }
-    this.onNotification({ method: message.method, params: message.params });
+    const notification = { method: message.method, params: message.params };
+    this.inOrder(() => this.onNotification(notification));
   }
 }
 

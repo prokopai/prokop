@@ -31,7 +31,7 @@ test('Claude names render_html like the other harnesses and reads the page from 
     .toEqual({ type: 'none', message: 'MCP tool failed or access was disabled' });
 });
 
-test('Codex shows render_html through the MCP bridge and leaves other bridged tools generic', () => {
+test('Codex shows render_html through the MCP bridge and leaves other bridged tools generic', async () => {
   const assistant = createMessage(createTestAssistantMessage('s'));
   const sent: ServerMessage[] = [];
   const items = new CodexToolItems('s', assistant.id, 'turn', {
@@ -45,8 +45,8 @@ test('Codex shows render_html through the MCP bridge and leaves other bridged to
     tool: 'mcp_call_tool', status: 'completed', arguments: { tool, arguments: { title: 'Q3 revenue', html: '<p>x</p>' } },
     // The bridge returns the whole MCP result as JSON text.
     contentItems: [{ type: 'inputText', text: JSON.stringify({ content: [{ type: 'text', text }] }) }] });
-  complete('render', 'render_html');
-  complete('other', 'mcp_lookup_1234');
+  await complete('render', 'render_html');
+  await complete('other', 'mcp_lookup_1234');
   const parts = listMessagesWithParts('s')[0]!.parts.filter((part): part is ToolPart => part.type === 'tool');
   const viz = (id: string) => {
     const part = parts.find(part => part.callId === `codex-item:turn:${id}`);

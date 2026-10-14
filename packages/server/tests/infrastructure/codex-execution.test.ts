@@ -10,14 +10,13 @@ import { createSession, getSession, updateSession } from '@/infrastructure/sqlit
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { projectMessagesForClient } from '@/application/sessions/tool-debug';
-import { bindCodexThread, getCodexBinding } from '@/harnesses/codex-cli/bindings';
-import { getRollbackIntent } from '@/harnesses/codex-cli/rollback';
+import { bindCodexThread } from '@/harnesses/codex-cli/bindings';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { CodexApprovals, codexApprovals } from '@/harnesses/codex-cli/approvals';
 import { shouldAutoApproveAsk } from '@/domains/permissions';
 import { getPermissionRequestByRequestId, listPendingAsksBySession,
   listPendingRequestsByRootSession } from '@/infrastructure/sqlite/pending-asks';
-import { saveCodexModelSelection } from '@/harnesses/codex-cli/models';
+import { saveCodexModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { createCodexExecution as createExecution, type CodexExecutionDependencies } from '@/harnesses/codex-cli/execution';
 import { hookCommand, type HookDecision } from '@/harnesses/codex-cli/pretool-hook';
 import type { CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
@@ -28,7 +27,7 @@ import { installHarnessNotificationPort } from '@/application/ports/harness-noti
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
-import { updateLegacyRow } from '#tests/helpers/legacy-native';
+import { codexBinding, codexRollbackIntent, updateLegacyRow } from '#tests/helpers/legacy-native';
 
 beforeEach(() => { setupTestDatabase(); seedWorkspace({ id: 'ws', path: process.cwd() }); });
 afterEach(() => resetTestDatabase());
@@ -329,7 +328,7 @@ test('Codex turn applies selected model and effort, streams, and resumes its thr
   current.send({ method: 'item/completed', params: { threadId: 'thread-1', turnId: 'turn-1', item: { id: 'item-1', type: 'agentMessage', text: 'Hi!' } } });
   current.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await first;
-  expect(getCodexBinding('s')).toMatchObject({ threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1' });
+  expect(codexBinding('s')).toMatchObject({ threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1' });
   expect(getSession('s')?.selectedModel).toBe('gpt-5.1-codex');
   expect(messages.map(message => message.type)).toEqual([
     'session.updated', 'message.created', 'part.created', 'message.created', 'session.updated', 'message.updated',
@@ -561,6 +560,7 @@ test('Codex command approval uses ask UI, exact session grants and one-time repl
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1', command: 'cat /outside/a.txt', cwd: process.cwd(),
   } });
   await waitFor(() => messages.some(message => message.type === 'ask.request'));
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   expect(ask.ask).toMatchObject({ risk: 'medium', concerns: ['escape'], allowedScopes: ['once', 'session', 'workspace'],
     metadata: { command: 'cat /outside/a.txt' } });
@@ -575,7 +575,7 @@ test('Codex command approval uses ask UI, exact session grants and one-time repl
   } });
   await waitFor(() => fake.sent.some(message => message.id === 89));
   expect(fake.sent.find(message => message.id === 89)?.result).toEqual({ decision: 'accept' });
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(1);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 1);
   fake.send({ id: 90, method: 'item/commandExecution/requestApproval', params: {
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-3', command: 'cat /outside/b.txt', cwd: process.cwd(),
   } });
@@ -617,9 +617,10 @@ test('trusted hook asks through the turn, denies invalid identity, and hands an 
   await waitFor(() => fake.sent.some(message => message.id === 87));
   expect(fake.sent.find(message => message.id === 87)?.result).toEqual({ decision: 'accept' });
   expect(await onCall({ ...call, turn_id: 'other' })).toBe('no-active-turn');
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(0);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 0);
   const denied = onCall(call);
   await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 1);
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const firstAsk = messages.find(message => message.type === 'ask.request')!;
   expect(firstAsk.ask).toMatchObject({ allowedScopes: ['once'], action: 'execute', concerns: ['destructive'] });
   expect(await codexApprovals.resolve(firstAsk.toolCallId, { type: 'permission', grant: 'denied' }, firstAsk.requestId)).toBe(true);
@@ -635,7 +636,7 @@ test('trusted hook asks through the turn, denies invalid identity, and hands an 
   } });
   await waitFor(() => fake.sent.some(message => message.id === 88));
   expect(fake.sent.find(message => message.id === 88)?.result).toEqual({ decision: 'accept' });
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(2);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 2);
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await turn;
   expect(closed).toBe(true);
@@ -679,6 +680,7 @@ test('Codex hook accepts only spawned child threads in the selected root for the
     threadId: 'child-1', turnId: 'child-turn', itemId: 'before-hook',
     cwd: process.cwd(), command: 'cat .env',
   } });
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const nativeAsk = messages.find(message => message.type === 'ask.request')!;
   expect(askTargetSessions.at(-1)).toBe('s');
@@ -772,7 +774,7 @@ test('Codex hook accepts only spawned child threads in the selected root for the
   } });
   await waitFor(() => fake.sent.some(entry => entry.id === 204));
   expect(fake.sent.find(entry => entry.id === 204)?.result).toEqual({ decision: 'accept' });
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(5);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 5);
   const afterParent = onCall({ ...call, tool_use_id: 'after-parent', tool_input: { command: 'cat .env' } });
   await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 6);
   const lateAsk = messages.filter(message => message.type === 'ask.request')[5]!;
@@ -806,7 +808,7 @@ test('Codex child timeline keeps receiving isolated events after parent completi
   await waitFor(() => messages.some(message => message.type === 'session.created'));
   const child = messages.find(message => message.type === 'session.created')!.session;
   expect(child).toMatchObject({ parentId: 's', harness: 'codex-cli', subagentStatus: 'running' });
-  expect(getCodexBinding(child.id)?.threadId).toBe('child-1');
+  expect(codexBinding(child.id)?.threadId).toBe('child-1');
   expect(listMessagesWithParts(child.id).filter(entry => entry.message.role === 'assistant')).toHaveLength(1);
   const parentPart = listMessagesWithParts('s').at(-1)!.parts.find(part => part.type === 'tool');
   expect(parentPart?.state).toMatchObject({ childSessionId: child.id });
@@ -939,6 +941,7 @@ test('native Codex approval treats a double-quoted commit wrapper like the plain
     expect(messages.some(message => message.type === 'ask.request')).toBe(false);
     const reset = request('/bin/zsh -lc "git reset --hard"', 'reset');
     await waitFor(() => messages.some(message => message.type === 'ask.request'));
+    await waitFor(() => messages.some(message => message.type === 'ask.request'));
     const ask = messages.find(message => message.type === 'ask.request');
     expect(ask).toMatchObject({ ask: { concerns: ['destructive'], allowedScopes: ['once'] } });
     approvals.cancelSession('s');
@@ -960,16 +963,16 @@ test('Codex hook auto-approval follows the current session risk and remains once
   // Sessions without a stored mode inherit the workspace default
   // ('standard'): low risk runs without an ask.
   expect(await request('low', 'inherit-1')).toBe(true);
-  expect(asks()).toBe(0);
+  await waitFor(() => asks() === 0);
 
   updateSession('s', { permissionMode: 'standard' });
   expect(await request('low', 'item-1')).toBe(true);
-  expect(asks()).toBe(0);
+  await waitFor(() => asks() === 0);
   const native = { threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1', command: 'cat .env', cwd: process.cwd() };
   expect(await approvals.request('item/commandExecution/requestApproval', native,
     'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery)).toEqual({ decision: 'accept' });
   const repeat = request('medium', 'item-2');
-  expect(asks()).toBe(1);
+  await waitFor(() => asks() === 1);
   approvals.cancelSession('s');
   expect(await repeat).toBe(false);
 
@@ -978,14 +981,14 @@ test('Codex hook auto-approval follows the current session risk and remains once
   const nativeCritical = approvals.request('item/commandExecution/requestApproval',
     { ...native, itemId: 'other', command: 'rm -rf /' },
     'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
-  expect(asks()).toBe(2);
+  await waitFor(() => asks() === 2);
   approvals.cancelSession('s');
   expect(await nativeCritical).toEqual({ decision: 'decline' });
   updateSession('s', { permissionMode: 'standard' });
   expect(await request('none', 'item-4')).toBe(true);
   updateSession('s', { permissionMode: 'full' });
   const critical = request('critical', 'item-5');
-  expect(asks()).toBe(3);
+  await waitFor(() => asks() === 3);
   approvals.cancelSession('s');
   expect(await critical).toBe(false);
 });
@@ -1022,6 +1025,7 @@ test('hook ask timeout and interruption deny and expire pending requests', async
   const expired = approvals.requestHook(ask, 'Bash', 'rm file', 'item-1',
     'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
   expect(await expired).toBe(false);
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const first = messages.find(message => message.type === 'ask.request')!;
   expect(getPermissionRequestByRequestId(first.requestId!)?.status).toBe('expired');
   expect(await approvals.resolve(first.toolCallId, { type: 'permission', grant: 'once' }, first.requestId)).toBe(false);
@@ -1041,16 +1045,17 @@ test('hook approval suppresses only a matching native command prompt for that tu
   const pending = approvals.requestHook({ type: 'permission', question: 'Allow deletion?',
     resource: 'shell-command', action: 'execute', risk: 'high', allowedScopes: ['once'] },
   'Bash', command, 'item-1', 'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   expect(await approvals.resolve(ask.toolCallId, { type: 'permission', grant: 'once' }, ask.requestId)).toBe(true);
   expect(await pending).toBe(true);
   const params = { threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1', command, cwd: process.cwd() };
   expect(await approvals.request('item/commandExecution/requestApproval', params,
     'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery)).toEqual({ decision: 'accept' });
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(1);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 1);
   const next = approvals.request('item/commandExecution/requestApproval', { ...params, itemId: 'item-2' },
     'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
-  expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(2);
+  await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 2);
   approvals.cancelSession('s');
   expect(await next).toEqual({ decision: 'decline' });
 });
@@ -1065,6 +1070,7 @@ test('native shell wrapper reuses hook approval once for the exact invocation', 
     const hook = approvals.requestHook({ type: 'permission', question: 'Allow?',
       resource: 'shell-command', action: 'execute', risk: 'high', allowedScopes: ['once'] },
     'Bash', command, 'item-1', 'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
+    await waitFor(() => messages.some(message => message.type === 'ask.request'));
     const ask = messages.find(message => message.type === 'ask.request')!;
     await approvals.resolve(ask.toolCallId, { type: 'permission', grant: 'once' }, ask.requestId);
     expect(await hook).toBe(true);
@@ -1082,9 +1088,9 @@ test('native shell wrapper reuses hook approval once for the exact invocation', 
     }
     const count = messages.filter(message => message.type === 'ask.request').length;
     expect(await request()).toEqual({ decision: 'accept' });
-    expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(count);
+    await waitFor(() => messages.filter(message => message.type === 'ask.request').length === count);
     const repeated = request();
-    expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(count + 1);
+    await waitFor(() => messages.filter(message => message.type === 'ask.request').length === count + 1);
     approvals.cancelSession('s');
     expect(await repeated).toEqual({ decision: 'decline' });
   } finally { approvals.cancelSession('s'); }
@@ -1099,6 +1105,7 @@ test('exec-policy proposals preserve exact once-only hook approval without apply
   const pending = approvals.requestHook({ type: 'permission', question: 'Allow deletion?',
     resource: 'shell-command', action: 'execute', risk: 'high', allowedScopes: ['once'] },
   'Bash', command, 'item-1', 'thread-1', 'turn-1', 's', process.cwd(), 'ws', delivery);
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const hookAsk = messages.find(message => message.type === 'ask.request')!;
   expect(await approvals.resolve(hookAsk.toolCallId, { type: 'permission', grant: 'once' }, hookAsk.requestId)).toBe(true);
   expect(await pending).toBe(true);
@@ -1116,18 +1123,18 @@ test('exec-policy proposals preserve exact once-only hook approval without apply
     expect(await request({ cwd: '/other' })).toEqual({ decision: 'decline' });
     expect(await request({ turnId: 'other' })).toEqual({ decision: 'decline' });
     expect(await request()).toEqual({ decision: 'accept' });
-    expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(1);
+    await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 1);
 
     // The consumed hook approval does not approve another call sharing the prefix.
     const next = request({ itemId: 'item-2', command: 'rm -rf ./other' });
+    await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 2);
     const asks = messages.filter(message => message.type === 'ask.request');
-    expect(asks).toHaveLength(2);
     const nativeAsk = asks[1]!;
     expect(await approvals.resolve(nativeAsk.toolCallId, { type: 'permission', grant: 'once' }, nativeAsk.requestId)).toBe(true);
     expect(await next).toEqual({ decision: 'accept' });
 
     const repeated = request({ itemId: 'item-3', command: 'rm -rf ./other' });
-    expect(messages.filter(message => message.type === 'ask.request')).toHaveLength(3);
+    await waitFor(() => messages.filter(message => message.type === 'ask.request').length === 3);
     approvals.cancelSession('s');
     expect(await repeated).toEqual({ decision: 'decline' });
   } finally { approvals.cancelSession('s'); }
@@ -1149,6 +1156,7 @@ test('Codex malformed requests decline and interrupted file approvals cannot be 
   fake.send({ id: 71, method: 'item/fileChange/requestApproval', params: {
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'file-1', reason: 'edit files',
   } });
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   expect(ask.ask).toMatchObject({ allowedScopes: ['once'] });
@@ -1180,6 +1188,7 @@ test('grant persistence failure declines and rolls back the approval', async () 
   fake.send({ id: 91, method: 'item/commandExecution/requestApproval', params: {
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1', command: 'cat /outside/a.txt', cwd: process.cwd(),
   } });
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   getDatabase().run(`CREATE TRIGGER reject_codex_grant BEFORE INSERT ON permission_grants
@@ -1218,6 +1227,7 @@ test('Codex approval timeout declines and removes its live request', async () =>
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1',
   }, 'thread-1', 'turn-1', 's', process.cwd(), 'ws', wire(messages).delivery);
   expect(await pending).toEqual({ decision: 'decline' });
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   expect(getPermissionRequestByRequestId(ask.requestId!)?.status).toBe('expired');
   expect(approvals.hasLiveRequest(ask.requestId!)).toBe(false);
@@ -1236,6 +1246,7 @@ test('a lost Codex process expires an outstanding approval and rejects stale rep
     threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1',
   } });
   await waitFor(() => messages.some(message => message.type === 'ask.request'));
+  await waitFor(() => messages.some(message => message.type === 'ask.request'));
   const ask = messages.find(message => message.type === 'ask.request')!;
   fake.connection.kill();
   await turn;
@@ -1253,7 +1264,7 @@ test('a rejected thread request reports its stage without leaking upstream detai
   const error = messages.find(message => message.type === 'error');
   expect(error).toMatchObject({ type: 'error', message: 'Codex failed during thread creation (RPC -32602). Check the host CLI setup.' });
   expect(JSON.stringify(messages)).not.toContain('secret upstream detail');
-  expect(getCodexBinding('s')).toBeNull();
+  expect(codexBinding('s')).toBeNull();
 });
 
 test('interruption waits for the terminal notification before allowing another turn', async () => {
@@ -1270,10 +1281,10 @@ test('interruption waits for the terminal notification before allowing another t
   await waitFor(() => execution.isSessionActive('s'));
   await execution.interruptSession('s');
   expect(current.sent.some(message => message.method === 'turn/interrupt')).toBe(true);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   current.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } } });
   await first;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
   expect(execution.isSessionActive('s')).toBe(false);
 });
 
@@ -1294,13 +1305,13 @@ test('an uncertain turn is never replayed when history cannot prove completion',
   expect(messages.some(message => message.type === 'error')).toBe(true);
   processes[0]!.connection.kill();
   await first;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   const count = listMessagesWithParts('s').length;
   await createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'again');
   expect(processes).toHaveLength(2);
   expect(processes[1]!.sent.some(message => message.method === 'turn/start')).toBe(false);
   expect(listMessagesWithParts('s')).toHaveLength(count);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
 });
 
 test('restart recovers a finished turn by client user ID without replaying it', async () => {
@@ -1328,18 +1339,18 @@ test('restart recovers a finished turn by client user ID without replaying it', 
   await waitFor(() => listMessagesWithParts('s')[1]?.parts.length === 1);
   processes[0]!.connection.kill();
   await first;
-  expect(getCodexBinding('s')?.pendingUserId).toBe(lostUserId);
+  expect(codexBinding('s')?.pendingUserId).toBe(lostUserId);
   const next = createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'next');
   await waitFor(() => processes[2]?.sent.some(message => message.method === 'turn/start') ?? false);
   expect(processes[1]!.sent.map(message => message.method)).toContain('thread/read');
   expect(processes[1]!.sent.some(message => message.method === 'turn/start')).toBe(false);
-  expect(getCodexBinding('s')?.pendingUserId).not.toBe(lostUserId);
+  expect(codexBinding('s')?.pendingUserId).not.toBe(lostUserId);
   expect(listMessagesWithParts('s')[1]?.parts.map(part => part.type === 'text' ? part.text : '')).toEqual(['Recovered answer']);
   expect(listMessagesWithParts('s')[1]?.message).toMatchObject({ status: 'completed' });
   processes[2]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   processes[2]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await next;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('Codex rejects malformed budgets and mismatched objectives before starting', async () => {
@@ -1398,7 +1409,7 @@ test('native goal continuations stay in one process and create separate assistan
     return message?.role === 'assistant' && message.status === 'completed';
   });
   expect(execution.isSessionActive('s')).toBe(true);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   fake.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
   fake.send({ method: 'item/agentMessage/delta', params: {
     threadId: 'thread-1', turnId: 'turn-2', itemId: 'a2', delta: 'Continued',
@@ -1410,7 +1421,7 @@ test('native goal continuations stay in one process and create separate assistan
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'completed' } } });
   await send;
   expect(launches).toBe(1);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'budgetLimited' } });
   expect(listMessagesWithParts('s').map(entry => entry.message.role)).toEqual(['user', 'assistant', 'assistant']);
   expect(listMessagesWithParts('s')[2]?.parts).toMatchObject([{ type: 'text', text: 'Continued' }]);
@@ -1426,7 +1437,7 @@ test('Stop before turn/start response does not activate the goal', async () => {
   await waitFor(() => fake.sent.some(message => message.method === 'turn/start'));
   const request = fake.sent.find(message => message.method === 'turn/start')!;
   fake.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
-  await waitFor(() => getCodexBinding('s')?.pendingTurnId === 'turn-1');
+  await waitFor(() => codexBinding('s')?.pendingTurnId === 'turn-1');
   const stop = execution.interruptSession('s');
   fake.send({ id: request.id, result: { turn: { id: 'turn-1' } } });
   await stop;
@@ -1434,7 +1445,7 @@ test('Stop before turn/start response does not activate the goal', async () => {
   expect(fake.sent.some(message => message.method === 'turn/interrupt')).toBe(true);
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } } });
   await send;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('Stop waits for in-flight goal activation before pausing and interrupting', async () => {
@@ -1461,7 +1472,7 @@ test('Stop waits for in-flight goal activation before pausing and interrupting',
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'paused' } });
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } } });
   await send;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('Stop between goal turns pauses without interrupting the completed turn', async () => {
@@ -1484,7 +1495,7 @@ test('Stop between goal turns pauses without interrupting the completed turn', a
   await send;
   expect(fake.sent.filter(message => message.method === 'turn/interrupt')).toHaveLength(0);
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'paused' } });
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('interrupt pauses a native goal before interrupting its current turn', async () => {
@@ -1503,7 +1514,7 @@ test('interrupt pauses a native goal before interrupting its current turn', asyn
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'paused' } });
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } } });
   await send;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('goal activation response after turn completion still bounds continuation wait', async () => {
@@ -1523,7 +1534,7 @@ test('goal activation response after turn completion still bounds continuation w
     status: 'active', tokenBudget: 50000, tokensUsed: 0, timeUsedSeconds: 0, createdAt: 1, updatedAt: 1 } } });
   await send;
   expect(messages.some(message => message.type === 'error')).toBe(true);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
 });
 
 test('stalled active goal reports an error and keeps recovery pending', async () => {
@@ -1540,7 +1551,7 @@ test('stalled active goal reports an error and keeps recovery pending', async ()
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await send;
   expect(messages.some(message => message.type === 'error')).toBe(true);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'active' } });
 });
 
@@ -1574,7 +1585,7 @@ test('late active goal update and continuation after Stop stay unresolved', asyn
   await stop;
   await send;
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: { status: 'paused' } });
-  expect(getCodexBinding('s')?.goalRequested).toBe(true);
+  expect(codexBinding('s')?.goalRequested).toBe(true);
   expect(listMessagesWithParts('s')).toHaveLength(2);
   const next = createCodexExecution({ version: () => 'codex-cli 0.156.1',
     connect: () => { throw new Error('must not connect'); } });
@@ -1609,7 +1620,7 @@ test('process loss during a goal continuation cannot replay or accept a new user
   await waitFor(() => listMessagesWithParts('s').length === 3);
   processes[0]!.connection.kill();
   await first;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   expect(listMessagesWithParts('s')[1]?.message).toMatchObject({ status: 'completed' });
   const count = listMessagesWithParts('s').length;
   await createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'again');
@@ -1636,10 +1647,10 @@ test('lost goal activation stays pending even if the original turn ended', async
   userId = (processes[0]!.sent.find(message => message.method === 'turn/start')!.params as { clientUserMessageId: string }).clientUserMessageId;
   processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   await first;
-  expect(getCodexBinding('s')).toMatchObject({ pendingTurn: true, goalRequested: true });
+  expect(codexBinding('s')).toMatchObject({ pendingTurn: true, goalRequested: true });
   await createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'Again');
   expect(processes[1]!.sent.some(message => message.method === 'turn/start')).toBe(false);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   expect(listMessagesWithParts('s')).toHaveLength(2);
 });
 
@@ -1662,7 +1673,7 @@ test('lost activation with no upstream goal reconciles only the original termina
   userId = (processes[0]!.sent.find(message => message.method === 'turn/start')!.params as { clientUserMessageId: string }).clientUserMessageId;
   processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   await first;
-  expect(getCodexBinding('s')?.goalRequested).toBe(true);
+  expect(codexBinding('s')?.goalRequested).toBe(true);
   const next = createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'Next');
   await waitFor(() => processes[2]?.sent.some(message => message.method === 'turn/start') ?? false);
   expect(processes[1]!.sent.some(message => message.method === 'thread/goal/get')).toBe(true);
@@ -1696,7 +1707,7 @@ test('restart reconciles the exact terminal goal continuation without replaying 
   await waitFor(() => getSession('s')?.metadata !== null);
   processes[0]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
-  await waitFor(() => getCodexBinding('s')?.pendingTurnId === 'turn-2');
+  await waitFor(() => codexBinding('s')?.pendingTurnId === 'turn-2');
   processes[0]!.connection.kill();
   await first;
   const next = createCodexExecution(deps).sendMessage(wire(messages), 'origin', 's', 'Next');
@@ -1710,7 +1721,7 @@ test('restart reconciles the exact terminal goal continuation without replaying 
   processes[2]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   processes[2]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await next;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('an unexpected goal clear fails closed without claiming completion', async () => {
@@ -1726,7 +1737,7 @@ test('an unexpected goal clear fails closed without claiming completion', async 
   fake.send({ method: 'thread/goal/cleared', params: { threadId: 'thread-1' } });
   await send;
   expect(getSession('s')?.metadata).toMatchObject({ codexGoal: null });
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   expect(messages.some(message => message.type === 'error')).toBe(true);
 });
 
@@ -1812,7 +1823,7 @@ test('Codex usage accepts only active matching turns, including goal continuatio
   notify('thread-1', 'turn-1', { ...usage, last: { ...usage.last, totalTokens: 500 }, modelContextWindow: 10000 });
   await waitFor(() => (getSession('s')?.metadata?.codexUsage as { last: { totalTokens: number } })?.last.totalTokens === 500);
   fake.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
-  await waitFor(() => getCodexBinding('s')?.pendingTurnId === 'turn-2');
+  await waitFor(() => codexBinding('s')?.pendingTurnId === 'turn-2');
   notify('thread-1', 'turn-1', { ...usage, modelContextWindow: 2 });
   notify('thread-1', 'turn-2', { ...usage, modelContextWindow: null });
   await waitFor(() => (getSession('s')?.metadata?.codexUsage as { modelContextWindow: number | null })?.modelContextWindow === null);
@@ -1861,8 +1872,11 @@ test('Codex advertises only memory tools and handles calls on start and resume',
   sendCall(initial, 21, 'turn-1');
   sendCall(initial, 22, 'turn-1', 'shell');
   await waitFor(() => initial.sent.some(message => message.id === 22));
+  await waitFor(() => initial.sent.filter(message => [20, 21, 22].includes(message.id as number)).length === 3);
+  // Calls answer independently; a refused call can answer before an earlier one finishes.
   expect(initial.sent.filter(message => [20, 21, 22].includes(message.id as number))
-    .map(message => [message.id, (message.result as { success: boolean }).success]))
+    .map(message => [message.id, (message.result as { success: boolean }).success])
+    .sort((left, right) => (left[0] as number) - (right[0] as number)))
     .toEqual([[20, false], [21, true], [22, false]]);
   expect(calls).toHaveLength(1);
   initial.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
@@ -1984,9 +1998,9 @@ test('a Prokop session cannot spawn or route into Codex', async () => {
   expect(getSession('s')?.harness).toBe('prokop');
 });
 
-function seedRollbackTurns(count = 2): { users: string[]; assistants: string[]; turns: Array<Record<string, unknown>> } {
+async function seedRollbackTurns(count = 2): Promise<{ users: string[]; assistants: string[]; turns: Array<Record<string, unknown>> }> {
   create();
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
     workspaceRoot: realpathSync(process.cwd()) });
   const users: string[] = [];
   const assistants: string[] = [];
@@ -2009,7 +2023,7 @@ function seedRollbackTurns(count = 2): { users: string[]; assistants: string[]; 
 }
 
 test('Codex revert preserves the prior assistant and never reverts workspace files', async () => {
-  const { users, assistants, turns } = seedRollbackTurns(3);
+  const { users, assistants, turns } = await seedRollbackTurns(3);
   const upstream = [...turns];
   const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' }, turns: upstream }),
     undefined, false, undefined, false, false, false, before => {
@@ -2025,11 +2039,11 @@ test('Codex revert preserves the prior assistant and never reverts workspace fil
   expect(listMessagesWithParts('s').map(entry => entry.message.id)).toEqual([
     users[0], assistants[0], users[1], assistants[1],
   ]);
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
 });
 
 test('Codex edit resumes an unloaded bound thread before reading and reverting history', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const upstream = [...turns];
   const processes: ReturnType<typeof fakeCodex>[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => {
@@ -2057,7 +2071,7 @@ test('Codex edit resumes an unloaded bound thread before reading and reverting h
 });
 
 test('Codex edit refuses an active thread after resume without writing rollback intent', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'active' }, turns }),
     undefined, false, undefined, false, false, false, undefined, 'active');
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
@@ -2067,11 +2081,11 @@ test('Codex edit refuses an active thread after resume without writing rollback 
     message: 'Codex edit stopped before rollback: Codex thread is not idle after resume.' });
   expect(fake.sent.some(message => message.method === 'thread/read')).toBe(false);
   expect(fake.sent.some(message => message.method === 'thread/revert')).toBe(false);
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
 });
 
 test('Codex edit retains the user ID and resubmits exactly one turn', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const upstream = [...turns];
   const processes: ReturnType<typeof fakeCodex>[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => {
@@ -2093,7 +2107,7 @@ test('Codex edit retains the user ID and resubmits exactly one turn', async () =
   running.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   running.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await operation;
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
   expect(events.some(entry => entry.type === 'session.state')).toBe(true);
 });
 
@@ -2101,7 +2115,7 @@ test('Codex edit keeps image parts and resends validated image inputs', async ()
   const dir = mkdtempSync(join(tmpdir(), 'codex-edit-images-'));
   Paths.configure({ dataDir: dir });
   try {
-    const { users, turns } = seedRollbackTurns(1);
+    const { users, turns } = await seedRollbackTurns(1);
     const image = await createAttachment({ sessionId: 's', workspaceId: 'ws', filename: 'photo.png',
       mimeType: 'image/png', sizeBytes: 2, data: new Uint8Array([1, 2]).buffer });
     createPart({ id: 'image-part', messageId: users[0]!, type: 'image', mimeType: 'image/png',
@@ -2136,7 +2150,7 @@ test('Codex edit keeps image parts and resends validated image inputs', async ()
 });
 
 test('Codex rollback refuses incomplete history and active turns without mutating the transcript', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' },
     turns: [{ ...turns[0], itemsView: 'partial' }, turns[1]] }));
   let launches = 0;
@@ -2146,7 +2160,7 @@ test('Codex rollback refuses incomplete history and active turns without mutatin
   } });
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow('incomplete');
   expect(fake.sent.some(entry => entry.method === 'thread/revert')).toBe(false);
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
   expect(listMessagesWithParts('s')).toHaveLength(4);
   updateLegacyRow('codex_session_bindings', 's', { pending_turn: 1 });
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow('reconciliation');
@@ -2154,7 +2168,7 @@ test('Codex rollback refuses incomplete history and active turns without mutatin
 });
 
 test('Codex edit reports safe preflight cause without creating a rollback intent', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' },
     turns: [{ ...turns[0], itemsView: 'summary' }, turns[1]] }));
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
@@ -2164,12 +2178,12 @@ test('Codex edit reports safe preflight cause without creating a rollback intent
   });
   expect(events.at(-1)).toMatchObject({ type: 'error', code: 'edit_error',
     message: 'Codex edit stopped before rollback: Codex turn identity is incomplete.' });
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
   expect(fake.sent.some(entry => entry.method === 'thread/revert')).toBe(false);
 });
 
 test('Codex edit hides upstream RPC text and marks uncertain rollback as blocked', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const fake = fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' }, turns }), 'thread/revert');
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
   const events: ServerMessage[] = [];
@@ -2179,11 +2193,11 @@ test('Codex edit hides upstream RPC text and marks uncertain rollback as blocked
   expect(events.at(-1)).toMatchObject({ type: 'error', code: 'edit_error',
     message: 'Codex edit blocked: Codex rollback request or history read failed. Rollback may have run; retry the same edit to recover.' });
   expect(JSON.stringify(events)).not.toContain('secret upstream detail');
-  expect(getRollbackIntent('s')?.phase).toBe('rollback');
+  expect(codexRollbackIntent('s')?.phase).toBe('rollback');
 });
 
 test('a failed Codex revert blocks sends, retries only when history proves it never ran, and recovers a proven prefix', async () => {
-  const { users, turns } = seedRollbackTurns();
+  const { users, turns } = await seedRollbackTurns();
   const upstream = [...turns];
   const connections: ReturnType<typeof fakeCodex>[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => {
@@ -2193,7 +2207,7 @@ test('a failed Codex revert blocks sends, retries only when history proves it ne
     return fake.connection;
   } });
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow();
-  expect(getRollbackIntent('s')?.phase).toBe('rollback');
+  expect(codexRollbackIntent('s')?.phase).toBe('rollback');
   const events: ServerMessage[] = [];
   await execution.sendMessage(wire(events), 'origin', 's', 'must not run');
   expect(events.at(-1)).toMatchObject({ type: 'error', code: 'invalid_session',
@@ -2202,7 +2216,7 @@ test('a failed Codex revert blocks sends, retries only when history proves it ne
   // Every original turn is still there, so the first revert never ran: the retry issues it again.
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow();
   expect(connections[1]!.sent.some(entry => entry.method === 'thread/revert')).toBe(true);
-  expect(getRollbackIntent('s')?.phase).toBe('rollback');
+  expect(codexRollbackIntent('s')?.phase).toBe('rollback');
   // Neither the original turns nor the expected prefix: never issue it again.
   upstream.splice(1);
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow('uncertain');
@@ -2221,19 +2235,19 @@ test('a failed Codex revert blocks sends, retries only when history proves it ne
 });
 
 test('a rejected turn/start releases the turn and drops its rows so Edit and Undo stay available', async () => {
-  const { users, turns } = seedRollbackTurns(1);
+  const { users, turns } = await seedRollbackTurns(1);
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () =>
     fakeCodex(() => ({ id: 'thread-1', status: { type: 'idle' }, turns }), 'turn/start').connection });
   const events: ServerMessage[] = [];
   await execution.sendMessage(wire(events), 'origin', 's', 'rejected');
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
   expect(listMessagesWithParts('s').map(entry => entry.message.id)).toEqual([users[0], 'assistant-0']);
   expect(JSON.stringify(events)).not.toContain('secret upstream detail');
   expect(events).toContainEqual(expect.objectContaining({ type: 'error', message: expect.stringContaining('Check the host CLI setup') }));
 });
 
 test('an edit whose resend was rejected resends with new text when edited again', async () => {
-  const { users, turns } = seedRollbackTurns(2);
+  const { users, turns } = await seedRollbackTurns(2);
   const upstream = [...turns];
   let rejectTurn = true;
   const processes: ReturnType<typeof fakeCodex>[] = [];
@@ -2247,8 +2261,8 @@ test('an edit whose resend was rejected resends with new text when edited again'
   } });
   const events: ServerMessage[] = [];
   await execution.editMessage(wire(events), 'origin', { sessionId: 's', messageId: users[1]!, content: 'first try' });
-  expect(getRollbackIntent('s')?.phase).toBe('ready');
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexRollbackIntent('s')?.phase).toBe('ready');
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
   await execution.sendMessage(wire(events), 'origin', 's', 'plain send');
   expect(events).toContainEqual(expect.objectContaining({ message: 'Codex edit was not sent; edit that message again to resend it' }));
   rejectTurn = false;
@@ -2261,7 +2275,7 @@ test('an edit whose resend was rejected resends with new text when edited again'
   processes.at(-1)!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   processes.at(-1)!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await operation;
-  expect(getRollbackIntent('s')).toBeNull();
+  expect(codexRollbackIntent('s')).toBeNull();
   expect(listMessagesWithParts('s')[2]!.parts[0]).toMatchObject({ type: 'text', text: 'second try' });
 });
 
@@ -2311,7 +2325,7 @@ test('Codex advertises and routes only selected agent skill management on start 
 
 test('Codex manual compaction waits for its native turn and never sends a chat turn', async () => {
   create();
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
     workspaceRoot: realpathSync(process.cwd()) });
   const fake = fakeCodex();
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
@@ -2350,7 +2364,7 @@ test('Codex manual compaction waits for its native turn and never sends a chat t
 test('Codex compaction clears stale usage when no new reading arrives, then accepts next-turn usage', async () => {
   create();
   updateSession('s', { metadata: { codexUsage: { last: { totalTokens: 900 }, modelContextWindow: 10000 } } });
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
     workspaceRoot: realpathSync(process.cwd()) });
   const processes: ReturnType<typeof fakeCodex>[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => {
@@ -2388,7 +2402,7 @@ test('Codex compaction clears stale usage when no new reading arrives, then acce
 
 test('Codex manual compaction clears a confirmed failed turn', async () => {
   create();
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
     workspaceRoot: realpathSync(process.cwd()) });
   const fake = fakeCodex();
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
@@ -2409,7 +2423,7 @@ test('Codex manual compaction rejects busy and uncertain sessions without replay
   } });
   expect(await execution.compact('s', 'manual')).toMatchObject({ ok: false, skipped: true });
   expect(processes).toHaveLength(0);
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.1',
     workspaceRoot: realpathSync(process.cwd()) });
   const pending = execution.compact('s', 'manual');
   await waitFor(() => processes[0]?.sent.some(message => message.method === 'thread/compact/start') ?? false);
@@ -2443,6 +2457,7 @@ test('Codex pushes a permission ask and the finished reply through the notificat
     fake.send({ id: 90, method: 'item/commandExecution/requestApproval', params: {
       threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1', command: 'cat /outside/a.txt', cwd: process.cwd(),
     } });
+    await waitFor(() => messages.some(message => message.type === 'ask.request'));
     await waitFor(() => messages.some(message => message.type === 'ask.request'));
     const ask = messages.find(message => message.type === 'ask.request')!;
     expect(permissions).toEqual([[ask.requestId!, 's']]);
@@ -2494,20 +2509,20 @@ test('Codex registers workspace MCP entrypoints and routes current policy on res
   expect(calls).toBe(1);
 });
 
-function bindUpgradedThread(workspaceRoot = realpathSync(process.cwd())): void {
+async function bindUpgradedThread(workspaceRoot = realpathSync(process.cwd())): Promise<void> {
   create();
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.0', workspaceRoot });
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.156.0', workspaceRoot });
 }
 
 test('an upgraded Codex CLI resumes an idle thread and records the new version', async () => {
-  bindUpgradedThread();
+  await bindUpgradedThread();
   const fake = fakeCodex();
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1', connect: () => fake.connection });
   const messages: ServerMessage[] = [];
   const turn = execution.sendMessage(wire(messages), 'origin', 's', 'after upgrade');
   await waitFor(() => fake.sent.some(message => message.method === 'turn/start'));
   expect(fake.sent.find(message => message.method === 'thread/resume')?.params).toMatchObject({ threadId: 'thread-1' });
-  expect(getCodexBinding('s')?.cliVersion).toBe('codex-cli 0.156.1');
+  expect(codexBinding('s')?.cliVersion).toBe('codex-cli 0.156.1');
   fake.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   fake.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await turn;
@@ -2515,25 +2530,25 @@ test('an upgraded Codex CLI resumes an idle thread and records the new version',
 });
 
 test('a Codex CLI that cannot reopen an older thread names both versions', async () => {
-  bindUpgradedThread();
+  await bindUpgradedThread();
   const messages: ServerMessage[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1',
     connect: () => fakeCodex(undefined, 'thread/resume').connection });
   await execution.sendMessage(wire(messages), 'origin', 's', 'after upgrade');
   expect(messages.find(message => message.type === 'error')).toMatchObject({ message:
     'codex-cli 0.156.1 could not reopen this conversation (started with codex-cli 0.156.0). Start a new session to continue.' });
-  expect(getCodexBinding('s')?.cliVersion).toBe('codex-cli 0.156.0');
+  expect(codexBinding('s')?.cliVersion).toBe('codex-cli 0.156.0');
 });
 
 test('a Codex CLI upgrade still blocks a changed workspace root', async () => {
-  bindUpgradedThread('/elsewhere');
+  await bindUpgradedThread('/elsewhere');
   const messages: ServerMessage[] = [];
   const execution = createCodexExecution({ version: () => 'codex-cli 0.156.1',
     connect: () => { throw new Error('must not start'); } });
   await execution.sendMessage(wire(messages), 'origin', 's', 'after upgrade');
   expect(messages.find(message => message.type === 'error')).toMatchObject({
     message: 'Codex failed during workspace root check. Check the host CLI setup.' });
-  expect(getCodexBinding('s')?.cliVersion).toBe('codex-cli 0.156.0');
+  expect(codexBinding('s')?.cliVersion).toBe('codex-cli 0.156.0');
 });
 
 function transcriptOf(sessionId: string): string[] {
@@ -2571,7 +2586,7 @@ test('a steered message enters the running Codex turn with turn/steer and splits
   codex.send({ id: request.id, result: { turnId: 'turn-1' } });
   send('item/completed', { item: { type: 'agentMessage', id: 'a-2', text: 'switched to tabs' } });
   await waitFor(() => listMessagesWithParts('s').length === 4);
-  expect(getCodexBinding('s')?.pendingAssistantId).toBe(listMessagesWithParts('s')[3]!.message.id);
+  expect(codexBinding('s')?.pendingAssistantId).toBe(listMessagesWithParts('s')[3]!.message.id);
   codex.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await turn;
   expect(transcriptOf('s')).toEqual(['user:indent the file', 'assistant(completed):checking spaces',
@@ -2580,7 +2595,7 @@ test('a steered message enters the running Codex turn with turn/steer and splits
   expect(listQueuedMessages('s')).toEqual([]);
   expect(messages.filter(message => message.type === 'queue.sending')).toEqual([
     { type: 'queue.sending', sessionId: 's', queueId: queued.id }]);
-  expect(getCodexBinding('s')?.pendingTurn).toBe(false);
+  expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 
 test('a steer Codex rejects stays queued and is sent after the turn', async () => {
@@ -2594,9 +2609,14 @@ test('a steer Codex rejects stays queued and is sent after the turn', async () =
   await waitFor(() => processes[0]?.sent.some(message => message.method === 'turn/start') ?? false);
   processes[0]!.send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });
   addMessageToQueue('s', 'use tabs', undefined, true);
-  await execution.steerQueue!(ports, 'origin', 's');
-  // Each wake-up may retry a rejected row; it is never consumed.
-  expect(processes[0]!.sent.some(message => message.method === 'turn/steer')).toBe(true);
+  // Each wake-up may retry a rejected row; it is never consumed. Wake until the
+  // started turn accepts steering.
+  const steered = (): boolean => processes[0]!.sent.some(message => message.method === 'turn/steer');
+  for (let attempt = 0; attempt < 100 && !steered(); attempt++) {
+    await execution.steerQueue!(ports, 'origin', 's');
+    await Bun.sleep(1);
+  }
+  expect(steered()).toBe(true);
   expect(listQueuedMessages('s')).toHaveLength(1);
   processes[0]!.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await waitFor(() => processes[1]?.sent.some(message => message.method === 'turn/start') ?? false);
@@ -2611,7 +2631,7 @@ test('a steer Codex rejects stays queued and is sent after the turn', async () =
 
 test('Codex undo treats a steered turn as one turn', async () => {
   create();
-  bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.161.0',
+  await bindCodexThread({ sessionId: 's', threadId: 'thread-1', cliVersion: 'codex-cli 0.161.0',
     workspaceRoot: realpathSync(process.cwd()) });
   // Turn 0 received a steered message: user, reply, steered user, reply. Turn 1 is ordinary.
   const ids = ['user-0', 'assistant-0', 'steered', 'steered-reply', 'user-1', 'assistant-1'];
@@ -2685,7 +2705,7 @@ test('restart recovery after a steer fills only the reply to the steered message
   await waitFor(() => listMessagesWithParts('s').length === 4);
   processes[0]!.connection.kill();
   await first;
-  expect(getCodexBinding('s')?.pendingTurn).toBe(true);
+  expect(codexBinding('s')?.pendingTurn).toBe(true);
   const next = createCodexExecution(deps).sendMessage(wire([]), 'origin', 's', 'next');
   await waitFor(() => processes[2]?.sent.some(message => message.method === 'turn/start') ?? false);
   expect(transcriptOf('s').slice(0, 4)).toEqual(['user:indent the file', 'assistant(completed):checking spaces',
@@ -2724,7 +2744,7 @@ test('Codex after a harness switch starts a new thread with the handoff brief an
     item: { id: 'item-1', type: 'agentMessage', text: 'On it.' } } });
   current.send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } } });
   await done;
-  expect(getCodexBinding('s')?.threadId).toBe('thread-1');
+  expect(codexBinding('s')?.threadId).toBe('thread-1');
 
   const local = listMessagesWithParts('s');
   expect(local).toHaveLength(4);

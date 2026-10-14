@@ -10,7 +10,7 @@ import { seedWorkspace } from '#tests/seed';
 import { Paths } from '@/infrastructure/runtime/paths';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
-import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
+import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { claudeDeveloperInstructions, defaultClaudePreconfigId } from '@/harnesses/claude-cli/instructions';
 import { legacyRows, pick } from '#tests/helpers/legacy-native';

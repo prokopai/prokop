@@ -824,6 +824,8 @@ describe.serial('Phase 2 orchestration contracts', () => {
           addMessage: async () => queued[0],
           peek: async () => queued[0] ?? null,
           peekSteer: async () => null,
+          listSteer: async () => [],
+          get: async id => queued.find(entry => entry.id === id) ?? null,
           delete: async (id) => {
             order.push(`queue.deleted:${id}`);
             queued.splice(0, 1);

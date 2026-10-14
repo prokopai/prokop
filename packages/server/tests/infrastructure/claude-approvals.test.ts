@@ -37,6 +37,8 @@ function fixture() {
   }, broadcastToSession: (_session: string, message: unknown) => notifications.push(message) } as unknown as ApplicationDeliveryPort<unknown>;
   return { requests, notifications, delivery };
 }
+/** A permission callback delivers its ask after async storage reads. */
+const asksDelivered = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
 const options = (signal: AbortSignal) => ({ signal, requestId: crypto.randomUUID(), toolUseID: crypto.randomUUID() });
 
 const root = process.cwd();
@@ -47,6 +49,7 @@ test('approval is once-only and malformed or stale responses fail closed', async
   const controller = new AbortController();
   const wait = approvals.request('session', 'ws', root, delivery, controller.signal)('Read',
     { file_path: '.env' }, options(controller.signal));
+  await asksDelivered();
   const { toolCallId, requestId } = requests[0]!;
   expect(approvals.hasLiveRequest(requestId)).toBe(true);
   expect(await approvals.resolve(toolCallId, { type: 'permission', grant: 'once' }, 'stale')).toBe(false);
@@ -55,6 +58,7 @@ test('approval is once-only and malformed or stale responses fail closed', async
   expect(getPermissionRequestByRequestId(requestId)).toMatchObject({ status: 'denied' });
   const allowed = approvals.request('session', 'ws', root, delivery, controller.signal)('Read',
     { file_path: '.env' }, options(controller.signal));
+  await asksDelivered();
   const next = requests[1]!;
   expect(await approvals.resolve(next.toolCallId, { type: 'permission', grant: 'once' }, next.requestId)).toBe(true);
   expect(await allowed).toMatchObject({ behavior: 'allow' });
@@ -67,6 +71,7 @@ test('prokop mcp tools pass the SDK gate while memory availability is enforced',
   const { delivery } = fixture();
   const controller = new AbortController();
   const gate = approvals.request('session', 'ws', root, delivery, controller.signal);
+  await asksDelivered();
   expect(await gate('mcp__prokop__memory', { action: 'list', target: 'user' }, options(controller.signal)))
     .toMatchObject({ behavior: 'deny', message: 'Workspace memory is disabled' });
   updateWorkspace('ws', { settings: { memory: { enabled: true, permissionRisk: 'high' } } });
@@ -93,6 +98,7 @@ test('child-owned approval reaches the parent controller and replays under the c
   const wait = approvals.request('session', 'ws', root, delivery, controller.signal,
     toolUseId => toolUseId === 'child-tool' ? 'child' : null)('Bash',
     { command: 'rm -rf notes.txt' }, { ...options(controller.signal), toolUseID: 'child-tool' });
+  await asksDelivered();
   const ask = requests[0] as { sessionId: string; ask: { _originSessionId: string };
     toolCallId: string; requestId: string };
   expect(ask).toMatchObject({ sessionId: 'session', ask: { _originSessionId: 'child' } });
@@ -112,6 +118,7 @@ test('Stop and timeout deny and clean live waiters', async () => {
   const controller = new AbortController();
   const wait = approvals.request('session', 'ws', root, delivery, controller.signal)('Bash',
     { command: 'rm -rf notes.txt' }, options(controller.signal));
+  await asksDelivered();
   const requestId = requests[0]!.requestId;
   controller.abort();
   expect(await wait).toMatchObject({ behavior: 'deny' });
@@ -120,6 +127,7 @@ test('Stop and timeout deny and clean live waiters', async () => {
   const nextController = new AbortController();
   const timed = approvals.request('session', 'ws', root, delivery, nextController.signal)('Bash',
     { command: 'rm -rf notes.txt' }, options(nextController.signal));
+  await asksDelivered();
   expect(await timed).toMatchObject({ behavior: 'deny' });
   expect(getPermissionRequestByRequestId(requests[1]!.requestId)).toMatchObject({ status: 'expired' });
 });
@@ -129,6 +137,7 @@ test('Claude tool concerns follow the session mode with once-only destructive fa
   const { requests, delivery } = fixture();
   const signal = new AbortController().signal;
   const use = approvals.request('session', 'ws', root, delivery, signal);
+  await asksDelivered();
   const cases: Array<{ ceiling: 'standard' | 'extended' | 'full'; tool: string;
     input: Record<string, unknown>; risk?: string; scopes?: string[]; automatic: boolean }> = [
     // Clean workspace operations and plain fetches auto-run at every mode.
@@ -156,6 +165,7 @@ test('Claude tool concerns follow the session mode with once-only destructive fa
     updateSession('session', { permissionMode: item.ceiling });
     const previous = requests.length;
     const result = use(item.tool, item.input, options(signal));
+    await asksDelivered();
     if (item.automatic) {
       expect(await result).toMatchObject({ behavior: 'allow' });
       expect(requests).toHaveLength(previous);
@@ -174,7 +184,9 @@ test('remembered Bash grants persist and replay without asking', async () => {
   const { requests, delivery } = fixture();
   const controller = new AbortController();
   const use = approvals.request('session', 'ws', root, delivery, controller.signal);
+  await asksDelivered();
   const first = use('Bash', { command: 'cat /etc/release' }, options(controller.signal));
+  await asksDelivered();
   const ask = requests[0]! as { ask: { concerns: string[]; allowedScopes: string[] };
     toolCallId: string; requestId: string };
   expect(ask.ask).toMatchObject({ concerns: ['escape'], allowedScopes: ['once', 'session', 'workspace'] });
@@ -185,6 +197,7 @@ test('remembered Bash grants persist and replay without asking', async () => {
   expect(requests).toHaveLength(1);
   // A different command still asks; its workspace grant also persists.
   const second = use('Bash', { command: 'cat /etc/issue' }, options(controller.signal));
+  await asksDelivered();
   expect(requests).toHaveLength(2);
   const secondAsk = requests[1]! as { toolCallId: string; requestId: string };
   expect(await approvals.resolve(secondAsk.toolCallId, { type: 'permission', grant: 'workspace' }, secondAsk.requestId)).toBe(true);
@@ -197,6 +210,7 @@ test('blocked paths, malformed tools and aborted calls cannot auto-approve', asy
   const { requests, delivery } = fixture();
   const signal = new AbortController().signal;
   const use = approvals.request('session', 'ws', root, delivery, signal);
+  await asksDelivered();
   for (const [tool, input] of [
     ['Read', {}], ['Bash', { command: '' }], ['WebFetch', { url: 'file:///etc/passwd' }],
     ['Grep', { pattern: 'hello', path: null }],
@@ -219,6 +233,7 @@ test('unclassified SDK tools run without a risk ask, with or without a controlle
   const { requests, delivery } = fixture();
   const signal = new AbortController().signal;
   const use = approvals.request('session', 'ws', root, delivery, signal);
+  await asksDelivered();
   for (const name of ['Agent', 'Task', 'NotebookEdit', 'FutureBuiltin']) {
     expect(await use(name, { prompt: 'inspect workspace' }, options(signal))).toMatchObject({ behavior: 'allow' });
   }
@@ -243,6 +258,7 @@ test('an ask waits for an offline controller and can be answered after reconnect
     unregisterConnection(socket);
     const wait = approvals.request('session', 'ws', root, delivery, controller.signal)('Bash',
       { command: 'rm -rf build' }, options(controller.signal));
+    await asksDelivered();
     const ask = requests[0]!;
     expect(approvals.hasLiveRequest(ask.requestId)).toBe(true);
     expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ status: 'pending' });
@@ -253,6 +269,7 @@ test('an ask waits for an offline controller and can be answered after reconnect
 
     const retry = approvals.request('session', 'ws', root, delivery, controller.signal)('Bash',
       { command: 'rm -rf build' }, options(controller.signal));
+    await asksDelivered();
     socket = {};
     connection = registerConnection(socket);
     handleClientRegistration(connection, { type: 'client.register', client: { clientId: 'controller',
@@ -274,12 +291,14 @@ test('a waiting ask pushes a permission notification, except in learning review 
     const controller = new AbortController();
     const wait = approvals.request('session', 'ws', root, delivery, controller.signal)('Read',
       { file_path: '.env' }, options(controller.signal));
+    await asksDelivered();
     expect(pushed).toEqual([[requests[0]!.requestId, 'session']]);
     await approvals.resolve(requests[0]!.toolCallId, { type: 'permission', grant: 'once' }, requests[0]!.requestId);
     await wait;
     updateSession('session', { metadata: { learningRunId: 'run-1' } });
     const learning = approvals.request('session', 'ws', root, delivery, controller.signal)('Read',
       { file_path: '.env' }, options(controller.signal));
+    await asksDelivered();
     expect(requests).toHaveLength(2);
     expect(pushed).toHaveLength(1);
     await approvals.resolve(requests[1]!.toolCallId, { type: 'permission', grant: 'once' }, requests[1]!.requestId);
@@ -298,7 +317,9 @@ test('AskUserQuestion becomes a form question answered through updatedInput', as
   const { requests, delivery } = fixture();
   const signal = new AbortController().signal;
   const use = approvals.request('session', 'ws', root, delivery, signal);
+  await asksDelivered();
   const single = use('AskUserQuestion', question(), options(signal));
+  await asksDelivered();
   const ask = requests[0] as { ask: unknown; toolCallId: string; requestId: string };
   // Questions ask even in full mode and are stored as questions, not approvals.
   expect(ask.ask).toEqual({ target: 'human', type: 'form', question: 'Library', questions: [{
@@ -313,6 +334,7 @@ test('AskUserQuestion becomes a form question answered through updatedInput', as
   expect(getPermissionRequestByRequestId(ask.requestId)).toMatchObject({ status: 'approved' });
 
   const multi = use('AskUserQuestion', question(true), options(signal));
+  await asksDelivered();
   const next = requests[1] as { ask: { questions: Array<{ type: string }> }; toolCallId: string; requestId: string };
   expect(next.ask.questions[0]).toMatchObject({ type: 'multi_select', min: 1 });
   expect(await approvals.resolve(next.toolCallId, { type: 'form',
@@ -326,12 +348,14 @@ test('AskUserQuestion fails closed on malformed input, invented answers and no c
   const { requests, delivery } = fixture();
   const signal = new AbortController().signal;
   const use = approvals.request('session', 'ws', root, delivery, signal);
+  await asksDelivered();
   for (const input of [{}, { questions: [] }, { questions: [{ question: 'Pick?', options: [] }] },
     { questions: [{ question: 'Pick?', options: [{ label: 'a' }, { label: 'a' }] }] }]) {
     expect(await use('AskUserQuestion', input, options(signal))).toMatchObject({ behavior: 'deny' });
   }
   expect(requests).toHaveLength(0);
   const invented = use('AskUserQuestion', question(), options(signal));
+  await asksDelivered();
   const ask = requests[0]!;
   expect(await approvals.resolve(ask.toolCallId, { type: 'form',
     answers: [{ question: 'Which library?', answer: 'moment' }] }, ask.requestId)).toBe(true);

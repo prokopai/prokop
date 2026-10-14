@@ -12,19 +12,19 @@ export function claudeWorkspaceToolName(name: string): string {
 
 /** Forward raw MCP schemas and result blocks without converting them through Zod shapes. */
 export function createClaudeWorkspaceMcp(tools: WorkspaceMcpTool[], signal: AbortSignal,
-  authorized: () => boolean): McpSdkServerConfigWithInstance | undefined {
+  authorized: () => Promise<boolean>): McpSdkServerConfigWithInstance | undefined {
   if (!tools.length) return undefined;
   const instance = new McpServer({ name: SERVER_NAME, version: '1.0.0' }, { capabilities: { tools: {} } });
   const available = new Map(tools.map(tool => [tool.name, tool]));
   instance.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: signal.aborted || !authorized() ? [] : tools.map(tool => ({
+    tools: signal.aborted || !await authorized() ? [] : tools.map(tool => ({
       name: tool.name, description: tool.description,
       inputSchema: { ...tool.inputSchema, type: 'object' as const },
     })),
   }));
   instance.server.setRequestHandler(CallToolRequestSchema, async request => {
     const tool = available.get(request.params.name);
-    if (!tool || signal.aborted || !authorized()) {
+    if (!tool || signal.aborted || !await authorized()) {
       return { content: [{ type: 'text', text: 'MCP tool unavailable' }], isError: true };
     }
     try { return CallToolResultSchema.parse(await tool.execute(request.params.arguments ?? {}, signal, authorized)); }

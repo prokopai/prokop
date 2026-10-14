@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { configureConnection } from '@/infrastructure/sqlite/database';
+import { assertTestSafeDatabasePath, configureConnection } from '@/infrastructure/sqlite/database';
 import { getDataDir } from '@/infrastructure/runtime/paths';
 
 describe('SQLite connection configuration', () => {
@@ -40,5 +40,16 @@ describe('SQLite connection configuration', () => {
   test('tests never resolve the real data root', () => {
     expect(getDataDir()).not.toBe(join(homedir(), '.prokopai'));
     expect(getDataDir().startsWith(tmpdir())).toBe(true);
+  });
+
+  test('a test process refuses the real database even without the preload', () => {
+    const home = '/Users/someone';
+    const entry = '/repo/packages/server/tests/x.test.ts';
+    expect(() => assertTestSafeDatabasePath('/Users/someone/.prokopai/data/agent.db', entry, home)).toThrow('real database');
+    expect(() => assertTestSafeDatabasePath('/Users/someone/.jean2/data/agent.db', entry, home)).toThrow('real database');
+    expect(() => assertTestSafeDatabasePath('/tmp/prokopai-test-1/data/agent.db', entry, home)).not.toThrow();
+    // The server itself (not a test entry) opens its configured database.
+    expect(() => assertTestSafeDatabasePath('/Users/someone/.prokopai/data/agent.db', '/repo/src/index.ts', home))
+      .not.toThrow();
   });
 });

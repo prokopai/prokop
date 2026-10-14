@@ -3,7 +3,7 @@ import type { SessionExecutionPort } from '@/application/ports/execution';
 import { runHeadlessTurn } from '@/application/ports/headless-execution';
 
 export { codexCliAvailable, codexCliVersion, createCodexExecution } from './execution';
-export { getCodexModelSelection, listCodexModels, listCachedCodexModels, saveCodexModelSelection } from './models';
+export { getCodexModelSelection, listCodexModels, listCachedCodexModels } from './models';
 export { readCachedCodexUsageLimits } from './usage-limits';
 
 /** Codex CLI owns turns and model choice; titles use the universal

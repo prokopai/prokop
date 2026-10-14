@@ -5,15 +5,17 @@ import type { SessionWirePorts } from '@/application/ports/delivery';
 import type { InterruptExecutionResult } from '@/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '@/harnesses/shared/steering';
-import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
-import { createMessage, createPart, deleteMessage, getMessageWithParts, listMessagesWithParts, updateMessage, updatePart } from '@/infrastructure/sqlite/message-store';
+import {
+  createMessage, createPart, deleteMessage, getAttachment, getMessageWithParts, getSession, getWorkspace,
+  listMessagesWithParts, updateMessage, updatePart, updateSession,
+} from '@/infrastructure/storage/runtime';
+import { storeTransaction } from '@/infrastructure/storage/transaction';
 import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
 import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { notifyHarnessTurnFinished } from '@/harnesses/shared/notifications';
-import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { getAttachment, MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment } from '@/infrastructure/sqlite/attachments';
+import { MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment } from '@/infrastructure/sqlite/attachments';
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
 import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
@@ -56,7 +58,7 @@ interface CodexSessionConnection {
   version: string;
   preconfigId: string;
   instructions: string;
-  parentNotify: ((event: CodexNotification) => void) | null;
+  parentNotify: ((event: CodexNotification) => Promise<void>) | null;
   parentHook: ((call: import('@/harnesses/codex-cli/hook-policy').CodexHookCall) => Promise<HookDecision>) | null;
   parentApproval: ((method: string, params: unknown) => Promise<{ decision: 'accept' | 'decline' }>) | null;
   parentTool: ((params: unknown) => Promise<import('@/harnesses/codex-cli/mcp-tools').CodexMcpCallResult>) | null;
@@ -75,7 +77,7 @@ interface ActiveTurn {
   activationSettled: Promise<void>;
   resolveActivation(): void;
   stop?: Promise<InterruptExecutionResult>;
-  pauseGoal?(goal: import('@prokopai/sdk').CodexGoalState): void;
+  pauseGoal?(goal: import('@prokopai/sdk').CodexGoalState): Promise<void>;
   session: Session;
   /** Sent with turn/steer and not yet seen in the turn, keyed by host user message id. */
   steers: Map<string, DispatchedSteer>;
@@ -110,12 +112,12 @@ function id(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-function resolveImages(session: Session, references: Array<{ id: string; kind: string }>): Attachment[] | null {
+async function resolveImages(session: Session, references: Array<{ id: string; kind: string }>): Promise<Attachment[] | null> {
   const directory = getAttachmentDir(session.workspaceId, session.id);
   const images: Attachment[] = [];
   for (const reference of references) {
     if (reference?.kind !== 'image' || typeof reference.id !== 'string') return null;
-    const image = getAttachment(session.id, reference.id);
+    const image = await getAttachment(session.id, reference.id);
     if (!image || image.workspaceId !== session.workspaceId || image.kind !== 'image'
       || !validateImageMime(image.mimeType) || image.sizeBytes < 1 || image.sizeBytes > MAX_ATTACHMENT_SIZE) return null;
     try {
@@ -130,8 +132,8 @@ function resolveImages(session: Session, references: Array<{ id: string; kind: s
   return images;
 }
 
-function workspaceRoot(session: Session): string {
-  const workspace = getWorkspace(session.workspaceId);
+async function workspaceRoot(session: Session): Promise<string> {
+  const workspace = await getWorkspace(session.workspaceId);
   if (!cliWorkspaceAvailable(workspace)) throw new Error('Codex requires a workspace folder on this host');
   let root = workspace.path;
   if (session.workspaceRootId) {
@@ -173,7 +175,7 @@ async function reconcileTurn<Origin>(
       }));
     if (roots.length !== 1) throw new Error('Codex turn identity is not unique');
     const root = roots[0]!;
-    const metadata = codexObject(getSession(sessionId)?.metadata);
+    const metadata = codexObject((await getSession(sessionId))?.metadata);
     const persistedGoal = codexObject(metadata?.codexGoal);
     const pendingGoal = codexObject(metadata?.codexGoalPending);
     if (binding.goalRequested && !persistedGoal &&
@@ -205,7 +207,7 @@ async function reconcileTurn<Origin>(
         || history.filter(entry => entry?.id === binding.pendingTurnId).length !== 1) {
         throw new Error('Codex goal history has untracked turns');
       }
-      const local = listMessagesWithParts(sessionId);
+      const local = await listMessagesWithParts(sessionId);
       const userIndex = local.findIndex(entry => entry.message.id === binding.pendingUserId);
       const assistants = local.slice(userIndex + 1);
       if (userIndex < 0 || assistants.length !== pendingIndex - rootIndex + 1
@@ -231,14 +233,14 @@ async function reconcileTurn<Origin>(
     if (turn.itemsView !== 'full' || !['completed', 'failed', 'interrupted'].includes(String(turn.status))) {
       throw new Error('Codex turn is not terminal or its history is incomplete');
     }
-    const assistant = getMessageWithParts(binding.pendingAssistantId);
+    const assistant = await getMessageWithParts(binding.pendingAssistantId);
     if (!assistant || assistant.message.sessionId !== sessionId || assistant.message.role !== 'assistant') {
       throw new Error('Codex transcript is unavailable');
     }
     // Replies to messages steered into the turn were recorded as they arrived;
     // the pending reply follows the last user message this transcript knows.
     const turnItems = (turn.items as unknown[]).map(codexObject);
-    const known = new Set(listMessagesWithParts(sessionId).filter(entry => entry.message.role === 'user')
+    const known = new Set((await listMessagesWithParts(sessionId)).filter(entry => entry.message.role === 'user')
       .map(entry => entry.message.id));
     let lastUser = -1;
     turnItems.forEach((item, index) => {
@@ -252,30 +254,30 @@ async function reconcileTurn<Origin>(
       const text = texts[index] ?? '';
       const part = existing[index];
       if (part) {
-        const updated = updatePart(part.id, { text });
+        const updated = await updatePart(part.id, { text });
         if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'part.updated', sessionId, part: updated });
       } else {
-        const created = createPart({ id: crypto.randomUUID(), messageId: assistant.message.id,
+        const created = await createPart({ id: crypto.randomUUID(), messageId: assistant.message.id,
           type: 'text', text, createdAt: Date.now() }, sessionId);
         wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part: created });
       }
     }
-    const updated = updateMessage(assistant.message.id, {
+    const updated = await updateMessage(assistant.message.id, {
       status: turn.status === 'failed' ? 'error' : turn.status as 'completed' | 'interrupted',
       completedAt: Date.now(),
       ...(turn.status === 'failed' ? { error: 'Codex turn failed' } : { error: undefined }),
     });
     if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: updated });
-    notifyHarnessTurnFinished(updated);
-    if (recoveredGoal) publishCodexGoal(getSession(sessionId)!, recoveredGoal, wire.delivery);
+    await notifyHarnessTurnFinished(updated);
+    if (recoveredGoal) await publishCodexGoal((await getSession(sessionId))!, recoveredGoal, wire.delivery);
     else if (pendingGoal) {
-      const latest = getSession(sessionId);
+      const latest = await getSession(sessionId);
       if (!latest || latest.harness !== 'codex-cli') throw new Error('Codex session disappeared');
       const { codexGoalPending: _pending, ...rest } = codexObject(latest.metadata) ?? {};
-      const updatedSession = updateSession(sessionId, { metadata: rest });
+      const updatedSession = await updateSession(sessionId, { metadata: rest });
       if (updatedSession) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updatedSession });
     }
-    markCodexTurnCompleted(sessionId);
+    await markCodexTurnCompleted(sessionId);
   } finally {
     await client.close();
   }
@@ -319,7 +321,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       const childId = connection.children?.childSessionId(child.threadId);
       if (childId) codexApprovals.cancelSession(childId);
     }
-    connection.children?.close(status);
+    await connection.children?.close(status);
     await connection.client.close();
     await connection.hookChannel?.close();
   }
@@ -338,11 +340,12 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     const run = active.get(sessionId);
     if (!run) return Promise.resolve();
     run.steerChain = run.steerChain.then(async () => {
-      for (const queued of pendingSteers(sessionId, run.steers.values())) {
+      for (const queued of await pendingSteers(sessionId, run.steers.values())) {
         if (active.get(sessionId) !== run || !run.steerable() || !run.turnId) return;
         // Unusable images stay queued; the drain reports them like any queued send.
-        const images = resolveImages(run.session, queued.attachments ?? []);
+        const images = await resolveImages(run.session, queued.attachments ?? []);
         if (!images) continue;
+        if (active.get(sessionId) !== run || !run.steerable() || !run.turnId) return;
         const steer: DispatchedSteer = { queued, userMessageId: crypto.randomUUID(),
           images: images.map(image => ({ id: image.id, accessKey: image.accessKey, mimeType: image.mimeType })) };
         // Registered before the request: the turn can report the item before the response.
@@ -368,7 +371,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
   }
   async function rollback<Origin>(sessionId: string, operation: 'edit' | 'revert', targetMessageId: string,
     content: string | null, wire?: SessionWirePorts<Origin>): Promise<import('@/application/ports/execution').RevertExecutionResult | null> {
-    const session = getSession(sessionId);
+    const session = await getSession(sessionId);
     if (!session || session.harness !== 'codex-cli' || session.status === 'closed'
       || codexObject(session.metadata)?.codexCompactPending
       || active.has(sessionId) || starting.has(sessionId)) throw new Error('Codex session is unavailable or busy');
@@ -376,38 +379,39 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     if (operation === 'edit' && (!content?.trim() || content !== content.trim())) {
       throw new Error('Codex edit requires nonempty text');
     }
-    const root = workspaceRoot(session);
-    const binding = getCodexBinding(sessionId);
-    if (!binding || binding.workspaceRoot !== root) {
-      throw new Error('Codex thread binding is unavailable or changed');
-    }
-    const metadata = codexObject(session.metadata);
-    if (codexObject(metadata?.codexGoal)?.status === 'active' || metadata?.codexGoalPending
-      || binding.goalRequested) throw new Error('Codex goal requires recovery');
-    let intent = getRollbackIntent(sessionId);
-    // A ready edit was never resent, so editing the same message again may change its text.
-    const sameRequest = !!intent && intent.operation === operation && intent.targetMessageId === targetMessageId
-      && (intent.content === content || intent.phase === 'ready');
-    // A rollback-phase intent is checked against the thread below; it may never have run.
-    if (intent && intent.phase !== 'rollback' && !sameRequest) throw new Error('Another Codex rollback requires recovery');
-    if (intent?.phase === 'ready' && content !== null && intent.content !== content) {
-      retargetReadyEdit(intent, content);
-      intent = getRollbackIntent(sessionId);
-    }
-    if (intent?.phase === 'sent') {
-      if (binding.pendingTurn) {
-        if (!wire) throw new Error('Codex edit turn requires recovery');
-        await reconcileTurn(binding, deps, wire, sessionId);
-      }
-      clearRollbackIntent(sessionId);
-      return null;
-    }
-    if (binding.pendingTurn) throw new Error('Codex turn requires reconciliation before rollback');
-    if (intent?.phase === 'ready') return null;
-    if (connections.get(sessionId)?.children?.hasLiveTurns) throw new Error('Codex children are still running');
+    // Claimed before the first await so a concurrent send, compact or fork is refused.
     starting.add(sessionId);
     let client: CodexAppServer | undefined;
     try {
+      const root = await workspaceRoot(session);
+      const binding = await getCodexBinding(sessionId);
+      if (!binding || binding.workspaceRoot !== root) {
+        throw new Error('Codex thread binding is unavailable or changed');
+      }
+      const metadata = codexObject(session.metadata);
+      if (codexObject(metadata?.codexGoal)?.status === 'active' || metadata?.codexGoalPending
+        || binding.goalRequested) throw new Error('Codex goal requires recovery');
+      let intent = await getRollbackIntent(sessionId);
+      // A ready edit was never resent, so editing the same message again may change its text.
+      const sameRequest = !!intent && intent.operation === operation && intent.targetMessageId === targetMessageId
+        && (intent.content === content || intent.phase === 'ready');
+      // A rollback-phase intent is checked against the thread below; it may never have run.
+      if (intent && intent.phase !== 'rollback' && !sameRequest) throw new Error('Another Codex rollback requires recovery');
+      if (intent?.phase === 'ready' && content !== null && intent.content !== content) {
+        await retargetReadyEdit(intent, content);
+        intent = await getRollbackIntent(sessionId);
+      }
+      if (intent?.phase === 'sent') {
+        if (binding.pendingTurn) {
+          if (!wire) throw new Error('Codex edit turn requires recovery');
+          await reconcileTurn(binding, deps, wire, sessionId);
+        }
+        await clearRollbackIntent(sessionId);
+        return null;
+      }
+      if (binding.pendingTurn) throw new Error('Codex turn requires reconciliation before rollback');
+      if (intent?.phase === 'ready') return null;
+      if (connections.get(sessionId)?.children?.hasLiveTurns) throw new Error('Codex children are still running');
       await closeConnection(sessionId, 'interrupted');
       client = new CodexAppServer(deps.connect(), () => {});
       await client.initialize();
@@ -425,21 +429,21 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         const prefix = intent.turnIds.slice(0, intent.turnIds.indexOf(intent.beforeTurnId));
         if (sameTurns(existing, prefix)) {
           if (!sameRequest) throw new Error('Another Codex rollback requires recovery');
-          return applyRollback(intent);
+          return await applyRollback(intent);
         }
         // An idle thread that still has every original turn never ran the revert. Start over.
         if (!sameTurns(existing, intent.turnIds)) throw new Error('Codex rollback outcome is uncertain');
-        clearRollbackIntent(sessionId);
+        await clearRollbackIntent(sessionId);
         intent = null;
       }
       if (!intent) {
         const spans = await readRollbackHistory(client, binding);
-        const local = listMessagesWithParts(sessionId);
+        const local = await listMessagesWithParts(sessionId);
         const index = local.findIndex(entry => entry.message.id === targetMessageId);
         const target = local[index];
         if (!target || (operation === 'edit' && (target.message.role !== 'user'
           || !target.parts.some(part => part.type === 'text')))) throw new Error('Invalid Codex rollback target');
-        if (operation === 'edit' && !resolveImages(session, target.parts.filter(part => part.type === 'image')
+        if (operation === 'edit' && !await resolveImages(session, target.parts.filter(part => part.type === 'image')
           .map(part => ({ id: /\/attachments\/([^/]+)\/content/.exec(part.url ?? '')?.[1] ?? '', kind: 'image' })))) {
           throw new Error('Codex edit attachment is unavailable');
         }
@@ -452,14 +456,14 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         if (!turn) throw new Error('Codex rollback target has no turn');
         intent = { sessionId, operation, targetMessageId,
           content, beforeTurnId: turn.id, turnIds: spans.map(span => span.id), phase: 'rollback' };
-        saveRollbackIntent(intent);
+        await saveRollbackIntent(intent);
       }
       // A request whose response was lost is never issued twice: a retry first reads the thread above.
       await client.request('thread/revert', { threadId: binding.threadId, beforeTurnId: intent.beforeTurnId });
       const actual = await readTurnIds(client, binding.threadId);
       const prefix = intent.turnIds.slice(0, intent.turnIds.indexOf(intent.beforeTurnId));
       if (!sameTurns(actual, prefix)) throw new Error('Codex rollback outcome is uncertain');
-      return applyRollback(intent);
+      return await applyRollback(intent);
     } finally {
       starting.delete(sessionId);
       if (client) await client.close();
@@ -470,26 +474,30 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     isSessionActive: (sessionId) => active.has(sessionId) || starting.has(sessionId)
       || [...connections.values()].some(connection => connection.children?.isLiveSession(sessionId)),
     async interruptSession(sessionId): Promise<InterruptExecutionResult> {
-      const childSession = getSession(sessionId);
-      if (childSession?.parentId && childSession.harness === 'codex-cli') {
-        let rootId = childSession.parentId;
-        for (let depth = 0; depth < 2 && getSession(rootId)?.parentId; depth++) {
-          rootId = getSession(rootId)!.parentId!;
-        }
-        const connection = connections.get(rootId);
-        const turns = connection?.children?.liveTurnsForSession(sessionId) ?? [];
-        if (!connection || !turns.length) return { sessionId, success: false,
-          cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
-        codexApprovals.cancelSession(sessionId);
-        const results = await Promise.allSettled(turns.map(turn => connection.client.request('turn/interrupt', turn, 3_000)));
-        if (results.some(result => result.status === 'rejected')) {
-          await closeConnection(rootId, 'error');
-          return { sessionId, success: false, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
-        }
-        return { sessionId, success: true, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
-      }
+      // A parent run stops synchronously: Stop must win over a turn/start response that
+      // arrives while later reads await. Child sessions never own a run.
       const run = active.get(sessionId);
       if (!run) {
+        const childSession = await getSession(sessionId);
+        if (childSession?.parentId && childSession.harness === 'codex-cli') {
+          let rootId = childSession.parentId;
+          for (let depth = 0; depth < 2; depth++) {
+            const parentId = (await getSession(rootId))?.parentId;
+            if (!parentId) break;
+            rootId = parentId;
+          }
+          const connection = connections.get(rootId);
+          const turns = connection?.children?.liveTurnsForSession(sessionId) ?? [];
+          if (!connection || !turns.length) return { sessionId, success: false,
+            cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
+          codexApprovals.cancelSession(sessionId);
+          const results = await Promise.allSettled(turns.map(turn => connection.client.request('turn/interrupt', turn, 3_000)));
+          if (results.some(result => result.status === 'rejected')) {
+            await closeConnection(rootId, 'error');
+            return { sessionId, success: false, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
+          }
+          return { sessionId, success: true, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
+        }
         const connection = connections.get(sessionId);
         if (!connection?.children?.hasLiveTurns) return { sessionId, success: false, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
         const children = connection.children.liveTurns;
@@ -526,13 +534,13 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (active.get(sessionId) !== run) {
               return { sessionId, success: false, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
             }
-            if (getCodexBinding(sessionId)?.goalRequested) {
+            if ((await getCodexBinding(sessionId))?.goalRequested) {
               const response = codexObject(await run.client.request('thread/goal/set', {
                 threadId: run.threadId, status: 'paused',
               }));
               const goal = parseCodexGoal(response?.goal, run.threadId);
               if (!goal || goal.status !== 'paused') throw new Error('Codex goal could not be paused');
-              run.pauseGoal?.(goal);
+              await run.pauseGoal?.(goal);
             }
           }
           if (run.turnId && !run.isTurnCompleted()) {
@@ -550,8 +558,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     async sendMessage<Origin>(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string,
       content: string, attachments?: Array<{ id: string; kind: string }>, responseFormatId?: string,
       goalCondition?: string, goalMaxTurns?: number, goalTokenBudget?: number,
-      queued?: QueuedTurnInput, onTurnStarted?: () => void): Promise<'drainable' | void> {
-      const session = getSession(sessionId);
+      queued?: QueuedTurnInput, onTurnStarted?: () => Promise<void>): Promise<'drainable' | void> {
+      const session = await getSession(sessionId);
       if (!session || session.harness !== 'codex-cli' || session.parentId) {
         wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: 'Not a Codex CLI session', sessionId });
         return;
@@ -565,45 +573,53 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           message: 'Codex compaction outcome is uncertain; do not send in this session', sessionId });
         return;
       }
-      const rollback = getRollbackIntent(sessionId);
-      const reuseId = resubmitting.get(sessionId);
-      if (rollback && (rollback.phase !== 'ready' || rollback.operation !== 'edit'
-        || rollback.targetMessageId !== reuseId)) {
-        wire.delivery.send(origin, { type: 'error', code: 'invalid_session',
-          message: rollback.phase === 'ready' && rollback.operation === 'edit'
+      /** Checks that read storage; returns the error to report, or what the turn reuses. */
+      const preflight = async (): Promise<string | {
+        reuseId: string | undefined; existingUser: Awaited<ReturnType<typeof getMessageWithParts>>; images: Attachment[];
+      }> => {
+        const rollback = await getRollbackIntent(sessionId);
+        const reuseId = resubmitting.get(sessionId);
+        if (rollback && (rollback.phase !== 'ready' || rollback.operation !== 'edit'
+          || rollback.targetMessageId !== reuseId)) {
+          return rollback.phase === 'ready' && rollback.operation === 'edit'
             ? 'Codex edit was not sent; edit that message again to resend it'
-            : 'Codex Edit or Undo is unfinished; retry the same Edit or Undo to recover', sessionId });
-        return;
-      }
-      if (goalTokenBudget !== undefined && (!validGoalBudget(goalTokenBudget)
-        || typeof goalCondition !== 'string' || !goalCondition.trim()
-        || goalCondition.trim() !== content.trim() || goalMaxTurns !== undefined || attachments?.length)) {
-        wire.delivery.send(origin, { type: 'error', code: 'invalid_session',
-          message: 'Invalid Codex goal or token budget', sessionId });
-        return;
-      }
-      if ((!content.trim() && !attachments?.length) || responseFormatId
-        || (goalCondition !== undefined && goalTokenBudget === undefined) || goalMaxTurns !== undefined) {
-        wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: 'Codex CLI supports text and image messages only', sessionId });
-        return;
-      }
-      const existingUser = reuseId ? getMessageWithParts(reuseId) : null;
-      if (reuseId && (!existingUser || existingUser.message.sessionId !== sessionId
-        || existingUser.message.role !== 'user' || !existingUser.parts.some(part => part.type === 'text'
-          && part.text === content))) {
-        wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: 'Codex edit target is unavailable', sessionId });
-        return;
-      }
-      const references = reuseId ? existingUser!.parts.filter(part => part.type === 'image').map(part => {
-        const id = /\/attachments\/([^/]+)\/content/.exec(part.url ?? '')?.[1] ?? '';
-        return { id, kind: 'image' };
-      }) : attachments ?? [];
-      const images = resolveImages(session, references);
-      if (!images) {
-        wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: 'Codex image attachment is unavailable or unsupported', sessionId });
-        return;
-      }
+            : 'Codex Edit or Undo is unfinished; retry the same Edit or Undo to recover';
+        }
+        if (goalTokenBudget !== undefined && (!validGoalBudget(goalTokenBudget)
+          || typeof goalCondition !== 'string' || !goalCondition.trim()
+          || goalCondition.trim() !== content.trim() || goalMaxTurns !== undefined || attachments?.length)) {
+          return 'Invalid Codex goal or token budget';
+        }
+        if ((!content.trim() && !attachments?.length) || responseFormatId
+          || (goalCondition !== undefined && goalTokenBudget === undefined) || goalMaxTurns !== undefined) {
+          return 'Codex CLI supports text and image messages only';
+        }
+        const existingUser = reuseId ? await getMessageWithParts(reuseId) : null;
+        if (reuseId && (!existingUser || existingUser.message.sessionId !== sessionId
+          || existingUser.message.role !== 'user' || !existingUser.parts.some(part => part.type === 'text'
+            && part.text === content))) return 'Codex edit target is unavailable';
+        const references = reuseId ? existingUser!.parts.filter(part => part.type === 'image').map(part => {
+          const id = /\/attachments\/([^/]+)\/content/.exec(part.url ?? '')?.[1] ?? '';
+          return { id, kind: 'image' };
+        }) : attachments ?? [];
+        const images = await resolveImages(session, references);
+        return images ? { reuseId, existingUser, images } : 'Codex image attachment is unavailable or unsupported';
+      };
+      // Claimed before the first await so a concurrent rollback, compact or fork is refused.
       starting.add(sessionId);
+      let prepared: Awaited<ReturnType<typeof preflight>>;
+      try {
+        prepared = await preflight();
+      } catch (error) {
+        starting.delete(sessionId);
+        throw error;
+      }
+      if (typeof prepared === 'string') {
+        starting.delete(sessionId);
+        wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: prepared, sessionId });
+        return;
+      }
+      const { reuseId, existingUser, images } = prepared;
       let client: CodexAppServer | undefined;
       let hookChannel: PretoolChannel | undefined;
       let connection: CodexSessionConnection | undefined;
@@ -616,14 +632,14 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       let succeeded = false;
       const startedAt = Date.now();
       const streamText = new StreamingTextWriter();
-      const settleStreamedText = (): void => {
-        for (const { part } of streamText.settleAll()) {
+      const settleStreamedText = async (): Promise<void> => {
+        for (const { part } of await streamText.settleAll()) {
           wire.delivery.broadcastToSession(sessionId, { type: 'part.updated', sessionId, part });
         }
       };
       try {
-        const root = workspaceRoot(session);
-        const workspace = getWorkspace(session.workspaceId);
+        const root = await workspaceRoot(session);
+        const workspace = await getWorkspace(session.workspaceId);
         const sources = deps.instructions;
         if (!workspace) throw new Error('Codex workspace is unavailable');
         const preconfigId = session.preconfigId || defaultCodexPreconfigId(workspace, await sources.listPreconfigs());
@@ -657,14 +673,14 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
           + (handoffBrief ? `\n\n${handoffBrief}` : '');
         if (!session.preconfigId) {
-          const updated = updateSession(sessionId, { preconfigId,
+          const updated = await updateSession(sessionId, { preconfigId,
             agentId: agentDir ? preconfigId : null });
           if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
         }
         phase = 'workspace root check';
         const version = deps.version();
         cliVersion = version;
-        const binding = getCodexBinding(sessionId);
+        const binding = await getCodexBinding(sessionId);
         // A CLI upgrade does not block: the CLI resumes its own older threads.
         if (binding && binding.workspaceRoot !== root) {
           logHarness('codex-cli', 'thread binding blocks turn', { sessionId, workspaceChanged: true });
@@ -680,7 +696,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           connection = undefined;
         }
         if (connection) clearTimeout(connection.idleTimer);
-        const persistedGoal = codexObject(codexObject(getSession(sessionId)?.metadata)?.codexGoal);
+        const persistedGoal = codexObject(codexObject((await getSession(sessionId))?.metadata)?.codexGoal);
         if (binding?.pendingTurn) {
           if (reuseId) throw new Error('Codex edit turn requires reconciliation');
           phase = 'previous turn reconciliation';
@@ -688,27 +704,27 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         } else if (persistedGoal?.status === 'active' || binding?.goalRequested) {
           throw new Error('An active Codex goal requires recovery before another send');
         }
-        if (queued && !queued.isPending()) return 'drainable';
-        const user = existingUser?.message ?? createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
+        if (queued && !await queued.isPending()) return 'drainable';
+        const user = existingUser?.message ?? await createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
         const userParts: Part[] = [];
         if (!reuseId && content.trim()) {
-          const userPart = createPart({ id: crypto.randomUUID(), messageId: user.id,
+          const userPart = await createPart({ id: crypto.randomUUID(), messageId: user.id,
             type: 'text', text: content, createdAt: Date.now() }, sessionId);
           userParts.push(userPart);
         }
         const imagePartStart = Date.now() + (content.trim() ? 1 : 0);
         for (const [index, image] of (reuseId ? [] : images).entries()) {
-          const part = createPart({ id: crypto.randomUUID(), messageId: user.id, type: 'image',
+          const part = await createPart({ id: crypto.randomUUID(), messageId: user.id, type: 'image',
             url: `/api/sessions/${sessionId}/attachments/${image.id}/content?key=${image.accessKey}`,
             mimeType: image.mimeType, createdAt: imagePartStart + index }, sessionId);
           userParts.push(part);
         }
-        queued?.accepted();
-        onTurnStarted?.();
+        await queued?.accepted();
+        await onTurnStarted?.();
         if (!reuseId) wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: user });
         for (const part of userParts) wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
         wire.actor.attachOriginToSession(origin, sessionId);
-        assistant = createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
+        assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
           status: 'streaming', modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId ?? undefined,
           tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
         wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
@@ -731,23 +747,23 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           idleTimer = setTimeout(() => rejectDone(new Error('Codex goal continuation did not start')),
             deps.goalIdleTimeoutMs ?? 60_000);
         };
-        const reportModel = (model: unknown): void => {
+        const reportModel = async (model: unknown): Promise<void> => {
           if (typeof model !== 'string' || !model.trim()) return;
-          const current = getSession(sessionId);
+          const current = await getSession(sessionId);
           if (current?.harness !== 'codex-cli') return;
           if (current.selectedModel !== model) {
-            const updated = updateSession(sessionId, { selectedModel: model });
+            const updated = await updateSession(sessionId, { selectedModel: model });
             if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
           if (assistant && assistant.modelId !== model) {
-            const updated = updateMessage(assistant.id, { modelId: model });
+            const updated = await updateMessage(assistant.id, { modelId: model });
             if (updated?.role === 'assistant') {
               assistant = updated;
               wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: updated });
             }
           }
         };
-        const notify = (event: CodexNotification): void => {
+        const notify = async (event: CodexNotification): Promise<void> => {
           const params = codexObject(event.params);
           if (!params || !run || params.threadId !== run.threadId) return;
           const turn = codexObject(params.turn);
@@ -755,11 +771,11 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           if (event.method === 'thread/tokenUsage/updated') {
             if (!run.turnId || eventTurnId !== run.turnId) return;
             const usage = parseCodexContextUsage(params.tokenUsage);
-            if (usage) publishCodexContextUsage(sessionId, usage, wire.delivery);
+            if (usage) await publishCodexContextUsage(sessionId, usage, wire.delivery);
             return;
           }
           if (event.method === 'thread/goal/cleared' && goalTokenBudget !== undefined) {
-            publishCodexGoal(session, null, wire.delivery);
+            await publishCodexGoal(session, null, wire.delivery);
             rejectDone(new Error('Codex goal was cleared before completion'));
             return;
           }
@@ -767,15 +783,15 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             const goal = parseCodexGoal(params.goal, run.threadId);
             if (!goal) { rejectDone(new Error('Invalid Codex goal update')); return; }
             if (run.stopRequested && goalStatus === 'paused' && goal.status === 'active') {
-              markCodexGoalUncertain(sessionId);
+              await markCodexGoalUncertain(sessionId);
               rejectDone(new Error('Codex goal resumed after Stop'));
               return;
             }
             goalStatus = goal.status;
-            publishCodexGoal(session, goal, wire.delivery);
+            await publishCodexGoal(session, goal, wire.delivery);
             if (completed && goalStatus !== 'active') {
               clearTimeout(idleTimer);
-              markCodexTurnCompleted(sessionId);
+              await markCodexTurnCompleted(sessionId);
               resolveDone();
             } else if (completed && goalStatus === 'active') {
               awaitContinuation();
@@ -785,7 +801,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           if (event.method === 'turn/started' && eventTurnId) {
             if (run.turnId && run.turnId !== eventTurnId) {
               if (run.stopRequested && run.goal) {
-                markCodexGoalUncertain(sessionId);
+                await markCodexGoalUncertain(sessionId);
                 rejectDone(new Error('Codex continuation started after Stop'));
                 return;
               }
@@ -795,21 +811,21 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               }
               clearTimeout(idleTimer);
               codexApprovals.cancelSession(sessionId);
-              toolItems?.finish();
+              await toolItems?.finish();
               toolItems = undefined;
-              settleStreamedText();
+              await settleStreamedText();
               pendingDeltas.clear();
-              assistant = createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
+              assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
                 status: 'streaming', modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId ?? undefined,
                 tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
-              markCodexTurnStarted(sessionId, eventTurnId, assistant.id, true);
+              await markCodexTurnStarted(sessionId, eventTurnId, assistant.id, true);
               turnIdentityRecorded = true;
               wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
               completed = false;
             }
             if (!turnIdentityRecorded && assistant) {
-              markCodexTurnStarted(sessionId, eventTurnId, assistant.id, false);
               turnIdentityRecorded = true;
+              await markCodexTurnStarted(sessionId, eventTurnId, assistant.id, false);
             }
             run.turnId = eventTurnId;
             if (connection) connection.parentTurnId = eventTurnId;
@@ -827,19 +843,24 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (steer) {
               // The steered message follows everything streamed so far; the rest of the turn answers it.
               run.steers.delete(steerId);
-              settleStreamedText();
+              await settleStreamedText();
               pendingDeltas.clear();
-              let answered: Message | null = null;
               const previous = assistant;
-              commitSteer(wire.delivery, sessionId, steer, () => {
-                answered = updateMessage(previous.id, { status: 'completed', completedAt: Date.now() });
-                // Sorts after the steered message, which is created first in this transaction.
-                assistant = createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
+              let answered: { readonly value: Message | null } | null = null;
+              let next: AssistantMessage | null = null;
+              await commitSteer(wire.delivery, sessionId, steer, async (tx) => {
+                answered = tx.write<Message | null>({ op: 'message.update', id: previous.id,
+                  updates: { status: 'completed', completedAt: Date.now() } });
+                // Sorts after the steered message, which is created first in this commit.
+                next = { id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
                   modelId: previous.modelId, providerId: 'codex-cli', agent: session.agentId ?? undefined,
-                  tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() + 1 }) as AssistantMessage;
-                markCodexSteerReply(sessionId, assistant.id);
+                  tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() + 1 };
+                tx.write({ op: 'message.create', message: next });
+                await markCodexSteerReply(tx, sessionId, next.id);
               });
-              if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered });
+              assistant = next!;
+              const completedReply = (answered as { readonly value: Message | null } | null)?.value;
+              if (completedReply) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completedReply });
               wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
               toolItems?.retarget(assistant.id);
               logHarness('codex-cli', 'steer started', { sessionId, queueId: steer.queued.id }, 'info');
@@ -850,12 +871,12 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (assistant) {
               toolItems ??= new CodexToolItems(sessionId, assistant.id, run.turnId, wire.delivery,
                 threadId => connection?.children?.childSessionId(threadId) ?? null);
-              if (event.method === 'item/started') toolItems.started(params.item);
-              else toolItems.completed(params.item);
+              if (event.method === 'item/started') await toolItems.started(params.item);
+              else await toolItems.completed(params.item);
             }
           }
           if (event.method === 'model/rerouted') {
-            reportModel(params.toModel);
+            await reportModel(params.toModel);
             return;
           }
           if (event.method === 'item/agentMessage/delta') {
@@ -864,7 +885,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (!assistant) return;
             let entry = pendingDeltas.get(itemId);
             if (!entry) {
-              const part = createPart({ id: crypto.randomUUID(), messageId: assistant.id,
+              const part = await createPart({ id: crypto.randomUUID(), messageId: assistant.id,
                 type: 'text', text: '', createdAt: Date.now() }, sessionId) as TextPart;
               entry = { part, text: '' };
               pendingDeltas.set(itemId, entry);
@@ -879,20 +900,20 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (item?.type === 'agentMessage' && id(item.id) && typeof item.text === 'string') {
               const entry = pendingDeltas.get(item.id as string);
               if (entry) {
-                streamText.settle(entry.part.id, item.text);
+                await streamText.settle(entry.part.id, item.text);
                 wire.delivery.broadcastToSession(sessionId, { type: 'part.updated', sessionId,
                   part: { ...entry.part, text: item.text } });
               } else {
                 if (!assistant) return;
-                const part = createPart({ id: crypto.randomUUID(), messageId: assistant.id,
+                const part = await createPart({ id: crypto.randomUUID(), messageId: assistant.id,
                   type: 'text', text: item.text, createdAt: Date.now() }, sessionId);
                 wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
               }
             }
           } else if (event.method === 'turn/completed') {
             completed = true;
-            toolItems?.finish();
-            settleStreamedText();
+            await toolItems?.finish();
+            await settleStreamedText();
             const status = turn?.status;
             const turnError = codexObject(turn?.error);
             logHarness('codex-cli', status === 'failed' ? 'turn failed (reported by Codex)' : 'turn completed', {
@@ -904,15 +925,15 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             } else {
               let finished: Message | null = null;
               if (assistant) {
-                finished = updateMessage(assistant.id, {
+                finished = await updateMessage(assistant.id, {
                   status: status === 'failed' ? 'error' : status, completedAt: Date.now(),
                 });
                 if (finished) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: finished });
               }
               if (goalTokenBudget === undefined || (goalStatus !== 'active' && goalStatus !== null)) {
-                markCodexTurnCompleted(sessionId);
+                await markCodexTurnCompleted(sessionId);
                 // An active goal continues with another turn; only the run's last reply pushes.
-                notifyHarnessTurnFinished(finished);
+                await notifyHarnessTurnFinished(finished);
                 if (status === 'failed') rejectDone(new Error('Codex turn failed'));
                 else resolveDone();
               } else if (goalStatus === 'active') {
@@ -921,47 +942,39 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             }
           }
         };
-        const memoryTools = deps.memoryTools && createCodexMemoryTools({
+        const authorizeRoot = async (): Promise<boolean> => {
+          try {
+            const current = await getSession(sessionId);
+            return !!current && current.preconfigId === preconfigId && await workspaceRoot(current) === root;
+          } catch { return false; }
+        };
+        const memoryTools = deps.memoryTools && await createCodexMemoryTools({
           bridge: deps.memoryTools, definitions: memoryDefinitions,
           sessionId, workspaceId: session.workspaceId, root, agentDir,
           isActive: turnId => !!run && active.get(sessionId) === run && run.turnId === turnId
             && !completed && !run.stopRequested,
-          authorizeRoot: () => {
-            try {
-              const current = getSession(sessionId);
-              return !!current && current.preconfigId === preconfigId && workspaceRoot(current) === root;
-            } catch { return false; }
-          },
+          authorizeRoot,
         });
-        const sessionSearch = deps.sessionSearch && createCodexSessionSearchTools({
+        const sessionSearch = deps.sessionSearch && await createCodexSessionSearchTools({
           bridge: deps.sessionSearch, definitions: searchDefinitions,
           sessionId, workspaceId: session.workspaceId, preconfigId, agentDir,
           isActive: turnId => !!run && active.get(sessionId) === run && run.turnId === turnId
             && !completed && !run.stopRequested,
-          authorizeRoot: () => {
-            try {
-              const current = getSession(sessionId);
-              return !!current && current.preconfigId === preconfigId && workspaceRoot(current) === root;
-            } catch { return false; }
-          },
+          authorizeRoot,
         });
         const agentSkills = deps.agentSkills && createCodexAgentSkillTools({
           bridge: deps.agentSkills, definitions: skillDefinitions,
           sessionId, workspaceId: session.workspaceId, preconfigId, agentDir,
           isActive: turnId => !!run && active.get(sessionId) === run && run.turnId === turnId
             && !completed && !run.stopRequested,
-          authorizeRoot: () => {
-            try {
-              const current = getSession(sessionId);
-              return !!current && current.preconfigId === preconfigId && workspaceRoot(current) === root;
-            } catch { return false; }
-          },
+          authorizeRoot,
         });
         const mcpAbort = new AbortController();
         const mcp = deps.mcp && createCodexMcpTools({ bridge: deps.mcp, path: workspace.path,
           sessionId, signal: mcpAbort.signal,
-          authorized: turnId => {
-            const current = getSession(sessionId);
+          authorized: async (turnId) => {
+            if (!run || active.get(sessionId) !== run || run.turnId !== turnId || completed || run.stopRequested) return false;
+            const current = await getSession(sessionId);
             return !!run && active.get(sessionId) === run && run.turnId === turnId && !completed && !run.stopRequested
               && current?.harness === 'codex-cli' && current.status === 'active' && current.workspaceId === session.workspaceId
               && current.workspaceRootId === session.workspaceRootId;
@@ -975,17 +988,17 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             root, version, preconfigId, instructions,
             parentNotify: null, parentHook: null, parentApproval: null, parentTool: null };
           const current = connection;
-          const rootStillSelected = (): boolean => {
+          const rootStillSelected = async (): Promise<boolean> => {
             try {
-              const latest = getSession(sessionId);
+              const latest = await getSession(sessionId);
               return !!latest && latest.status === 'active' && latest.preconfigId === preconfigId
-                && workspaceRoot(latest) === root;
+                && await workspaceRoot(latest) === root;
             } catch { return false; }
           };
           hookChannel = await deps.prepareHook?.(async call => {
-            if (connections.get(sessionId) !== current || !rootStillSelected()) return 'workspace-changed';
+            if (connections.get(sessionId) !== current || !await rootStillSelected()) return 'workspace-changed';
             const children = current.children;
-            const parentThreadId = getCodexBinding(sessionId)?.threadId;
+            const parentThreadId = (await getCodexBinding(sessionId))?.threadId;
             const alias = call.session_id === parentThreadId && call.turn_id !== current.parentTurnId
               ? children?.uniqueLiveTurn(call.turn_id) : null;
             const childThreadId = alias?.threadId ?? call.session_id;
@@ -998,17 +1011,17 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               } catch { return 'working-directory'; }
               const childId = children.childSessionId(childThreadId);
               if (!childId) return 'unknown-turn';
-              const ask = classifyCodexHook(call, sessionPermissionRoots(getSession(sessionId) ?? session, root));
+              const ask = classifyCodexHook(call, await sessionPermissionRoots(await getSession(sessionId) ?? session, root));
               if (ask === undefined) return 'unsupported-command';
               if (ask === null) return true;
               const input = codexObject(call.tool_input);
               const approved = await codexApprovals.requestHook({ ...ask, allowedScopes: ['once'] },
                 call.tool_name as 'Bash' | 'apply_patch', input?.command as string, call.tool_use_id,
                 childThreadId, call.turn_id, childId, call.cwd, session.workspaceId, wire.delivery, sessionId);
-              return approved && connections.get(sessionId) === current && rootStillSelected()
+              return approved && connections.get(sessionId) === current && await rootStillSelected()
                 && children.accepts(childThreadId, call.turn_id) ? true : 'permission-denied';
             }
-            if (call.session_id === getCodexBinding(sessionId)?.threadId) {
+            if (call.session_id === (await getCodexBinding(sessionId))?.threadId) {
               if (call.cwd !== root && !isTempCwd(call.cwd)) return 'working-directory';
               return await current.parentHook?.(call) ?? 'no-active-turn';
             }
@@ -1016,40 +1029,42 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           }, undefined, tempDirectory);
           current.hookChannel = hookChannel;
           phase = 'app-server initialization';
-          client = new CodexAppServer(hookChannel ? hookChannel.connect() : deps.connect(), event => {
-            const parent = getSession(sessionId);
+          client = new CodexAppServer(hookChannel ? hookChannel.connect() : deps.connect(), async event => {
+            const parent = await getSession(sessionId);
             if (!parent || parent.status === 'closed') {
               void closeConnection(sessionId, 'interrupted');
               return;
             }
-            current.children?.receive(event);
-            current.parentNotify?.(event);
+            await current.children?.receive(event);
+            await current.parentNotify?.(event);
             if (!active.has(sessionId) && !starting.has(sessionId)) scheduleIdleClose(sessionId, current);
-          }, (method, params) => {
+          }, async (method, params) => {
             const request = codexObject(params);
             const threadId = request?.threadId;
             const turnId = request?.turnId;
             if (typeof threadId === 'string' && typeof turnId === 'string') {
-              const parentThreadId = getCodexBinding(sessionId)?.threadId;
+              const parentThreadId = (await getCodexBinding(sessionId))?.threadId;
               const alias = threadId === parentThreadId && turnId !== current.parentTurnId
                 ? current.children?.uniqueLiveTurn(turnId) : null;
               const childThreadId = alias?.threadId ?? threadId;
               if (current.children?.accepts(childThreadId, turnId)) {
                 const childId = current.children.childSessionId(childThreadId);
-                if (childId && rootStillSelected()) return codexApprovals.request(method,
-                  alias ? { ...request, threadId: childThreadId } : params, childThreadId, turnId,
-                  childId, root, session.workspaceId, wire.delivery, true, sessionId).then(decision =>
-                  rootStillSelected() && connections.get(sessionId) === current
-                    && current.children?.accepts(childThreadId, turnId) ? decision : { decision: 'decline' });
+                if (childId && await rootStillSelected()) {
+                  const decision = await codexApprovals.request(method,
+                    alias ? { ...request, threadId: childThreadId } : params, childThreadId, turnId,
+                    childId, root, session.workspaceId, wire.delivery, true, sessionId);
+                  return await rootStillSelected() && connections.get(sessionId) === current
+                    && current.children?.accepts(childThreadId, turnId) ? decision : { decision: 'decline' };
+                }
               }
             }
-            if (threadId === getCodexBinding(sessionId)?.threadId) {
+            if (threadId === (await getCodexBinding(sessionId))?.threadId) {
               if (current.parentApproval) return current.parentApproval(method, params);
               logCodexPermissionDenial('native', 'no-active-turn');
             } else {
               logCodexPermissionDenial('native', 'unknown-turn');
             }
-            return Promise.resolve({ decision: 'decline' });
+            return { decision: 'decline' };
           }, params => current.parentTool?.(params) ?? Promise.resolve({
             success: false, contentItems: [{ type: 'inputText', text: 'Dynamic tool unavailable' }],
           }), dynamicTools.length > 0);
@@ -1067,7 +1082,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         connection.parentHook = async call => {
           if (!run?.turnId || completed || run.stopRequested || (call.cwd !== root && !isTempCwd(call.cwd))
             || call.session_id !== run.threadId || call.turn_id !== run.turnId) return 'no-active-turn';
-          const ask = classifyCodexHook(call, sessionPermissionRoots(getSession(sessionId) ?? session, root));
+          const ask = classifyCodexHook(call, await sessionPermissionRoots(await getSession(sessionId) ?? session, root));
           if (ask === undefined) return 'unsupported-command';
           if (ask === null) return true;
           const input = codexObject(call.tool_input);
@@ -1100,7 +1115,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           return { success: false, contentItems: [{ type: 'inputText', text: 'Dynamic tool unavailable' }] };
         };
         phase = binding ? 'thread resume' : 'thread creation';
-        const selection = getCodexModelSelection(sessionId);
+        const selection = await getCodexModelSelection(sessionId);
         const threadResponse = connection.children && binding ? { thread: { id: binding.threadId } }
           : codexObject(await client.request(binding ? 'thread/resume' : 'thread/start',
             binding ? { threadId: binding.threadId, cwd: root, approvalPolicy: 'on-request', sandbox: 'workspace-write',
@@ -1111,26 +1126,26 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             }));
         const threadId = id(codexObject(threadResponse?.thread)?.id);
         if (!threadId || (binding && binding.threadId !== threadId)) throw new Error('Invalid Codex thread');
-        if (!binding) bindCodexThread({ sessionId, threadId, cliVersion: version, workspaceRoot: root });
+        if (!binding) await bindCodexThread({ sessionId, threadId, cliVersion: version, workspaceRoot: root });
         else if (binding.cliVersion !== version) {
-          recordCodexCliVersion(sessionId, version);
+          await recordCodexCliVersion(sessionId, version);
           logHarness('codex-cli', 'cli upgraded', { sessionId, from: binding.cliVersion, to: version }, 'info');
         }
         if (!connection.children) connection.children = new CodexChildTimelines(session, threadId, root, version,
           wire.delivery, turnId => active.get(sessionId)?.turnId === turnId
             && active.get(sessionId)?.stopRequested === false,
           childId => codexApprovals.cancelSession(childId));
-        reportModel(threadResponse?.model ?? codexObject(threadResponse?.thread)?.model);
+        await reportModel(threadResponse?.model ?? codexObject(threadResponse?.thread)?.model);
         let resolveActivation!: () => void;
         const activationSettled = new Promise<void>(resolve => { resolveActivation = resolve; });
         run = { client, threadId, turnId: null, fail: rejectDone, goal: goalTokenBudget !== undefined,
           stopRequested: false, mcpAbort, isTurnCompleted: () => completed, activationSettled, resolveActivation,
           session, steers: new Map(), steerChain: Promise.resolve(),
           steerable: () => started && !completed && !run!.stopRequested && goalTokenBudget === undefined,
-          pauseGoal: goal => {
+          pauseGoal: async (goal) => {
             goalStatus = goal.status;
-            publishCodexGoal(session, goal, wire.delivery);
-            if (completed) { markCodexTurnCompleted(sessionId); resolveDone(); }
+            await publishCodexGoal(session, goal, wire.delivery);
+            if (completed) { await markCodexTurnCompleted(sessionId); resolveDone(); }
           },
         };
         active.set(sessionId, run);
@@ -1139,10 +1154,11 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         phase = 'turn start';
         logHarness('codex-cli', 'turn start', { sessionId, model: selection?.model ?? null,
           effort: selection?.effort ?? null, goal: goalTokenBudget !== undefined, queued: !!queued, resubmit: !!reuseId }, 'info');
-        getDatabase().transaction(() => {
-          markCodexTurnPending(sessionId, user.id, assistant!.id);
-          if (reuseId) setRollbackPhase(sessionId, 'sent');
-        })();
+        const pendingAssistantId = assistant.id;
+        await storeTransaction(async (tx) => {
+          await markCodexTurnPending(tx, sessionId, user.id, pendingAssistantId);
+          if (reuseId) await setRollbackPhase(sessionId, 'sent', tx);
+        });
         const response = codexObject(await client.request('turn/start', {
           threadId, clientUserMessageId: user.id,
           input: [...(content.trim() ? [{ type: 'text', text: content }] : []),
@@ -1155,8 +1171,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         run.turnId = turnId;
         connection.parentTurnId = turnId;
         if (!turnIdentityRecorded) {
-          markCodexTurnStarted(sessionId, turnId, assistant.id, false);
           turnIdentityRecorded = true;
+          await markCodexTurnStarted(sessionId, turnId, assistant.id, false);
         }
         if (goalTokenBudget !== undefined) {
           phase = 'goal activation';
@@ -1165,15 +1181,12 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             if (!started || completed) throw new Error('Codex turn ended before goal activation');
             if (!run.stopRequested) {
               // Persist intent and retire earlier goal metadata together, before the RPC can run.
-              const pendingGoal = getDatabase().transaction(() => {
-                markCodexGoalRequested(sessionId);
-                const latest = getSession(sessionId);
-                if (!latest || latest.harness !== 'codex-cli') throw new Error('Codex session disappeared');
-                return updateSession(sessionId, { metadata: {
-                  ...(codexObject(latest.metadata) ?? {}), codexGoal: null,
-                  codexGoalPending: { objective: goalCondition, tokenBudget: goalTokenBudget },
-                } });
-              })();
+              const pendingGoal = (await storeTransaction(async (tx) => {
+                await markCodexGoalRequested(tx, sessionId);
+                tx.check({ check: 'session.harness', sessionId, harness: 'codex-cli' }, new Error('Codex session disappeared'));
+                return tx.write<Session | null>({ op: 'session.update', id: sessionId, updates: {},
+                  metadataPatch: { codexGoal: null, codexGoalPending: { objective: goalCondition, tokenBudget: goalTokenBudget } } });
+              })).value;
               if (!pendingGoal) throw new Error('Codex session disappeared');
               wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: pendingGoal });
               const goalResponse = codexObject(await client.request('thread/goal/set', {
@@ -1183,9 +1196,9 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               if (!goal) throw new Error('Invalid Codex goal response');
               if (goalStatus === null) {
                 goalStatus = goal.status;
-                publishCodexGoal(session, goal, wire.delivery);
+                await publishCodexGoal(session, goal, wire.delivery);
                 if (completed && goalStatus !== 'active') {
-                  markCodexTurnCompleted(sessionId);
+                  await markCodexTurnCompleted(sessionId);
                   resolveDone();
                 } else if (completed) {
                   awaitContinuation();
@@ -1201,50 +1214,52 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         }
         phase = 'turn execution';
         await Promise.race([done, client.disconnected]);
-        if (reuseId && !getCodexBinding(sessionId)?.pendingTurn) clearRollbackIntent(sessionId);
+        if (reuseId && !(await getCodexBinding(sessionId))?.pendingTurn) await clearRollbackIntent(sessionId);
         succeeded = true;
       } catch (error: unknown) {
+        const failingBinding = await getCodexBinding(sessionId).catch(() => null);
         logHarness('codex-cli', 'turn failed', { sessionId, phase, durationMs: Date.now() - startedAt,
           rpcCode: error instanceof CodexRequestError ? error.code : null,
-          pendingTurn: !!getCodexBinding(sessionId)?.pendingTurn, ...describeError(error),
+          pendingTurn: !!failingBinding?.pendingTurn, ...describeError(error),
           stderr: connection?.client.stderrTail() });
-        settleStreamedText();
-        const rejectedUser = getCodexBinding(sessionId)?.pendingUserId;
+        await settleStreamedText().catch(() => {});
+        const rejectedUser = failingBinding?.pendingUserId;
         if (error instanceof CodexRequestError && phase === 'turn start' && !run?.turnId
-          && getCodexBinding(sessionId)?.pendingTurn) {
+          && failingBinding?.pendingTurn) {
           // Codex answered turn/start with an error, so the turn never started: release it.
           // A plain send also drops its rows so the transcript keeps matching Codex turns.
-          getDatabase().transaction(() => {
-            markCodexTurnCompleted(sessionId);
-            if (reuseId) setRollbackPhase(sessionId, 'ready');
+          const rejectedAssistant = assistant;
+          await storeTransaction(async (tx) => {
+            await markCodexTurnCompleted(sessionId, tx);
+            if (reuseId) await setRollbackPhase(sessionId, 'ready', tx);
             else {
-              if (assistant) deleteMessage(assistant.id);
-              if (rejectedUser) deleteMessage(rejectedUser);
+              if (rejectedAssistant) tx.write({ op: 'message.delete', id: rejectedAssistant.id, ifExists: true });
+              if (rejectedUser) tx.write({ op: 'message.delete', id: rejectedUser, ifExists: true });
             }
-          })();
+          });
           if (!reuseId) {
             assistant = undefined;
             wire.delivery.broadcastToSession(sessionId, { type: 'session.state', sessionId,
-              messages: listMessagesWithParts(sessionId).slice(-50) });
+              messages: (await listMessagesWithParts(sessionId)).slice(-50) });
           }
         }
-        if (reuseId && !getCodexBinding(sessionId)?.pendingTurn
-          && getRollbackIntent(sessionId)?.phase === 'ready' && assistant) {
+        if (reuseId && !(await getCodexBinding(sessionId))?.pendingTurn
+          && (await getRollbackIntent(sessionId))?.phase === 'ready' && assistant) {
           // A failed setup before turn/start must not leave an orphan assistant
           // that would be duplicated by an explicit retry of the edit.
-          deleteMessage(assistant.id);
+          await deleteMessage(assistant.id);
           wire.delivery.broadcastToSession(sessionId, { type: 'session.state', sessionId,
-            messages: listMessagesWithParts(sessionId).slice(-50) });
+            messages: (await listMessagesWithParts(sessionId)).slice(-50) });
         }
         // Do not expose upstream messages, stderr, request payloads, or credentials.
         const rpcCode = error instanceof CodexRequestError && error.code !== null ? ` (RPC ${error.code})` : '';
-        const currentAssistant = assistant ? getMessageWithParts(assistant.id)?.message : null;
+        const currentAssistant = assistant ? (await getMessageWithParts(assistant.id))?.message : null;
         if (currentAssistant?.role === 'assistant' && currentAssistant.status === 'streaming') {
-          const updated = updateMessage(currentAssistant.id, { status: 'error', error: 'Codex turn failed', completedAt: Date.now() });
+          const updated = await updateMessage(currentAssistant.id, { status: 'error', error: 'Codex turn failed', completedAt: Date.now() });
           if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: updated });
-          notifyHarnessTurnFinished(updated);
+          await notifyHarnessTurnFinished(updated);
         }
-        const failedBinding = getCodexBinding(sessionId);
+        const failedBinding = await getCodexBinding(sessionId);
         wire.delivery.send(origin, { type: 'error', code: 'invalid_session',
           message: failedBinding?.pendingTurn
             ? `Codex failed during ${phase}${rpcCode}. The turn may have run; it will not be resent until reconciled.`
@@ -1253,8 +1268,10 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               : `Codex failed during ${phase}${rpcCode}. Check the host CLI setup.`, sessionId });
       } finally {
         clearTimeout(idleTimer);
+        // Late notifications already received (token usage after turn/completed) still apply.
+        await client?.idle();
         codexApprovals.cancelSession(sessionId);
-        toolItems?.finish();
+        await toolItems?.finish().catch(() => {});
         starting.delete(sessionId);
         if (reuseId) resubmitting.delete(sessionId);
         if (run) {
@@ -1277,7 +1294,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       if (succeeded) return 'drainable';
     },
     async compact(sessionId, _reason, delivery) {
-      const session = getSession(sessionId);
+      const session = await getSession(sessionId);
       if (!session || session.harness !== 'codex-cli' || session.status !== 'active' || session.parentId
         || active.has(sessionId) || starting.has(sessionId)
         || connections.get(sessionId)?.children?.hasLiveTurns) {
@@ -1286,14 +1303,15 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       if (codexObject(session.metadata)?.codexCompactPending) {
         return { ok: false, skipped: true, error: 'Codex compaction outcome is uncertain; do not retry in this session' };
       }
-      if (getRollbackIntent(sessionId)) return { ok: false, skipped: true, error: 'Codex rollback requires recovery' };
       let client: CodexAppServer | undefined;
       let sent = false;
       let confirmedFailure = false;
+      // Claimed before the first await so a concurrent send or rollback is refused.
       starting.add(sessionId);
       try {
-        const root = workspaceRoot(session);
-        const binding = getCodexBinding(sessionId);
+        if (await getRollbackIntent(sessionId)) return { ok: false, skipped: true, error: 'Codex rollback requires recovery' };
+        const root = await workspaceRoot(session);
+        const binding = await getCodexBinding(sessionId);
         if (!binding || binding.workspaceRoot !== root) {
           return { ok: false, skipped: true, error: 'Codex thread binding is unavailable or changed' };
         }
@@ -1344,9 +1362,9 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           return { ok: false, skipped: true, error: 'Codex thread is not idle after resume' };
         }
         // Persist uncertainty before the RPC. A lost response cannot justify replaying compaction.
-        const latest = getSession(sessionId);
+        const latest = await getSession(sessionId);
         if (!latest || latest.status !== 'active') throw new Error('Codex session disappeared');
-        const pendingSession = updateSession(sessionId, { metadata: {
+        const pendingSession = await updateSession(sessionId, { metadata: {
           ...(codexObject(latest.metadata) ?? {}), codexCompactPending: true,
         } });
         if (!pendingSession) throw new Error('Codex compaction state could not be saved');
@@ -1359,12 +1377,13 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             timeout = setTimeout(() => reject(new Error('Codex compaction timed out')), 120_000);
           })]);
         } finally { clearTimeout(timeout); }
-        const finished = getSession(sessionId);
+        const finished = await getSession(sessionId);
         if (!finished) throw new Error('Codex session disappeared');
         const { codexCompactPending: _pending, codexUsage: _usage, ...metadata } = codexObject(finished.metadata) ?? {};
-        const updated = updateSession(sessionId, { metadata: {
+        const lastMessageId = (await listMessagesWithParts(sessionId)).at(-1)?.message.id ?? null;
+        const updated = await updateSession(sessionId, { metadata: {
           ...metadata, codexCompactedAt: Date.now(),
-          codexCompactedAfterMessageId: listMessagesWithParts(sessionId).at(-1)?.message.id ?? null,
+          codexCompactedAfterMessageId: lastMessageId,
           ...(compactUsage ? { codexUsage: compactUsage } : {}),
         } });
         if (!updated) throw new Error('Codex compaction state could not be saved');
@@ -1373,10 +1392,10 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         return { ok: true, result: { tokensUsed: { prompt: 0, completion: 0 } } };
       } catch {
         if (confirmedFailure || !sent) {
-          const latest = getSession(sessionId);
+          const latest = await getSession(sessionId);
           if (latest && codexObject(latest.metadata)?.codexCompactPending) {
             const { codexCompactPending: _pending, ...metadata } = codexObject(latest.metadata) ?? {};
-            const updated = updateSession(sessionId, { metadata });
+            const updated = await updateSession(sessionId, { metadata });
             if (updated) delivery?.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
         }
@@ -1389,7 +1408,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       }
     },
     async fork(input) {
-      if (codexObject(getSession(input.sessionId)?.metadata)?.codexCompactPending) {
+      if (codexObject((await getSession(input.sessionId))?.metadata)?.codexCompactPending) {
         throw new Error('Codex compaction outcome is uncertain; do not fork this session');
       }
       if (active.has(input.sessionId) || starting.has(input.sessionId)
@@ -1398,9 +1417,9 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       try {
         await closeConnection(input.sessionId, 'interrupted');
         return await forkCodexSession(input, { connect: deps.connect, version: deps.version,
-          root: id => workspaceRoot(getSession(id)!), busy: id => active.has(id), });
+          root: async id => workspaceRoot((await getSession(id))!), busy: id => active.has(id), });
       } catch (error: unknown) {
-        if (hasCodexForkIntent(input.sessionId)) throw new Error('Codex fork outcome is uncertain; do not retry in this session', { cause: error });
+        if (await hasCodexForkIntent(input.sessionId)) throw new Error('Codex fork outcome is uncertain; do not retry in this session', { cause: error });
         const safe = error instanceof Error && SAFE_FORK_ERRORS.has(error.message)
           ? error.message : 'Codex fork could not be started';
         throw new Error(safe, { cause: error });
@@ -1411,17 +1430,17 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     async revert(input) {
       const result = await rollback(input.sessionId, 'revert', input.targetMessageId, null);
       if (!result) throw new Error('Codex revert result is unavailable');
-      notifySessionFilesChanged(input.sessionId);
+      await notifySessionFilesChanged(input.sessionId);
       return result;
     },
     async editMessage(wire, origin, input) {
       try {
         const result = await rollback(input.sessionId, 'edit', input.messageId, input.content, wire);
-        if (result || !getRollbackIntent(input.sessionId)) {
+        if (result || !await getRollbackIntent(input.sessionId)) {
           wire.delivery.broadcastToSession(input.sessionId, { type: 'session.state', sessionId: input.sessionId,
-            messages: listMessagesWithParts(input.sessionId).slice(-50) });
+            messages: (await listMessagesWithParts(input.sessionId)).slice(-50) });
         }
-        if (getRollbackIntent(input.sessionId)?.phase === 'ready') {
+        if ((await getRollbackIntent(input.sessionId))?.phase === 'ready') {
           resubmitting.set(input.sessionId, input.messageId);
           await queuedExecution.sendMessage(wire, origin, input.sessionId, input.content);
         }
@@ -1430,7 +1449,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         // Only report a known local validation reason; an intent means the RPC may have run.
         const reason = error instanceof Error && SAFE_EDIT_ERRORS.has(error.message)
           ? error.message : 'Codex rollback request or history read failed';
-        const pending = getRollbackIntent(input.sessionId);
+        const pending = await getRollbackIntent(input.sessionId).catch(() => null);
         wire.delivery.send(origin, { type: 'error', code: 'edit_error',
           message: pending?.phase === 'rollback'
             ? `Codex edit blocked: ${reason}. Rollback may have run; retry the same edit to recover.`

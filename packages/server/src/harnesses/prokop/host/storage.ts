@@ -12,8 +12,11 @@ import {
   getPartsBySession,
   listLatestMessagesWithPartsPage,
   listMessagesWithParts,
+  getToolPartByCallId,
   persistStreamingPartSnapshots,
   syncMessageFts,
+  transitionToolToCompleted,
+  transitionToolToError,
   transitionToolToInterrupted,
   transitionToolToRunningByCallId,
   updateMessage,
@@ -29,12 +32,15 @@ import {
   addMessageToQueue,
   deleteQueuedMessage,
   getNextQueuedMessage,
+  getQueuedMessage,
   listSteerQueuedMessages,
 } from '@/infrastructure/sqlite/queued-messages';
-import { getAttachment } from '@/infrastructure/sqlite/attachments';
+import { createAttachment, getAttachment } from '@/infrastructure/sqlite/attachments';
 import { getResponseFormat } from '@/infrastructure/sqlite/response-formats';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { prokopToolOutputArtifactStore } from '@/infrastructure/sqlite/tool-output-artifacts';
+import { findHarnessState, getHarnessState } from '@/infrastructure/sqlite/harness-state';
+import { commitSqlite } from '@/infrastructure/sqlite/storage-commit';
 
 export const prokopStorageBundle: StorageBundle = {
   conversation: {
@@ -58,6 +64,9 @@ export const prokopStorageBundle: StorageBundle = {
     listLatestMessagesWithPartsPage: async (...args) => listLatestMessagesWithPartsPage(...args),
     getPartsBySession: async (...args) => getPartsBySession(...args),
     buildEffectiveContextHistory: async (...args) => buildEffectiveContextHistory(...args),
+    getToolPartByCallId: async (...args) => getToolPartByCallId(...args),
+    transitionToolToCompleted: async (...args) => transitionToolToCompleted(...args),
+    transitionToolToError: async (...args) => transitionToolToError(...args),
   },
   toolOutputArtifacts: prokopToolOutputArtifactStore,
   queue: {
@@ -65,13 +74,24 @@ export const prokopStorageBundle: StorageBundle = {
     delete: async (...args) => deleteQueuedMessage(...args),
     peek: async (...args) => getNextQueuedMessage(...args),
     peekSteer: async (sessionId) => listSteerQueuedMessages(sessionId)[0] ?? null,
+    listSteer: async (...args) => listSteerQueuedMessages(...args),
+    get: async (...args) => getQueuedMessage(...args),
   },
-  attachments: { get: async (...args) => getAttachment(...args) },
+  attachments: {
+    get: async (...args) => getAttachment(...args),
+    create: ({ data, ...input }) => createAttachment({ ...input, sizeBytes: data.byteLength,
+      data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer }),
+  },
   workspaces: {
     get: async (...args) => getWorkspace(...args),
   },
   responseFormats: { get: async (...args) => getResponseFormat(...args) },
   index: { syncMessage: async (...args) => syncMessageFts(...args) },
+  native: {
+    get: async target => getHarnessState(target),
+    find: async (harness, kind, lookup) => findHarnessState(harness, kind, lookup),
+  },
+  commit: async request => commitSqlite(request),
 };
 
 export function configureProkopStorage(): void {

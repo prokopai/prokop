@@ -1,8 +1,8 @@
 import { forkSession, getSessionMessages, type SessionMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { MessageWithParts } from '@prokopai/sdk';
 import type { RevertExecutionResult } from '@/application/ports/execution';
-import { getDatabase } from '@/infrastructure/sqlite/database';
-import { deleteMessage, listMessagesWithParts, updatePart } from '@/infrastructure/sqlite/message-store';
+import { listMessagesWithParts } from '@/infrastructure/storage/runtime';
+import { storeTransaction } from '@/infrastructure/storage/transaction';
 import {
   deleteClaudeBinding, deleteClaudeInheritedUserId, deleteClaudeRollbackIntent, getClaudeBinding,
   getClaudeInheritedUserId, getClaudeRollbackIntent, rebindClaudeSession, setClaudeInheritedUserId,
@@ -138,12 +138,26 @@ export function groupClaudeTurns(native: SessionMessage[], nativeId: string,
   return turns;
 }
 
+/** Native user IDs inherited by local user messages (fork, rollback), read before matching. */
+export type InheritedUserIds = ReadonlyMap<string, string>;
+
+export async function inheritedUserIds(local: MessageWithParts[]): Promise<InheritedUserIds> {
+  const ids = new Map<string, string>();
+  for (const entry of local) {
+    if (entry.message.role !== 'user') continue;
+    const nativeUserId = await getClaudeInheritedUserId(entry.message.id);
+    if (nativeUserId) ids.set(entry.message.id, nativeUserId);
+  }
+  return ids;
+}
+
 /** Conservative mapping: never infer a cutoff from text, ordering alone, or tool-result messages. */
-export function matchClaudeHistory(local: LocalTurn[], native: SessionMessage[], nativeId: string): NativeTurn[] {
+export function matchClaudeHistory(local: LocalTurn[], native: SessionMessage[], nativeId: string,
+  inherited: InheritedUserIds): NativeTurn[] {
   if (!local.length) throw new Error(UNAVAILABLE);
   const turns = groupClaudeTurns(native, nativeId);
   if (turns.length !== local.length) throw new Error(UNAVAILABLE);
-  verifyLocalTurns(local, turns);
+  verifyLocalTurns(local, turns, inherited);
   return turns;
 }
 
@@ -153,26 +167,22 @@ export function matchClaudeHistory(local: LocalTurn[], native: SessionMessage[],
  * the rollback and may be unverifiable without blocking it.
  */
 export function matchClaudeHistoryPrefix(local: LocalTurn[], native: SessionMessage[], nativeId: string,
-  turnCount: number): NativeTurn[] {
+  turnCount: number, inherited: InheritedUserIds): NativeTurn[] {
   if (turnCount > local.length) throw new Error(UNAVAILABLE);
   if (turnCount === 0) return [];
   const turns = groupClaudeTurns(native, nativeId, { limit: turnCount });
   if (turns.length !== turnCount) throw new Error(UNAVAILABLE);
-  verifyLocalTurns(local.slice(0, turnCount), turns);
+  verifyLocalTurns(local.slice(0, turnCount), turns, inherited);
   return turns;
 }
 
 /** A local turn matches its native turn by user identity, prompt text, and reply (or the lack of one). */
-function verifyLocalTurns(local: LocalTurn[], turns: NativeTurn[]): void {
-  const inherited = { get: (messageId: string) => {
-    const nativeUserId = getClaudeInheritedUserId(messageId);
-    return nativeUserId ? { native_user_id: nativeUserId } : null;
-  } };
+function verifyLocalTurns(local: LocalTurn[], turns: NativeTurn[], inherited: InheritedUserIds): void {
   for (const [index, nativeTurn] of turns.entries()) {
     const { user, reply } = local[index]!;
     const userText = user.parts.filter(part => part.type === 'text');
     if (user.parts.length !== 1 || userText.length !== 1
-      || nativeTurn.userId !== (inherited.get(user.message.id)?.native_user_id ?? user.message.id)
+      || nativeTurn.userId !== (inherited.get(user.message.id) ?? user.message.id)
       || nativeTurn.userText !== userText[0]!.text || nativeTurn.answered !== !!reply) {
       throw new Error(UNAVAILABLE);
     }
@@ -198,10 +208,10 @@ export function applyClaudeRollback(input: {
   sessionId: string; operation: 'edit' | 'revert'; targetId: string; content: string | null;
   originalNativeId: string | null; newNativeId: string | null; firstRemoved: number;
   inheritedUsers: Array<{ messageId: string; nativeId: string }>;
-}): RevertExecutionResult {
-  return getDatabase().transaction(() => {
-    const intent = getClaudeRollbackIntent(input.sessionId);
-    const binding = getClaudeBinding(input.sessionId);
+}): Promise<RevertExecutionResult> {
+  return storeTransaction(async (tx) => {
+    const intent = await getClaudeRollbackIntent(input.sessionId);
+    const binding = await getClaudeBinding(input.sessionId);
     // Resetting to the first message discards the native conversation, even a pending one.
     const reset = input.firstRemoved === 0;
     if (intent?.phase !== 'fork' || intent.target_message_id !== input.targetId
@@ -209,7 +219,7 @@ export function applyClaudeRollback(input: {
       || !reset && binding?.pending !== 0 || reset && input.newNativeId) {
       throw new Error('Claude rollback state changed');
     }
-    const local = listMessagesWithParts(input.sessionId);
+    const local = await listMessagesWithParts(input.sessionId);
     const target = local[input.firstRemoved];
     if (!target || target.message.role !== 'user'
       || input.operation === 'edit' && (input.content === null || target.message.id !== input.targetId)) {
@@ -224,33 +234,32 @@ export function applyClaudeRollback(input: {
         kept[index]!.user.message.id !== item.messageId || !item.nativeId)) {
       throw new Error('Claude inherited history changed');
     }
+    // A concurrent change re-runs these reads; the checks above then decide again.
+    tx.check({ check: 'session.messageIds', sessionId: input.sessionId, ids: local.map(entry => entry.message.id) });
     if (input.operation === 'edit') {
       const part = target.parts[0];
-      if (part?.type !== 'text' || !updatePart(part.id, { text: input.content })) {
-        throw new Error('Claude edit text is unavailable');
-      }
+      if (part?.type !== 'text') throw new Error('Claude edit text is unavailable');
+      tx.write({ op: 'part.update', id: part.id, updates: { text: input.content } });
     }
-    for (const id of result.removed.messageIds) {
-      if (!deleteMessage(id)) throw new Error('Claude rollback deletion failed');
-    }
+    for (const id of result.removed.messageIds) tx.write({ op: 'message.delete', id });
     if (input.newNativeId) {
-      if (!rebindClaudeSession(input.sessionId, input.originalNativeId, input.newNativeId)) {
+      if (!await rebindClaudeSession(tx, input.sessionId, input.originalNativeId, input.newNativeId)) {
         throw new Error('Claude rollback binding changed');
       }
     } else if (!reset) {
       throw new Error('Claude rollback binding changed');
     } else if (input.originalNativeId) {
-      deleteClaudeBinding(input.sessionId, input.originalNativeId);
+      await deleteClaudeBinding(tx, input.sessionId, input.originalNativeId);
     }
     for (const item of input.inheritedUsers) {
-      setClaudeInheritedUserId(input.sessionId, item.messageId, item.nativeId);
+      setClaudeInheritedUserId(tx, input.sessionId, item.messageId, item.nativeId);
     }
     if (input.operation === 'edit') {
-      deleteClaudeInheritedUserId(target.message.id);
-      setClaudeRollbackPhase(input.sessionId, 'ready');
+      deleteClaudeInheritedUserId(tx, target.message.id);
+      await setClaudeRollbackPhase(tx, input.sessionId, 'ready');
     } else {
-      deleteClaudeRollbackIntent(input.sessionId);
+      await deleteClaudeRollbackIntent(tx, input.sessionId);
     }
     return result;
-  })();
+  });
 }
