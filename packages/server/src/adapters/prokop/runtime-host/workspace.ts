@@ -7,7 +7,7 @@ import {
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
-import { createProkopToolWorkspaceHost } from '@/agent';
+import { createProkopToolWorkspaceHost } from '@prokopai/agent';
 
 const managedWorktrees = createManagedWorktreeRepository(getDatabase);
 

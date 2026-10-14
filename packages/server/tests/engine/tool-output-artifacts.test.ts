@@ -9,7 +9,7 @@ import {
   TOOL_OUTPUT_PREVIEW_CHARS,
   TOOL_OUTPUT_THRESHOLD_CHARS,
   wrapToolsWithOutputPolicy,
-} from '@/harnesses/prokop/tool-output/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/tool-output/policy';
 import {
   createCapekToolOutputEnvelope,
   isCapekToolOutputEnvelope,

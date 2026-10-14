@@ -19,8 +19,8 @@ import type { AutoResponderRule, SandboxControlEvent } from '@prokopai/core/infr
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
-import { rejectAsk, resolveAsk } from '@/harnesses/prokop/permission/ask-user-api';
+import { streamChatWithRetry } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
+import { rejectAsk, resolveAsk } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import type { Preconfig } from '@prokopai/sdk/types';
 
 export const DEFAULT_PROMPT = `You are a practical coding and research agent. Inspect the workspace with the available tools before making claims, then answer with concrete findings. Only make changes when the user asks for them. Ask a focused question when required information is missing.`;

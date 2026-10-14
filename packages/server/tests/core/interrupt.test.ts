@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
-import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
+import { interruptManager } from '@prokopai/agent/internal/harnesses/prokop/execution/interrupt';
 
 describe('InterruptManager', () => {
   let sessionId: string;

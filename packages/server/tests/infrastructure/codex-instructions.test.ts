@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { Preconfig, Workspace } from '@prokopai/sdk';
-import { codexDeveloperInstructions, defaultCodexPreconfigId } from '@/harnesses/codex-cli/instructions';
+import { codexDeveloperInstructions, defaultCodexPreconfigId } from '@prokopai/agent/internal/harnesses/codex-cli/instructions';
 
 const primary = { id: 'primary', mode: 'primary', systemPrompt: 'Work carefully.' } as Preconfig;
 const other = { id: 'other', mode: 'primary', systemPrompt: 'Another.' } as Preconfig;

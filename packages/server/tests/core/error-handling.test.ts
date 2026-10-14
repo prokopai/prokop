@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { createErrorEvent } from '@/harnesses/prokop/execution/error-handling';
+import { createErrorEvent } from '@prokopai/agent/internal/harnesses/prokop/execution/error-handling';
 import { classifyApiError } from '@prokopai/core/infrastructure/providers/errors';
 
 describe('createErrorEvent', () => {

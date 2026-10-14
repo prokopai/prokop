@@ -14,7 +14,7 @@ import type { LoadedTool } from '@prokopai/sdk/tool';
 import { getBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { prokopPreconfigSource } from '@/agent';
+import { prokopPreconfigSource } from '@prokopai/agent';
 import { createMcpAccess, createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));

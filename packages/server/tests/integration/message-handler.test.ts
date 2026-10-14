@@ -25,11 +25,11 @@ import {
   deleteQueuedMessage,
   getNextQueuedMessage,
 } from '@/infrastructure/sqlite/queued-messages';
-import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
-import { revertToStep } from '@/harnesses/prokop/execution/revert';
-import { forkSession } from '@/harnesses/prokop/execution/fork';
-import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { resolveAsk, createAskApi } from '@/harnesses/prokop/permission/ask-user-api';
+import { executeCompaction } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
+import { revertToStep } from '@prokopai/agent/internal/harnesses/prokop/execution/revert';
+import { forkSession } from '@prokopai/agent/internal/harnesses/prokop/execution/fork';
+import { interruptManager } from '@prokopai/agent/internal/harnesses/prokop/execution/interrupt';
+import { resolveAsk, createAskApi } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import { getWorkspaceGrants, revokeGrant, revokeAllWorkspaceGrants } from '@/infrastructure/sqlite/permissions';
 import type { AssistantMessage, ToolPart, ServerMessage } from '@prokopai/sdk';
 

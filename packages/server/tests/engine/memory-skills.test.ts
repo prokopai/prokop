@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { MEMORY_CHAR_LIMIT, USER_CHAR_LIMIT } from '@/harnesses/shared/memory/registry';
-import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
-import { executeSkillTool } from '@/harnesses/shared/skills/skill-tool';
-import { scanSkills } from '@/harnesses/shared/skills/registry';
+import { executeMemoryTool } from '@prokopai/agent/internal/harnesses/shared/memory/memory-tool';
+import { MEMORY_CHAR_LIMIT, USER_CHAR_LIMIT } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
+import { executeSkillManageTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
+import { executeSkillTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-tool';
+import { scanSkills } from '@prokopai/agent/internal/harnesses/shared/skills/registry';
 
 const root = join(process.cwd(), '.tmp-capek-memory-skills');
 

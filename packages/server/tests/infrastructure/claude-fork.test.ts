@@ -11,7 +11,7 @@ import { updateSession } from '@/infrastructure/sqlite/session-store';
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { createPart, listMessagesWithParts, updateMessage } from '@/infrastructure/sqlite/message-store';
 import { getClaudeModelSelection, saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
+import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude-cli/execution';
 import { deleteLegacyRow, insertLegacyRow, legacyRow, legacyRows, pick } from '#tests/helpers/legacy-native';
 
 const root = realpathSync(process.cwd());

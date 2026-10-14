@@ -6,7 +6,7 @@ import {
   isFilePart,
   parseToolInput,
   createStepPart,
-} from '@/harnesses/prokop/execution/part-utils';
+} from '@prokopai/agent/internal/harnesses/prokop/execution/part-utils';
 import type { Part } from '@prokopai/sdk';
 
 describe('type guards', () => {

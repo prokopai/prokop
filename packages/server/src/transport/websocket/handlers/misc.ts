@@ -5,7 +5,7 @@ import { sandboxController } from '@prokopai/core/infrastructure/sandbox/control
 import type { SandboxRespondMessage } from '@prokopai/core/infrastructure/sandbox/types';
 import {
   resolveAsk as capekResolveAsk, getSessionIdForPendingAsk as capekGetSessionIdForPendingAsk, getAuthorityForPendingAsk as capekGetAuthorityForPendingAsk,
-} from '@/agent';
+} from '@prokopai/agent';
 import { getBrowserRequestsPort } from '@/application/ports/browser';
 import { getControlState } from '@/transport/websocket/control-registry';
 import { requireWireApplication } from '@/transport/websocket/application';

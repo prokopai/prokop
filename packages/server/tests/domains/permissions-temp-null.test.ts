@@ -3,8 +3,8 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { analyzeCommand, classifyFileOperation, decide, effectivePath } from '@prokopai/core/domains/permissions';
-import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
-import { classifyCodexHook, type CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
+import { classifyClaudeTool } from '@prokopai/agent/internal/harnesses/claude-cli/tool-policy';
+import { classifyCodexHook, type CodexHookCall } from '@prokopai/agent/internal/harnesses/codex-cli/hook-policy';
 
 const fixtures: string[] = [];
 afterEach(() => { for (const path of fixtures.splice(0)) rmSync(path, { recursive: true, force: true }); });

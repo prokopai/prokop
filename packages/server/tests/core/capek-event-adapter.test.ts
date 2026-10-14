@@ -5,7 +5,7 @@ import {
   createProkopRuntimeContext,
   mapCapekEventToServerMessage,
   type ProkopEventRouter,
-} from '@/harnesses/prokop/bindings/events';
+} from '@prokopai/agent/internal/harnesses/prokop/bindings/events';
 import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
 
 function map(event: RuntimeEvent): unknown {

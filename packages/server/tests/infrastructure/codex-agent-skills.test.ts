@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig } from '@prokopai/sdk';
-import { agentSkillsDomainTools } from '@/harnesses/shared/domain-tools';
-import { createCodexAgentSkillTools } from '@/harnesses/codex-cli/agent-skill-tools';
-import { formatCodexAgentSkills, listCodexAgentSkills } from '@/harnesses/codex-cli/agent-skills';
-import { codexDeveloperInstructions } from '@/harnesses/codex-cli/instructions';
+import { agentSkillsDomainTools } from '@prokopai/agent/internal/harnesses/shared/domain-tools';
+import { createCodexAgentSkillTools } from '@prokopai/agent/internal/harnesses/codex-cli/agent-skill-tools';
+import { formatCodexAgentSkills, listCodexAgentSkills } from '@prokopai/agent/internal/harnesses/codex-cli/agent-skills';
+import { codexDeveloperInstructions } from '@prokopai/agent/internal/harnesses/codex-cli/instructions';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';

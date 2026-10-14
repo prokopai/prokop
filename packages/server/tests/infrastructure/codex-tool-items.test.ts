@@ -7,7 +7,7 @@ import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import type { ServerMessage, ToolPart } from '@prokopai/sdk';
 import type { ToolCatalogEntry } from '@prokopai/core/application/ports/tool-catalog';
 import { getToolDebugData, projectMessagesForClient } from '@prokopai/core/application/sessions/tool-debug';
-import { CodexToolItems } from '@/harnesses/codex-cli/tool-items';
+import { CodexToolItems } from '@prokopai/agent/internal/harnesses/codex-cli/tool-items';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';

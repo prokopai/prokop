@@ -35,8 +35,8 @@ import {
 } from '@/infrastructure/sqlite/message-store';
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { revertToStep } from '@/harnesses/prokop/execution/revert';
-import { forkSession } from '@/harnesses/prokop/execution/fork';
+import { revertToStep } from '@prokopai/agent/internal/harnesses/prokop/execution/revert';
+import { forkSession } from '@prokopai/agent/internal/harnesses/prokop/execution/fork';
 import { createTestSession } from '#tests/factories';
 import type { AssistantMessage, Part, ToolPart } from '@prokopai/sdk';
 

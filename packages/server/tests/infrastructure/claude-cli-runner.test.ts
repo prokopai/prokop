@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { runClaudeTextTurn, type ClaudeProcess } from '@/harnesses/claude-cli/runner';
+import { runClaudeTextTurn, type ClaudeProcess } from '@prokopai/agent/internal/harnesses/claude-cli/runner';
 
 const sessionId = '8ff16bb5-e2ac-4892-ae7c-a24ec8e5701d';
 

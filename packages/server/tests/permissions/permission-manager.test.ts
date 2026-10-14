@@ -9,7 +9,7 @@ import {
   rejectPermissionsBySession,
   getPendingRequestsByRootSession,
   hasPendingWaiter,
-} from '@/harnesses/prokop/permission/permission-request-manager';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { listPendingAsksBySession } from '@/infrastructure/sqlite/pending-asks';
 import {
   getWorkspaceGrants,

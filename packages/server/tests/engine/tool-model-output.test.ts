@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { MessageWithParts, ToolModelOutputPart, ToolPart } from '@prokopai/sdk/types';
-import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
-import { createStreamHandlers } from '@/harnesses/prokop/execution/stream-handlers';
-import { buildExternalTools } from '@/harnesses/prokop/execution/tool-builders/external-tools';
+import { convertToAiSdkMessages } from '@prokopai/agent/internal/harnesses/prokop/execution/message-utils';
+import { createStreamHandlers } from '@prokopai/agent/internal/harnesses/prokop/execution/stream-handlers';
+import { buildExternalTools } from '@prokopai/agent/internal/harnesses/prokop/execution/tool-builders/external-tools';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage, createMessage, createPart, createSession, getPart } from '@prokopai/core/infrastructure/storage/runtime';
 import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';

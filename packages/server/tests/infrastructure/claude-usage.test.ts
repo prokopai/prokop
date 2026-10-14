@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { parseClaudeUsage } from '@/harnesses/claude-cli/usage';
+import { parseClaudeUsage } from '@prokopai/agent/internal/harnesses/claude-cli/usage';
 
 const row = { inputTokens: 4, outputTokens: 2, cacheReadInputTokens: 3,
   cacheCreationInputTokens: 1, costUSD: 0.01, contextWindow: 200000 };

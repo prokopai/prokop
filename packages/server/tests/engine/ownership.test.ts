@@ -7,16 +7,24 @@ const repositoryRoot = resolve(import.meta.dir, '../../../..');
 const sourceRoot = resolve(repositoryRoot, 'packages/server/src');
 // Shared runtime core (packages/core, host/agent split phase 2.5c).
 const coreRoot = resolve(repositoryRoot, 'packages/core/src');
-const prokopRoot = resolve(sourceRoot, 'harnesses/prokop');
+// Harnesses live in the agent package (host/agent split phase 2.5d) and import each other as `#agent/...`.
+const agentRoot = resolve(repositoryRoot, 'packages/agent/src');
+const prokopRoot = resolve(agentRoot, 'harnesses/prokop');
 const kernelRoot = resolve(prokopRoot, 'composition/kernel');
+
+function targetOf(specifier: string, from: string): string | null {
+  if (specifier.startsWith('#agent/')) return resolve(agentRoot, specifier.slice('#agent/'.length));
+  return resolveLocalSpecifier(specifier, from, sourceRoot);
+}
 
 function importsUnder(directory: string): Array<{ file: string; specifier: string; target: string | null }> {
   if (!existsSync(directory)) return [];
+  const base = isWithin(directory, agentRoot) ? agentRoot : sourceRoot;
   return scanDirectory(directory).filter(file => !file.path.endsWith('.test.ts')).flatMap(file =>
     parseImports(file.sourceText, file.path).map(imp => ({
-      file: relative(sourceRoot, file.path),
+      file: relative(base, file.path),
       specifier: imp.specifier,
-      target: resolveLocalSpecifier(imp.specifier, file.path, sourceRoot),
+      target: targetOf(imp.specifier, file.path),
     })));
 }
 
@@ -40,8 +48,9 @@ describe('server-owned engine boundaries', () => {
       'harnesses/codex-cli', 'harnesses/claude-cli',
     ];
     for (const directory of directories) {
-      // Shared services moved to packages/core keep the same folders there.
-      const imports = [...importsUnder(resolve(sourceRoot, directory)), ...importsUnder(resolve(coreRoot, directory))];
+      // Shared services moved to packages/core and the harnesses to packages/agent keep their folders there.
+      const imports = [...importsUnder(resolve(sourceRoot, directory)), ...importsUnder(resolve(coreRoot, directory)),
+        ...importsUnder(resolve(agentRoot, directory))];
       expect(imports.length).toBeGreaterThan(0);
       expect(imports.filter(imp => imp.target && isWithin(imp.target, prokopRoot))).toEqual([]);
     }
@@ -67,10 +76,10 @@ describe('server-owned engine boundaries', () => {
 
   test('execution consumes contributed domains without importing their implementations', () => {
     const forbidden = ['goals', 'subagent', 'workflow', 'scheduler', 'composition/plugins'].map(dir => resolve(prokopRoot, dir));
-    forbidden.push(resolve(sourceRoot, 'harnesses/shared'));
+    forbidden.push(resolve(agentRoot, 'harnesses/shared'));
     const violations = importsUnder(resolve(prokopRoot, 'execution')).filter(imp => {
-      if (imp.file === 'harnesses/prokop/execution/chat-handler.ts' && imp.specifier === '@/harnesses/prokop/goals/service') return false;
-      if (imp.file === 'harnesses/prokop/execution/agent.ts' && imp.specifier === '@/harnesses/prokop/subagent/policy') return false;
+      if (imp.file === 'harnesses/prokop/execution/chat-handler.ts' && imp.specifier === '#agent/harnesses/prokop/goals/service') return false;
+      if (imp.file === 'harnesses/prokop/execution/agent.ts' && imp.specifier === '#agent/harnesses/prokop/subagent/policy') return false;
       return imp.target && forbidden.some(dir => isWithin(imp.target!, dir));
     });
     expect(violations).toEqual([]);

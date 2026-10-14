@@ -11,8 +11,8 @@ import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events'
 import type { ConnectableProvider, ModelFactoryOptions } from '@prokopai/core/infrastructure/providers/types';
 import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createRuntime } from '@/bootstrap/create-runtime';
-import { executeCompaction, isCompactionActive } from '@/harnesses/prokop/compaction/executor';
-import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
+import { executeCompaction, isCompactionActive } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
+import { convertToAiSdkMessages } from '@prokopai/agent/internal/harnesses/prokop/execution/message-utils';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import {
   createMessage,

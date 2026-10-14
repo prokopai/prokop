@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
-import { goalIsTerminal, parseCodexGoal, publishCodexGoal, validGoalBudget } from '@/harnesses/codex-cli/goal';
+import { goalIsTerminal, parseCodexGoal, publishCodexGoal, validGoalBudget } from '@prokopai/agent/internal/harnesses/codex-cli/goal';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import type { CodexGoalState, ServerMessage } from '@prokopai/sdk';
 

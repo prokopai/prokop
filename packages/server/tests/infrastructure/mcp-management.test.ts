@@ -11,8 +11,8 @@ import { createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-dis
 import type { Preconfig } from '@prokopai/sdk/types';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createClaudeWorkspaceMcp } from '@/harnesses/claude-cli/mcp-tools';
-import { createCodexMcpTools } from '@/harnesses/codex-cli/mcp-tools';
+import { createClaudeWorkspaceMcp } from '@prokopai/agent/internal/harnesses/claude-cli/mcp-tools';
+import { createCodexMcpTools } from '@prokopai/agent/internal/harnesses/codex-cli/mcp-tools';
 import type { McpServerConfig } from '@prokopai/sdk';
 
 let root: string;

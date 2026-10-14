@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ServerMessage } from '@prokopai/sdk';
-import { createAskApi, hasPendingAsk, rejectPendingAsksByToolCallId } from '@/harnesses/prokop/permission/ask-user-api';
+import { createAskApi, hasPendingAsk, rejectPendingAsksByToolCallId } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';

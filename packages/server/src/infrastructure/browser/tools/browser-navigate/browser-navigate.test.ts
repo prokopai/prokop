@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { definition, execute } from '@prokopai/core/infrastructure/browser/tools/browser-navigate/tool';
-import { createMockContext, VirtualFS, getAskCall, getAllAskCalls } from '@/harnesses/prokop/tools/test-utils';
+import { createMockContext, VirtualFS, getAskCall, getAllAskCalls } from '@prokopai/agent/internal/harnesses/prokop/tools/test-utils';
 
 let vfs: VirtualFS;
 let ctx: ReturnType<typeof createMockContext>;

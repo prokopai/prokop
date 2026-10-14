@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addEntry, removeEntry, replaceEntry } from '@/harnesses/shared/memory/registry';
-import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
+import { addEntry, removeEntry, replaceEntry } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
+import { executeSkillManageTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
 import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
 
 let root: string;

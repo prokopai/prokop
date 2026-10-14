@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { formatHtmlRenderMarker, type HtmlRenderReference, type ServerMessage, type ToolPart } from '@prokopai/sdk';
-import { CodexToolItems } from '@/harnesses/codex-cli/tool-items';
-import { claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
+import { CodexToolItems } from '@prokopai/agent/internal/harnesses/codex-cli/tool-items';
+import { claudeToolName, claudeToolSummary, claudeToolVisualization } from '@prokopai/agent/internal/harnesses/shared/tool-viz';
 import { mcpModelOutput } from '@prokopai/core/infrastructure/mcp/model-output';
 import { createMessage, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createSession } from '@/infrastructure/sqlite/session-store';

@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/plugins/compose';
-import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
+import { capekToolResolverKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
+import { loadedToolsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/loaded-tools';
 import type { ToolContext, ToolDefinition } from '@prokopai/sdk/tool';
-import { createLearningToolsPlugins, type LearningToolsOptions } from '@/harnesses/prokop/learning/learning-tools';
+import { createLearningToolsPlugins, type LearningToolsOptions } from '@prokopai/agent/internal/harnesses/prokop/learning/learning-tools';
 
 const definitions: ToolDefinition[] = ['memory', 'agent_memory', 'skill_manage', 'agent_skill_manage', 'session_search'].map(name => ({
   name, description: name, inputSchema: { type: 'object', properties: {} },

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { Workspace } from '@prokopai/sdk';
-import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
+import { cliWorkspaceAvailable } from '@prokopai/agent/internal/harnesses/shared/cli-workspace';
 
 function workspace(overrides: Partial<Workspace>): Workspace {
   return { id: 'ws', name: 'ws', path: '/tmp/ws', isVirtual: false, settings: {}, ...overrides } as unknown as Workspace;

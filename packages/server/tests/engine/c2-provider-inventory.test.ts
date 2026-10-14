@@ -13,13 +13,13 @@ import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
-import { ScopeValidationError } from '@/harnesses/prokop/composition/kernel/errors';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
+import { ScopeValidationError } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/errors';
 import {
   createAgentScope,
   createProcessScope,
-} from '@/harnesses/prokop/composition/kernel/kernel';
-import type { RuntimePlugin, PluginContext } from '@/harnesses/prokop/composition/kernel/types';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import type { RuntimePlugin, PluginContext } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
 import {
   createComposition,
   enterAgentScope,
@@ -50,15 +50,15 @@ import {
   capekStorageKey,
   capekToolResolverKey,
   capekWorkspaceToolDiscoveryKey,
-} from '@/harnesses/prokop/composition/plugins/service-keys';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import { configureSchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import type { SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import type { SessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { configureSchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import type { SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
+import type { SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { getTool } from '@prokopai/core/infrastructure/tools/registry';

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { listClaudeModels } from '@/harnesses/claude-cli/models';
-import { claudeTextTurnArgs } from '@/harnesses/claude-cli/command';
+import { listClaudeModels } from '@prokopai/agent/internal/harnesses/claude-cli/models';
+import { claudeTextTurnArgs } from '@prokopai/agent/internal/harnesses/claude-cli/command';
 
 const discovered = [
   { value: 'sonnet', resolvedModel: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6',

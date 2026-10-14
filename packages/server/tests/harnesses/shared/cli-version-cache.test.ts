@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { executableIdentity, memoizeCliProbe } from '@/harnesses/shared/cli-version-cache';
+import { executableIdentity, memoizeCliProbe } from '@prokopai/agent/internal/harnesses/shared/cli-version-cache';
 
 test('CLI probe runs once per executable identity', () => {
   let identity: string | null = 'bin-a';

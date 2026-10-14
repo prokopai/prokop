@@ -6,8 +6,8 @@ import {
   initializeProkopExecutionScope,
   resetProkopExecutionCompositionFactoryForTests,
   withProkopExecutionScope,
-} from '@/harnesses/prokop/composition/execution-scope';
-import { createAskApi } from '@/harnesses/prokop/permission/ask-user-api';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/execution-scope';
+import { createAskApi } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 

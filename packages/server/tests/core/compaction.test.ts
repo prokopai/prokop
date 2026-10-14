@@ -1,13 +1,13 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
-import { getDefaultCompactionPolicy, resolveCompactionPolicy } from '@/harnesses/prokop/compaction/policy';
+import { getDefaultCompactionPolicy, resolveCompactionPolicy } from '@prokopai/agent/internal/harnesses/prokop/compaction/policy';
 import {
   createCompactionTrigger,
   processCompactionTask,
   persistCompactionFailure,
-} from '@/harnesses/prokop/compaction/task';
-import type { GenerateSummaryFn } from '@/harnesses/prokop/compaction/contracts';
+} from '@prokopai/agent/internal/harnesses/prokop/compaction/task';
+import type { GenerateSummaryFn } from '@prokopai/agent/internal/harnesses/prokop/compaction/contracts';
 import { createMessage, createPart, getPartsBySession, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import type { AssistantMessage, CompactionPart, ToolPart } from '@prokopai/sdk';
 import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';

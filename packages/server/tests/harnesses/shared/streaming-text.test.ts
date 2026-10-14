@@ -4,7 +4,7 @@ import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createMessage, createPart, getPart } from '@/infrastructure/sqlite/message-store';
-import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
+import { StreamingTextWriter } from '@prokopai/agent/internal/harnesses/shared/streaming-text';
 
 let sessionId: string;
 let part: TextPart;

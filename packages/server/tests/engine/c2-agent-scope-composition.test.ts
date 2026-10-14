@@ -20,10 +20,10 @@ import { createStandaloneHost } from '#tests/engine/helpers/standalone-host';
 import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
 import { expandPath } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import { configureSchedulerHost } from '@/harnesses/prokop/scheduler/host';
+import { configureSchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
-import { capekStorageKey, capekProviderRegistryKey } from '@/harnesses/prokop/composition/plugins/service-keys';
+import { capekStorageKey, capekProviderRegistryKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 const roots: string[] = [];
 

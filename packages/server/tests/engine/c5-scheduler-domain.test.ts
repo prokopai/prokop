@@ -18,9 +18,9 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ScheduledJob, Session, Workspace } from '@prokopai/sdk/types';
-import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
 import {
@@ -29,12 +29,12 @@ import {
   SCHEDULER_TOOL_CONTRIBUTION_ORDER,
   capekSchedulerDomainKey,
   installSchedulerToolFallback,
-} from '@/harnesses/prokop/composition/plugins/scheduler-domain';
-import { CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/session-search-domain';
-import { CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/subagent-domain';
-import { CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/workflow-domain';
-import { CURRENT_MEMORY_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { CURRENT_SKILLS_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/skills-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
+import { CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
+import { CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
+import { CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
+import { CURRENT_MEMORY_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { CURRENT_SKILLS_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import {
   resetDomainToolFallbacksForTests,
@@ -42,12 +42,12 @@ import {
   getDomainToolFallback,
 } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
-import { resolvePermission } from '@/harnesses/prokop/permission/permission-request-manager';
+import { resolvePermission } from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 

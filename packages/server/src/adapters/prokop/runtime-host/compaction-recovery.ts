@@ -5,7 +5,7 @@
 
 import {
   reconcileAllSessionsCompaction as reconcileAllSessionsWithDeps, reconcileSessionCompaction as reconcileSessionWithDeps, type CompactionRecoveryDeps, mapCapekEventToServerMessage,
-} from '@/agent';
+} from '@prokopai/agent';
 import type { RuntimeEventSink } from '@prokopai/core/infrastructure/runtime/events';
 import type { CompactionRecoveryPort } from '@prokopai/core/application/ports/session';
 import {

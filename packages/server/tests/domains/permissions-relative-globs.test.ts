@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { homedir } from 'node:os';
 import { analyzeCommand, classifyShellCommand } from '@prokopai/core/domains/permissions';
-import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
-import { classifyCodexHook, type CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
+import { classifyClaudeTool } from '@prokopai/agent/internal/harnesses/claude-cli/tool-policy';
+import { classifyCodexHook, type CodexHookCall } from '@prokopai/agent/internal/harnesses/codex-cli/hook-policy';
 
 const root = '/permission-fixture/project';
 const context = { roots: [root], cwd: root, home: homedir() };

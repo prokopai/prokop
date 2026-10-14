@@ -10,7 +10,7 @@ import type { SessionHarness } from '@prokopai/sdk';
 import { installHarnessNotificationPort, type HarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 import {
   localHarnessProbes, composeAgentSide, configureAgentTerminals, configureKnowledgeWrites, executeMemoryTool, getSessionSearchHost, executeSkillManageTool, directAgentAsks, type AgentExecutor, type AgentHeadlessRun,
-} from '@/agent';
+} from '@prokopai/agent';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
 import { configureHarnessProbes } from '@prokopai/core/application/ports/harness-probes';

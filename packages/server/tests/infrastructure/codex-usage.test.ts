@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
-import { parseCodexContextUsage, publishCodexContextUsage } from '@/harnesses/codex-cli/usage';
+import { parseCodexContextUsage, publishCodexContextUsage } from '@prokopai/agent/internal/harnesses/codex-cli/usage';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';

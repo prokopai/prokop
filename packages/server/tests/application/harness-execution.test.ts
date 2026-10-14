@@ -3,7 +3,7 @@ import type { Session } from '@prokopai/sdk';
 import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createHarnessExecution, type HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
-import { createClaudeCliHarness } from '@/harnesses/claude-cli';
+import { createClaudeCliHarness } from '@prokopai/agent/internal/harnesses/claude-cli/index';
 
 function fixture() {
   const calls: string[] = [];

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { unwrapCodexApprovalCommand } from '@/harnesses/codex-cli/approval-command';
+import { unwrapCodexApprovalCommand } from '@prokopai/agent/internal/harnesses/codex-cli/approval-command';
 
 test('decodes one shell wrapper while preserving exact script contents', () => {
   for (const shell of ['/bin/zsh', '/bin/bash', '/usr/bin/bash', 'sh']) {

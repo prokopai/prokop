@@ -18,14 +18,14 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk/types';
-import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
+import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
-import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
@@ -35,30 +35,30 @@ import {
   WORKFLOW_TOOL_CONTRIBUTION_ORDER,
   capekWorkflowDomainKey,
   installWorkflowToolFallback,
-} from '@/harnesses/prokop/composition/plugins/workflow-domain';
-import { orchestratorSessionProviderPlugin } from '@/harnesses/prokop/composition/plugins/orchestrator-session';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
+import { orchestratorSessionProviderPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/orchestrator-session';
 import {
   capekOrchestratorSessionKey,
   type OrchestratorSessionContract,
-} from '@/harnesses/prokop/composition/plugins/service-keys';
-import { runOrchestratorSession } from '@/harnesses/prokop/workflow/orchestrator-session';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
+import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/workflow/orchestrator-session';
 import {
   executeWorkflowWithDeps,
   MAX_CONCURRENCY,
   type WorkflowServiceDeps,
-} from '@/harnesses/prokop/workflow/execution';
+} from '@prokopai/agent/internal/harnesses/prokop/workflow/execution';
 import {
   decomposeTaskWithDeps,
   MAX_SUBTASKS,
   type DecomposeTaskDeps,
-} from '@/harnesses/prokop/workflow/decomposer';
-import { synthesizeResultsWithDeps } from '@/harnesses/prokop/workflow/synthesizer';
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/kernel/kernel';
+} from '@prokopai/agent/internal/harnesses/prokop/workflow/decomposer';
+import { synthesizeResultsWithDeps } from '@prokopai/agent/internal/harnesses/prokop/workflow/synthesizer';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-import type { SubagentInput, SubagentOutput } from '@/harnesses/prokop/subagent/task-tool';
+import type { SubagentInput, SubagentOutput } from '@prokopai/agent/internal/harnesses/prokop/subagent/task-tool';
 
 const roots: string[] = [];
 

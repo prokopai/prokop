@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { installSchedulerToolFallback } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
-import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
-import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
-import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
+import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { installSchedulerToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
+import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
+import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
+import { installTaskToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
+import { installWorkflowToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
 import {
   getContributedDomainToolPayloads,
   getDomainToolFallback,

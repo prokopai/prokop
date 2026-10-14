@@ -7,9 +7,9 @@
  */
 
 import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
-import type { ContextSources } from '@/harnesses/prokop/context/sources';
+import type { ContextSources } from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import type { LoadedTool } from '@prokopai/sdk/tool';
-import type { RuntimePlugin } from '@/harnesses/prokop/composition/kernel/types';
+import type { RuntimePlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
 import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
 import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
@@ -17,17 +17,17 @@ import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contra
 import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import type { WorkspacePolicyOptions } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
-import { getSchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createContextSectionsPlugin } from '@/harnesses/prokop/composition/plugins/context-sections';
-import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
-import { retryPolicyPlugin } from '@/harnesses/prokop/composition/plugins/retry-policy';
-import { compactionPolicyPlugin } from '@/harnesses/prokop/composition/plugins/compaction-policy';
-import { permissionPolicyPlugin } from '@/harnesses/prokop/composition/plugins/permission-policy';
-import { workspacePolicyPlugin } from '@/harnesses/prokop/composition/plugins/workspace-policy';
-import { toolOutputPolicyPlugin } from '@/harnesses/prokop/composition/plugins/tool-output-policy';
-import { defaultAgentDriverPlugin } from '@/harnesses/prokop/composition/plugins/default-agent-driver';
-import { contributedToolResolverPlugin } from '@/harnesses/prokop/composition/plugins/tool-catalog';
+import { getSchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
+import { createContextSectionsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
+import { loadedToolsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/loaded-tools';
+import { retryPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/retry-policy';
+import { compactionPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compaction-policy';
+import { permissionPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/permission-policy';
+import { workspacePolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workspace-policy';
+import { toolOutputPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/tool-output-policy';
+import { defaultAgentDriverPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/default-agent-driver';
+import { contributedToolResolverPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/tool-catalog';
 import {
   contextSourcesValuePlugin,
   providerOverridesValuePlugin,
@@ -41,7 +41,7 @@ import {
   providerRegistryValuePlugin,
   schedulerHostValuePlugin,
   sessionSearchHostValuePlugin,
-} from '@/harnesses/prokop/composition/plugins/value-plugins';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/value-plugins';
 
 export const FACADE_PROCESS_PLUGIN_IDS = [
   'facade.provider-registry',

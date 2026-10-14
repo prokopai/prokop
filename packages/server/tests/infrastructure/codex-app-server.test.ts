@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from 'bun:test';
-import { CodexAppServer, type CodexConnection } from '@/harnesses/codex-cli/app-server';
+import { CodexAppServer, type CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
 
 function fixture() {
   let controller!: ReadableStreamDefaultController<Uint8Array>;

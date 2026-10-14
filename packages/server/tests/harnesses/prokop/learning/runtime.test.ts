@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Preconfig } from '@prokopai/sdk';
 import { installLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
-import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
-import { createProkopHeadlessExecution } from '@/harnesses/prokop/execution';
-import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
+import { createProkopHeadlessExecution } from '@prokopai/agent/internal/harnesses/prokop/execution';
+import { createProkopLearningRuntime } from '@prokopai/agent/internal/harnesses/prokop/learning/index';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedSession, seedWorkspace } from '#tests/seed';
 

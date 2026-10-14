@@ -1,14 +1,14 @@
 /** Minimal composition fixture for isolated runtime tests. */
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import type { AgentScopeHandle, ProcessScopeHandle } from '@/harnesses/prokop/composition/kernel/types';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import type { AgentScopeHandle, ProcessScopeHandle } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
 import { withRuntimeHost, getRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { createStandaloneHost } from './standalone-host';
 import { createFacadeAgentPlugins, type FacadeScopeValues } from './facade-plugins';
 
 export { facadeProcessPlugins } from './facade-plugins';
-export { createAgentScope, createProcessScope, enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+export { createAgentScope, createProcessScope, enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 
 export interface Composition {
   readonly processScope: ProcessScopeHandle;

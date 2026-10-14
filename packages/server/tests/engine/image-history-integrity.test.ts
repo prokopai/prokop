@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { MessageWithParts } from '@prokopai/sdk/types';
-import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
+import { convertToAiSdkMessages } from '@prokopai/agent/internal/harnesses/prokop/execution/message-utils';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { withStorage } from '@prokopai/core/infrastructure/storage/runtime';
 

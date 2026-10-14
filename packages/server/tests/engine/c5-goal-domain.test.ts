@@ -21,23 +21,23 @@ import {
   CURRENT_GOAL_DOMAIN_PLUGIN_ID,
   capekGoalDomainKey,
   goalDomainPlugin,
-} from '@/harnesses/prokop/composition/plugins/goal-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/goal-domain';
 import {
   capekOrchestratorSessionKey,
   type OrchestratorSessionContract,
-} from '@/harnesses/prokop/composition/plugins/service-keys';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import {
   evaluateGoalWithDeps,
   buildContinuationMessage,
-} from '@/harnesses/prokop/goals/evaluator';
+} from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
 import {
   runGoalLoop,
   runGoalLoopWithDeps,
   type GoalLoopDeps,
   type RunTurnFn,
-} from '@/harnesses/prokop/goals/loop';
-import { getGoalDomain, withGoalDomain } from '@/harnesses/prokop/goals/service';
-import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/goals/loop';
+import { getGoalDomain, withGoalDomain } from '@prokopai/agent/internal/harnesses/prokop/goals/service';
+import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
@@ -267,15 +267,15 @@ describe('C5 goal composed scope ownership', () => {
       },
     };
 
-    const { createAgentScope } = await import('@/harnesses/prokop/composition/kernel/kernel');
-    const { capekStorageKey, capekRuntimeHostKey } = await import('@/harnesses/prokop/composition/plugins/service-keys');
+    const { createAgentScope } = await import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel');
+    const { capekStorageKey, capekRuntimeHostKey } = await import('@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys');
     const processScope = await createCurrentProcessScope();
     const agentScope = await createAgentScope(processScope, [
       {
         id: 'test.storage',
         scope: 'agent',
         provides: [capekStorageKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekStorageKey, scopeStorage);
         },
       },
@@ -283,7 +283,7 @@ describe('C5 goal composed scope ownership', () => {
         id: 'test.host',
         scope: 'agent',
         provides: [capekRuntimeHostKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekRuntimeHostKey, minimalHost());
         },
       },
@@ -291,7 +291,7 @@ describe('C5 goal composed scope ownership', () => {
         id: 'test.orchestrator',
         scope: 'agent',
         provides: [capekOrchestratorSessionKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekOrchestratorSessionKey, customContract);
         },
       },
@@ -328,14 +328,14 @@ describe('C5 goal composed scope ownership', () => {
     // Compose a minimal agent scope with storage, runtime host, the custom
     // orchestrator contract, and the goal domain plugin; the plugin must
     // accept the injected contract without touching workflow code.
-    const { createAgentScope } = await import('@/harnesses/prokop/composition/kernel/kernel');
-    const { capekStorageKey, capekRuntimeHostKey } = await import('@/harnesses/prokop/composition/plugins/service-keys');
+    const { createAgentScope } = await import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel');
+    const { capekStorageKey, capekRuntimeHostKey } = await import('@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys');
     const agentScope = await createAgentScope(processScope, [
       {
         id: 'test.storage',
         scope: 'agent',
         provides: [capekStorageKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekStorageKey, storage);
         },
       },
@@ -343,7 +343,7 @@ describe('C5 goal composed scope ownership', () => {
         id: 'test.host',
         scope: 'agent',
         provides: [capekRuntimeHostKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekRuntimeHostKey, minimalHost());
         },
       },
@@ -351,7 +351,7 @@ describe('C5 goal composed scope ownership', () => {
         id: 'test.orchestrator',
         scope: 'agent',
         provides: [capekOrchestratorSessionKey],
-        setup(context: import('@/harnesses/prokop/composition/kernel/types').PluginContext) {
+        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
           context.provide(capekOrchestratorSessionKey, customContract);
         },
       },

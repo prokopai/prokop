@@ -4,9 +4,9 @@ import {
   configureSessionSearchHost,
   executeSessionSearchTool,
   type SessionSearchHost,
-} from '@/harnesses/shared/session-search';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { executeSchedulerTool } from '@/harnesses/prokop/scheduler/scheduler-tool';
+} from '@prokopai/agent/internal/harnesses/shared/session-search/index';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { executeSchedulerTool } from '@prokopai/agent/internal/harnesses/prokop/scheduler/scheduler-tool';
 
 const workspace: Workspace = {
   id: 'workspace-1',

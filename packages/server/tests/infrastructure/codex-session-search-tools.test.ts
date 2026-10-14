@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import type { PermissionAsk, PermissionRiskLevel } from '@prokopai/sdk';
-import { sessionSearchDomainTools } from '@/harnesses/shared/domain-tools';
-import { createCodexSessionSearchTools } from '@/harnesses/codex-cli/session-search-tools';
+import { sessionSearchDomainTools } from '@prokopai/agent/internal/harnesses/shared/domain-tools';
+import { createCodexSessionSearchTools } from '@prokopai/agent/internal/harnesses/codex-cli/session-search-tools';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';

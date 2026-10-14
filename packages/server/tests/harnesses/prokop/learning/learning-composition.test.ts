@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from 'bun:test';
-import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
+import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { listDomainToolFallbackDefinitions } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import type { Preconfig } from '@prokopai/sdk';
-import { executeLearningComposition } from '@/harnesses/prokop/learning/learning-composition';
+import { executeLearningComposition } from '@prokopai/agent/internal/harnesses/prokop/learning/learning-composition';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedSession, seedWorkspace } from '#tests/seed';
 

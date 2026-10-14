@@ -20,22 +20,22 @@ import {
   type ToolOutputArtifactReference,
   type ToolOutputPolicyContext,
   type ToolOutputPolicyOptions,
-} from '@/harnesses/prokop/tool-output/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/tool-output/policy';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import {
   enterAgentScope,
-} from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { capekToolOutputPolicyKey } from '@/harnesses/prokop/composition/plugins/service-keys';
+import { capekToolOutputPolicyKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 const temporaryDirectories: string[] = [];
 

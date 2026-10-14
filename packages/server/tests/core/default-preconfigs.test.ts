@@ -4,7 +4,7 @@ import {
   listPreconfigs,
   getPreconfig,
 } from '@prokopai/core/infrastructure/config/preconfig';
-import { builtinTools, builtinToolNames } from '@/harnesses/prokop/tools';
+import { builtinTools, builtinToolNames } from '@prokopai/agent/internal/harnesses/prokop/tools/index';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';
 
 // The opinionated default set: initializePreconfigs writes these markdown

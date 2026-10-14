@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readClaudeGoalVerdict } from '@/harnesses/claude-cli/goal-transcript';
+import { readClaudeGoalVerdict } from '@prokopai/agent/internal/harnesses/claude-cli/goal-transcript';
 
 const originalConfig = process.env.CLAUDE_CONFIG_DIR;
 const dirs: string[] = [];

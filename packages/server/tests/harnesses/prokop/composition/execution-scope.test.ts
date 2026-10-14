@@ -1,20 +1,20 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import type { executeCompaction as CapekExecuteCompaction } from '@/harnesses/prokop/compaction/executor';
-import type { forkSession as CapekForkSession } from '@/harnesses/prokop/execution/fork';
+import type { executeCompaction as CapekExecuteCompaction } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
+import type { forkSession as CapekForkSession } from '@prokopai/agent/internal/harnesses/prokop/execution/fork';
 import type {
   handleChat as CapekHandleChat,
   handleSessionEditMessage as CapekHandleSessionEditMessage,
   regenerateSessionTitle as CapekRegenerateSessionTitle,
-} from '@/harnesses/prokop/execution/chat-handler';
-import type { revertToStep as CapekRevertToStep } from '@/harnesses/prokop/execution/revert';
+} from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
+import type { revertToStep as CapekRevertToStep } from '@prokopai/agent/internal/harnesses/prokop/execution/revert';
 import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
-import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/bindings/runtime-configuration';
+import { configureProkopRuntimeConfiguration } from '@prokopai/agent/internal/harnesses/prokop/bindings/runtime-configuration';
 import { configureProkopStorage, prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { configureProkopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
-import { createProkopSessionExecution, type ProkopSessionExecutionDependencies } from '@/harnesses/prokop/execution';
-import { createProkopHarness } from '@/harnesses/prokop';
+import { createProkopSessionExecution, type ProkopSessionExecutionDependencies } from '@prokopai/agent/internal/harnesses/prokop/execution';
+import { createProkopHarness } from '@prokopai/agent/internal/harnesses/prokop/index';
 import {
   disposeProkopExecutionScope,
   getProkopExecutionComposition,
@@ -22,7 +22,7 @@ import {
   resetProkopExecutionCompositionFactoryForTests,
   setProkopExecutionCompositionFactoryForTests,
   withProkopExecutionScope,
-} from '@/harnesses/prokop/composition/execution-scope';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/execution-scope';
 
 describe('Jean2 composed execution scope', () => {
   afterEach(async () => {

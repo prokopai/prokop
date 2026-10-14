@@ -8,12 +8,12 @@ import {
   getAskPermissionPolicy,
   resetDefaultAskPermissionPolicyForTests,
   type AskPermissionServiceCreateOptions,
-} from '@/harnesses/prokop/permission/policy';
-import type { AskPermissionPolicyService } from '@/harnesses/prokop/permission/contracts';
-import type { PermissionRuntimeService } from '@/harnesses/prokop/permission/contracts';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/policy';
+import type { AskPermissionPolicyService } from '@prokopai/agent/internal/harnesses/prokop/permission/contracts';
+import type { PermissionRuntimeService } from '@prokopai/agent/internal/harnesses/prokop/permission/contracts';
 import {
   createPermissionRuntimeService,
-} from '@/harnesses/prokop/permission/runtime';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/runtime';
 import {
   createAskApi,
   getAuthorityForPendingAsk,
@@ -23,7 +23,7 @@ import {
   rejectPendingAsksBySession,
   rejectPendingAsksByToolCallId,
   resolveAsk,
-} from '@/harnesses/prokop/permission/ask-user-api';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import {
   getPendingRequestsByRootSession as forwardedGetPending,
   getPendingWaiterCount as forwardedWaiterCount,
@@ -31,18 +31,18 @@ import {
   rejectPermissionsBySession as forwardedRejectPermissionsBySession,
   requestPermission as forwardedRequestPermission,
   resolvePermission as forwardedResolvePermission,
-} from '@/harnesses/prokop/permission/permission-request-manager';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
 import {
   enterAgentScope,
-} from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope, currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import {
   capekPermissionPolicyKey,
   capekPermissionRuntimeKey,
-} from '@/harnesses/prokop/composition/plugins/service-keys';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 interface InteractionState {
   records: Map<string, PendingAskRecord>;

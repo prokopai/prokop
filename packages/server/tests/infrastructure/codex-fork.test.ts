@@ -5,12 +5,12 @@ import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { bindCodexThread } from '@/harnesses/codex-cli/bindings';
+import { bindCodexThread } from '@prokopai/agent/internal/harnesses/codex-cli/bindings';
 import { getCodexModelSelection, saveCodexModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { forkCodexSession, upstreamUserId } from '@/harnesses/codex-cli/fork';
-import { createCodexExecution } from '@/harnesses/codex-cli/execution';
-import { applyRollback, readRollbackHistory, saveRollbackIntent } from '@/harnesses/codex-cli/rollback';
-import { CodexAppServer, type CodexConnection } from '@/harnesses/codex-cli/app-server';
+import { forkCodexSession, upstreamUserId } from '@prokopai/agent/internal/harnesses/codex-cli/fork';
+import { createCodexExecution } from '@prokopai/agent/internal/harnesses/codex-cli/execution';
+import { applyRollback, readRollbackHistory, saveRollbackIntent } from '@prokopai/agent/internal/harnesses/codex-cli/rollback';
+import { CodexAppServer, type CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
 import { codexBinding, legacyRow, legacyRows, updateLegacyRow } from '#tests/helpers/legacy-native';
 
 const root = realpathSync(process.cwd());

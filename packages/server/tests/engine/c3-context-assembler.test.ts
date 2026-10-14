@@ -20,19 +20,19 @@ import {
   setDefaultContextAssembler,
   withContextAssembler,
   type ContextAssemblyData,
-} from '@/harnesses/prokop/context/assembler';
+} from '@prokopai/agent/internal/harnesses/prokop/context/assembler';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import {
   DuplicateContributionError,
   LifecycleError,
   MalformedPluginError,
-} from '@/harnesses/prokop/composition/kernel/errors';
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import type { RuntimePlugin, PluginContext } from '@/harnesses/prokop/composition/kernel/types';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/errors';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import type { RuntimePlugin, PluginContext } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
 import { createComposition, enterAgentScope } from '#tests/engine/helpers/standalone-composition';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { StandaloneAgent } from '#tests/engine/helpers/standalone-agent';
@@ -40,18 +40,18 @@ import {
   createContextSectionsPlugin,
   createOrderedContextAssembler,
   CURRENT_CONTEXT_SECTION_IDS,
-} from '@/harnesses/prokop/composition/plugins/context-sections';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
 import {
   buildSystemMessage,
   fixedBuilderContextAssembler,
-} from '@/harnesses/prokop/composition/plugins/legacy-system-message';
-import { capekContextAssemblerKey } from '@/harnesses/prokop/composition/plugins/service-keys';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
+import { capekContextAssemblerKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import type { SandboxControlEvent, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';

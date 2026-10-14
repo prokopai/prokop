@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync, readFileSync, existsSync, mkdirSync, writeFileSync
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-import { executeSkillManageTool, buildSkillManageToolDescription } from '@/harnesses/shared/skills/skill-manage-tool';
-import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
+import { executeSkillManageTool, buildSkillManageToolDescription } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
+import { configureKnowledgeWrites } from '@prokopai/agent/internal/harnesses/shared/knowledge-writes';
 
 describe('skill_manage tool', () => {
   let testDir: string;

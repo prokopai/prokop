@@ -10,12 +10,12 @@ import {
   rejectPendingAsksBySession,
   rejectPendingAsksByToolCallId,
   resolveAsk,
-} from '@/harnesses/prokop/permission/ask-user-api';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import {
   rejectPermissionsBySession,
   requestPermission,
   resolvePermission,
-} from '@/harnesses/prokop/permission/permission-request-manager';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 

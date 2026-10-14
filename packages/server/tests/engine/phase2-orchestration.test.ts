@@ -2,44 +2,44 @@ import { describe, expect, test } from 'bun:test';
 import type { LanguageModel } from 'ai';
 import type {
   AssistantMessage, GoalState, Message, MessageWithParts, Part, Preconfig, Session } from '@prokopai/sdk/types';
-import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
+import { interruptManager } from '@prokopai/agent/internal/harnesses/prokop/execution/interrupt';
 import { SandboxLanguageModel } from '@prokopai/core/infrastructure/sandbox/model';
 import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import {
   configureAgentSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { registerProvider, resetProviders } from '@prokopai/core/infrastructure/providers/registry';
-import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
-import { canSpawnSubagent, executeSubagent } from '@/harnesses/prokop/subagent/task-tool';
-import { getSubagentResumeError } from '@/harnesses/prokop/subagent/policy';
+import { executeChildSession } from '@prokopai/agent/internal/harnesses/prokop/subagent/child-session';
+import { canSpawnSubagent, executeSubagent } from '@prokopai/agent/internal/harnesses/prokop/subagent/task-tool';
+import { getSubagentResumeError } from '@prokopai/agent/internal/harnesses/prokop/subagent/policy';
 import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
-import { evaluateGoal } from '@/harnesses/prokop/goals/evaluator';
-import { runGoalLoop } from '@/harnesses/prokop/goals/loop';
-import { executeWorkflow } from '@/harnesses/prokop/workflow/execution';
+import { evaluateGoal } from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
+import { runGoalLoop } from '@prokopai/agent/internal/harnesses/prokop/goals/loop';
+import { executeWorkflow } from '@prokopai/agent/internal/harnesses/prokop/workflow/execution';
 import {
   handleChat,
   regenerateSessionTitle,
-} from '@/harnesses/prokop/execution/chat-handler';
-import { runOrchestratorSession } from '@/harnesses/prokop/workflow/orchestrator-session';
-import { decomposeTask } from '@/harnesses/prokop/workflow/decomposer';
-import { synthesizeResults } from '@/harnesses/prokop/workflow/synthesizer';
+} from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
+import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/workflow/orchestrator-session';
+import { decomposeTask } from '@prokopai/agent/internal/harnesses/prokop/workflow/decomposer';
+import { synthesizeResults } from '@prokopai/agent/internal/harnesses/prokop/workflow/synthesizer';
 import {
   configureRuntimeHost,
   type RuntimeHost,
 } from '@prokopai/core/infrastructure/runtime/host';
-import { setDefaultContextAssembler } from '@/harnesses/prokop/context/assembler';
-import { fixedBuilderContextAssembler } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
-import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { installSchedulerToolFallback } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
-import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
-import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
-import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
-import type { StreamChatEvent } from '@/harnesses/prokop/retry/stream-chat';
+import { setDefaultContextAssembler } from '@prokopai/agent/internal/harnesses/prokop/context/assembler';
+import { fixedBuilderContextAssembler } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
+import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { installSchedulerToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
+import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
+import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
+import { installTaskToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
+import { installWorkflowToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
+import type { StreamChatEvent } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
 import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
-import type { ChatOptions } from '@/harnesses/prokop/execution/agent';
+import type { ChatOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/agent';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
@@ -315,7 +315,7 @@ describe.serial('Phase 2 orchestration contracts', () => {
       preconfig,
       prompt: 'work',
       broadcastToSession: (message) => delivered.push(message),
-      streamChat: childEvents as typeof import('@/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
+      streamChat: childEvents as typeof import('@prokopai/agent/internal/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
     });
 
     expect(state.askTargets).toHaveLength(1);
@@ -350,7 +350,7 @@ describe.serial('Phase 2 orchestration contracts', () => {
           ...options,
           streamChat: (async function* () {
             yield { type, message } as StreamChatEvent;
-          }) as typeof import('@/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
+          }) as typeof import('@prokopai/agent/internal/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
         }),
       });
 
@@ -388,7 +388,7 @@ describe.serial('Phase 2 orchestration contracts', () => {
       streamChat: (async function* (options: ChatOptions) {
         receivedMessageCount = options.messages.length;
         if (options.messages.length < 0) yield {} as StreamChatEvent;
-      }) as typeof import('@/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
+      }) as typeof import('@prokopai/agent/internal/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
     });
 
     expect(receivedMessageCount).toBe(2);

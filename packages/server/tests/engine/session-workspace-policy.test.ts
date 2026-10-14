@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ToolDefinition } from '@prokopai/sdk/tool';
 import type { RuntimeHost, SessionWorkspaceContext, ToolPolicyHost } from '@prokopai/core/infrastructure/runtime/host';
-import { buildExternalTools } from '@/harnesses/prokop/execution/tool-builders/external-tools';
+import { buildExternalTools } from '@prokopai/agent/internal/harnesses/prokop/execution/tool-builders/external-tools';
 import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import type { RuntimeHost as InternalRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { withRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';

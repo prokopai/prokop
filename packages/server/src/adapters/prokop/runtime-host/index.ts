@@ -12,7 +12,7 @@ export {
   prokopSandboxBindings, prokopTitleBindings, prokopToolPolicy,
   configureProkopWorkspacePolicy, JEAN2_BLOCKED_PATHS, prokopWorkspacePolicyOptions,
   createProkopAskAuthorityPort, configureProkopRuntimeDefaults, prokopAgentBindings, type ProkopAgentBindings,
-} from '@/agent';
+} from '@prokopai/agent';
 export { deliverCapekEvent, prokopDeliveryBindings } from './delivery';
 export { prokopInteractionBindings } from './interaction';
 export { configureProkopSessionSearchHost, prokopSessionSearchHost } from './session-search';

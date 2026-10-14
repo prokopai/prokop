@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import ts from 'typescript';
-import { buildSystemMessage } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
+import { buildSystemMessage } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
 import { createWorkspaceCapability } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import { createModelForProvider, getConnectableProviders, getProvider } from '@prokopai/core/infrastructure/providers/registry';
 import { configureWorkspaceToolDiscovery, getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
@@ -17,8 +17,8 @@ import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
-import { configureSessionSearchHost, getSessionSearchHost } from '@/harnesses/shared/session-search/host';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
+import { configureSessionSearchHost, getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { getRuntimeHost as getProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
@@ -34,19 +34,19 @@ import {
   capekStorageKey,
   capekToolResolverKey,
   capekWorkspaceToolDiscoveryKey,
-} from '@/harnesses/prokop/composition/plugins/service-keys';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import {
   enterAgentScope,
   type AgentScopeHandle,
   type ProcessScopeHandle,
-} from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import * as focused from '@/adapters/prokop/runtime-host';
 import { configureProkopSessionSearchHost } from '@/adapters/prokop/runtime-host/session-search';
-import { JEAN2_AGENT_PLUGIN_IDS, JEAN2_PROCESS_PLUGIN_IDS } from '@/harnesses/prokop/composition/profile';
+import { JEAN2_AGENT_PLUGIN_IDS, JEAN2_PROCESS_PLUGIN_IDS } from '@prokopai/agent/internal/harnesses/prokop/composition/profile';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { createWiredApplication } from '@/bootstrap/application';
 import { createRuntime } from '@/bootstrap/create-runtime';
-import { createProkopRuntimeComposition } from '@/harnesses/prokop/composition/composition';
+import { createProkopRuntimeComposition } from '@prokopai/agent/internal/harnesses/prokop/composition/composition';
 import { createMessage, createPart } from '@/infrastructure/sqlite/message-store';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { createTestTextPart, createTestUserMessage } from '#tests/factories';
@@ -134,7 +134,7 @@ describe('Čapek composition root', () => {
       '@/adapters/prokop/runtime-host/session-search',
       '@/adapters/prokop/runtime-host/bindings',
       // Harness code only through the public agent entry (Phase 2.5).
-      '@/agent',
+      '@prokopai/agent',
       '@/application/ports/execution-lifecycle',
       '@/bootstrap/application',
       '@prokopai/core/application/agents',

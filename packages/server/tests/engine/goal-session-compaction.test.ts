@@ -12,11 +12,11 @@ import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/stora
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
 import type { AutoResponderRule, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
-import { streamChatWithRetry, type StreamChatEvent, type StreamChatFn } from '@/harnesses/prokop/retry/stream-chat';
-import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
-import { estimateMessageTokens, estimateNextStepTokens } from '@/harnesses/prokop/compaction/usage';
-import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { handleChat } from '@/harnesses/prokop/execution/chat-handler';
+import { streamChatWithRetry, type StreamChatEvent, type StreamChatFn } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
+import { executeCompaction } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
+import { estimateMessageTokens, estimateNextStepTokens } from '@prokopai/agent/internal/harnesses/prokop/compaction/usage';
+import { interruptManager } from '@prokopai/agent/internal/harnesses/prokop/execution/interrupt';
+import { handleChat } from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
 import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 
 const tempRoots: string[] = [];
@@ -109,7 +109,7 @@ describe('chat message attribution', () => {
     await fixture([text('First answer'), text('Second answer')], async ({ storage, sessionId }) => {
       const options = await seed(storage, sessionId);
       await storage.conversation.updateSession(sessionId, { agentId: 'different-session-owner' });
-      const { streamChat } = await import('@/harnesses/prokop/execution/agent');
+      const { streamChat } = await import('@prokopai/agent/internal/harnesses/prokop/execution/agent');
       const messageIds: string[] = [];
       for (const agentId of ['first-agent', 'second-agent']) {
         const events = await collect(streamChat({ ...options, preconfig: { ...preconfig, id: agentId } }));
@@ -165,7 +165,7 @@ describe('goal cancellation ownership', () => {
 
   for (const throws of [false, true]) {
     test(`cancellation during evaluation wins over ${throws ? 'failure' : 'success'}`, async () => {
-      const { runGoalLoopWithDeps } = await import('@/harnesses/prokop/goals/loop');
+      const { runGoalLoopWithDeps } = await import('@prokopai/agent/internal/harnesses/prokop/goals/loop');
       await fixture([], async ({ storage, sessionId }) => {
         const controller = new AbortController();
         await runGoalLoopWithDeps({
@@ -189,7 +189,7 @@ describe('goal cancellation ownership', () => {
 
 describe('evaluator checkpoint context', () => {
   test('retains the latest checkpoint outside the recent window and output tails within a bounded prompt', async () => {
-    const { evaluateGoalWithDeps } = await import('@/harnesses/prokop/goals/evaluator');
+    const { evaluateGoalWithDeps } = await import('@prokopai/agent/internal/harnesses/prokop/goals/evaluator');
     await fixture([], async ({ storage, sessionId }) => {
       for (let i = 0; i < 24; i++) {
         const message = await storage.conversation.createMessage({
@@ -345,7 +345,7 @@ describe('goal and classic shared compaction', () => {
   test('retries a fresh post-compaction model call without replaying completed tools', async () => {
     await fixture([work(), text('Checkpoint: action completed'), text('Done')], async ({ storage, sessionId, executions }) => {
       const options = await seed(storage, sessionId);
-      const { streamChat } = await import('@/harnesses/prokop/execution/agent');
+      const { streamChat } = await import('@prokopai/agent/internal/harnesses/prokop/execution/agent');
       let attempts = 0;
       const stream: StreamChatFn = async function* (segment) {
         attempts++;

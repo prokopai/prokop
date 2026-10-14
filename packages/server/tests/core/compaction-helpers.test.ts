@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { buildConversationText, formatOutput, estimateToolOutputSize } from '@/harnesses/prokop/compaction/task';
+import { buildConversationText, formatOutput, estimateToolOutputSize } from '@prokopai/agent/internal/harnesses/prokop/compaction/task';
 import type { MessageWithParts, ToolPart, TextPart } from '@prokopai/sdk';
 
 // ---------------------------------------------------------------------------

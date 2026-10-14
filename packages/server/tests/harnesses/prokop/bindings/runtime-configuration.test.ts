@@ -8,7 +8,7 @@ import {
   createProkopRuntimeConfiguration,
   prokopRuntimeConfiguration,
   withContractTier,
-} from '@/harnesses/prokop/bindings/runtime-configuration';
+} from '@prokopai/agent/internal/harnesses/prokop/bindings/runtime-configuration';
 import * as configModule from '@prokopai/core/config';
 import * as environment from '@prokopai/core/infrastructure/runtime/environment';
 

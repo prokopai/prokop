@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { Preconfig } from '@prokopai/sdk/types';
-import { buildWorkspaceSystemPrompt } from '@/harnesses/prokop/context/workspace';
+import { buildWorkspaceSystemPrompt } from '@prokopai/agent/internal/harnesses/prokop/context/workspace';
 import {
   configureAgentSource,
   configureInstructionSource,
@@ -12,7 +12,7 @@ import {
   getPreconfigOrAgent,
   loadInstructions,
   readAgentMemoryFile,
-} from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 
 const root = join(process.cwd(), '.tmp-capek-context-test');
 const preconfig = { id: 'agent', name: 'Agent', systemPrompt: 'base' } as Preconfig;

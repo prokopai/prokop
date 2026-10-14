@@ -5,21 +5,21 @@ import {
   createRetryPolicy,
   withRetryPolicy,
   type RetryPolicy,
-} from '@/harnesses/prokop/retry/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/retry/policy';
 import {
   streamChatWithRetry,
   type StreamChatEvent,
   type StreamChatFn,
-} from '@/harnesses/prokop/retry/stream-chat';
-import type { ChatOptions } from '@/harnesses/prokop/execution/agent';
+} from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
+import type { ChatOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/agent';
 import {
   withAskPermissionPolicy,
-} from '@/harnesses/prokop/permission/policy';
-import type { AskPermissionPolicyService } from '@/harnesses/prokop/permission/contracts';
-import { resolveAsk } from '@/harnesses/prokop/permission/ask-user-api';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/policy';
+import type { AskPermissionPolicyService } from '@prokopai/agent/internal/harnesses/prokop/permission/contracts';
+import { resolveAsk } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
 import {
   requestPermission,
-} from '@/harnesses/prokop/permission/permission-request-manager';
+} from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import {
   createWorkspaceService,
   withWorkspaceService,
@@ -36,22 +36,22 @@ import {
   TOOL_OUTPUT_THRESHOLD_CHARS,
   withToolOutputService,
   type ToolOutputArtifactReference,
-} from '@/harnesses/prokop/tool-output/policy';
-import type { ToolOutputArtifactService } from '@/harnesses/prokop/tool-output/contracts';
-import { retrieveToolOutputStandardTool } from '@/harnesses/prokop/tool-output/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/tool-output/policy';
+import type { ToolOutputArtifactService } from '@prokopai/agent/internal/harnesses/prokop/tool-output/contracts';
+import { retrieveToolOutputStandardTool } from '@prokopai/agent/internal/harnesses/prokop/tool-output/policy';
 import {
   createCompactionService,
   withCompactionService,
   type CompactionServiceOptions,
-} from '@/harnesses/prokop/compaction/policy';
-import type { CompactionService } from '@/harnesses/prokop/compaction/policy';
-import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
+} from '@prokopai/agent/internal/harnesses/prokop/compaction/policy';
+import type { CompactionService } from '@prokopai/agent/internal/harnesses/prokop/compaction/policy';
+import { executeCompaction } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
 import { getToolOutputArtifactPage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   configureStorage,

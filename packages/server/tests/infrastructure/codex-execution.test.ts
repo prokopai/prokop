@@ -10,17 +10,17 @@ import { createSession, getSession, updateSession } from '@/infrastructure/sqlit
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { projectMessagesForClient } from '@prokopai/core/application/sessions/tool-debug';
-import { bindCodexThread } from '@/harnesses/codex-cli/bindings';
+import { bindCodexThread } from '@prokopai/agent/internal/harnesses/codex-cli/bindings';
 import { getDatabase } from '@/infrastructure/sqlite/database';
-import { CodexApprovals, codexApprovals } from '@/harnesses/codex-cli/approvals';
+import { CodexApprovals, codexApprovals } from '@prokopai/agent/internal/harnesses/codex-cli/approvals';
 import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { getPermissionRequestByRequestId, listPendingAsksBySession,
   listPendingRequestsByRootSession } from '@/infrastructure/sqlite/pending-asks';
 import { saveCodexModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { createCodexExecution as createExecution, type CodexExecutionDependencies } from '@/harnesses/codex-cli/execution';
-import { hookCommand, type HookDecision } from '@/harnesses/codex-cli/pretool-hook';
-import type { CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
-import type { CodexConnection } from '@/harnesses/codex-cli/app-server';
+import { createCodexExecution as createExecution, type CodexExecutionDependencies } from '@prokopai/agent/internal/harnesses/codex-cli/execution';
+import { hookCommand, type HookDecision } from '@prokopai/agent/internal/harnesses/codex-cli/pretool-hook';
+import type { CodexHookCall } from '@prokopai/agent/internal/harnesses/codex-cli/hook-policy';
+import type { CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
 import type { PermissionAsk, ServerMessage } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { installHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';

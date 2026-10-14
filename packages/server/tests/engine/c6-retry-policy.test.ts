@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { ChatOptions } from '@/harnesses/prokop/execution/agent';
+import type { ChatOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/agent';
 import type {
   StreamChatEvent,
   StreamChatFn,
-} from '@/harnesses/prokop/retry/stream-chat';
-import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
+} from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
+import { streamChatWithRetry } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
 import {
   createRetryCircuitState,
   createRetryPolicy,
@@ -14,22 +14,22 @@ import {
   withRetryCircuitState,
   type CircuitState,
   type RetryPolicy,
-} from '@/harnesses/prokop/retry/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/retry/policy';
 import { ApiErrorType, classifyApiError } from '@prokopai/core/infrastructure/providers/errors';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import {
   enterAgentScope,
-} from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { capekRetryPolicyKey } from '@/harnesses/prokop/composition/plugins/service-keys';
+import { capekRetryPolicyKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 function createError(overrides: {
   message: string;

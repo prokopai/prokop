@@ -1,6 +1,6 @@
 import type { HostHandlers } from '@prokopai/agent-protocol';
 import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
-import type { SessionSearchService, TerminalAccess } from '@/agent';
+import type { SessionSearchService, TerminalAccess } from '@prokopai/agent';
 
 /** Session state MCP access was granted for; a change revokes access. */
 export interface ToolAccessContext {

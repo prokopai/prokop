@@ -1,22 +1,14 @@
 {
-  "extends": "../server/tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "composite": false,
-    "rootDir": "..",
-    "paths": {
-      "@/*": [
-        "../server/src/*"
-      ]
-    },
-    "typeRoots": [
-      "../server/node_modules",
-      "../server/node_modules/@types"
+    "types": [
+      "bun-types",
+      "node"
     ]
   },
   "include": [
-    "src/**/*",
-    "../server/src/types/**/*.d.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules"

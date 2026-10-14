@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { claudeToolVisualization } from '@/harnesses/shared/tool-viz';
+import { claudeToolVisualization } from '@prokopai/agent/internal/harnesses/shared/tool-viz';
 
 test('Claude web search and fetch stay in raw data with a one-line status', () => {
   const results = 'Web search results for query: "x"\n\nLinks: [{"title":"a","url":"https://a.example"}]';

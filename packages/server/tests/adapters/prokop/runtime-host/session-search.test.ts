@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { configureSessionSearchHost, getSessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { configureSessionSearchHost, getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import {
   configureProkopSessionSearchHost,
   createProkopSessionSearchHost,

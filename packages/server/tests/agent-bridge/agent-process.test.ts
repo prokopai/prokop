@@ -4,7 +4,7 @@ import { getAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import { bindHarnessExecutors, getAgentSupervisor } from '@/bootstrap/agent-ports';
-import { createHarnessRegistrations } from '@/agent/composition/harness-registrations';
+import { createHarnessRegistrations } from '@prokopai/agent/internal/composition/harness-registrations';
 import { createPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
 import { activateSandbox, deactivateSandbox } from '@prokopai/core/infrastructure/sandbox';
 import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';

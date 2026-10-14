@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
-import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
+import { convertToAiSdkMessages } from '@prokopai/agent/internal/harnesses/prokop/execution/message-utils';
 import type { MessageWithParts, AssistantMessage, ToolPart, CompactionPart } from '@prokopai/sdk';
 
 describe('convertToAiSdkMessages', () => {

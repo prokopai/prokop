@@ -7,14 +7,14 @@ import type { Options, SDKMessage, SdkMcpToolDefinition } from '@anthropic-ai/cl
 
 type ToolResult = Awaited<ReturnType<SdkMcpToolDefinition['handler']>>;
 import type { PermissionAsk } from '@prokopai/sdk';
-import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
-import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '@/harnesses/shared/domain-tools';
+import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
+import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
+import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '@prokopai/agent/internal/harnesses/shared/domain-tools';
 import { claudeMemoryShape, claudeSessionSearchShape, claudeSkillManageShape,
-  createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from '@/harnesses/claude-cli/dynamic-tools';
-import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
-import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
+  createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from '@prokopai/agent/internal/harnesses/claude-cli/dynamic-tools';
+import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@prokopai/agent/internal/harnesses/shared/tool-viz';
+import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude-cli/execution';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';

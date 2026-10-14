@@ -3,7 +3,7 @@ import {
   classifyFileOperation,
   requiresHumanReview,
 } from '@prokopai/core/domains/permissions';
-import { fileConcernAsk } from '@/harnesses/prokop/tools/file-permission';
+import { fileConcernAsk } from '@prokopai/agent/internal/harnesses/prokop/tools/file-permission';
 
 const root = '/workspace';
 

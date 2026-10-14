@@ -11,7 +11,7 @@ import {
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
 import {
   disposeProkopExecutionScope, initializeProkopExecutionScope, warmInstalledToolsCache, builtinTools,
-} from '@/agent';
+} from '@prokopai/agent';
 import type { ProkopSessionSearchHostDeps } from '@/adapters/prokop/runtime-host/session-search';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import type { AgentsApplication } from '@prokopai/core/application/agents';

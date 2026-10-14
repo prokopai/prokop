@@ -4,7 +4,7 @@ import { createTestSession, createTestUserMessage, createTestTextPart } from '#t
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { createMessage, createPart } from '@/infrastructure/sqlite/message-store';
 import { createWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { executeSessionSearchTool } from '@/harnesses/shared/session-search/session-search-tool';
+import { executeSessionSearchTool } from '@prokopai/agent/internal/harnesses/shared/session-search/session-search-tool';
 
 describe('session_search tool', () => {
   let workspaceId: string;

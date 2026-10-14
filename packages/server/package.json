@@ -35,6 +35,7 @@
     "@hono/zod-validator": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.3.3",
+    "@prokopai/agent": "workspace:*",
     "@prokopai/agent-protocol": "workspace:*",
     "@prokopai/core": "workspace:*",
     "@prokopai/sdk": "workspace:*",

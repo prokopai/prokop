@@ -20,11 +20,11 @@ import {
 import { createStandaloneHost } from '#tests/engine/helpers/standalone-host';
 import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
-import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
+import { loadedToolsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/loaded-tools';
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
+import { capekToolResolverKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
-import { retrieveToolOutputStandardTool } from '@/harnesses/prokop/tool-output/policy';
+import { retrieveToolOutputStandardTool } from '@prokopai/agent/internal/harnesses/prokop/tool-output/policy';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 
 const roots: string[] = [];

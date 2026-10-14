@@ -4,8 +4,8 @@ import { mkdtempSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
+import { executeMemoryTool } from '@prokopai/agent/internal/harnesses/shared/memory/memory-tool';
+import { configureKnowledgeWrites } from '@prokopai/agent/internal/harnesses/shared/knowledge-writes';
 
 describe('memory tool', () => {
   let testDir: string;

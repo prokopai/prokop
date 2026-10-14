@@ -8,7 +8,7 @@ import {
   sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
-import { audienceOf, mapCapekEventToServerMessage } from '@/agent';
+import { audienceOf, mapCapekEventToServerMessage } from '@prokopai/agent';
 
 /**
  * Host side of runtime events: terminal events become push notifications,

@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from 'bun:test';
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
-import { runClaudeTurn } from '@/harnesses/claude-cli/sdk-turn';
+import { runClaudeTurn } from '@prokopai/agent/internal/harnesses/claude-cli/sdk-turn';
 
 function event(value: unknown): SDKMessage { return value as SDKMessage; }
 

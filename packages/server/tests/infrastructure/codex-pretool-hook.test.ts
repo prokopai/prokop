@@ -1,9 +1,9 @@
 import { expect, spyOn, test } from 'bun:test';
 import { connect } from 'node:net';
-import { classifyCodexHook, validHookCall, type CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
-import { createPretoolChannel, hookCommand, hookConfig, selectProkopHook } from '@/harnesses/codex-cli/pretool-hook';
-import type { CodexConnection } from '@/harnesses/codex-cli/app-server';
-import { logCodexPermissionDenial } from '@/harnesses/codex-cli/permission-diagnostics';
+import { classifyCodexHook, validHookCall, type CodexHookCall } from '@prokopai/agent/internal/harnesses/codex-cli/hook-policy';
+import { createPretoolChannel, hookCommand, hookConfig, selectProkopHook } from '@prokopai/agent/internal/harnesses/codex-cli/pretool-hook';
+import type { CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
+import { logCodexPermissionDenial } from '@prokopai/agent/internal/harnesses/codex-cli/permission-diagnostics';
 
 const root = '/workspace';
 const allowed = { roots: [root], readRoots: [] };

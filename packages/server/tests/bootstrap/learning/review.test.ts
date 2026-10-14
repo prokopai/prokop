@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import type { Preconfig } from '@prokopai/sdk';
 import { createLearningExecution } from '@/bootstrap/learning/review';
 import { createLearningReviewToolRegistry } from '@/application/learning/review-tools';
-import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { createProkopLearningRuntime } from '@prokopai/agent/internal/harnesses/prokop/learning/index';
 import { reviewHeadless } from '#tests/helpers/learning-review';
 import { createLearningRepository } from '@/infrastructure/sqlite/learning-repository';
 import { createLearningReviewRunner } from '@/application/learning/review-runner';

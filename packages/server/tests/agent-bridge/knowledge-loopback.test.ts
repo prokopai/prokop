@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
-import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
+import { executeMemoryTool } from '@prokopai/agent/internal/harnesses/shared/memory/memory-tool';
+import { executeSkillManageTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';

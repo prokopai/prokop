@@ -144,14 +144,14 @@ export function deleteLegacyRow(table: string, key: string): void {
 }
 
 /** Synchronous reads for assertions and `waitFor` predicates (the harness reads are async). */
-export function codexBinding(sessionId: string): import('@/harnesses/codex-cli/bindings').CodexBinding | null {
+export function codexBinding(sessionId: string): import('@prokopai/agent/internal/harnesses/codex-cli/bindings').CodexBinding | null {
   const record = getHarnessState<Row>({ harness: 'codex-cli', kind: 'binding', key: sessionId });
   if (!record) return null;
   const { createdAt: _createdAt, ...value } = record.value;
-  return { sessionId, ...value } as unknown as import('@/harnesses/codex-cli/bindings').CodexBinding;
+  return { sessionId, ...value } as unknown as import('@prokopai/agent/internal/harnesses/codex-cli/bindings').CodexBinding;
 }
 
-export function codexRollbackIntent(sessionId: string): import('@/harnesses/codex-cli/rollback').RollbackIntent | null {
+export function codexRollbackIntent(sessionId: string): import('@prokopai/agent/internal/harnesses/codex-cli/rollback').RollbackIntent | null {
   const record = getHarnessState<Row>({ harness: 'codex-cli', kind: 'rollback-intent', key: sessionId });
-  return record ? { sessionId, ...record.value } as unknown as import('@/harnesses/codex-cli/rollback').RollbackIntent : null;
+  return record ? { sessionId, ...record.value } as unknown as import('@prokopai/agent/internal/harnesses/codex-cli/rollback').RollbackIntent : null;
 }

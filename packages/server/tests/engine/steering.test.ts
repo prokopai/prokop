@@ -11,8 +11,8 @@ import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/stora
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
 import type { AutoResponderRule, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
-import { handleChat } from '@/harnesses/prokop/execution/chat-handler';
-import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
+import { handleChat } from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
+import { interruptManager } from '@prokopai/agent/internal/harnesses/prokop/execution/interrupt';
 import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 
 const tempRoots: string[] = [];

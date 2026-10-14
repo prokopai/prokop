@@ -7,8 +7,8 @@ import { createProtocolModel } from '@prokopai/core/infrastructure/providers/pro
 import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
 import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
 import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
-import { buildStreamConfig } from '@/harnesses/prokop/execution/stream/stream-config';
-import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
+import { buildStreamConfig } from '@prokopai/agent/internal/harnesses/prokop/execution/stream/stream-config';
+import { convertToAiSdkMessages } from '@prokopai/agent/internal/harnesses/prokop/execution/message-utils';
 
 const format: ResponseFormat = {
   id: 'fixture', name: 'fixture', createdAt: 1, updatedAt: 1,

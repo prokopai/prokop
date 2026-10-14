@@ -3,8 +3,8 @@ import type { AssistantMessage, ServerMessage } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import {
   bindCodexThread, getCodexBinding, markCodexSteerReply, markCodexTurnPending, markCodexTurnStarted,
-} from '@/harnesses/codex-cli/bindings';
-import { commitSteer } from '@/harnesses/shared/steering';
+} from '@prokopai/agent/internal/harnesses/codex-cli/bindings';
+import { commitSteer } from '@prokopai/agent/internal/harnesses/shared/steering';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { createMessage, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { addMessageToQueue, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';

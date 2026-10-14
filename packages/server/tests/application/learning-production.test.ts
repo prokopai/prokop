@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig, LearningRunSummary, LearningRunDetail } from '@prokopai/sdk';
 import { createWiredLearning } from '@/bootstrap/learning';
-import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { createProkopLearningRuntime } from '@prokopai/agent/internal/harnesses/prokop/learning/index';
 import { learningReviewTools } from '@/application/learning/review-tools';
 import { reviewHeadless, type ReviewCall } from '#tests/helpers/learning-review';
 import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';

@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createClaudeWorkspaceMcp } from '@/harnesses/claude-cli/mcp-tools';
-import { createCodexMcpTools } from '@/harnesses/codex-cli/mcp-tools';
+import { createClaudeWorkspaceMcp } from '@prokopai/agent/internal/harnesses/claude-cli/mcp-tools';
+import { createCodexMcpTools } from '@prokopai/agent/internal/harnesses/codex-cli/mcp-tools';
 import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
 
 describe('harness MCP adapters', () => {

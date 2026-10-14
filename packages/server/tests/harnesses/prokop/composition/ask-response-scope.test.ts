@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createAskApi } from '@/harnesses/prokop/permission/ask-user-api';
-import { requestPermission } from '@/harnesses/prokop/permission/permission-request-manager';
+import { createAskApi } from '@prokopai/agent/internal/harnesses/prokop/permission/ask-user-api';
+import { requestPermission } from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { AskRequestMessage, AskTimedOutMessage, PermissionAsk } from '@prokopai/sdk';
-import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
+import { prokopAskResolution } from '@prokopai/agent/internal/harnesses/prokop/composition/contracts';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
-import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/bindings/runtime-configuration';
+import { configureProkopRuntimeConfiguration } from '@prokopai/agent/internal/harnesses/prokop/bindings/runtime-configuration';
 import { configureProkopStorage } from '@/adapters/prokop/runtime-host/storage';
 import { configureProkopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
 import {
@@ -14,7 +14,7 @@ import {
   initializeProkopExecutionScope,
   resetProkopExecutionCompositionFactoryForTests,
   withProkopExecutionScope,
-} from '@/harnesses/prokop/composition/execution-scope';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/execution-scope';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 

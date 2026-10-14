@@ -18,31 +18,31 @@ import { join } from 'node:path';
 import { jsonSchema, tool } from 'ai';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk/types';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
-import { buildAiSdkTools, type BuildToolsOptions } from '@/harnesses/prokop/execution/build-tools';
+import { buildAiSdkTools, type BuildToolsOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import { LifecycleError } from '@/harnesses/prokop/composition/kernel/errors';
-import { CURRENT_CONTEXT_SECTION_IDS } from '@/harnesses/prokop/composition/plugins/context-sections';
-import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import { LifecycleError } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/errors';
+import { CURRENT_CONTEXT_SECTION_IDS } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
+import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
-import { installSchedulerToolFallback } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
-import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
-import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
-import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
-import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
+import { installSchedulerToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
+import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
+import { installTaskToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
+import { installWorkflowToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
+import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import {
   configureSessionSearchHost,
   type SessionSearchHost,
-} from '@/harnesses/shared/session-search';
+} from '@prokopai/agent/internal/harnesses/shared/session-search/index';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { clearCache, scanTools } from '@prokopai/core/infrastructure/tools/registry';

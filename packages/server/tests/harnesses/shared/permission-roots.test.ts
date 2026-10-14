@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { harnessSkillRoots } from '@/harnesses/shared/permission-roots';
-import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
+import { harnessSkillRoots } from '@prokopai/agent/internal/harnesses/shared/permission-roots';
+import { classifyClaudeTool } from '@prokopai/agent/internal/harnesses/claude-cli/tool-policy';
 
 let home: string;
 beforeEach(() => { home = realpathSync(mkdtempSync(join(tmpdir(), 'skill-roots-'))); });

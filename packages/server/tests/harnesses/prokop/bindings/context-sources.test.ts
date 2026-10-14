@@ -6,7 +6,7 @@ import {
   prokopAgentSource,
   prokopInstructionSource,
   prokopPreconfigSource,
-} from '@/harnesses/prokop/bindings/context-sources';
+} from '@prokopai/agent/internal/harnesses/prokop/bindings/context-sources';
 import type { AgentsApplication } from '@prokopai/core/application/agents';
 import { getGlobalAgentsPath } from '@prokopai/core/infrastructure/runtime/paths';
 

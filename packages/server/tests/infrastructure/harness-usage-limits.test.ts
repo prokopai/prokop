@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { parseClaudeUsageLimits, readClaudeUsageLimits } from '@/harnesses/claude-cli/usage-limits';
-import { parseCodexUsageLimits, readCodexUsageLimits } from '@/harnesses/codex-cli/usage-limits';
-import { createUsageLimitsCache, unavailableUsageLimits, usageLimits } from '@/harnesses/shared/usage-limits';
-import type { CodexConnection } from '@/harnesses/codex-cli/app-server';
+import { parseClaudeUsageLimits, readClaudeUsageLimits } from '@prokopai/agent/internal/harnesses/claude-cli/usage-limits';
+import { parseCodexUsageLimits, readCodexUsageLimits } from '@prokopai/agent/internal/harnesses/codex-cli/usage-limits';
+import { createUsageLimitsCache, unavailableUsageLimits, usageLimits } from '@prokopai/agent/internal/harnesses/shared/usage-limits';
+import type { CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
 
 const withoutTime = <T extends { checkedAt: string }>(value: T) => ({ ...value, checkedAt: 'now' });
 

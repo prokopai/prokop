@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
+import { classifyClaudeTool } from '@prokopai/agent/internal/harnesses/claude-cli/tool-policy';
 
 const root = '/workspace';
 const agent = '/data/agents/coder';

@@ -11,7 +11,7 @@ import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harne
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
+import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude-cli/execution';
 import { installHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 import { deleteLegacyRow, insertLegacyRow, legacyRows, pick, updateLegacyRows } from '#tests/helpers/legacy-native';
 

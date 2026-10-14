@@ -4,7 +4,7 @@ import { seedWorkspace } from '#tests/seed';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
-import { ClaudeApprovals } from '@/harnesses/claude-cli/approvals';
+import { ClaudeApprovals } from '@prokopai/agent/internal/harnesses/claude-cli/approvals';
 import { handleClientRegistration, registerConnection, unregisterConnection } from '@/transport/websocket/connection-registry';
 import { handleClaim, removeSessionControl } from '@/transport/websocket/control-registry';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';

@@ -35,7 +35,7 @@ mock.module('@prokopai/core/infrastructure/tools/registry', () => ({
 }));
 
 const adapter = await import('@/adapters/prokop/runtime-host/tool-source');
-const { builtinTools } = await import('@/harnesses/prokop/tools');
+const { builtinTools } = await import('@prokopai/agent/internal/harnesses/prokop/tools/index');
 const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@prokopai/core/application/ports/builtin-tools');
 
 let savedToolsPathEnv: string | undefined;

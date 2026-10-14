@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { fileChangeVisualization } from '@/harnesses/codex-cli/file-change-visualization';
+import { fileChangeVisualization } from '@prokopai/agent/internal/harnesses/codex-cli/file-change-visualization';
 
 const patch = [
   '--- a/src/main.rs',

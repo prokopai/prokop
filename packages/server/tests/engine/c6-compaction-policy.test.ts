@@ -9,18 +9,18 @@ import {
   resetDefaultCompactionServiceForTests,
   type CompactionService,
   type CompactionServiceOptions,
-} from '@/harnesses/prokop/compaction/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/compaction/policy';
 import {
   createCompactionTrigger,
   persistCompactionFailure,
   processCompactionTask,
-} from '@/harnesses/prokop/compaction/task';
-import { executeCompaction, isCompactionActive } from '@/harnesses/prokop/compaction/executor';
+} from '@prokopai/agent/internal/harnesses/prokop/compaction/task';
+import { executeCompaction, isCompactionActive } from '@prokopai/agent/internal/harnesses/prokop/compaction/executor';
 import {
   reconcileAllSessionsCompaction,
   reconcileSessionCompaction,
   type CompactionRecoveryDeps,
-} from '@/harnesses/prokop/compaction/recovery';
+} from '@prokopai/agent/internal/harnesses/prokop/compaction/recovery';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
@@ -38,16 +38,16 @@ import {
   getSession,
   listMessagesWithParts,
 } from '@prokopai/core/infrastructure/storage/runtime';
-import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
+import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
+import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import {
   enterAgentScope,
-} from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { capekCompactionServiceKey } from '@/harnesses/prokop/composition/plugins/service-keys';
-import type { GenerateSummaryFn } from '@/harnesses/prokop/compaction/contracts';
+import { capekCompactionServiceKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
+import type { GenerateSummaryFn } from '@prokopai/agent/internal/harnesses/prokop/compaction/contracts';
 
 function makeOptions(overrides: Partial<CompactionServiceOptions> = {}): CompactionServiceOptions {
   return {

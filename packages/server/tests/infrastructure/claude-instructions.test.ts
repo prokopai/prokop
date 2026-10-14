@@ -11,14 +11,14 @@ import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
-import { claudeDeveloperInstructions, defaultClaudePreconfigId } from '@/harnesses/claude-cli/instructions';
+import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude-cli/execution';
+import { claudeDeveloperInstructions, defaultClaudePreconfigId } from '@prokopai/agent/internal/harnesses/claude-cli/instructions';
 import { legacyRows, pick } from '#tests/helpers/legacy-native';
 
 const agent = { id: 'agent', mode: 'primary', systemPrompt: 'Work carefully.' } as Preconfig;
 const plainWorkspace = { additionalPaths: ['/projects/related'], settings: {} } as Workspace;
 
-function plainSources(dir: string | null): import('@/harnesses/claude-cli/instructions').ClaudeInstructionSources {
+function plainSources(dir: string | null): import('@prokopai/agent/internal/harnesses/claude-cli/instructions').ClaudeInstructionSources {
   return {
     listPreconfigs: async () => [agent],
     getPreconfig: async () => agent,
@@ -109,7 +109,7 @@ beforeEach(() => {
 });
 afterEach(() => { resetTestDatabase(); Paths.reset(); rmSync(dataDir, { recursive: true, force: true }); });
 
-function execFixture(sources?: import('@/harnesses/claude-cli/instructions').ClaudeInstructionSources) {
+function execFixture(sources?: import('@prokopai/agent/internal/harnesses/claude-cli/instructions').ClaudeInstructionSources) {
   const events: unknown[] = [];
   const wire = { actor: { attachOriginToSession: () => {} }, delivery: {
     send: (_origin: string, value: unknown) => events.push(value),

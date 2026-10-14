@@ -22,8 +22,10 @@ const infrastructureDir = resolve(serverSourceRoot, 'infrastructure');
 const adaptersDir = resolve(serverSourceRoot, 'adapters');
 // The Prokop runtime host on host services (SQLite, WebSocket delivery), and the runtime's own bindings.
 const runtimeHostDir = resolve(serverSourceRoot, 'adapters/prokop/runtime-host');
-const prokopBindingsDir = resolve(serverSourceRoot, 'harnesses/prokop/bindings');
-const harnessesDir = resolve(serverSourceRoot, 'harnesses');
+// The agent package (Phase 2.5d): harnesses and the agent composition left the server.
+const agentPackageRoot = resolve(repositoryRoot, 'packages/agent/src');
+const harnessesDir = resolve(agentPackageRoot, 'harnesses');
+const prokopBindingsDir = resolve(harnessesDir, 'prokop/bindings');
 const prokopHarnessDir = resolve(harnessesDir, 'prokop');
 const routesDir = resolve(serverSourceRoot, 'transport/http/routes');
 const utilsDir = resolve(serverSourceRoot, 'utils');
@@ -31,7 +33,7 @@ const utilsDir = resolve(serverSourceRoot, 'utils');
 // handlers and agent-side ports. Bootstrap wires it behind a flag.
 const agentBridgeDir = resolve(serverSourceRoot, 'agent-bridge');
 // The agent's composition and protocol ports; host code reaches it only through its public entry (`@/agent`).
-const agentDir = resolve(serverSourceRoot, 'agent');
+const agentDir = agentPackageRoot;
 // Runtime core shared by host and agent (packages/core, Phase 2.5c).
 const coreSourceRoot = resolve(serverSourceRoot, '../../core/src');
 const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir, agentBridgeDir, agentDir];
@@ -297,26 +299,6 @@ const layerRules: DependencyRule[] = [
     exceptions: layerBootstrapExceptions,
   },
   {
-    name: 'layer-harness-host-access',
-    rationale: 'Harnesses and the agent composition run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools, notifications, learning review tools), never SQLite, transport, adapters, bootstrap, the host half of agent-bridge or host notification services directly. The Prokop runtime host on host services lives in adapters/prokop/runtime-host.',
-    appliesTo: [harnessesDir, agentDir],
-    forbiddenSpecifiers: [
-      { prefix: '@/agent-bridge' },
-      { prefix: '@/adapters' },
-      { prefix: '@/bootstrap' },
-      { exact: 'bun:sqlite' },
-      { prefix: '@/infrastructure/sqlite' },
-      { prefix: '@/transport' },
-      { prefix: '@/application/notifications' },
-    ],
-    exceptions: {
-      // The todo tool's own todos.db is agent-private state, not the host database (plan decision 4).
-      'packages/server/src/harnesses/prokop/tools/todo/tool.ts': ['bun:sqlite'],
-      // A test drives the real terminal manager to verify the tool against it.
-      'packages/server/src/harnesses/prokop/tools/terminal/terminal.test.ts': ['@/transport/terminal', '@/bootstrap/agent-ports'],
-    },
-  },
-  {
     name: 'layer-agent-bridge',
     rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure, application port contracts and @prokopai/agent-protocol, never transport, application services or harness internals.',
     appliesTo: [agentBridgeDir],
@@ -336,7 +318,7 @@ const layerRules: DependencyRule[] = [
     allowedResolvedDirs: [transportDir, applicationDir, runtimeHostDir],
     exceptions: {
       ...layerTransportLegacyExceptions,
-      'packages/server/src/transport/websocket/handlers/misc.ts': ['@prokopai/core/infrastructure/sandbox/controller', '@prokopai/core/infrastructure/sandbox/types', '@/agent'],
+      'packages/server/src/transport/websocket/handlers/misc.ts': ['@prokopai/core/infrastructure/sandbox/controller', '@prokopai/core/infrastructure/sandbox/types', '@prokopai/agent'],
       ...layerTransportRenameCompatExceptions,
       ...layerTransportAppExceptions,
     },
@@ -447,26 +429,32 @@ describe('server layer boundaries', () => {
     expect(result.staleExceptions).toEqual([]);
   });
 
-  test('harnesses reach SQLite and transport only through ports', () => {
-    const rule = layerRules.find(candidate => candidate.name === 'layer-harness-host-access')!;
-    const result = evaluateRules(scanDirectory(serverSourceRoot), serverSourceRoot, repositoryRoot, [rule]);
-    expect(result.violations).toEqual([]);
-    expect(result.staleExceptions).toEqual([]);
-
-    const offending: ScannedFile[] = [{
-      path: resolve(harnessesDir, 'codex-cli/example.ts'),
-      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';\nimport { isControlled } from '@/transport/websocket/control-registry';",
-    }, {
-      // No harness directory is excluded any more: Prokop's host services live in adapters/prokop/runtime-host.
-      path: resolve(prokopHarnessDir, 'bindings/example.ts'),
-      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';\nimport { prokopStorageBundle } from '@/adapters/prokop/runtime-host';",
-    }];
-    expect(evaluateRules(offending, serverSourceRoot, repositoryRoot, [rule]).violations).toEqual([
-      'packages/server/src/harnesses/codex-cli/example.ts imports @/infrastructure/sqlite/session-store (value) [rule: layer-harness-host-access]',
-      'packages/server/src/harnesses/codex-cli/example.ts imports @/transport/websocket/control-registry (value) [rule: layer-harness-host-access]',
-      'packages/server/src/harnesses/prokop/bindings/example.ts imports @/infrastructure/sqlite/session-store (value) [rule: layer-harness-host-access]',
-      'packages/server/src/harnesses/prokop/bindings/example.ts imports @/adapters/prokop/runtime-host (value) [rule: layer-harness-host-access]',
-    ]);
+  test('2.5d gate: the agent package imports only itself, core, the protocol, the SDK and npm packages', () => {
+    // Replaces layer-harness-host-access: with the harnesses in their own package, no host module
+    // (SQLite, transport, adapters, bootstrap, host bridge) is importable at all.
+    const allowedWorkspace = ['@prokopai/core', '@prokopai/agent-protocol', '@prokopai/sdk'];
+    const todoTool = resolve(harnessesDir, 'prokop/tools/todo/tool.ts');
+    const offenders: string[] = [];
+    for (const file of scanDirectory(agentPackageRoot)) {
+      for (const imp of parseImports(file.sourceText, file.path)) {
+        const specifier = imp.specifier;
+        const where = `${relative(repositoryRoot, file.path)} imports ${specifier}`;
+        if (specifier.startsWith('./') || specifier.startsWith('../')) {
+          if (!isWithin(resolve(dirname(file.path), specifier), resolve(agentPackageRoot, '..'))) {
+            offenders.push(`${where} (outside packages/agent)`);
+          }
+        } else if (specifier.startsWith('@/') || (specifier.startsWith('#') && !specifier.startsWith('#agent/'))) {
+          offenders.push(where);
+        } else if (specifier.startsWith('@prokopai/')
+          && !allowedWorkspace.some(name => specifier === name || specifier.startsWith(`${name}/`))) {
+          offenders.push(where);
+        } else if (specifier === 'bun:sqlite' && file.path !== todoTool) {
+          // The todo tool's own todos.db is agent-private state, not the host database (plan decision 4).
+          offenders.push(where);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   test('layer rules run against the target directories', () => {
@@ -614,6 +602,8 @@ describe('server layer boundaries', () => {
     const result = evaluateRules(files, serverSourceRoot, repositoryRoot, layerRules);
 
     expect(result.violations).toEqual([
+      // Harnesses left the server (packages/agent); bootstrap reaches them only through @prokopai/agent.
+      'packages/server/src/bootstrap/start.ts imports ../harnesses/prokop/composition/profile (value) [rule: layer-bootstrap]',
       'packages/server/src/bootstrap/start.ts imports ../store (value) [rule: layer-bootstrap]',
     ]);
   });
@@ -813,7 +803,7 @@ describe('server layer boundaries', () => {
     const imports = parseImports(file!.sourceText, file!.path);
 
     const allowedSpecifiers = [
-      '@/agent',
+      '@prokopai/agent',
       '@prokopai/sdk',
       '@/application/ports/session-search',
     ];
@@ -974,7 +964,7 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect([...new Set(imports.map((imp) => imp.specifier))].sort()).toEqual([
-      '@/agent', '@prokopai/core/infrastructure/runtime/events',
+      '@prokopai/agent', '@prokopai/core/infrastructure/runtime/events',
       '@prokopai/core/application/ports/session',
       '@/transport/websocket/broadcast',
       '@/infrastructure/sqlite/message-store',
@@ -1828,13 +1818,13 @@ describe('server layer boundaries', () => {
 
   test('S10 gate: stateful session execution enters the composed scope', () => {
     const executionPath = resolve(harnessesDir, 'prokop/execution.ts');
-    const execution = scanDirectory(serverSourceRoot).find((candidate) => candidate.path === executionPath);
+    const execution = scanDirectory(agentPackageRoot).find((candidate) => candidate.path === executionPath);
     expect(execution).toBeDefined();
-    expect(parseImports(execution!.sourceText, execution!.path).map((imp) => imp.specifier)).toContain('@/harnesses/prokop/composition/execution-scope');
+    expect(parseImports(execution!.sourceText, execution!.path).map((imp) => imp.specifier)).toContain('#agent/harnesses/prokop/composition/execution-scope');
     expect(execution!.sourceText).toContain('withProkopExecutionScope');
 
     const scopePath = resolve(prokopHarnessDir, 'composition/execution-scope.ts');
-    const scope = scanDirectory(serverSourceRoot).find((candidate) => candidate.path === scopePath);
+    const scope = scanDirectory(agentPackageRoot).find((candidate) => candidate.path === scopePath);
     expect(scope).toBeDefined();
     expect(parseImports(scope!.sourceText, scope!.path).map((imp) => imp.specifier)).toContain('./composition');
     expect(scope!.sourceText).not.toContain('createCurrentProcessScope');
@@ -1877,18 +1867,19 @@ describe('server layer boundaries', () => {
       .toEqual(['directories.ts', 'history.ts', 'home-tool.ts', 'index.ts', 'knowledge.ts', 'review.ts']);
     const specifiers = files.flatMap((file) => parseImports(file.sourceText, file.path).map((imp) => imp.specifier));
     expect(specifiers).toContain('@prokopai/core/application/ports/learning-runtime');
-    expect(specifiers.some((specifier) => specifier.startsWith('@/harnesses/'))).toBe(false);
+    expect(specifiers.some((specifier) => specifier.startsWith('@/harnesses/') || specifier.startsWith('@prokopai/agent'))).toBe(false);
   });
 
   test('S11.4 gate: host code reaches harness and agent code only through the public agent entry', () => {
     // Test-only helpers: the browser tool tests reuse the harness tool test context.
-    const testHelpers = new Set(['@/harnesses/prokop/tools/test-utils']);
+    const testHelpers = new Set(['@prokopai/agent/internal/harnesses/prokop/tools/test-utils']);
     const offenders: string[] = [];
     for (const file of scanDirectory(serverSourceRoot)) {
       const relativePath = relative(serverSourceRoot, file.path);
       if (relativePath.startsWith(`harnesses${sep}`) || relativePath.startsWith(`agent${sep}`)) continue;
       for (const imp of parseImports(file.sourceText, file.path)) {
-        const deep = imp.specifier.startsWith('@/harnesses') || imp.specifier.startsWith('@/agent/');
+        const deep = imp.specifier.startsWith('@/harnesses') || imp.specifier.startsWith('@/agent/')
+          || imp.specifier.startsWith('@prokopai/agent/');
         if (deep && !(file.path.endsWith('.test.ts') && testHelpers.has(imp.specifier))) {
           offenders.push(`${relativePath} imports ${imp.specifier} [rule: agent-public-entry]`);
         }
@@ -1960,7 +1951,7 @@ describe('server layer boundaries', () => {
     expect(compositionRoot).toBeDefined();
     const rootSpecifiers = parseImports(compositionRoot!.sourceText, compositionRoot!.path).map((imp) => imp.specifier);
     // Through the public agent entry (Phase 2.5).
-    expect(rootSpecifiers).toContain('@/agent');
+    expect(rootSpecifiers).toContain('@prokopai/agent');
     expect(rootSpecifiers).toContain('@/application/ports/execution-lifecycle');
   });
 
@@ -2204,7 +2195,7 @@ describe('server layer boundaries', () => {
   });
 
   test('named harness implementations stay separate from host dispatch and provider accounts', () => {
-    const files = scanDirectory(serverSourceRoot);
+    const files = [...scanDirectory(serverSourceRoot), ...scanDirectory(agentPackageRoot)];
     const named = files.filter(file => file.path.startsWith(`${harnessesDir}/`));
     const paths = named.map(file => relative(harnessesDir, file.path));
     for (const path of [
@@ -2217,22 +2208,23 @@ describe('server layer boundaries', () => {
     const roots = [resolve(bootstrapDir, 'application.ts'), resolve(agentDir, 'composition/harness-registrations.ts')]
       .map(path => files.find(file => file.path === path)!);
     const imports = roots.flatMap(root => parseImports(root.sourceText, root.path).map(imp => imp.specifier));
-    expect(imports).toContain('@/harnesses/prokop');
-    expect(imports).toContain('@/harnesses/codex-cli');
-    expect(imports).toContain('@/harnesses/claude-cli');
+    expect(imports).toContain('#agent/harnesses/prokop/index');
+    expect(imports).toContain('#agent/harnesses/codex-cli/index');
+    expect(imports).toContain('#agent/harnesses/claude-cli/index');
     expect(imports.some(specifier => specifier.startsWith('@/infrastructure/codex/'))).toBe(false);
     const dispatchPath = resolve(coreSourceRoot, 'application/sessions/harness-execution.ts');
     const dispatch = scanDirectory(coreSourceRoot).find(file => file.path === dispatchPath)!;
-    expect(parseImports(dispatch.sourceText, dispatch.path).some(imp => imp.specifier.startsWith('@/harnesses/'))).toBe(false);
+    expect(parseImports(dispatch.sourceText, dispatch.path).some(imp => imp.specifier.startsWith('@/harnesses/')
+      || imp.specifier.startsWith('@prokopai/agent'))).toBe(false);
     for (const file of named) {
       const path = relative(harnessesDir, file.path);
       const specifiers = parseImports(file.sourceText, file.path).map(imp => imp.specifier);
       if (path.startsWith('codex-cli/') || path.startsWith('claude-cli/')) {
         expect(specifiers.some(specifier => specifier.startsWith('@prokopai/runtime'))).toBe(false);
-        expect(specifiers.some(specifier => specifier.startsWith('@/infrastructure/providers/'))).toBe(false);
+        expect(specifiers.some(specifier => specifier.startsWith('@prokopai/core/infrastructure/providers/'))).toBe(false);
       }
       if (path.startsWith('prokop/')) {
-        expect(specifiers.some(specifier => specifier.startsWith('@/infrastructure/codex/'))).toBe(false);
+        expect(specifiers.some(specifier => specifier.startsWith('@prokopai/core/infrastructure/codex/'))).toBe(false);
       }
     }
   });

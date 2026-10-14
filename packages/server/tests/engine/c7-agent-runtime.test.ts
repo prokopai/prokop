@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import type { AgentDriver, AgentRunContext } from '@/harnesses/prokop/execution/agent-runtime';
-import { createAgentRuntime } from '@/harnesses/prokop/execution/agent-runtime';
-import { DefaultAgentDriver, type DefaultDriverInput } from '@/harnesses/prokop/execution/default-agent-driver';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import type { AgentDriver, AgentRunContext } from '@prokopai/agent/internal/harnesses/prokop/execution/agent-runtime';
+import { createAgentRuntime } from '@prokopai/agent/internal/harnesses/prokop/execution/agent-runtime';
+import { DefaultAgentDriver, type DefaultDriverInput } from '@prokopai/agent/internal/harnesses/prokop/execution/default-agent-driver';
 
 async function scopes() {
   const processScope = await createProcessScope([]);

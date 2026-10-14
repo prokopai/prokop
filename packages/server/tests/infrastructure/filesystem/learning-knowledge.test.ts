@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, realpath, rm, mkdir, symlink, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addEntry } from '@/harnesses/shared/memory/registry';
+import { addEntry } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
 import { createLearningKnowledgeFiles } from '@/infrastructure/filesystem/learning-knowledge';
 import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
 

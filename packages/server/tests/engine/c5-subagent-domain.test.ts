@@ -13,14 +13,14 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Preconfig, Session, TextPart } from '@prokopai/sdk/types';
-import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
+import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
-import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
+import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
@@ -31,18 +31,18 @@ import {
   SUBAGENT_TOOL_CONTRIBUTION_ORDER,
   capekSubagentDomainKey,
   installTaskToolFallback,
-} from '@/harnesses/prokop/composition/plugins/subagent-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
 import {
   evaluateSubagentTarget,
   getSubagentResumeError,
   isSubagentSpawningDisabled,
   isValidSubagentTargetPreconfig,
-} from '@/harnesses/prokop/subagent/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/subagent/policy';
 import {
   executeSubagentWithDeps,
   type SubagentServiceDeps,
-} from '@/harnesses/prokop/subagent/task-tool';
-import { selfDelegationGuidance } from '@/harnesses/prokop/subagent/guidance';
+} from '@prokopai/agent/internal/harnesses/prokop/subagent/task-tool';
+import { selfDelegationGuidance } from '@prokopai/agent/internal/harnesses/prokop/subagent/guidance';
 import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { clearCache } from '@prokopai/core/infrastructure/tools/registry';

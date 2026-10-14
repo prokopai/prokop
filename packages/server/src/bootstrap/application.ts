@@ -101,7 +101,7 @@ import { createProviderUsagePort } from '@/infrastructure/providers/usage';
 import { getLLMApiKeys } from '@prokopai/core/infrastructure/runtime/environment';
 import {
   createProkopLearningRuntime, codexCliAvailable, codexCliVersion, createHarnessRegistrations, claudeCliAvailable, claudeCliVersion, cliWorkspaceAvailable,
-} from '@/agent';
+} from '@prokopai/agent';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';

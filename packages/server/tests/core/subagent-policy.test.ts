@@ -9,7 +9,7 @@ import {
   isSubagentSpawningDisabled,
   isValidSubagentPreconfig,
   isValidSubagentTargetPreconfig,
-} from '@/harnesses/prokop/subagent/policy';
+} from '@prokopai/agent/internal/harnesses/prokop/subagent/policy';
 
 function evaluate(options: {
   target: string;

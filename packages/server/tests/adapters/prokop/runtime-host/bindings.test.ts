@@ -7,9 +7,9 @@ import {
 import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
 import { prokopDeliveryBindings } from '@/adapters/prokop/runtime-host/delivery';
 import { prokopInteractionBindings } from '@/adapters/prokop/runtime-host/interaction';
-import { prokopSandboxBindings } from '@/harnesses/prokop/bindings/sandbox';
-import { prokopTitleBindings } from '@/harnesses/prokop/bindings/titles';
-import { prokopToolPolicy } from '@/harnesses/prokop/bindings/tool-policy';
+import { prokopSandboxBindings } from '@prokopai/agent/internal/harnesses/prokop/bindings/sandbox';
+import { prokopTitleBindings } from '@prokopai/agent/internal/harnesses/prokop/bindings/titles';
+import { prokopToolPolicy } from '@prokopai/agent/internal/harnesses/prokop/bindings/tool-policy';
 import { prokopWorkspaceBindings } from '@/adapters/prokop/runtime-host/workspace';
 import { generateSessionTitle, hasManualSessionTitle, isDefaultSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { isSandboxActive } from '@prokopai/core/infrastructure/sandbox';

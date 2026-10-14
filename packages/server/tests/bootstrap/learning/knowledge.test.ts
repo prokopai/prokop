@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createLearningKnowledgeExecutor, type LearningKnowledgeBoundary } from '@/bootstrap/learning/knowledge';
-import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { createProkopLearningRuntime } from '@prokopai/agent/internal/harnesses/prokop/learning/index';
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'learning-public-api-')); });

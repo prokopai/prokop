@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { claudeTextTurnArgs } from '@/harnesses/claude-cli/command';
-import { parseClaudeEvent, readClaudeStream } from '@/harnesses/claude-cli/stream';
+import { claudeTextTurnArgs } from '@prokopai/agent/internal/harnesses/claude-cli/command';
+import { parseClaudeEvent, readClaudeStream } from '@prokopai/agent/internal/harnesses/claude-cli/stream';
 
 const sessionId = '8ff16bb5-e2ac-4892-ae7c-a24ec8e5701d';
 const otherId = 'f79bc593-2202-46ba-b734-931cd1b6963e';

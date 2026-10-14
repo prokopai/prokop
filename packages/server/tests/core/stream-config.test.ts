@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { createRuntime } from '@/bootstrap/create-runtime';
-import { buildStreamConfig } from '@/harnesses/prokop/execution/stream/stream-config';
+import { buildStreamConfig } from '@prokopai/agent/internal/harnesses/prokop/execution/stream/stream-config';
 
 describe('buildStreamConfig provider options', () => {
   beforeEach(() => createRuntime());

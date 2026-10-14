@@ -6,8 +6,8 @@ import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
-} from '@/harnesses/prokop/context/sources';
-import { buildSystemMessage } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
+} from '@prokopai/agent/internal/harnesses/prokop/context/sources';
+import { buildSystemMessage } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 

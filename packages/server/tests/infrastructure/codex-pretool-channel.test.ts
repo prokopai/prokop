@@ -2,9 +2,9 @@ import { afterEach, expect, test } from 'bun:test';
 import { existsSync, statSync } from 'node:fs';
 import { connect as connectSocket } from 'node:net';
 import { dirname } from 'node:path';
-import type { CodexConnection } from '@/harnesses/codex-cli/app-server';
-import { createPretoolChannel, hookCommand } from '@/harnesses/codex-cli/pretool-hook';
-import type { CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
+import type { CodexConnection } from '@prokopai/agent/internal/harnesses/codex-cli/app-server';
+import { createPretoolChannel, hookCommand } from '@prokopai/agent/internal/harnesses/codex-cli/pretool-hook';
+import type { CodexHookCall } from '@prokopai/agent/internal/harnesses/codex-cli/hook-policy';
 
 const connections: Array<{ args: string[]; env: Record<string, string | undefined> }> = [];
 const hash = `sha256:${'a'.repeat(64)}`;

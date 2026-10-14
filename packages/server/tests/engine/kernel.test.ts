@@ -21,9 +21,9 @@ import {
   RunTerminalError,
   ScopeValidationError,
   ServiceCollisionError,
-} from '@/harnesses/prokop/composition/kernel/errors';
-import { createAgentScope, createProcessScope, createRunScope } from '@/harnesses/prokop/composition/kernel/kernel';
-import { serviceKey } from '@/harnesses/prokop/composition/kernel/service-key';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/errors';
+import { createAgentScope, createProcessScope, createRunScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import { serviceKey } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/service-key';
 import type {
   AgentScopeHandle,
   RuntimePlugin,
@@ -38,7 +38,7 @@ import type {
   ServiceOverride,
   ToolContribution,
   ToolVisibility,
-} from '@/harnesses/prokop/composition/kernel/types';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
 
 interface TrackedService {
   label: string;

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { validateCodexCliVersion } from '@/harnesses/codex-cli/version';
+import { validateCodexCliVersion } from '@prokopai/agent/internal/harnesses/codex-cli/version';
 
 test('Codex CLI accepts version 0.156.0 or newer without an upper bound', () => {
   for (const version of ['codex-cli 0.156.0', 'codex-cli 0.156.1', 'codex-cli 0.157.1',

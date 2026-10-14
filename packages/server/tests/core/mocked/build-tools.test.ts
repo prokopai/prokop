@@ -4,13 +4,13 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { tool, jsonSchema } from 'ai';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-import { configureAgentSource, configurePreconfigSource } from '@/harnesses/prokop/context/sources';
+import { configureAgentSource, configurePreconfigSource } from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host';
-import { buildAiSdkTools, type BuildToolsOptions } from '@/harnesses/prokop/execution/build-tools';
+import { buildAiSdkTools, type BuildToolsOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import { clearCache, scanTools } from '@prokopai/core/infrastructure/tools/registry';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk';
 

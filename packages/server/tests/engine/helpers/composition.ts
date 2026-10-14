@@ -1,5 +1,5 @@
-import { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/plugins/compose';
-import { compactionPolicyPlugin } from '@/harnesses/prokop/composition/plugins/compaction-policy';
+import { createAgentScope, createProcessScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
+import { compactionPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compaction-policy';
 import {
   contextSourcesValuePlugin,
   installedToolRegistryValuePlugin,
@@ -12,48 +12,48 @@ import {
   sessionSearchHostValuePlugin,
   storageValuePlugin,
   workspaceToolDiscoveryValuePlugin,
-} from '@/harnesses/prokop/composition/plugins/value-plugins';
-import { createContextSectionsPlugin } from '@/harnesses/prokop/composition/plugins/context-sections';
-import { defaultAgentDriverPlugin } from '@/harnesses/prokop/composition/plugins/default-agent-driver';
-import { getContextSources } from '@/harnesses/prokop/context/sources';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/value-plugins';
+import { createContextSectionsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
+import { defaultAgentDriverPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/default-agent-driver';
+import { getContextSources } from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { getRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { getSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import { getSchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { getSchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
+import { getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-import { goalDomainPlugin, CURRENT_GOAL_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/goal-domain';
+import { goalDomainPlugin, CURRENT_GOAL_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/goal-domain';
 import {
   memoryDomainPlugin,
   CURRENT_MEMORY_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/memory-domain';
-import { orchestratorSessionProviderPlugin } from '@/harnesses/prokop/composition/plugins/orchestrator-session';
-import { permissionPolicyPlugin } from '@/harnesses/prokop/composition/plugins/permission-policy';
-import { retryPolicyPlugin } from '@/harnesses/prokop/composition/plugins/retry-policy';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
+import { orchestratorSessionProviderPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/orchestrator-session';
+import { permissionPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/permission-policy';
+import { retryPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/retry-policy';
 import {
   schedulerDomainPlugin,
   CURRENT_SCHEDULER_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/scheduler-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
 import {
   sessionSearchDomainPlugin,
   CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/session-search-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
 import {
   skillsDomainPlugin,
   CURRENT_SKILLS_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/skills-domain';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
 import {
   subagentDomainPlugin,
   CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/subagent-domain';
-import { toolOutputPolicyPlugin } from '@/harnesses/prokop/composition/plugins/tool-output-policy';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
+import { toolOutputPolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/tool-output-policy';
 import {
   workflowDomainPlugin,
   CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID,
-} from '@/harnesses/prokop/composition/plugins/workflow-domain';
-import { workspacePolicyPlugin } from '@/harnesses/prokop/composition/plugins/workspace-policy';
-import type { AgentScopeHandle, RuntimePlugin, ProcessScopeHandle } from '@/harnesses/prokop/composition/plugins/compose';
+} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
+import { workspacePolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workspace-policy';
+import type { AgentScopeHandle, RuntimePlugin, ProcessScopeHandle } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 
 export const CURRENT_PROCESS_PLUGIN_IDS = [
   'current.provider-registry',
