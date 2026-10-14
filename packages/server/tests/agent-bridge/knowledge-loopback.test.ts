@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
@@ -23,6 +23,13 @@ describe('knowledge over the agent protocol loopback (SQLite)', () => {
     dirs.push(dir);
     return dir;
   };
+  let workspaceCount = 0;
+  /** A registered workspace: the host only writes knowledge into known workspace or agent dirs. */
+  const workspace = (): { memory: string; skills: string } => {
+    const path = tempDir();
+    seedWorkspace({ id: `ws-k${++workspaceCount}`, path });
+    return { memory: join(path, '.prokopai'), skills: join(path, '.agents', 'skills') };
+  };
 
   beforeEach(() => {
     process.env.PROKOPAI_AGENT_LOOPBACK = '1';
@@ -39,7 +46,7 @@ describe('knowledge over the agent protocol loopback (SQLite)', () => {
   });
 
   test('approved memory writes go through the host and match a local write', async () => {
-    const viaProtocol = tempDir();
+    const viaProtocol = workspace().memory;
     const local = tempDir();
     const input = { action: 'add', target: 'memory', content: 'Run tests with env -i.' };
 
@@ -51,6 +58,16 @@ describe('knowledge over the agent protocol loopback (SQLite)', () => {
     expect(readFileSync(join(viaProtocol, 'MEMORY.md'), 'utf8')).toBe(readFileSync(join(local, 'MEMORY.md'), 'utf8'));
   });
 
+  test('the host refuses writes outside workspace and agent knowledge dirs', async () => {
+    const elsewhere = tempDir();
+    await expect(executeMemoryTool({ action: 'add', target: 'memory', content: 'x' }, elsewhere, 'none'))
+      .rejects.toThrow('Not a workspace or agent knowledge directory');
+    const { memory } = workspace();
+    await expect(executeSkillManageTool({ action: 'create', name: 'x', description: 'd', content: 'c' }, memory, 'none'))
+      .rejects.toThrow('Not a workspace or agent knowledge directory');
+    expect(existsSync(join(elsewhere, 'MEMORY.md'))).toBe(false);
+  });
+
   test('a rejected ask never reaches the host', async () => {
     const dir = tempDir();
     const result = await executeMemoryTool({ action: 'add', target: 'user', content: 'x' }, dir, 'medium', async () => false);
@@ -58,7 +75,7 @@ describe('knowledge over the agent protocol loopback (SQLite)', () => {
   });
 
   test('approved skill writes go through the host and match a local write', async () => {
-    const viaProtocol = tempDir();
+    const viaProtocol = workspace().skills;
     const local = tempDir();
     const input = { action: 'create', name: 'release-check', description: 'Check releases.', content: 'Steps.' };
     const remote = await executeSkillManageTool(input, viaProtocol, 'none');

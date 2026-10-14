@@ -60,7 +60,7 @@
           }
         },
         "turn.headless": {
-          "description": "HeadlessSessionRunPort.run (scheduled jobs, learning reviews). Prokop only today.",
+          "description": "HeadlessSessionRunPort.run (scheduled jobs, learning reviews). Cancel with $/cancel.",
           "params": {
             "$ref": "#/$defs/turn.headless.params"
           },
@@ -113,22 +113,22 @@
             "$ref": "#/$defs/title.native.result"
           }
         },
+        "ask.lookup": {
+          "description": "The session and authority of a live ask, from the agent's own waiters; null when no waiter matches.",
+          "params": {
+            "$ref": "#/$defs/ask.lookup.params"
+          },
+          "result": {
+            "$ref": "#/$defs/ask.lookup.result"
+          }
+        },
         "ask.resolve": {
-          "description": "The user answered a pending ask. Replaces the three in-process resolution ports (decision 6 A).",
+          "description": "The user answered a pending ask (every harness). The agent validates the answer and wakes its waiter (decision 6 A).",
           "params": {
             "$ref": "#/$defs/ask.resolve.params"
           },
           "result": {
             "$ref": "#/$defs/ask.resolve.result"
-          }
-        },
-        "harness.status": {
-          "description": "CLI availability and version probe (codexCliAvailable, claudeCliVersion, ...).",
-          "params": {
-            "$ref": "#/$defs/HarnessParams"
-          },
-          "result": {
-            "$ref": "#/$defs/harness.status.result"
           }
         },
         "models.list": {
@@ -180,7 +180,7 @@
           }
         },
         "store.session.get": {
-          "description": "Read a session mid-turn. Turn start already carries a snapshot.",
+          "description": "Read a session.",
           "params": {
             "$ref": "#/$defs/IdParams"
           },
@@ -683,13 +683,130 @@
             "$ref": "#/$defs/ToolResult"
           }
         },
-        "sessionSearch.call": {
-          "description": "One SessionSearchHost port call (shared/session-search/host.ts). Typed per op later; the agent-side tool owns validation and the permission ask.",
+        "learning.tool": {
+          "description": "A learning review tool call (memory, skills, session_search, home_files). The host runs it against the review it opened for the session and rechecks the run's authorization.",
           "params": {
-            "$ref": "#/$defs/sessionSearch.call.params"
+            "$ref": "#/$defs/learning.tool.params"
           },
           "result": {
-            "$ref": "#/$defs/sessionSearch.call.result"
+            "$ref": "#/$defs/CapabilityToolResult"
+          }
+        },
+        "search.workspace": {
+          "description": "A workspace by ID.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/search.workspace.result"
+          }
+        },
+        "search.session": {
+          "description": "A session by ID.",
+          "params": {
+            "$ref": "#/$defs/IdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/search.session.result"
+          }
+        },
+        "search.workspaceSessions": {
+          "description": "Sessions of a workspace.",
+          "params": {
+            "$ref": "#/$defs/search.workspaceSessions.params"
+          },
+          "result": {
+            "$ref": "#/$defs/search.workspaceSessions.result"
+          }
+        },
+        "search.agentSessions": {
+          "description": "Recent sessions of an agent across workspaces.",
+          "params": {
+            "$ref": "#/$defs/search.agentSessions.params"
+          },
+          "result": {
+            "$ref": "#/$defs/search.agentSessions.result"
+          }
+        },
+        "search.countMessages": {
+          "description": "Messages in a session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "search.messages": {
+          "description": "Full-text search over messages.",
+          "params": {
+            "$ref": "#/$defs/search.messages.params"
+          },
+          "result": {
+            "$ref": "#/$defs/search.messages.result"
+          }
+        },
+        "search.countBefore": {
+          "description": "Messages of a session before a time.",
+          "params": {
+            "$ref": "#/$defs/SearchCursor"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "search.countAfter": {
+          "description": "Messages of a session after a time.",
+          "params": {
+            "$ref": "#/$defs/SearchCursor"
+          },
+          "result": {
+            "$ref": "#/$defs/Count"
+          }
+        },
+        "search.latestMessage": {
+          "description": "Newest message of a session.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/search.latestMessage.result"
+          }
+        },
+        "search.message": {
+          "description": "A message of a session.",
+          "params": {
+            "$ref": "#/$defs/search.message.params"
+          },
+          "result": {
+            "$ref": "#/$defs/search.message.result"
+          }
+        },
+        "search.messagesBefore": {
+          "description": "Messages of a session before a time, newest first.",
+          "params": {
+            "$ref": "#/$defs/SearchPage"
+          },
+          "result": {
+            "$ref": "#/$defs/search.messagesBefore.result"
+          }
+        },
+        "search.messagesAfter": {
+          "description": "Messages of a session after a time, oldest first.",
+          "params": {
+            "$ref": "#/$defs/SearchPage"
+          },
+          "result": {
+            "$ref": "#/$defs/search.messagesAfter.result"
+          }
+        },
+        "search.messageSummary": {
+          "description": "Role, time, text and tool name of a message.",
+          "params": {
+            "$ref": "#/$defs/search.messageSummary.params"
+          },
+          "result": {
+            "$ref": "#/$defs/search.messageSummary.result"
           }
         },
         "knowledge.apply": {
@@ -1020,6 +1137,22 @@
       "required": [
         "id"
       ]
+    },
+    "CapabilityToolResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "result": {},
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "success"
+      ],
+      "additionalProperties": {}
     },
     "Changed": {
       "type": "object",
@@ -1564,6 +1697,40 @@
       ],
       "additionalProperties": {}
     },
+    "MessageRole": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "timestamp"
+      ]
+    },
+    "MessageStamp": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "timestamp"
+      ]
+    },
     "MessageWithParts": {
       "type": "object",
       "properties": {
@@ -1966,6 +2133,88 @@
             "error"
           ]
         }
+      ]
+    },
+    "SearchCursor": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "sessionId",
+        "timestamp"
+      ]
+    },
+    "SearchMessageResult": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "sessionTitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "messageId",
+        "sessionId",
+        "workspaceId",
+        "role",
+        "content",
+        "timestamp",
+        "sessionTitle",
+        "rank"
+      ]
+    },
+    "SearchPage": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sessionId",
+        "timestamp",
+        "limit"
       ]
     },
     "ServerMessage": {
@@ -2371,66 +2620,6 @@
         "pagination"
       ]
     },
-    "TurnSnapshot": {
-      "type": "object",
-      "properties": {
-        "session": {
-          "$ref": "#/$defs/Session"
-        },
-        "workspace": {
-          "$ref": "#/$defs/Workspace"
-        },
-        "root": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "description": "Resolved session root (managed worktree or workspace path).",
-              "type": "string"
-            },
-            "additionalPaths": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "allowedRoots": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Read-only roots: uploads and the agent directory."
-            },
-            "tempDir": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "additionalPaths",
-            "allowedRoots",
-            "tempDir"
-          ]
-        },
-        "responseFormat": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {}
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "session",
-        "workspace",
-        "root"
-      ]
-    },
     "Workspace": {
       "type": "object",
       "properties": {
@@ -2473,6 +2662,41 @@
         "written"
       ]
     },
+    "ask.lookup.params": {
+      "type": "object",
+      "properties": {
+        "toolCallId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "toolCallId"
+      ]
+    },
+    "ask.lookup.result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "authority": {
+              "$ref": "#/$defs/AskAuthority"
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "ask.resolve.params": {
       "type": "object",
       "properties": {
@@ -2488,7 +2712,6 @@
         "response": {}
       },
       "required": [
-        "sessionId",
         "toolCallId",
         "response"
       ]
@@ -2706,28 +2929,6 @@
       "required": [
         "forkedSession",
         "messages"
-      ]
-    },
-    "harness.status.result": {
-      "type": "object",
-      "properties": {
-        "available": {
-          "type": "boolean"
-        },
-        "version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "available",
-        "version"
       ]
     },
     "host.notify.params": {
@@ -3187,6 +3388,23 @@
       },
       "additionalProperties": {}
     },
+    "learning.tool.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {}
+      },
+      "required": [
+        "sessionId",
+        "name",
+        "arguments"
+      ]
+    },
     "models.list.result": {
       "type": "object",
       "properties": {
@@ -3358,6 +3576,202 @@
         "removed"
       ]
     },
+    "search.agentSessions.params": {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "agentId",
+        "limit"
+      ]
+    },
+    "search.agentSessions.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Session"
+      }
+    },
+    "search.latestMessage.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageStamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search.message.params": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId",
+        "sessionId"
+      ]
+    },
+    "search.message.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageStamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search.messageSummary.params": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId"
+      ]
+    },
+    "search.messageSummary.result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string"
+            },
+            "toolName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "timestamp",
+            "content",
+            "toolName"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search.messages.params": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "roleFilter": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "relevance",
+            "newest",
+            "oldest"
+          ]
+        }
+      },
+      "required": [
+        "query",
+        "roleFilter",
+        "limit",
+        "sort"
+      ]
+    },
+    "search.messages.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SearchMessageResult"
+      }
+    },
+    "search.messagesAfter.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MessageRole"
+      }
+    },
+    "search.messagesBefore.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MessageRole"
+      }
+    },
+    "search.session.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Session"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search.workspace.result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workspace"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search.workspaceSessions.params": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "search.workspaceSessions.result": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Session"
+      }
+    },
     "session.activity.params": {
       "type": "object",
       "properties": {
@@ -3371,46 +3785,6 @@
       "required": [
         "sessionId",
         "active"
-      ]
-    },
-    "sessionSearch.call.params": {
-      "type": "object",
-      "properties": {
-        "op": {
-          "type": "string",
-          "enum": [
-            "getWorkspace",
-            "getSession",
-            "listWorkspaceSessions",
-            "listAgentSessions",
-            "countSessionMessages",
-            "searchMessages",
-            "countMessagesBefore",
-            "countMessagesAfter",
-            "getLatestMessage",
-            "getMessage",
-            "listMessagesBefore",
-            "listMessagesAfter",
-            "getMessageSummary"
-          ]
-        },
-        "args": {
-          "type": "array",
-          "items": {}
-        }
-      },
-      "required": [
-        "op",
-        "args"
-      ]
-    },
-    "sessionSearch.call.result": {
-      "type": "object",
-      "properties": {
-        "value": {}
-      },
-      "required": [
-        "value"
       ]
     },
     "shutdown.params": {
@@ -4325,6 +4699,35 @@
         },
         "resumeFromHistory": {
           "type": "boolean"
+        },
+        "learning": {
+          "description": "A learning review: the agent composes the restricted review scope; its tools call back with learning.tool.",
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "agent"
+              ]
+            },
+            "improveSkills": {
+              "type": "boolean"
+            },
+            "home": {
+              "type": "boolean",
+              "description": "Offer home_files (agent scope only)."
+            },
+            "systemPrompt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "improveSkills",
+            "home",
+            "systemPrompt"
+          ]
         }
       },
       "required": [
@@ -4449,10 +4852,6 @@
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
-        },
-        "snapshot": {
-          "description": "Not sent yet: in Phase 1 harnesses read the session through store.*.",
-          "$ref": "#/$defs/TurnSnapshot"
         }
       },
       "required": [

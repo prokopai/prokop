@@ -1,6 +1,5 @@
-import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
 import type { LearningScope } from '@prokopai/sdk';
+import type { LearningKnowledgeResult as KnowledgeOperationResult, LearningRuntimePort } from '@/application/ports/learning-runtime';
 
 export interface LearningKnowledgeBoundary {
   scope: LearningScope;
@@ -12,6 +11,8 @@ export interface LearningKnowledgeBoundary {
   /** Host owns serialization, staging, journal, and revision-checked activation.
    * Execute against an isolated staging directory, never the live destination. */
   mutate<T>(kind: 'memory' | 'skills', execute: (stagingDirectory: string) => Promise<T>): Promise<T>;
+  /** The harness's memory and skill tool logic. */
+  executors: Pick<LearningRuntimePort, 'memory' | 'skills'>;
 }
 
 export interface LearningKnowledgeResult {
@@ -20,7 +21,7 @@ export interface LearningKnowledgeResult {
   result?: unknown;
 }
 
-/** Uses public executors, not internal domain payloads or copied persistence logic.
+/** Uses the harness's tool executors, not internal domain payloads or copied persistence logic.
  * Directory selection belongs to the host and cannot be supplied in tool input. */
 export function createLearningKnowledgeExecutor(boundary: LearningKnowledgeBoundary): {
   execute(name: string, input: unknown): Promise<LearningKnowledgeResult>;
@@ -40,7 +41,7 @@ export function createLearningKnowledgeExecutor(boundary: LearningKnowledgeBound
           return { success: false, error: 'Invalid memory action or target' };
         }
         // Reads use the same validated snapshot as mutations, never unchecked live paths.
-        return boundary.mutate('memory', directory => executeMemoryTool(args, directory, 'none'));
+        return boundary.mutate<KnowledgeOperationResult>('memory', directory => boundary.executors.memory(args, directory));
       }
       if (name === skillsName && boundary.improveSkills) {
         if (!['list', 'create', 'update', 'patch', 'delete'].includes(String(args.action))) {
@@ -49,7 +50,7 @@ export function createLearningKnowledgeExecutor(boundary: LearningKnowledgeBound
         if (args.action !== 'list' && typeof args.name !== 'string') {
           return { success: false, error: 'Skill name is required' };
         }
-        const result = await boundary.mutate('skills', directory => executeSkillManageTool(args, directory, 'none'));
+        const result = await boundary.mutate('skills', directory => boundary.executors.skills(args, directory));
         return result.success ? { success: true, result } : { success: false, error: result.error };
       }
       return { success: false, error: 'Tool is not permitted in this learning scope' };

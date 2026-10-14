@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createLearningHistory } from '@/harnesses/prokop/learning/learning-history';
+import { createLearningHistory } from '@/bootstrap/learning/history';
 import { createLearningRepository } from '@/infrastructure/sqlite/learning-repository';
 import { getWorkspace, updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';

@@ -18,9 +18,12 @@ import type {
   SessionExecutionPort,
 } from '@/application/ports/execution';
 import type {
+  HeadlessRunOptions,
   HeadlessSessionRunInput,
   HeadlessSessionRunResult,
+  LearningReviewSpec,
 } from '@/application/ports/headless-execution';
+import { runLearningReview } from '@/harnesses/prokop/learning';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { createProkopRuntimeContext } from '@/harnesses/prokop/host/events';
 import { withProkopComposedScopeSync, withProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
@@ -158,13 +161,18 @@ export function createProkopSessionExecution(
  * session execution entries; the scheduled runner resolves session
  * identity and model selection and never reaches harness internals. The
  * harness field is dispatch metadata and is dropped before the Capek call.
+ * A run with a `learning` spec is a learning review, which composes its own
+ * isolated review scope instead.
  */
 export function createProkopHeadlessExecution(
   dependencies: Pick<ProkopSessionExecutionDependencies, 'executeChildSession'> = {},
-): (input: HeadlessSessionRunInput) => Promise<HeadlessSessionRunResult> {
+): (input: HeadlessSessionRunInput, options?: HeadlessRunOptions) => Promise<HeadlessSessionRunResult> {
   const executeChildSession = dependencies.executeChildSession ?? capekExecuteChildSession;
-  return input => withProkopExecutionScope(() => {
-    const { harness: _harness, ...child } = input;
-    return executeChildSession(child);
-  });
+  return (input, options) => input.learning
+    ? runLearningReview(input as HeadlessSessionRunInput & { learning: LearningReviewSpec }, options?.signal,
+      dependencies.executeChildSession)
+    : withProkopExecutionScope(() => {
+      const { harness: _harness, ...child } = input;
+      return executeChildSession(child);
+    });
 }

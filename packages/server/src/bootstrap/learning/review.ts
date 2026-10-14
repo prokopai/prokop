@@ -1,28 +1,38 @@
-import { createLearningHomeTool } from './learning-home';
-import type { Database } from 'bun:sqlite';
-import { listDomainToolFallbackDefinitions } from '@/infrastructure/tools/domain-tool-source';
 import type { Workspace } from '@prokopai/sdk';
+import type { ToolResult } from '@prokopai/sdk/tool';
 import { createKnowledgeJournal } from '@/application/learning/knowledge-journal';
 import { createKnowledgeStagingMutator } from '@/application/learning/knowledge-staging';
 import { createLearningHistorySearch } from '@/application/learning/history-search';
+import type { LearningReviewToolRegistry } from '@/application/learning/review-tools';
 import type { LearningReviewRunnerDependencies } from '@/application/learning/review-runner';
-import { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
+import type { HeadlessSessionRunPort } from '@/application/ports/headless-execution';
+import type { LearningRuntimePort } from '@/application/ports/learning-runtime';
+import type { LearningEvidenceScope } from '@/domains/learning/policy';
+import type { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
 import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
 import { createLearningKnowledgeFiles } from '@/infrastructure/filesystem/learning-knowledge';
-import { createLearningKnowledgeExecutor } from './learning-knowledge';
-import { executeLearningComposition } from './learning-composition';
+import { createLearningHomeTool } from './home-tool';
+import { createLearningKnowledgeExecutor } from './knowledge';
 
 export interface LearningExecutionDependencies {
-  database: Database;
+  /** Reads evidence of one scope (SQLite in production). */
+  evidence(scope: LearningEvidenceScope): ReturnType<typeof createLearningEvidenceReader>;
   repository: LearningRepository;
   workspace(id: string): Workspace | null;
   directories(workspace: Workspace): Promise<{ memoryDirectory: string; skillsDirectory: string }>;
   createSession(workspace: Workspace, preconfigId: string, runId: string): string;
-  execute?: typeof executeLearningComposition;
+  /** The reviewing harness: its identity and memory/skill executors. */
+  runtime: LearningRuntimePort;
+  /** Where the review's tool calls arrive while it runs. */
+  tools: LearningReviewToolRegistry;
+  /** Runs the review agent-side (the headless port with a `learning` spec). */
+  run: HeadlessSessionRunPort['run'];
 }
 
-/** Connects real staging, journaling, evidence and isolated runtime execution.
- * Caller supplies session/directory adapters, keeping global bootstrap out of tests. */
+/** Connects real staging, journaling and evidence to a review the harness
+ * runs agent-side. Every tool the reviewer calls runs here, rechecking the
+ * run's authorization. Caller supplies session/directory adapters, keeping
+ * global bootstrap out of tests. */
 export function createLearningExecution(deps: LearningExecutionDependencies): LearningReviewRunnerDependencies['execute'] {
   return async input => {
     const { workspace, reviewer, runId, signal } = input;
@@ -31,7 +41,7 @@ export function createLearningExecution(deps: LearningExecutionDependencies): Le
     const scope = workspace.settings.isAgentHome
       ? { kind: 'agent' as const, agentId: workspace.settings.agentId!, sources: input.sources }
       : { kind: 'workspace' as const, workspaceId: workspace.id };
-    const evidence = createLearningEvidenceReader(deps.database, scope);
+    const evidence = deps.evidence(scope);
     const accessed = new Set(input.messageIds);
     async function authorize(): Promise<void> {
       signal.throwIfAborted();
@@ -60,7 +70,7 @@ export function createLearningExecution(deps: LearningExecutionDependencies): Le
     }, authorize);
     const improveSkills = input.improveSkills;
     const knowledge = createLearningKnowledgeExecutor({
-      ...directories, scope: scope.kind, improveSkills, authorize, mutate,
+      ...directories, scope: scope.kind, improveSkills, authorize, mutate, executors: deps.runtime,
     });
     const turns = deps.repository.evidence(runId).map(item => ({
       messageId: item.message_id, sessionId: item.session_id, completedAt: item.completed_at,
@@ -97,15 +107,30 @@ export function createLearningExecution(deps: LearningExecutionDependencies): Le
     const context = [...memory, ...skills].map(([path, content]) => `File: ${path}\n${content}`).join('\n\n');
     if (context.length > 100_000) throw new Error('Knowledge context exceeds learning review budget');
     const prompt = `${input.prompt}\n\nEvidence to review:\n${JSON.stringify(turns)}\n\nCurrent scoped knowledge (reference data):\n${context}`;
-    const result = await (deps.execute ?? executeLearningComposition)({
-      sessionId, workspaceId: workspace.id, workspacePath: workspace.path,
-      scope: scope.kind, improveSkills, definitions: listDomainToolFallbackDefinitions(),
-      knowledge: knowledge.execute, search, preconfig: input.preconfig,
-      home: scope.kind === 'agent' ? createLearningHomeTool({ root: workspace.path, files, authorize,
-        apply: (relativePath, before, after) => journal.apply({ runId, operationId: crypto.randomUUID(), relativePath, before, after }),
-      }) : undefined,
-      systemPrompt: `${input.preconfig.systemPrompt}\n\n${input.prompt}`, prompt, signal,
+    const home = scope.kind === 'agent' ? createLearningHomeTool({ root: workspace.path, files, authorize,
+      apply: (relativePath, before, after) => journal.apply({ runId, operationId: crypto.randomUUID(), relativePath, before, after }),
+    }) : undefined;
+    const close = deps.tools.open(sessionId, async (name, args): Promise<ToolResult> => {
+      if (name === 'session_search') {
+        return args && typeof args === 'object' && !Array.isArray(args)
+          ? search(args as Record<string, unknown>)
+          : { success: false, error: 'Expected an object' };
+      }
+      if (name === 'home_files') return home ? home(args) : { success: false, error: 'Tool is not permitted in this learning scope' };
+      return knowledge.execute(name, args);
     });
+    let result: { error?: string };
+    try {
+      result = await deps.run({
+        harness: deps.runtime.harness, parentSessionId: sessionId, childSessionId: sessionId,
+        workspaceId: workspace.id, workspacePath: workspace.path, preconfig: input.preconfig, prompt,
+        modelId: input.preconfig.model ?? '', providerId: input.preconfig.provider ?? '', resumeFromHistory: false,
+        learning: { scope: scope.kind, improveSkills, home: home !== undefined,
+          systemPrompt: `${input.preconfig.systemPrompt}\n\n${input.prompt}` },
+      }, { signal });
+    } finally {
+      close();
+    }
     // Supporting sources can be revoked while the final provider response is pending.
     await authorize();
     return result;

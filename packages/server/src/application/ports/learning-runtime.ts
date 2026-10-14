@@ -1,49 +1,27 @@
-import type { SessionHarness, Workspace } from '@prokopai/sdk';
-import type { KnowledgeJournalResult } from '@/application/learning/knowledge-journal';
-import type { LearningReviewRunnerDependencies } from '@/application/learning/review-runner';
+import type { SessionHarness } from '@prokopai/sdk';
 
-/** Knowledge destinations a learning runtime manages. */
+/** Knowledge destinations a learning run writes to. */
 export interface LearningKnowledgeDirectories {
   memoryDirectory: string;
   skillsDirectory: string;
 }
 
-/** One bounded review execution; the review-runner contract verbatim. */
-export type LearningReviewExecution = LearningReviewRunnerDependencies['execute'];
-
-/** Recovery and user-requested undo over a run's recorded destination. */
-export interface LearningHistoryRuntime {
-  undo(workspaceId: string, runId: string, changeId: string): Promise<KnowledgeJournalResult>;
-  reconcile(workspaceId: string, runId: string, changeId: string): Promise<KnowledgeJournalResult>;
+/** Outcome of a memory or skill operation on a staging directory. */
+export interface LearningKnowledgeResult {
+  success: boolean;
+  error?: string;
 }
 
 /**
- * Per-harness learning runtime (S11.3 slice 4).
- *
- * The application owns learning orchestration (discovery, eligibility,
- * review runs, recovery); the owning harness supplies the runtime that
- * executes reviews inside its own scope, resolves the knowledge
- * destinations it manages, and reconciles history for those destinations.
- * The assembly methods take the persistence handles the caller already
- * owns, so no harness or infrastructure type crosses this boundary:
- * Repository and Database are generic parameters the harness
- * instantiation fixes.
+ * What host-side learning needs from the reviewing harness besides the
+ * review run itself, which goes through the headless port with a
+ * `learning` spec. The host runs the harness's memory and skill tool logic
+ * against an isolated staging directory, as it does for `knowledge.apply`;
+ * staging, journaling and activation stay host-owned.
  */
-export interface LearningRuntimePort<Repository = unknown, Database = unknown> {
+export interface LearningRuntimePort {
   /** Harness identity stamped on learning-created sessions. */
   harness: SessionHarness;
-  directories(workspace: Workspace): Promise<LearningKnowledgeDirectories>;
-  createHistory(deps: {
-    repository: Repository;
-    workspace(id: string): Workspace | null;
-    directories(workspace: Workspace): Promise<LearningKnowledgeDirectories>;
-    now(): number;
-  }): LearningHistoryRuntime;
-  createExecution(deps: {
-    database: Database;
-    repository: Repository;
-    workspace(id: string): Workspace | null;
-    directories(workspace: Workspace): Promise<LearningKnowledgeDirectories>;
-    createSession(workspace: Workspace, preconfigId: string, runId: string): string;
-  }): LearningReviewExecution;
+  memory(input: Record<string, unknown>, directory: string): Promise<LearningKnowledgeResult>;
+  skills(input: Record<string, unknown>, directory: string): Promise<LearningKnowledgeResult>;
 }

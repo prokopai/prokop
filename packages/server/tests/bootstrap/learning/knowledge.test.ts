@@ -2,7 +2,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createLearningKnowledgeExecutor, type LearningKnowledgeBoundary } from '@/harnesses/prokop/learning/learning-knowledge';
+import { createLearningKnowledgeExecutor, type LearningKnowledgeBoundary } from '@/bootstrap/learning/knowledge';
+import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'learning-public-api-')); });
@@ -20,6 +21,7 @@ function fixture(scope: 'workspace' | 'agent' = 'workspace', improveSkills = tru
       mutations.push(kind);
       return execute(join(root, `staging-${kind}`));
     },
+    executors: createProkopLearningRuntime(),
   };
   return { executor: createLearningKnowledgeExecutor(boundary), mutations, revoke: () => { allowed = false; } };
 }

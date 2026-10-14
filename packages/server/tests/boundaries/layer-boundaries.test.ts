@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { relative, resolve, dirname, sep } from 'node:path';
 import {
   evaluateRules,
+  isWithin,
   parseImports,
   resolveLocalSpecifier,
   scanDirectory,
@@ -285,13 +286,14 @@ const layerRules: DependencyRule[] = [
   },
   {
     name: 'layer-harness-host-access',
-    rationale: 'Harnesses run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools), never SQLite or transport directly. Prokop host adapters and learning move host-side later and stay excluded until then.',
+    rationale: 'Harnesses run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools, notifications, learning review tools), never SQLite, transport or host notification services directly. `prokop/host` holds the host-side Prokop adapters and stays excluded.',
     appliesTo: [harnessesDir],
-    excludedDirs: [resolve(prokopHarnessDir, 'host'), resolve(prokopHarnessDir, 'learning')],
+    excludedDirs: [resolve(prokopHarnessDir, 'host')],
     forbiddenSpecifiers: [
       { exact: 'bun:sqlite' },
       { prefix: '@/infrastructure/sqlite' },
       { prefix: '@/transport' },
+      { prefix: '@/application/notifications' },
     ],
     exceptions: {
       // The todo tool's own todos.db is agent-private state, not the host database (plan decision 4).
@@ -1853,10 +1855,11 @@ describe('server layer boundaries', () => {
   });
 
   test('S11.3 gate: wired learning receives its runtime through the application port', () => {
-    const learningPath = resolve(bootstrapDir, 'learning.ts');
-    const learning = scanDirectory(serverSourceRoot).find((file) => file.path === learningPath);
-    expect(learning).toBeDefined();
-    const specifiers = parseImports(learning!.sourceText, learning!.path).map((imp) => imp.specifier);
+    const learningDir = resolve(bootstrapDir, 'learning');
+    const files = scanDirectory(serverSourceRoot).filter((file) => isWithin(file.path, learningDir));
+    expect(files.map((file) => relative(learningDir, file.path)).sort())
+      .toEqual(['directories.ts', 'history.ts', 'home-tool.ts', 'index.ts', 'knowledge.ts', 'review.ts']);
+    const specifiers = files.flatMap((file) => parseImports(file.sourceText, file.path).map((imp) => imp.specifier));
     expect(specifiers).toContain('@/application/ports/learning-runtime');
     expect(specifiers.some((specifier) => specifier.startsWith('@/harnesses/'))).toBe(false);
   });

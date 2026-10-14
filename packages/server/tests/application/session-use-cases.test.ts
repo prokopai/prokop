@@ -164,7 +164,7 @@ function makePendingAsks(): PendingAskPort {
 }
 
 function makeAskAuthority(): AskAuthorityPort {
-  return { timeoutMs: 300_000, getAuthorityForPendingAsk: () => undefined };
+  return { timeoutMs: 300_000, authorityOf: () => ({ visibilityScope: 'controller_only', resolutionMode: 'controller_only' }) };
 }
 
 function makeControl(): SessionControlPort<Origin> {

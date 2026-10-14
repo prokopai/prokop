@@ -52,7 +52,7 @@ import {
   listAllPendingAsks,
   listPendingRequestsByRootSession,
 } from '@/infrastructure/sqlite/pending-asks';
-import { getAgentAskPort, isAgentAskId } from '@/application/ports/agent-asks';
+import { getAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
 import type {
   AttachmentRecord,
   GroupedSessionPage,
@@ -341,7 +341,7 @@ function livePendingAsks(records: ReturnType<typeof listAllPendingAsks>): Return
   return records.filter(record => {
     if (record.status !== 'pending') return true;
     // Agent-side asks whose waiter is gone (restart, crash) are stale.
-    if (!isAgentAskId(record.toolCallId)) return true;
+    if (!isNativeHarnessAskId(record.toolCallId)) return true;
     if (getAgentAskPort()?.hasLiveRequest(record.requestId)) return true;
     expirePermissionRequest(record.id);
     return false;

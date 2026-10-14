@@ -13,12 +13,11 @@
  *   override the advice methods on its instance, but the runtime never
  *   consults those overrides for mandatory decisions.
  */
+import { resolveAskAuthority } from '@/domains/permissions/ask-authority';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Ask } from '@prokopai/sdk/tool';
-import type {
-  AskAuthority, AskPermissionResponse, ClientCapability, GrantScope, PermissionIntent,
-} from '@prokopai/sdk/types';
+import type { AskPermissionResponse, GrantScope, PermissionIntent } from '@prokopai/sdk/types';
 import type { PermissionAsk, PermissionRiskLevel } from '@prokopai/sdk/tool';
 import { SHELL_FILESYSTEM_COMMANDS } from '@prokopai/sdk/tool';
 import { SHELL_DANGEROUS_COMMANDS } from '@prokopai/sdk/tool';
@@ -37,10 +36,6 @@ export const ASK_TIMEOUT = 5 * 60 * 1000;
 /** Legacy export from the pre-C6 permission-request-manager module. */
 export const PERMISSION_TIMEOUT = 30 * 60 * 1000;
 
-const DEFAULT_ASK_AUTHORITY: AskAuthority = {
-  visibilityScope: 'controller_only',
-  resolutionMode: 'controller_only',
-};
 
 const RISK_ORDER: PermissionRiskLevel[] = ['none', 'low', 'medium', 'high', 'critical'];
 const VALID_GRANT_SCOPES: GrantScope[] = ['once', 'session', 'workspace'];
@@ -161,20 +156,7 @@ export function buildGrantParams(
   }];
 }
 
-export function resolveAskAuthority(request: Ask): AskAuthority {
-  if (
-    request.type === 'client_capability'
-    && 'target' in request
-    && request.target === 'client'
-  ) {
-    return {
-      visibilityScope: 'global',
-      resolutionMode: 'first_eligible',
-      requiredCapabilities: [request.capability as ClientCapability],
-    };
-  }
-  return DEFAULT_ASK_AUTHORITY;
-}
+export { resolveAskAuthority };
 
 export function extractResolutionValue(response: unknown): unknown {
   if (!response || typeof response !== 'object') return response;

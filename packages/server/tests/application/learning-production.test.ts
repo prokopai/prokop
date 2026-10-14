@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig, LearningRunSummary, LearningRunDetail } from '@prokopai/sdk';
 import { createWiredLearning } from '@/bootstrap/learning';
-import type { LearningExecutionDependencies } from '@/harnesses/prokop/learning/learning-execution';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { learningReviewTools } from '@/application/learning/review-tools';
+import { reviewHeadless, type ReviewCall } from '#tests/helpers/learning-review';
 import type { HeadlessSessionRunInput } from '@/application/ports/headless-execution';
 import { createSessionSchema, updateSessionSchema } from '@/transport/http/routes/schemas';
 import { registerLearningRoutes } from '@/transport/http/routes/learning';
@@ -20,7 +21,7 @@ let root: string | undefined;
 let learning: ReturnType<typeof createWiredLearning> | undefined;
 afterEach(async () => { await learning?.stop(); learning = undefined; resetTestDatabase(); if (root) await rm(root, { recursive: true, force: true }); root = undefined; });
 
-async function fixture(personal = false, execute?: LearningExecutionDependencies['execute']) {
+async function fixture(personal = false, execute?: (input: ReviewCall) => Promise<{ error?: string }>) {
   const db = setupTestDatabase();
   root = await mkdtemp(join(await realpath(tmpdir()), 'learning-production-'));
   const settings = enableLearning({}, 'dev', 'reviewer');
@@ -52,17 +53,15 @@ async function fixture(personal = false, execute?: LearningExecutionDependencies
       settings: personal ? { learning: agentLearning } : undefined,
     } as unknown as Preconfig),
   };
-  const wire = () => createWiredLearning(agents, createProkopLearningRuntime({
-    agents,
-    executeOverride: async input => {
+  const wire = () => createWiredLearning(agents, createProkopLearningRuntime(), {
+    modelAvailable: () => true,
+    headless: reviewHeadless(learningReviewTools, async input => {
       calls++; reviewSession = input.sessionId;
       if (execute) return execute(input);
       expect(getSession(input.sessionId)?.metadata?.learningRunId).toBeTruthy();
       expect((await input.knowledge(personal ? 'agent_memory' : 'memory', { action: 'add', target: 'memory', content: 'Verified production lesson' })).success).toBe(true);
       return {};
-    },
-  }), {
-    modelAvailable: () => true,
+    }),
   });
   learning = wire();
   const app = new Hono();
@@ -91,7 +90,7 @@ test('a harness-pinned reviewer runs a headless turn on its harness', async () =
       settings: null, isDefault: false,
     }) as unknown as Preconfig,
   };
-  learning = createWiredLearning(agents, createProkopLearningRuntime({ agents }), {
+  learning = createWiredLearning(agents, createProkopLearningRuntime(), {
     // The prokop catalog must not gate a harness-pinned reviewer.
     modelAvailable: () => false,
     harnessModelEffort: async () => 'high',
@@ -152,7 +151,7 @@ test('a harness review whose turn never ran records a failed run', async () => {
       settings: null, isDefault: false,
     }) as unknown as Preconfig,
   };
-  learning = createWiredLearning(agents, createProkopLearningRuntime({ agents }), {
+  learning = createWiredLearning(agents, createProkopLearningRuntime(), {
     modelAvailable: () => false,
     harnessModelEffort: async () => 'high',
     headless: {

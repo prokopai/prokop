@@ -38,6 +38,10 @@ const CreateGrantParams = named('CreateGrantParams', z.object({
   grantOptions: z.record(z.string(), z.unknown()).describe('SDK PermissionGrantOptions.'),
 }));
 
+const SearchCursor = named('SearchCursor', z.object({ sessionId: z.string(), timestamp: z.number() }));
+const SearchPage = named('SearchPage', z.object({ sessionId: z.string(), timestamp: z.number(), limit: z.number().int().positive() }));
+const MessageStamp = named('MessageStamp', z.object({ id: z.string(), timestamp: z.number() }));
+const MessageRole = named('MessageRole', z.object({ id: z.string(), role: z.string(), timestamp: z.number() }));
 const ToolSource = named('ToolSource', z.enum(['mcp', 'domain']).describe(
   'mcp: global and workspace MCP servers. domain: memory, skills, session search, scheduler.'));
 const ToolContextSchema = named('ToolContext', z.object({
@@ -50,6 +54,13 @@ const ToolResult = named('ToolResult', z.object({
   structuredContent: z.record(z.string(), z.unknown()).optional(),
   isError: z.boolean().optional(),
 }));
+/** A Prokop tool's own result (`ToolResult` in @prokopai/sdk/tool), not the MCP shape. */
+const CapabilityToolResult = named('CapabilityToolResult', z.object({
+  success: z.boolean(),
+  result: z.unknown().optional(),
+  error: z.string().optional(),
+}).passthrough());
+
 
 const TerminalInfo = named('TerminalInfo', z.looseObject({
   id: z.string(),
@@ -66,7 +77,7 @@ const Written = named('Written', z.object({ written: z.boolean() }));
 export const agentToHostRequests = requests({
   // Sessions ------------------------------------------------------------------
   'store.session.create': { description: 'Create a session (child sessions, forks).', params: z.object({ session: SessionEntity }), result: SessionEntity },
-  'store.session.get': { description: 'Read a session mid-turn. Turn start already carries a snapshot.', params: Id, result: MaybeSession },
+  'store.session.get': { description: 'Read a session.', params: Id, result: MaybeSession },
   'store.session.update': {
     description: 'Update session columns. metadataPatch is shallow-merged in the host, so concurrent writers do not lose keys.',
     params: z.object({ id: z.string(), updates: Updates, metadataPatch: z.record(z.string(), z.unknown()).optional() }),
@@ -234,15 +245,55 @@ export const agentToHostRequests = requests({
     }),
     result: ToolResult,
   },
-  'sessionSearch.call': {
-    description: 'One SessionSearchHost port call (shared/session-search/host.ts). Typed per op later; the agent-side tool owns validation and the permission ask.',
+  'learning.tool': {
+    description: 'A learning review tool call (memory, skills, session_search, home_files). The host runs it against the review it opened for the session and rechecks the run\'s authorization.',
+    params: z.object({ sessionId: z.string(), name: z.string(), arguments: z.unknown() }),
+    result: CapabilityToolResult,
+  },
+  // Session search: one request per SessionSearchHost method (shared/session-search/host.ts).
+  // The agent-side tool owns validation, scope rules and the permission ask.
+  'search.workspace': { description: 'A workspace by ID.', params: Id, result: WorkspaceEntity.nullable() },
+  'search.session': { description: 'A session by ID.', params: Id, result: SessionEntity.nullable() },
+  'search.workspaceSessions': {
+    description: 'Sessions of a workspace.', params: z.object({ workspaceId: z.string() }), result: z.array(SessionEntity),
+  },
+  'search.agentSessions': {
+    description: 'Recent sessions of an agent across workspaces.',
+    params: z.object({ agentId: z.string(), limit: z.number().int().positive() }), result: z.array(SessionEntity),
+  },
+  'search.countMessages': { description: 'Messages in a session.', params: SessionIdParams, result: Count },
+  'search.messages': {
+    description: 'Full-text search over messages.',
     params: z.object({
-      op: z.enum(['getWorkspace', 'getSession', 'listWorkspaceSessions', 'listAgentSessions', 'countSessionMessages',
-        'searchMessages', 'countMessagesBefore', 'countMessagesAfter', 'getLatestMessage', 'getMessage',
-        'listMessagesBefore', 'listMessagesAfter', 'getMessageSummary']),
-      args: z.array(z.unknown()),
+      query: z.string(), workspaceId: z.string().optional(), agentId: z.string().optional(),
+      sessionId: z.string().optional(), roleFilter: z.array(z.string()), limit: z.number().int().positive(),
+      sort: z.enum(['relevance', 'newest', 'oldest']),
     }),
-    result: z.object({ value: z.unknown() }),
+    result: z.array(named('SearchMessageResult', z.object({
+      messageId: z.string(), sessionId: z.string(), workspaceId: z.string(), role: z.string(), content: z.string(),
+      timestamp: z.number(), sessionTitle: z.string().nullable(), rank: z.number(),
+    }))),
+  },
+  'search.countBefore': {
+    description: 'Messages of a session before a time.', params: SearchCursor, result: Count,
+  },
+  'search.countAfter': {
+    description: 'Messages of a session after a time.', params: SearchCursor, result: Count,
+  },
+  'search.latestMessage': { description: 'Newest message of a session.', params: SessionIdParams, result: MessageStamp.nullable() },
+  'search.message': {
+    description: 'A message of a session.', params: z.object({ messageId: z.string(), sessionId: z.string() }),
+    result: MessageStamp.nullable(),
+  },
+  'search.messagesBefore': {
+    description: 'Messages of a session before a time, newest first.', params: SearchPage, result: z.array(MessageRole),
+  },
+  'search.messagesAfter': {
+    description: 'Messages of a session after a time, oldest first.', params: SearchPage, result: z.array(MessageRole),
+  },
+  'search.messageSummary': {
+    description: 'Role, time, text and tool name of a message.', params: z.object({ messageId: z.string() }),
+    result: z.object({ role: z.string(), timestamp: z.number(), content: z.string(), toolName: z.string() }).nullable(),
   },
   'knowledge.apply': {
     description: 'Apply an approved memory or skill write on the host, which serializes knowledge writes with learning and settings. The agent already validated and asked.',

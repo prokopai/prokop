@@ -2,7 +2,7 @@ import type { AgentEndpoint, AgentHandlers, Audience } from '@prokopai/agent-pro
 import type { ServerMessage, SessionHarness } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import type { SessionExecutionPort } from '@/application/ports/execution';
-import type { HeadlessSessionRunInput, HeadlessSessionRunResult } from '@/application/ports/headless-execution';
+import type { HeadlessRunOptions, HeadlessSessionRunInput, HeadlessSessionRunResult } from '@/application/ports/headless-execution';
 import { nextDeliverSeq } from './deliver-seq';
 
 /** One harness's execution as the agent runs it; the host registers the same shape. */
@@ -11,7 +11,7 @@ export type AgentExecutor = Pick<SessionExecutionPort, 'sendMessage' | 'interrup
     | 'drainQueue' | 'steerQueue'>>;
 
 /** A harness's headless child run (scheduled jobs, learning reviews). */
-export type AgentHeadlessRun = (input: HeadlessSessionRunInput) => Promise<HeadlessSessionRunResult>;
+export type AgentHeadlessRun = (input: HeadlessSessionRunInput, options?: HeadlessRunOptions) => Promise<HeadlessSessionRunResult>;
 
 /** The origin of a host request: a token the host maps back to its connection context. */
 type OriginToken = string | null;
@@ -108,10 +108,10 @@ export function createTurnHandlers(
       await executorOf(harness).drainQueue?.(wireFor(origin), origin, sessionId);
       return {};
     }),
-    'turn.headless': input => settled(input.childSessionId, () => {
+    'turn.headless': (input, { signal }) => settled(input.childSessionId, () => {
       const run = headless[input.harness];
       if (!run) unsupported(input.harness, 'headless runs');
-      return run!(input as HeadlessSessionRunInput);
+      return run!(input as HeadlessSessionRunInput, { signal });
     }),
     'turn.interrupt': ({ harness, sessionId, reason }) =>
       settled(sessionId, () => executorOf(harness).interruptSession(sessionId, reason)),

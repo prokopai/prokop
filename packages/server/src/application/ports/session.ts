@@ -242,5 +242,6 @@ export interface PendingAskPort {
  */
 export interface AskAuthorityPort {
   timeoutMs: number;
-  getAuthorityForPendingAsk(toolCallId: string): AskAuthority | undefined;
+  /** Who may see and answer a stored ask. */
+  authorityOf(ask: PendingAskRecord['ask']): AskAuthority;
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  PreconfigEntity, SessionEntity, SessionHarness, WorkspaceEntity,
+  AskAuthoritySchema, PreconfigEntity, SessionEntity, SessionHarness,
 } from './entities';
 import { Ack, named, requests } from './registry';
 
@@ -11,19 +11,6 @@ import { Ack, named, requests } from './registry';
  * scheduler).
  */
 export const OriginToken = named('OriginToken', z.string().nullable());
-
-/** Data the agent previously pulled through sync host bindings (plan F5). */
-export const TurnSnapshot = named('TurnSnapshot', z.object({
-  session: SessionEntity,
-  workspace: WorkspaceEntity,
-  root: z.object({
-    path: z.string().optional().describe('Resolved session root (managed worktree or workspace path).'),
-    additionalPaths: z.array(z.string()),
-    allowedRoots: z.array(z.string()).describe('Read-only roots: uploads and the agent directory.'),
-    tempDir: z.string(),
-  }),
-  responseFormat: z.record(z.string(), z.unknown()).nullable().optional(),
-}));
 
 /** Which harness runs the operation; the host routes by the session's persisted owner. */
 const Harness = { harness: SessionHarness };
@@ -74,8 +61,6 @@ export const hostToAgentRequests = requests({
       goalCondition: z.string().optional(),
       goalMaxTurns: z.number().int().positive().optional(),
       goalTokenBudget: z.number().int().positive().optional(),
-      snapshot: TurnSnapshot.optional()
-        .describe('Not sent yet: in Phase 1 harnesses read the session through store.*.'),
     }),
     result: Ack,
   },
@@ -100,7 +85,7 @@ export const hostToAgentRequests = requests({
     result: InterruptResult,
   },
   'turn.headless': {
-    description: 'HeadlessSessionRunPort.run (scheduled jobs, learning reviews). Prokop only today.',
+    description: 'HeadlessSessionRunPort.run (scheduled jobs, learning reviews). Cancel with $/cancel.',
     params: z.object({
       harness: SessionHarness,
       parentSessionId: z.string(),
@@ -112,6 +97,12 @@ export const hostToAgentRequests = requests({
       modelId: z.string(),
       providerId: z.string(),
       resumeFromHistory: z.boolean(),
+      learning: z.object({
+        scope: z.enum(['workspace', 'agent']),
+        improveSkills: z.boolean(),
+        home: z.boolean().describe('Offer home_files (agent scope only).'),
+        systemPrompt: z.string(),
+      }).optional().describe('A learning review: the agent composes the restricted review scope; its tools call back with learning.tool.'),
     }),
     result: z.object({ error: z.string().optional() }),
   },
@@ -140,20 +131,20 @@ export const hostToAgentRequests = requests({
     params: z.object({ sessionId: z.string() }),
     result: z.object({ title: z.string().nullable() }),
   },
+  'ask.lookup': {
+    description: 'The session and authority of a live ask, from the agent\'s own waiters; null when no waiter matches.',
+    params: z.object({ toolCallId: z.string(), requestId: z.string().optional() }),
+    result: z.object({ sessionId: z.string(), authority: AskAuthoritySchema.optional() }).nullable(),
+  },
   'ask.resolve': {
-    description: 'The user answered a pending ask. Replaces the three in-process resolution ports (decision 6 A).',
+    description: 'The user answered a pending ask (every harness). The agent validates the answer and wakes its waiter (decision 6 A).',
     params: z.object({
-      sessionId: z.string(),
+      sessionId: z.string().optional(),
       toolCallId: z.string(),
       requestId: z.string().optional(),
       response: z.unknown(),
     }),
     result: z.object({ resolved: z.boolean() }),
-  },
-  'harness.status': {
-    description: 'CLI availability and version probe (codexCliAvailable, claudeCliVersion, ...).',
-    params: HarnessParams,
-    result: z.object({ available: z.boolean(), version: z.string().nullable() }),
   },
   'models.list': {
     description: 'Cached model catalog of a CLI harness.',

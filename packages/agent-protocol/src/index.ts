@@ -24,7 +24,7 @@ export { agentToHostRequests, hostToAgentRequests, agentToHostNotifications, hos
 export { Audience } from './notifications';
 export { CommitCheck, CommitWrite } from './commit';
 export { AttachmentRecord, NativeRecord, PendingAskRecord } from './entities';
-export { OriginToken, TurnSnapshot } from './host-to-agent';
+export { OriginToken } from './host-to-agent';
 export { RpcErrorCode, RpcNotification, RpcRequest, RpcResponse } from './jsonrpc';
 export { protocolRegistry } from './registry';
 export {

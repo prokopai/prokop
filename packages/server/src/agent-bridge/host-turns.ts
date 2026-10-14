@@ -18,6 +18,11 @@ type DeliverParams = { audience: Audience; message: ServerMessage; origin?: stri
  * carry the token are routed through that wire exactly like in-process
  * calls. `isSessionActive` is host state: an operation in flight for the
  * session, or activity the agent reported.
+ *
+ * Work can outlive its request and keep using the request's wire (Codex
+ * child turns, ask timeouts), as it would in process. So when a request
+ * ends while the agent reports its session active, the token stays mapped
+ * until the agent reports the session idle.
  */
 export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliver: (params: DeliverParams) => void): {
   executorFor(harness: SessionHarness, agentExecutor: AgentExecutor): AgentExecutor;
@@ -28,6 +33,12 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
   const contexts = new Map<string, RequestContext>();
   const inFlight = new Map<string, number>();
   const agentActive = new Set<string>();
+  /** Tokens of ended requests whose session the agent still reports active. */
+  const lingering = new Map<string, Set<string>>();
+  const release = (sessionId: string): void => {
+    for (const token of lingering.get(sessionId) ?? []) contexts.delete(token);
+    lingering.delete(sessionId);
+  };
 
   /** Runs one request; `wire` (when given) serves its deliveries until it returns. */
   const run = async <T>(sessionId: string, counts: boolean, wire: SessionWirePorts<unknown> | undefined,
@@ -38,8 +49,13 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
     try {
       return await send(token);
     } finally {
-      // Later deliveries with this token (work that outlives the request) use the host router.
-      if (token) contexts.delete(token);
+      // The agent reported the session's activity before answering, so this is current.
+      if (token && agentActive.has(sessionId)) {
+        lingering.set(sessionId, (lingering.get(sessionId) ?? new Set()).add(token));
+      } else {
+        if (token) contexts.delete(token);
+        release(sessionId);
+      }
       if (counts) {
         const remaining = (inFlight.get(sessionId) ?? 1) - 1;
         if (remaining > 0) inFlight.set(sessionId, remaining);
@@ -94,8 +110,9 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
       }
       return executor;
     },
-    headlessRun: () => input => run(input.childSessionId, true, undefined, undefined,
-      () => host.request('turn.headless', input as Parameters<typeof host.request<'turn.headless'>>[1])),
+    headlessRun: () => (input, options) => run(input.childSessionId, true, undefined, undefined,
+      () => host.request('turn.headless', input as Parameters<typeof host.request<'turn.headless'>>[1],
+        { signal: options?.signal })),
     notifications: {
       deliver: (params) => {
         const context = params.origin ? contexts.get(params.origin) : undefined;
@@ -122,8 +139,12 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
         context?.wire.actor.attachOriginToSession(context.origin, sessionId);
       },
       'session.activity': ({ sessionId, active }) => {
-        if (active) agentActive.add(sessionId);
-        else agentActive.delete(sessionId);
+        if (active) {
+          agentActive.add(sessionId);
+        } else {
+          agentActive.delete(sessionId);
+          release(sessionId);
+        }
       },
     },
   };

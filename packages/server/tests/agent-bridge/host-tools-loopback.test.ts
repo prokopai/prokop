@@ -32,7 +32,7 @@ function connect(services: Partial<HostToolServices>) {
   const { agent, close } = createAgentLoopback({
     handlers: createToolHostHandlers({
       mcp: { grant: async () => null, check: async () => false, tools: async () => [] },
-      sessionSearch: {},
+      sessionSearch: {} as HostToolServices['sessionSearch'],
       applyKnowledge: async () => ({}),
       terminals,
       ...services,
@@ -102,7 +102,7 @@ describe('session search over the agent protocol', () => {
       getSession: async () => null,
       countMessagesBefore: async (sessionId: unknown, timestamp: unknown) => (sessionId === 's1' ? Number(timestamp) * 2 : 0),
     };
-    const search = createProtocolSessionSearchHost(connect({ sessionSearch: host as HostToolServices['sessionSearch'] }));
+    const search = createProtocolSessionSearchHost(connect({ sessionSearch: host as unknown as HostToolServices['sessionSearch'] }));
     expect(await search.searchMessages({ query: 'hello', roleFilter: ['user'], limit: 5, sort: 'relevance' })).toEqual(hits);
     expect(await search.getSession('missing')).toBeNull();
     expect(await search.countMessagesBefore('s1', 21)).toBe(42);

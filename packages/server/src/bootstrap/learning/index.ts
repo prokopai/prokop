@@ -6,7 +6,11 @@ import { createLearningService } from '@/application/learning/service';
 import { createLearningReviewRunner, type LearningReviewRunnerDependencies } from '@/application/learning/review-runner';
 import { createLearningRecovery } from '@/application/learning/recovery';
 import type { LearningRuntimePort } from '@/application/ports/learning-runtime';
+import { learningReviewTools, type LearningReviewToolRegistry } from '@/application/learning/review-tools';
 import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@/application/ports/headless-execution';
+import { createLearningDirectoryResolver } from './directories';
+import { createLearningHistory } from './history';
+import { createLearningExecution } from './review';
 import { createProkopSessionRepository } from '@/adapters/prokop/session-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { getWorkspace, listWorkspaces } from '@/infrastructure/sqlite/workspaces';
@@ -32,12 +36,15 @@ export function createWiredLearning(
     modelAvailable?: (provider: string, model: string) => boolean;
     harnessModelEffort?: (harness: 'codex-cli' | 'claude-cli', model: string, variant: string | null) => Promise<string | null>;
     saveHarnessSelection?: (harness: 'codex-cli' | 'claude-cli', sessionId: string, model: string, effort: string) => void;
+    /** Runs reviews agent-side: Prokop ones with a `learning` spec, CLI ones as plain turns. */
     headless?: Pick<HeadlessSessionRunPort, 'run' | 'supportedHarnesses'>;
+    reviewTools?: LearningReviewToolRegistry;
   } = {},
 ) {
   const db = getDatabase();
   const repository = createLearningRepository(db);
-  const directories = runtime.directories;
+  const directories = createLearningDirectoryResolver(agents);
+  const headlessPort = () => overrides.headless ?? getHeadlessExecutionPort();
 
   /** Effective learning settings: agent homes resolve from the owning
    * agent's preconfig config (absent = enabled defaults); other workspaces
@@ -70,7 +77,7 @@ export function createWiredLearning(
     return sources;
   }
 
-  const history = runtime.createHistory({ repository, directories, workspace: getWorkspace, now: Date.now });
+  const history = createLearningHistory({ repository, directories, workspace: getWorkspace, now: Date.now });
   const recoverWorkspace = createLearningRecovery({ repository, reconcile: history.reconcile, now: Date.now,
     onError: error => console.warn('[learning] Recovery preserved current files', error instanceof Error ? error.message : 'Unavailable history destination') });
   const operations = new Map<string, Promise<unknown>>();
@@ -85,8 +92,15 @@ export function createWiredLearning(
     workspace.settings.isAgentHome
       ? { kind: 'agent', agentId: workspace.settings.agentId ?? '', sources: agentSourcesFor(workspace.settings.agentId ?? '') }
       : { kind: 'workspace', workspaceId: workspace.id });
-  const executeProkop = runtime.createExecution({
-    database: db, repository, directories, workspace: getWorkspace,
+  const executeProkop = createLearningExecution({
+    evidence: scope => createLearningEvidenceReader(db, scope), repository, directories, workspace: getWorkspace, runtime,
+    tools: overrides.reviewTools ?? learningReviewTools,
+    run: (input, options) => {
+      const headless = headlessPort();
+      return headless?.supportedHarnesses().includes(input.harness)
+        ? headless.run(input, options)
+        : Promise.resolve({ error: `${input.harness} is unavailable for learning reviews on this host` });
+    },
     createSession(workspace, preconfigId, runId) {
       return db.transaction(() => {
         const id = crypto.randomUUID();
@@ -107,7 +121,7 @@ export function createWiredLearning(
   ): Promise<{ error?: string }> => {
     const { workspace, reviewer, runId, signal } = input;
     signal.throwIfAborted();
-    const headless = overrides.headless ?? getHeadlessExecutionPort();
+    const headless = headlessPort();
     if (!headless || !headless.supportedHarnesses().includes(harness)) {
       return { error: `${harness} is unavailable for learning reviews on this host` };
     }

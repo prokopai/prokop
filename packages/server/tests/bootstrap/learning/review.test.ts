@@ -3,7 +3,10 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Preconfig } from '@prokopai/sdk';
-import { createLearningExecution } from '@/harnesses/prokop/learning/learning-execution';
+import { createLearningExecution } from '@/bootstrap/learning/review';
+import { createLearningReviewToolRegistry } from '@/application/learning/review-tools';
+import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
+import { reviewHeadless } from '#tests/helpers/learning-review';
 import { createLearningRepository } from '@/infrastructure/sqlite/learning-repository';
 import { createLearningReviewRunner } from '@/application/learning/review-runner';
 import { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
@@ -32,11 +35,13 @@ test.each([false, true])('runner integrates scoped history and rechecks supporti
   repository.enqueue('ws', 'reviewer', 'source', 'answer', now);
   const evidence = createLearningEvidenceReader(db, { kind: 'workspace', workspaceId: 'ws' });
   let executions = 0;
+  const tools = createLearningReviewToolRegistry();
   const execute = createLearningExecution({
-    database: db, repository, workspace: getWorkspace,
+    evidence: scope => createLearningEvidenceReader(db, scope), repository, workspace: getWorkspace,
     directories: async () => ({ memoryDirectory: join(root!, 'memory'), skillsDirectory: join(root!, 'skills') }),
     createSession: () => 'review-session',
-    execute: async input => {
+    runtime: createProkopLearningRuntime(), tools,
+    run: reviewHeadless(tools, async input => {
       executions++;
       expect(input.preconfig.model).toBe('model');
       expect(input.improveSkills).toBe(false);
@@ -48,7 +53,7 @@ test.each([false, true])('runner integrates scoped history and rechecks supporti
       expect((await input.knowledge('memory', { action: 'add', target: 'memory', content: 'Verified integration lesson' })).success).toBe(true);
       if (revoke) db.run('UPDATE sessions SET metadata = ? WHERE id = ?', [JSON.stringify({ learning: { excluded: true, includeAutomated: false } }), 'support']);
       return {};
-    },
+    }).run,
   });
   const runner = createLearningReviewRunner({
     repository, workspace: getWorkspace,

@@ -22,10 +22,10 @@ test.each(['workspace', 'agent'] as const)('full %s composition suppresses domai
   let executed = false;
   const preconfig = { id: 'dev', name: 'Developer', model: 'test', provider: 'test', tools: ['shell'], canSpawnSubagents: true } as Preconfig;
   await executeLearningComposition({
-    sessionId: 'review', workspaceId: 'ws', workspacePath: '/test', scope, improveSkills: false, home: async () => ({ success: true }),
+    sessionId: 'review', workspaceId: 'ws', workspacePath: '/test', scope, improveSkills: false, home: true,
     definitions: listDomainToolFallbackDefinitions(), preconfig, systemPrompt: 'Scoped policy', prompt: 'Review',
     signal: new AbortController().signal,
-    knowledge: async () => ({ success: true }), search: async () => ({ success: true }),
+    call: async () => ({ success: true }),
   }, async options => {
     executed = true;
     expect(getRuntimeHost()).not.toBe(host);

@@ -1,4 +1,4 @@
-import type { Preconfig, SessionHarness } from '@prokopai/sdk';
+import type { LearningScope, Preconfig, SessionHarness } from '@prokopai/sdk';
 import type { SessionWirePorts } from './delivery';
 
 /**
@@ -18,6 +18,22 @@ export interface HeadlessSessionRunInput {
   modelId: string;
   providerId: string;
   resumeFromHistory: boolean;
+  /** A learning review: the harness composes the restricted review scope and
+   * its tools call back through `LearningReviewToolPort`. */
+  learning?: LearningReviewSpec;
+}
+
+export interface LearningReviewSpec {
+  scope: LearningScope;
+  improveSkills: boolean;
+  /** Offer `home_files` (agent scope only). */
+  home: boolean;
+  systemPrompt: string;
+}
+
+export interface HeadlessRunOptions {
+  /** Aborts the run (learning review budget and shutdown). */
+  signal?: AbortSignal;
 }
 
 export interface HeadlessSessionRunResult {
@@ -25,7 +41,7 @@ export interface HeadlessSessionRunResult {
 }
 
 export interface HeadlessSessionRunPort {
-  run(input: HeadlessSessionRunInput): Promise<HeadlessSessionRunResult>;
+  run(input: HeadlessSessionRunInput, options?: HeadlessRunOptions): Promise<HeadlessSessionRunResult>;
   /** Harnesses whose registrations provide headless runs; job creation
    * rejects harnesses outside this set. */
   supportedHarnesses(): SessionHarness[];

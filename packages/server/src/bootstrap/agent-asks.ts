@@ -1,52 +1,62 @@
 import type { AgentHandlers } from '@prokopai/agent-protocol';
-import { isAgentAskId, type AgentAskPort } from '@/application/ports/agent-asks';
+import type { AskAuthority } from '@prokopai/sdk';
+import { isNativeHarnessAskId, type AgentAskPort } from '@/application/ports/agent-asks';
 import { claudeApprovals } from '@/harnesses/claude-cli/approvals';
 import { codexApprovals } from '@/harnesses/codex-cli/approvals';
-import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
+import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
 
-/** Agent-side waiters for one harness's asks. */
-interface AgentApprovals {
+/** Claude Code and Codex asks are controller-only. */
+const NATIVE_AUTHORITY: AskAuthority = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' };
+
+/** Agent-side waiters for one native harness's asks. */
+interface NativeApprovals {
+  getSessionId(toolCallId: string, requestId?: string): string | null;
   resolve(toolCallId: string, response: unknown, requestId?: string): Promise<boolean>;
   hasLiveRequest(requestId: string): boolean;
 }
 
-/** Native harness ask IDs carry their harness as a prefix. */
-const approvalsByPrefix: Array<[string, AgentApprovals]> = [
-  ['claude-approval:', claudeApprovals],
-  ['codex-approval:', codexApprovals],
-];
-
-function approvalsFor(toolCallId: string): AgentApprovals | null {
-  return approvalsByPrefix.find(([prefix]) => toolCallId.startsWith(prefix))?.[1] ?? null;
+function nativeApprovalsFor(toolCallId: string): NativeApprovals | null {
+  if (!isNativeHarnessAskId(toolCallId)) return null;
+  return toolCallId.startsWith('claude-approval:') ? claudeApprovals : codexApprovals;
 }
 
-/** Agent side of `ask.resolve`: hands the answer to the waiting harness. */
-export const askResolveHandlers: AgentHandlers = {
-  'ask.resolve': async ({ toolCallId, requestId, response }) =>
-    ({ resolved: await approvalsFor(toolCallId)?.resolve(toolCallId, response, requestId) ?? false }),
+/** The agent's answers: Claude/Codex approvals by ID prefix, everything else the Prokop permission runtime. */
+const agentAsks: Pick<AgentAskPort, 'lookup' | 'resolve'> = {
+  async lookup(toolCallId, requestId) {
+    const native = nativeApprovalsFor(toolCallId);
+    if (native) {
+      const sessionId = native.getSessionId(toolCallId, requestId);
+      return sessionId ? { sessionId, authority: NATIVE_AUTHORITY } : null;
+    }
+    const sessionId = await prokopAskResolution.getSessionIdForPendingAsk(toolCallId, requestId);
+    if (!sessionId) return null;
+    const authority = prokopAskResolution.getAuthorityForPendingAsk(toolCallId);
+    return { sessionId, ...(authority ? { authority } : {}) };
+  },
+  resolve: ({ toolCallId, requestId, response }) => {
+    const native = nativeApprovalsFor(toolCallId);
+    return native ? native.resolve(toolCallId, response, requestId)
+      : prokopAskResolution.resolveAsk(toolCallId, response, requestId);
+  },
 };
 
-/**
- * Host side. `deliver` sends the answer to the agent: a direct call in
- * process, `ask.resolve` over the protocol. The controller session comes from
- * the host's own pending-ask row; liveness from the agent's waiters (in
- * process today; from the agent connection once it is a separate process).
- */
-export function createAgentAskPort(deliver: AgentAskPort['resolve']): AgentAskPort {
-  const live = (requestId: string): boolean =>
-    approvalsByPrefix.some(([, approvals]) => approvals.hasLiveRequest(requestId));
-  return {
-    owns: isAgentAskId,
-    resolve: deliver,
-    sessionIdFor: async (toolCallId, requestId) => {
-      if (!requestId || !live(requestId)) return null;
-      const row = getPermissionRequestByRequestId(requestId);
-      return row && row.status === 'pending' && row.toolCallId === toolCallId ? row.rootSessionId ?? row.sessionId : null;
-    },
-    hasLiveRequest: live,
-  };
-}
+/** Agent side of `ask.lookup` and `ask.resolve`. */
+export const askHandlers: AgentHandlers = {
+  'ask.lookup': ({ toolCallId, requestId }) => agentAsks.lookup(toolCallId, requestId),
+  'ask.resolve': async answer => ({ resolved: await agentAsks.resolve(answer) }),
+};
 
-/** In-process delivery. */
-export const directAskDelivery: AgentAskPort['resolve'] = async ({ toolCallId, requestId, response }) =>
-  await approvalsFor(toolCallId)?.resolve(toolCallId, response, requestId) ?? false;
+/** Liveness of native harness waiters (in process today; from the agent connection in Phase 2). */
+const hasLiveRequest = (requestId: string): boolean =>
+  claudeApprovals.hasLiveRequest(requestId) || codexApprovals.hasLiveRequest(requestId);
+
+/** In process: the host calls the agent's waiters directly. */
+export const directAgentAsks: AgentAskPort = { ...agentAsks, hasLiveRequest };
+
+/** Across the protocol: every lookup and answer is a request to the agent. */
+export function protocolAgentAsks(request: {
+  lookup(toolCallId: string, requestId?: string): ReturnType<AgentAskPort['lookup']>;
+  resolve(answer: Parameters<AgentAskPort['resolve']>[0]): Promise<boolean>;
+}): AgentAskPort {
+  return { lookup: request.lookup, resolve: request.resolve, hasLiveRequest };
+}

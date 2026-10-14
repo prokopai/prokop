@@ -8,6 +8,8 @@ import type { SessionWirePorts } from '@/application/ports/delivery';
 import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { harnessProbes } from '@/application/ports/harness-probes';
 import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
+import { getLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import { learningReviewTools } from '@/application/learning/review-tools';
 import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
 import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
 import { configureRuntimeHost } from '@/infrastructure/runtime/host';
@@ -111,6 +113,42 @@ describe('execution over the agent protocol loopback', () => {
     expect(forwarding.isSessionActive('s1')).toBe(false);
   });
 
+  test('work that outlives its request keeps the request wire until the session is idle', async () => {
+    const state = { activeAfter: new Set(['s1']), running: new Set<string>() };
+    let kept: SessionWirePorts<string> | undefined;
+    let token = '';
+    const executor = scriptedExecutor(state);
+    const { forwarding, fallback } = forwarded({
+      ...executor,
+      async sendMessage(wire, origin, sessionId) {
+        kept = wire as SessionWirePorts<string>;
+        token = origin as string;
+        wire.actor.attachOriginToSession(origin, sessionId);
+      },
+    });
+    const calls: Call[] = [];
+    await forwarding.sendMessage(recordingWire(calls), 'conn-1', 's1', 'hi');
+
+    // A background child still runs: its deliveries reach the original connection.
+    kept!.delivery.send(token, error('late'));
+    kept!.delivery.broadcastToSession('s1', updated, token);
+    await Bun.sleep(1);
+    expect(calls).toEqual([
+      ['attach', 'conn-1', 's1'],
+      ['send', 'conn-1', 'error'],
+      ['broadcastToSession', 's1', 'session.updated', 'conn-1'],
+    ]);
+
+    // The child ends; the delivery that reports it idle releases the wire.
+    state.activeAfter.clear();
+    kept!.delivery.broadcastToSession('s1', updated);
+    await Bun.sleep(1);
+    kept!.delivery.broadcast(updated);
+    await Bun.sleep(1);
+    expect(calls).toHaveLength(4);
+    expect(fallback).toHaveLength(1);
+  });
+
   test('optional operations keep their presence; compact keeps "no delivery"; fork returns the result', async () => {
     const { forwarding } = forwarded(scriptedExecutor({ activeAfter: new Set(), running: new Set() }));
     expect(forwarding.editMessage).toBeUndefined();
@@ -192,6 +230,44 @@ describe('headless runs, probes and harness events over the agent loopback', () 
     release();
     expect(await run).toEqual({ error: 'done' });
     expect(bound.prokop.execution.isSessionActive('child')).toBe(false);
+  });
+
+  test('a learning review crosses as turn.headless; its tools reach the host registry and cancel crosses too', async () => {
+    process.env.PROKOPAI_AGENT_LOOPBACK = '1';
+    setupTestDatabase();
+    const seen: unknown[] = [];
+    const close = learningReviewTools.open('review', async (name, input) => {
+      seen.push([name, input]);
+      return { success: true, result: 'host answer' };
+    });
+    let aborted = false;
+    const bound = bindHarnessExecutors({
+      prokop: { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }),
+        headless: async (input, options) => {
+          expect(input.learning).toEqual({ scope: 'agent', improveSkills: false, home: true, systemPrompt: 'Scoped' });
+          // Agent side: the review's tool call goes back to the host.
+          const result = await getLearningReviewToolPort().call(input.childSessionId, 'agent_memory', { action: 'list' });
+          expect(result).toEqual({ success: true, result: 'host answer' });
+          await new Promise<void>(resolve => options?.signal?.addEventListener('abort', () => resolve(), { once: true }));
+          aborted = true;
+          return { error: 'aborted' };
+        } },
+      'codex-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
+      'claude-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
+    });
+    const controller = new AbortController();
+    const run = bound.prokop.headless!({ harness: 'prokop', parentSessionId: 'review', childSessionId: 'review',
+      preconfig: { id: 'agent', name: 'Agent' } as never, prompt: 'Review', workspacePath: '/w', workspaceId: 'ws',
+      modelId: 'm', providerId: 'p', resumeFromHistory: false,
+      learning: { scope: 'agent', improveSkills: false, home: true, systemPrompt: 'Scoped' } }, { signal: controller.signal });
+    for (let attempt = 0; attempt < 50 && !seen.length; attempt++) await Bun.sleep(1);
+    expect(seen).toEqual([['agent_memory', { action: 'list' }]]);
+    controller.abort();
+    await run.catch(() => {});
+    for (let attempt = 0; attempt < 50 && !aborted; attempt++) await Bun.sleep(1);
+    expect(aborted).toBe(true);
+    close();
+    expect(await learningReviewTools.call('review', 'agent_memory', {})).toMatchObject({ success: false });
   });
 
   test('probes are agent requests and a worktree change reaches the host listener as an event', async () => {

@@ -2,7 +2,8 @@ import type { AgentEndpoint } from '@prokopai/agent-protocol';
 import type { WorkspaceMcpResult, WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { capabilityToolFromMcp } from '@/infrastructure/mcp/capability-tool';
 import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
-import type { TerminalAccess } from './host-tools';
+import type { Session, Workspace } from '@prokopai/sdk/types';
+import type { SessionSearchService, TerminalAccess } from './host-tools';
 
 /**
  * Agent-side MCP discovery: definitions and access context come from the
@@ -56,20 +57,31 @@ export function createProtocolMcpTools(endpoint: AgentEndpoint): WorkspaceMcpToo
   };
 }
 
-const SESSION_SEARCH_OPS = [
-  'getWorkspace', 'getSession', 'listWorkspaceSessions', 'listAgentSessions', 'countSessionMessages',
-  'searchMessages', 'countMessagesBefore', 'countMessagesAfter', 'getLatestMessage', 'getMessage',
-  'listMessagesBefore', 'listMessagesAfter', 'getMessageSummary',
-] as const;
-
-/** The session search host port, every method a `sessionSearch.call`. */
-export function createProtocolSessionSearchHost(
-  endpoint: AgentEndpoint,
-): Record<(typeof SESSION_SEARCH_OPS)[number], (...args: unknown[]) => Promise<unknown>> {
-  const call = (op: (typeof SESSION_SEARCH_OPS)[number]) => async (...args: unknown[]) =>
-    (await endpoint.request('sessionSearch.call', { op, args })).value;
-  return Object.fromEntries(SESSION_SEARCH_OPS.map(op => [op, call(op)])) as
-    Record<(typeof SESSION_SEARCH_OPS)[number], (...args: unknown[]) => Promise<unknown>>;
+/**
+ * The session search host port (`harnesses/shared/session-search/host.ts`),
+ * every method one typed `search.*` request.
+ */
+export function createProtocolSessionSearchHost(endpoint: AgentEndpoint): SessionSearchService {
+  const request = endpoint.request.bind(endpoint);
+  return {
+    getWorkspace: async id => await request('search.workspace', { id }) as Workspace | null,
+    getSession: async id => await request('search.session', { id }) as Session | null,
+    listWorkspaceSessions: async workspaceId => await request('search.workspaceSessions', { workspaceId }) as Session[],
+    listAgentSessions: async (agentId, limit) => await request('search.agentSessions', { agentId, limit }) as Session[],
+    countSessionMessages: async (sessionId: string) => (await request('search.countMessages', { sessionId })).count,
+    searchMessages: options => request('search.messages', options),
+    countMessagesBefore: async (sessionId: string, timestamp: number) =>
+      (await request('search.countBefore', { sessionId, timestamp })).count,
+    countMessagesAfter: async (sessionId: string, timestamp: number) =>
+      (await request('search.countAfter', { sessionId, timestamp })).count,
+    getLatestMessage: (sessionId: string) => request('search.latestMessage', { sessionId }),
+    getMessage: (messageId: string, sessionId: string) => request('search.message', { messageId, sessionId }),
+    listMessagesBefore: (sessionId: string, timestamp: number, limit: number) =>
+      request('search.messagesBefore', { sessionId, timestamp, limit }),
+    listMessagesAfter: (sessionId: string, timestamp: number, limit: number) =>
+      request('search.messagesAfter', { sessionId, timestamp, limit }),
+    getMessageSummary: (messageId: string) => request('search.messageSummary', { messageId }),
+  };
 }
 
 /** Sends approved memory and skill writes to the host. */

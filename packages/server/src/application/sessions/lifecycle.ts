@@ -117,7 +117,7 @@ function buildSyncRequests(
     const askPayload = hasRootContext
       ? { ...ask.ask, _originSessionId: ask.sessionId }
       : ask.ask;
-    const authority = askAuthority.getAuthorityForPendingAsk(ask.toolCallId);
+    const authority = askAuthority.authorityOf(ask.ask);
     syncRequests.push({
       sessionId: canonicalSessionId,
       toolCallId: ask.toolCallId,

@@ -50,8 +50,9 @@ describe('harness asks over the agent protocol loopback (SQLite)', () => {
     expect(getPermissionRequestByRequestId(ask.requestId!)).toMatchObject({ status: 'pending', rootSessionId: 's1' });
 
     const port = getAgentAskPort()!;
-    expect(port.owns(ask.toolCallId)).toBe(true);
-    expect(await port.sessionIdFor(ask.toolCallId, ask.requestId)).toBe('s1');
+    expect(await port.lookup(ask.toolCallId, ask.requestId)).toEqual({ sessionId: 's1',
+      authority: { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } });
+    expect(await port.lookup(ask.toolCallId, 'wrong')).toBeNull();
     expect(await port.resolve({ sessionId: 's1', toolCallId: ask.toolCallId, requestId: 'wrong',
       response: { type: 'permission', grant: 'once' } })).toBe(false);
     expect(await port.resolve({ sessionId: 's1', toolCallId: ask.toolCallId, requestId: ask.requestId,

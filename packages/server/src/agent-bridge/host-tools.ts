@@ -1,5 +1,31 @@
 import type { HostHandlers } from '@prokopai/agent-protocol';
 import type { WorkspaceMcpTool } from '@/application/ports/mcp-tools';
+import type { Session, Workspace } from '@prokopai/sdk/types';
+
+/**
+ * Session search store, structurally `SessionSearchHost`
+ * (harnesses/shared/session-search/host.ts): the host serves it as
+ * `search.*` and the agent-side port exposes it again.
+ */
+export interface SessionSearchService {
+  getWorkspace(id: string): Promise<Workspace | null>;
+  getSession(id: string): Promise<Session | null>;
+  listWorkspaceSessions(workspaceId: string): Promise<Session[]>;
+  listAgentSessions(agentId: string, limit: number): Promise<Session[]>;
+  countSessionMessages(sessionId: string): Promise<number>;
+  searchMessages(options: {
+    query: string; workspaceId?: string; agentId?: string; sessionId?: string;
+    roleFilter: string[]; limit: number; sort: 'relevance' | 'newest' | 'oldest';
+  }): Promise<Array<{ messageId: string; sessionId: string; workspaceId: string; role: string; content: string;
+    timestamp: number; sessionTitle: string | null; rank: number }>>;
+  countMessagesBefore(sessionId: string, timestamp: number): Promise<number>;
+  countMessagesAfter(sessionId: string, timestamp: number): Promise<number>;
+  getLatestMessage(sessionId: string): Promise<{ id: string; timestamp: number } | null>;
+  getMessage(messageId: string, sessionId: string): Promise<{ id: string; timestamp: number } | null>;
+  listMessagesBefore(sessionId: string, timestamp: number, limit: number): Promise<Array<{ id: string; role: string; timestamp: number }>>;
+  listMessagesAfter(sessionId: string, timestamp: number, limit: number): Promise<Array<{ id: string; role: string; timestamp: number }>>;
+  getMessageSummary(messageId: string): Promise<{ role: string; timestamp: number; content: string; toolName: string } | null>;
+}
 
 /** Session state MCP access was granted for; a change revokes access. */
 export interface ToolAccessContext {
@@ -33,7 +59,8 @@ export interface HostToolServices {
     tools(path: string, sessionId: string): Promise<WorkspaceMcpTool[]>;
   };
   /** Session search port methods (shared/session-search/host.ts), called by name. */
-  sessionSearch: Record<string, (...args: unknown[]) => Promise<unknown>>;
+  /** The host's session search store (`SessionSearchHost`, harnesses/shared/session-search/host.ts). */
+  sessionSearch: SessionSearchService;
   /** Applies an already-approved memory or skill write under the host knowledge lock. */
   applyKnowledge(kind: 'memory' | 'skill', directory: string, input: Record<string, unknown>): Promise<Record<string, unknown>>;
   terminals: TerminalAccess;
@@ -47,7 +74,7 @@ const DENIED = 'MCP access is not allowed for this agent';
  * Permission asks and result conversion stay in the agent.
  */
 export function createToolHostHandlers(services: HostToolServices): HostHandlers {
-  const { mcp, terminals } = services;
+  const { mcp, terminals, sessionSearch: search } = services;
   return {
     'tool.list': async ({ source, sessionId }) => {
       if (source !== 'mcp') throw new Error(`Tool source ${source} runs in the agent`);
@@ -69,11 +96,19 @@ export function createToolHostHandlers(services: HostToolServices): HostHandlers
       const result = await tool.execute(input, signal, authorized);
       return result;
     },
-    'sessionSearch.call': async ({ op, args }) => {
-      const method = services.sessionSearch[op];
-      if (!method) throw new Error(`Unknown session search operation ${op}`);
-      return { value: (await method(...args)) ?? null };
-    },
+    'search.workspace': ({ id }) => search.getWorkspace(id),
+    'search.session': ({ id }) => search.getSession(id),
+    'search.workspaceSessions': ({ workspaceId }) => search.listWorkspaceSessions(workspaceId),
+    'search.agentSessions': ({ agentId, limit }) => search.listAgentSessions(agentId, limit),
+    'search.countMessages': async ({ sessionId }) => ({ count: await search.countSessionMessages(sessionId) }),
+    'search.messages': options => search.searchMessages(options),
+    'search.countBefore': async ({ sessionId, timestamp }) => ({ count: await search.countMessagesBefore(sessionId, timestamp) }),
+    'search.countAfter': async ({ sessionId, timestamp }) => ({ count: await search.countMessagesAfter(sessionId, timestamp) }),
+    'search.latestMessage': ({ sessionId }) => search.getLatestMessage(sessionId),
+    'search.message': ({ messageId, sessionId }) => search.getMessage(messageId, sessionId),
+    'search.messagesBefore': ({ sessionId, timestamp, limit }) => search.listMessagesBefore(sessionId, timestamp, limit),
+    'search.messagesAfter': ({ sessionId, timestamp, limit }) => search.listMessagesAfter(sessionId, timestamp, limit),
+    'search.messageSummary': ({ messageId }) => search.getMessageSummary(messageId),
     'knowledge.apply': ({ kind, directory, input }) => services.applyKnowledge(kind, directory, input),
 
     'terminal.create': async ({ cwd, workspaceId, origin, agentEnv, title, ownerSessionId }) => ({

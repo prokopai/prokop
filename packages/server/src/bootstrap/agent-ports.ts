@@ -7,6 +7,7 @@ import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
 import { configureHarnessProbes } from '@/application/ports/harness-probes';
 import { localHarnessProbes, probeHandlers } from './agent-probes';
+import { isKnowledgeDirectory } from './knowledge-directories';
 import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
 import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/agent-bridge/agent-tools';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
-import { createToolHostHandlers, type TerminalAccess } from '@/agent-bridge/host-tools';
+import { createToolHostHandlers, type SessionSearchService, type TerminalAccess } from '@/agent-bridge/host-tools';
 import { agentLoopbackEnabled, createAgentLoopback } from '@/agent-bridge/loopback';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
 import { severityFromMode } from '@/domains/permissions';
@@ -44,7 +45,9 @@ import { createHarnessAskHandlers } from '@/agent-bridge/host-asks';
 import { localHarnessAsks } from './harness-asks';
 import { installAgentAskPort } from '@/application/ports/agent-asks';
 import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
-import { askResolveHandlers, createAgentAskPort, directAskDelivery } from './agent-asks';
+import { askHandlers, directAgentAsks, protocolAgentAsks } from './agent-asks';
+import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import { learningReviewTools } from '@/application/learning/review-tools';
 
 /** The Prokop terminal port over the in-process terminal manager. */
 export function terminalPortFromManager(manager: () => ReturnType<typeof getTerminalManager>): TerminalAccess {
@@ -105,7 +108,8 @@ export function configureAgentPorts(): void {
   configureHarnessAsks(localHarnessAsks);
   configureHarnessMcpTools({ tools: getWorkspaceTools });
   if (!agentLoopbackEnabled()) {
-    installAgentAskPort(createAgentAskPort(directAskDelivery));
+    installAgentAskPort(directAgentAsks);
+    installLearningReviewToolPort(learningReviewTools);
     installHarnessNotificationPort(localHarnessNotifications);
     configureHarnessProbes(localHarnessProbes);
     bindExecutors = registrations => registrations;
@@ -136,18 +140,22 @@ export function configureAgentPorts(): void {
   });
   const tools = createToolHostHandlers({
     mcp: { grant: prokopMcpAccess.grant, check: prokopMcpAccess.check, tools: getWorkspaceTools },
-    sessionSearch: hostSessionSearch as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>,
-    applyKnowledge: async (kind, directory, input) => kind === 'memory'
-      ? { ...await executeMemoryTool(input, directory, 'none', undefined, { local: true }) }
-      : { ...await executeSkillManageTool(input, directory, 'none', undefined, { local: true }) },
+    sessionSearch: hostSessionSearch as unknown as SessionSearchService,
+    applyKnowledge: async (kind, directory, input) => {
+      if (!isKnowledgeDirectory(kind, directory)) throw new Error('Not a workspace or agent knowledge directory');
+      return kind === 'memory'
+        ? { ...await executeMemoryTool(input, directory, 'none', undefined, { local: true }) }
+        : { ...await executeSkillManageTool(input, directory, 'none', undefined, { local: true }) };
+    },
     terminals,
   });
   const turns = createTurnForwarding(() => host, params => runtime.notifications.deliver?.(params as never));
   // Filled when the application registers its harnesses (bindHarnessExecutors).
-  const agentHandlers: AgentHandlers = { ...askResolveHandlers, ...probeHandlers };
+  const agentHandlers: AgentHandlers = { ...askHandlers, ...probeHandlers };
   const { agent, host } = createAgentLoopback({
     handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
-      ...createHarnessAskHandlers(localHarnessAsks) },
+      ...createHarnessAskHandlers(localHarnessAsks),
+      'learning.tool': async ({ sessionId, name, arguments: input }) => ({ ...await learningReviewTools.call(sessionId, name, input) }) },
     notifications: { ...runtime.notifications, ...turns.notifications },
   }, agentHandlers);
   configureHarnessProbes(createProtocolHarnessProbes(() => host));
@@ -170,7 +178,13 @@ export function configureAgentPorts(): void {
       ...(registration.headless ? { headless: turns.headlessRun() } : {}),
     }])) as typeof registrations;
   };
-  installAgentAskPort(createAgentAskPort(async answer => (await host.request('ask.resolve', answer)).resolved));
+  installLearningReviewToolPort({
+    call: (sessionId, name, input) => agent.request('learning.tool', { sessionId, name, arguments: input }),
+  });
+  installAgentAskPort(protocolAgentAsks({
+    lookup: (toolCallId, requestId) => host.request('ask.lookup', { toolCallId, requestId }),
+    resolve: async answer => (await host.request('ask.resolve', answer)).resolved,
+  }));
 
   // Sync lookups the agent cannot ask the host for, filled from host answers.
   // Agent IDs: every session the agent reads or writes (a miss grants fewer

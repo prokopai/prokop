@@ -2,26 +2,17 @@ import { createHash } from 'node:crypto';
 import { lstat, opendir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import type { ToolDefinition, ToolResult } from '@prokopai/sdk/tool';
+import type { ToolResult } from '@prokopai/sdk/tool';
 import type { KnowledgeFilePort } from '@/application/learning/knowledge-journal';
 import { isLearningHomePath } from '@/infrastructure/filesystem/learning-home-policy';
 
-export const learningHomeDefinition: ToolDefinition = {
-  name: 'home_files',
-  description: 'Maintain text knowledge anywhere in your own home. List/search discover files; read returns content and revision. Write or delete requires the revision from read (null for a new file). Paths are home-relative. No shell, sensitive paths, hidden directories, symlinks, binary files or recursive deletion. Keep snippets as reference material, never execute them.',
-  inputSchema: { type: 'object', properties: {
-    action: { type: 'string', enum: ['list', 'search', 'read', 'write', 'delete'] },
-    path: { type: 'string' }, query: { type: 'string' }, content: { type: 'string' },
-    revision: { type: ['string', 'null'] },
-  }, required: ['action'], additionalProperties: false },
-  timeout: 30000,
-};
 const schema = z.object({ action: z.enum(['list', 'search', 'read', 'write', 'delete']),
   path: z.string().max(1024).optional(), query: z.string().min(1).max(500).optional(),
   content: z.string().max(1_048_576).optional(), revision: z.string().regex(/^[a-f0-9]{64}$/).nullable().optional(),
 }).strict();
 const revision = (text: string | null) => text === null ? null : createHash('sha256').update(text).digest('hex');
 
+/** Host side of the review's `home_files` tool (definition: agent `learning-tools.ts`). */
 export function createLearningHomeTool(deps: {
   root: string;
   files: KnowledgeFilePort;

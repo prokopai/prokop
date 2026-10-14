@@ -4,12 +4,15 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 import { executeSkillManageTool, buildSkillManageToolDescription } from '@/harnesses/shared/skills/skill-manage-tool';
+import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
 
 describe('skill_manage tool', () => {
   let testDir: string;
   let skillsDir: string;
 
   beforeEach(() => {
+    // Tool logic on a scratch dir: write locally even if an earlier file left the agent-protocol delegate.
+    configureKnowledgeWrites(null);
     testDir = mkdtempSync(join(tmpdir(), 'jean2-skill-manage-test-'));
     skillsDir = join(testDir, '.agents', 'skills');
   });

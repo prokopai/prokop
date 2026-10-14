@@ -4,18 +4,28 @@ import type { RuntimePlugin } from '@/harnesses/prokop/composition/plugins/compo
 import { createContributedToolResolver } from '@/harnesses/prokop/composition/plugins/tool-catalog';
 import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
 import type { LearningScope } from '@prokopai/sdk';
-import { learningHomeDefinition } from './learning-home';
-import type { LearningKnowledgeResult } from './learning-knowledge';
+
+export const learningHomeDefinition: ToolDefinition = {
+  name: 'home_files',
+  description: 'Maintain text knowledge anywhere in your own home. List/search discover files; read returns content and revision. Write or delete requires the revision from read (null for a new file). Paths are home-relative. No shell, sensitive paths, hidden directories, symlinks, binary files or recursive deletion. Keep snippets as reference material, never execute them.',
+  inputSchema: { type: 'object', properties: {
+    action: { type: 'string', enum: ['list', 'search', 'read', 'write', 'delete'] },
+    path: { type: 'string' }, query: { type: 'string' }, content: { type: 'string' },
+    revision: { type: ['string', 'null'] },
+  }, required: ['action'], additionalProperties: false },
+  timeout: 30000,
+};
 
 export interface LearningToolsOptions {
   sessionId: string;
   scope: LearningScope;
   improveSkills: boolean;
+  /** Offer `home_files` (agent scope only). */
+  home: boolean;
   /** Definitions from the published catalog; never load installed executable tools. */
   definitions: readonly ToolDefinition[];
-  knowledge(name: string, input: unknown): Promise<LearningKnowledgeResult>;
-  search(input: Record<string, unknown>): Promise<ToolResult>;
-  home?: (input: unknown) => Promise<ToolResult>;
+  /** Runs a review tool host-side, against the review the host opened for the session. */
+  call(name: string, input: unknown): Promise<ToolResult>;
 }
 
 /** Dedicated review composition only. Do not combine with memory/skills domain
@@ -34,8 +44,7 @@ export function createLearningToolsPlugins(options: LearningToolsOptions): reado
         if (context.sessionId !== options.sessionId || context.abortSignal.aborted) {
           return { success: false, error: 'Learning execution context is no longer authorized' };
         }
-        if (name === 'home_files') return options.home!(input);
-        return name === 'session_search' ? options.search(input) : options.knowledge(name, input);
+        return options.call(name, input);
       },
     };
   });

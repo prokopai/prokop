@@ -11,9 +11,8 @@ const definitions: ToolDefinition[] = ['memory', 'agent_memory', 'skill_manage',
 
 function options(overrides: Partial<LearningToolsOptions> = {}): LearningToolsOptions {
   return {
-    sessionId: 'review', scope: 'workspace', improveSkills: true, definitions,
-    knowledge: async name => ({ success: true, result: name }),
-    search: async () => ({ success: true, result: 'filtered' }),
+    sessionId: 'review', scope: 'workspace', improveSkills: true, home: false, definitions,
+    call: async name => ({ success: true, result: name === 'session_search' ? 'filtered' : name }),
     ...overrides,
   };
 }
@@ -23,7 +22,7 @@ for (const scope of ['workspace', 'agent'] as const) {
     const process = await createProcessScope([]);
     const agent = await createAgentScope(process, [
       loadedToolsPlugin('unrelated', [{ definition: { name: 'shell', description: 'No', inputSchema: {} }, path: 'test', execute: async () => ({ success: true }) }]),
-      ...createLearningToolsPlugins(options({ scope, home: async () => ({ success: true }) })),
+      ...createLearningToolsPlugins(options({ scope, home: true })),
     ]);
     try {
       const resolver = agent.require(capekToolResolverKey);

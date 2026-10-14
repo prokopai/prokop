@@ -9,11 +9,10 @@ import {
   getAuthorityForPendingAsk as capekGetAuthorityForPendingAsk,
 } from '@/harnesses/prokop/permission/ask-user-api';
 import { getBrowserRequestsPort } from '@/application/ports/browser';
-import { getAskResolutionPort } from '@/application/ports/ask-resolution';
 import { getControlState } from '@/transport/websocket/control-registry';
 import { requireWireApplication } from '@/transport/websocket/application';
 import { checkAskResponseEligibility } from '@/application/ports/control';
-import { getAgentAskPort, isAgentAskId } from '@/application/ports/agent-asks';
+import { getAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
 import type {
   ClientRegisterMessage,
   AskResponseMessage,
@@ -58,29 +57,31 @@ export function handleNotificationAcknowledge(
 export interface AskResponseDependencies {
   resolveAsk(toolCallId: string, response: unknown, requestId?: string, sessionId?: string | null): Promise<boolean>;
   getSessionIdForPendingAsk(toolCallId: string, requestId?: string): Promise<string | null>;
-  getAuthorityForPendingAsk(toolCallId: string): AskAuthority | undefined;
+  getAuthorityForPendingAsk(toolCallId: string, requestId?: string): AskAuthority | undefined | Promise<AskAuthority | undefined>;
 }
 
-/** Claude Code and Codex asks: their waiters live in the agent (`ask.resolve`). */
-const isAgentAsk = isAgentAskId;
-
-// The installed prokop ask-resolution port routes through the composed
-// permission runtime. When no port is installed (router-level tests, hosts
-// without the wired application) fall back to the process-default Capek
-// runtime, matching behavior before the composition resolves.
+/**
+ * Every ask's waiter lives in the agent (`ask.lookup`, `ask.resolve`). With no
+ * agent ask port installed (router-level tests, hosts without the wired
+ * application) the process-default Capek runtime answers, matching behavior
+ * before the composition resolves.
+ */
 const askResponseDependencies: AskResponseDependencies = {
-  resolveAsk: (toolCallId, response, requestId, sessionId) => isAgentAsk(toolCallId)
-    ? (sessionId && getAgentAskPort()?.resolve({ sessionId, toolCallId, requestId, response })) || Promise.resolve(false)
-    : (getAskResolutionPort()?.resolveAsk(toolCallId, response, requestId)
-      ?? capekResolveAsk(toolCallId, response, requestId)),
-  getSessionIdForPendingAsk: (toolCallId, requestId) => isAgentAsk(toolCallId)
-    ? (getAgentAskPort()?.sessionIdFor(toolCallId, requestId) ?? Promise.resolve(null))
-    : (getAskResolutionPort()?.getSessionIdForPendingAsk(toolCallId, requestId)
-      ?? capekGetSessionIdForPendingAsk(toolCallId, requestId)),
-  getAuthorityForPendingAsk: (toolCallId) => isAgentAsk(toolCallId)
-    ? { visibilityScope: 'controller_only', resolutionMode: 'controller_only' }
-    : (getAskResolutionPort()?.getAuthorityForPendingAsk(toolCallId)
-      ?? capekGetAuthorityForPendingAsk(toolCallId)),
+  resolveAsk: (toolCallId, response, requestId, sessionId) => {
+    const port = getAgentAskPort();
+    return port ? port.resolve({ ...(sessionId ? { sessionId } : {}), toolCallId, requestId, response })
+      : capekResolveAsk(toolCallId, response, requestId);
+  },
+  getSessionIdForPendingAsk: async (toolCallId, requestId) => {
+    const port = getAgentAskPort();
+    return port ? (await port.lookup(toolCallId, requestId))?.sessionId ?? null
+      : capekGetSessionIdForPendingAsk(toolCallId, requestId);
+  },
+  getAuthorityForPendingAsk: async (toolCallId, requestId) => {
+    const port = getAgentAskPort();
+    return port ? (await port.lookup(toolCallId, requestId))?.authority
+      : capekGetAuthorityForPendingAsk(toolCallId);
+  },
 };
 
 export async function handleAskResponseWithDependencies(
@@ -92,13 +93,13 @@ export async function handleAskResponseWithDependencies(
   const { toolCallId, response, requestId } = msg;
   const askSessionId = await dependencies.getSessionIdForPendingAsk(toolCallId, requestId);
   // Native harness requests require a live request identity, never a legacy tool-call fallback.
-  if (isAgentAsk(toolCallId) && (!requestId || !askSessionId)) return;
+  if (isNativeHarnessAskId(toolCallId) && (!requestId || !askSessionId)) return;
   if (askSessionId) {
     const controlState = getControlState(askSessionId);
     const senderClientId = getClientIdForConnection(ws);
 
     const askAuthority: AskAuthority =
-      dependencies.getAuthorityForPendingAsk(toolCallId) ?? {
+      await dependencies.getAuthorityForPendingAsk(toolCallId, requestId) ?? {
         visibilityScope: 'controller_only',
         resolutionMode: 'controller_only',
       };

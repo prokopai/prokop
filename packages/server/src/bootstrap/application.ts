@@ -105,9 +105,7 @@ import { createCodexAccountUsagePort } from '@/infrastructure/providers/codex-us
 import { createProviderUsagePort } from '@/infrastructure/providers/usage';
 import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
 import { createProkopHarness } from '@/harnesses/prokop';
-import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
-import { installAskResolutionPort } from '@/application/ports/ask-resolution';
 import {
   codexCliAvailable,
   codexCliVersion,
@@ -221,9 +219,6 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   };
   // The Prokop harness reports worktree session changes as an event (host.notify across the agent protocol).
   onHarnessWorktreeChanged(worktreeAttachments.changed);
-  // The prokop composition owns the ask waiters; wire-side resolution must
-  // land in the same composed permission runtime execution enters.
-  installAskResolutionPort(prokopAskResolution);
   const codexExecution = createCodexExecution({
     mcp: { tools: (path, sessionId) => harnessMcpTools().tools(path, sessionId) },
     connect: spawnCodexAppServer,
@@ -270,10 +265,10 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   // without headless support fail closed per run and are rejected at job
   // creation through supportedHarnesses().
   installHeadlessExecutionPort({
-    run(input) {
+    run(input, options) {
       const headless = boundRegistrations[input.harness]?.headless;
       return headless
-        ? headless(input)
+        ? headless(input, options)
         : Promise.resolve({ error: `Scheduled jobs are not supported for ${input.harness} sessions` });
     },
     supportedHarnesses() {
@@ -498,7 +493,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   deviceAccess.subscribe({ changed: () => broadcastEvent({ type: 'access.changed' }) });
   const attention = createAttentionFeed({ source: createAttentionSource(getDatabase) });
 
-  return { learning: createWiredLearning(agents, createProkopLearningRuntime({ agents }), {
+  return { learning: createWiredLearning(agents, createProkopLearningRuntime(), {
     // Harness-pinned reviewers resolve their effort from the cached CLI
     // catalogs (unsupported pinned effort falls back to the model default);
     // a missing CLI or model yields null and the cycle skips silently.
