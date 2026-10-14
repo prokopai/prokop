@@ -91,6 +91,20 @@ describe('harness_state migration from the legacy native tables', () => {
     expect(db.query('SELECT 1 FROM claude_fork_intents').get()).not.toBeNull();
   });
 
+  test('orphaned legacy rows (written while foreign keys were off) are skipped, not fatal', () => {
+    const db = getDatabase();
+    seedLegacyTables(db);
+    db.run('PRAGMA foreign_keys = OFF');
+    db.run(`INSERT INTO codex_session_bindings (session_id, thread_id, cli_version, workspace_root, created_at,
+      pending_turn, goal_requested) VALUES ('gone', 'thread-gone', '0.156.1', '/w', '2026-01-01', 0, 0)`);
+    db.run(`INSERT INTO claude_fork_intents (source_session_id, target_message_id, created_at)
+      VALUES ('gone', 'm', '2026-01-02')`);
+    db.run('PRAGMA foreign_keys = ON');
+    initializeHarnessStateSchema(db);
+    expect(db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM harness_state').get()!.n).toBe(8);
+    expect(db.query("SELECT 1 FROM harness_state WHERE session_id = 'gone'").get()).toBeNull();
+  });
+
   test('records go with their session and message', () => {
     const db = getDatabase();
     seedLegacyTables(db);

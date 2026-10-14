@@ -1,6 +1,6 @@
 import {
   createAgentEndpoint, createHostEndpoint, createLoopback,
-  type AgentEndpoint, type AgentSide, type HostHandlers, type NotificationHandlers,
+  type AgentEndpoint, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type NotificationHandlers,
 } from '@prokopai/agent-protocol';
 import type { StorageBundle } from '@/infrastructure/storage/contracts';
 import { readEnv } from '@/infrastructure/runtime/env-compat';
@@ -27,16 +27,16 @@ function reportProtocolError(error: Error): void {
 export function createAgentLoopback(host: {
   handlers: HostHandlers;
   notifications?: NotificationHandlers<AgentSide>;
-}): { agent: AgentEndpoint; close(): void } {
+}, agentHandlers: AgentHandlers = {}): { agent: AgentEndpoint; host: HostEndpoint; close(): void } {
   const [hostChannel, agentChannel] = createLoopback();
-  createHostEndpoint({
+  const hostEndpoint = createHostEndpoint({
     channel: hostChannel,
     handlers: host.handlers,
     notifications: host.notifications,
     onProtocolError: reportProtocolError,
   });
-  const agent = createAgentEndpoint({ channel: agentChannel, handlers: {}, onProtocolError: reportProtocolError });
-  return { agent, close: () => agent.close(new Error('Agent loopback closed')) };
+  const agent = createAgentEndpoint({ channel: agentChannel, handlers: agentHandlers, onProtocolError: reportProtocolError });
+  return { agent, host: hostEndpoint, close: () => agent.close(new Error('Agent loopback closed')) };
 }
 
 /** Wraps a host bundle so every storage call crosses the protocol as JSON. */

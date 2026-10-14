@@ -6,16 +6,15 @@ import type { InterruptExecutionResult } from '@/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '@/harnesses/shared/steering';
 import {
-  createMessage, createPart, deleteMessage, getAttachment, getMessageWithParts, getSession, getWorkspace,
+  createMessage, createPart, deleteMessage, getAttachment, getHandoffBrief, getMessageWithParts, getSession, getWorkspace,
   listMessagesWithParts, updateMessage, updatePart, updateSession,
 } from '@/infrastructure/storage/runtime';
 import { storeTransaction } from '@/infrastructure/storage/transaction';
-import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
+import { cliWorkspaceAvailable, resolveCliRoot } from '@/harnesses/shared/cli-workspace';
 import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { notifyHarnessTurnFinished } from '@/harnesses/shared/notifications';
-import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
-import { getDatabase } from '@/infrastructure/sqlite/database';
-import { MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment } from '@/infrastructure/sqlite/attachments';
+import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
+import type { AttachmentRecord as Attachment } from '@/infrastructure/storage/contracts';
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
 import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
@@ -44,7 +43,6 @@ import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/
 import { isWithinRoot } from '@/domains/permissions';
 import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { createCodexMcpTools } from './mcp-tools';
-import { readHandoffBrief } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 
 export { codexCliVersion } from './version';
@@ -135,14 +133,8 @@ async function resolveImages(session: Session, references: Array<{ id: string; k
 async function workspaceRoot(session: Session): Promise<string> {
   const workspace = await getWorkspace(session.workspaceId);
   if (!cliWorkspaceAvailable(workspace)) throw new Error('Codex requires a workspace folder on this host');
-  let root = workspace.path;
-  if (session.workspaceRootId) {
-    const worktree = createManagedWorktreeRepository(getDatabase).get(session.workspaceRootId);
-    if (worktree?.workspaceId !== session.workspaceId || worktree.state !== 'available') {
-      throw new Error('Selected worktree is unavailable');
-    }
-    root = worktree.path;
-  }
+  const root = await resolveCliRoot(session, workspace);
+  if (!root) throw new Error('Selected worktree is unavailable');
   if (!existsSync(root)) throw new Error('Workspace root is unavailable');
   return realpathSync(root);
 }
@@ -665,7 +657,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           try { return isWithinRoot(realpathSync(cwd), tempDirectory); }
           catch { return false; }
         };
-        const handoffBrief = readHandoffBrief(sessionId);
+        const handoffBrief = await getHandoffBrief(sessionId);
         // Codex reaches MCP tools only through its bridge, so the instructions name the ones that need guidance.
         const mcpToolNames = deps.mcp ? (await deps.mcp.tools(workspace.path, sessionId)).map(tool => tool.name) : [];
         const instructions = await codexDeveloperInstructions(workspace, root, preconfig, {

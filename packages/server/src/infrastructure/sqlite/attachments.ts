@@ -5,14 +5,7 @@ import { join } from 'path';
 import type { AttachmentKind } from '@prokopai/sdk';
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 
-const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
-
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-]);
+import { determineKind, MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
 
 export interface AttachmentRow {
   id: string;
@@ -59,19 +52,7 @@ function mapRowToAttachment(row: AttachmentRow): Attachment {
 
 // getAttachmentDir is now imported from ../paths
 
-export function determineKind(mimeType: string): AttachmentKind {
-  if (mimeType.startsWith('image/')) {
-    return 'image';
-  }
-  if (mimeType.startsWith('video/')) {
-    return 'video';
-  }
-  return 'file';
-}
-
-export function validateImageMime(mimeType: string): boolean {
-  return ALLOWED_IMAGE_MIME_TYPES.has(mimeType);
-}
+export { determineKind, validateImageMime };
 
 export function getAttachment(sessionId: string, attachmentId: string): Attachment | null {
   const db = getDatabase();

@@ -27,6 +27,8 @@ export const getSession = async (...args: Parameters<StorageBundle['conversation
   activeStorage().conversation.getSession(...args);
 export const updateSession = async (...args: Parameters<StorageBundle['conversation']['updateSession']>) =>
   activeStorage().conversation.updateSession(...args);
+export const getHandoffBrief = async (...args: Parameters<StorageBundle['conversation']['getHandoffBrief']>) =>
+  activeStorage().conversation.getHandoffBrief(...args);
 export const getChildSessions = async (...args: Parameters<StorageBundle['conversation']['getChildSessions']>) =>
   activeStorage().conversation.getChildSessions(...args);
 export const createMessage = async (...args: Parameters<StorageBundle['conversation']['createMessage']>) =>

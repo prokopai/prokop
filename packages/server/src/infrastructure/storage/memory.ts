@@ -92,6 +92,10 @@ export function createInMemoryConversationStore(): ConversationStore {
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
         .map(copy);
     },
+    /** The memory store has no harness switches. */
+    async getHandoffBrief() {
+      return null;
+    },
     async createMessage(message) {
       if (!sessions.has(message.sessionId)) throw new Error(`Session does not exist: ${message.sessionId}`);
       if (messages.has(message.id)) throw new Error(`Message already exists: ${message.id}`);

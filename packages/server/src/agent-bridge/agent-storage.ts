@@ -26,6 +26,7 @@ export function createProtocolStorageBundle(
       createSession: async session => seen(await request('store.session.create', { session: session as Session })),
       getSession: async id => seen(await request('store.session.get', { id })),
       updateSession: async (id, updates) => seen(await request('store.session.update', { id, updates })),
+      getHandoffBrief: async sessionId => (await request('store.session.handoffBrief', { sessionId })).brief,
       getChildSessions: async (parentId) => {
         const children = await request('store.session.children', { parentId });
         children.forEach(seen);

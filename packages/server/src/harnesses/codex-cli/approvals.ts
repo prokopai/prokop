@@ -11,11 +11,8 @@ import { sessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 import { notifyHarnessPermissionRequired } from '@/harnesses/shared/notifications';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
 import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { createPendingAsk, expirePermissionRequest,
-  resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
-import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
+import { harnessAsks } from '@/infrastructure/runtime/harness-asks';
 import { getSession } from '@/infrastructure/storage/runtime';
-import { getDatabase } from '@/infrastructure/sqlite/database';
 import { logCodexPermissionDenial, type CodexPermissionReason } from './permission-diagnostics';
 import { unwrapCodexApprovalCommand } from './approval-command';
 import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
@@ -54,6 +51,7 @@ function object(value: unknown): Record<string, unknown> | null {
 export class CodexApprovals {
   private readonly pending = new Map<string, Pending>();
   private readonly byTool = new Map<string, string>();
+  private readonly resolving = new Set<string>();
   private readonly hookApprovedCommands = new Map<string, Set<string>>();
 
   private hookKey(threadId: string, turnId: string, root: string, command: string, itemId: string): string {
@@ -80,14 +78,14 @@ export class CodexApprovals {
     return true;
   }
 
-  private enqueue(ask: PermissionAsk, toolName: string, key: string | null,
+  private async enqueue(ask: PermissionAsk, toolName: string, key: string | null,
     sessionId: string, workspaceId: string, delivery: ApplicationDeliveryPort<unknown>,
     controllerSessionId = sessionId): Promise<Decision> {
     const requestId = crypto.randomUUID();
     const toolCallId = `codex-approval:${crypto.randomUUID()}`;
     const timeoutMs = this.timeoutMs();
     const now = Date.now();
-    const dbId = createPendingAsk({ requestId, toolCallId, toolName,
+    const dbId = await harnessAsks().createPendingAsk({ requestId, toolCallId, toolName,
       sessionId, rootSessionId: controllerSessionId, workspaceId, ask, isPermission: true,
       status: 'pending', createdAt: now, expiresAt: now + timeoutMs });
     return new Promise<Decision>(resolve => {
@@ -174,7 +172,7 @@ export class CodexApprovals {
       }
     }
     if (key) {
-      const matched = matchGrant({ workspaceId, toolName: COMMAND_TOOL, resource: 'shell-command',
+      const matched = await harnessAsks().matchGrant({ workspaceId, toolName: COMMAND_TOOL, resource: 'shell-command',
         action: 'execute', permissionKey: key, rootSessionId: sessionId });
       // Legacy unbound session grants must not cross session boundaries.
       if (matched.matched && matched.grant && (matched.grant.scope === 'workspace'
@@ -218,43 +216,35 @@ export class CodexApprovals {
   }
 
   async resolve(toolCallId: string, response: unknown, requestId?: string): Promise<boolean> {
-    if (!requestId || this.byTool.get(toolCallId) !== requestId) return false;
+    if (!requestId || this.byTool.get(toolCallId) !== requestId || this.resolving.has(requestId)) return false;
     const pending = this.pending.get(requestId);
-    if (!pending || pending.toolCallId !== toolCallId
-      || (await getSession(pending.sessionId))?.harness !== 'codex-cli') return false;
-    const value = object(response);
-    const grant = value?.type === 'permission' ? value.grant : undefined;
-    const allowed = pending.key ? pending.scopes : ['once'];
-    const approved = typeof grant === 'string' && allowed.includes(grant)
-      && value?.scope === undefined && value?.duration === undefined;
-    const decision = approved ? { decision: 'accept' } as const : DECLINE;
+    if (!pending || pending.toolCallId !== toolCallId) return false;
+    // Claimed before the first await: a second answer to the same ask is refused.
+    this.resolving.add(requestId);
     try {
-      const resolved = getDatabase().transaction(() => {
-        if (!resolvePermissionRequestByRequestId(requestId, approved ? 'approved' : 'denied', response)) return false;
-        if (approved && pending.key && (grant === 'session' || grant === 'workspace')) {
-          createGrantFromOptions({ workspaceId: pending.workspaceId, toolName: COMMAND_TOOL,
-            resource: 'shell-command', action: 'execute', permissionKey: pending.key,
-            grantOptions: { scope: grant,
-              matcher: 'exact', action: 'execute', patterns: [pending.key],
-              ...(grant === 'session' ? { boundRootSessionId: pending.sessionId } : {}) } });
-        }
-        return true;
-      })();
+      if ((await getSession(pending.sessionId))?.harness !== 'codex-cli') return false;
+      const value = object(response);
+      const grant = value?.type === 'permission' ? value.grant : undefined;
+      const allowed = pending.key ? pending.scopes : ['once'];
+      const approved = typeof grant === 'string' && allowed.includes(grant)
+        && value?.scope === undefined && value?.duration === undefined;
+      // A grant that cannot be stored denies the approval. Never accept without its requested scope.
+      const remembered = approved && pending.key && (grant === 'session' || grant === 'workspace');
+      const { resolved, status } = await harnessAsks().resolveRequest(requestId, approved ? 'approved' : 'denied',
+        response, remembered ? { workspaceId: pending.workspaceId, toolName: COMMAND_TOOL,
+          resource: 'shell-command', action: 'execute', permissionKey: pending.key!,
+          grantOptions: { scope: grant,
+            matcher: 'exact', action: 'execute', patterns: [pending.key!],
+            ...(grant === 'session' ? { boundRootSessionId: pending.sessionId } : {}) } } : undefined);
       if (!resolved) {
         this.settle(requestId, DECLINE, 'expired');
         return false;
       }
-    } catch {
-      // A grant failure rolls back the approval. Never accept without its requested scope.
-      try {
-        resolvePermissionRequestByRequestId(requestId, 'denied', response);
-      } finally {
-        this.settle(requestId, DECLINE, 'resolved');
-      }
+      this.settle(requestId, status === 'approved' ? { decision: 'accept' } : DECLINE, 'resolved');
       return true;
+    } finally {
+      this.resolving.delete(requestId);
     }
-    this.settle(requestId, decision, 'resolved');
-    return true;
   }
 
   cancelSession(sessionId: string): void {
@@ -270,7 +260,11 @@ export class CodexApprovals {
     this.pending.delete(requestId);
     this.byTool.delete(pending.toolCallId);
     clearTimeout(pending.timer);
-    if (status === 'expired') expirePermissionRequest(pending.dbId);
+    if (status === 'expired') {
+      void harnessAsks().expireRequest(pending.dbId).catch((error: unknown) => {
+        console.warn('[codex-cli] ask expiry failed:', error instanceof Error ? error.message : 'unknown error');
+      });
+    }
     try {
       pending.delivery.broadcastToSession(pending.controllerSessionId, { type: 'ask.timeout',
         sessionId: pending.controllerSessionId, toolCallId: pending.toolCallId, requestId });

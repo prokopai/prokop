@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { CommitParams, CommitResult } from './commit';
 import {
   AttachmentRecord, EffectiveContextHistory, MessageEntity, MessageWithPartsEntity, NativeKey,
-  NativeRecord, PartEntity, PendingAskRecord, PermissionGrantEntity, PermissionRequestStatus,
+  NativeRecord, PartEntity, PendingAskRecord, PermissionGrantEntity,
   QueuedMessageEntity, ResponseFormatEntity, SessionEntity, StreamingPartSnapshot, ToolOutputArtifact,
   ToolOutputArtifactFormat, ToolOutputArtifactPage, ToolPartEntity, TranscriptPage, WorkspaceEntity,
 } from './entities';
@@ -71,6 +71,11 @@ export const agentToHostRequests = requests({
     description: 'Update session columns. metadataPatch is shallow-merged in the host, so concurrent writers do not lose keys.',
     params: z.object({ id: z.string(), updates: Updates, metadataPatch: z.record(z.string(), z.unknown()).optional() }),
     result: MaybeSession,
+  },
+  'store.session.handoffBrief': {
+    description: 'Frozen brief for the current segment after a harness switch, or null.',
+    params: z.object({ sessionId: z.string() }),
+    result: z.object({ brief: z.string().nullable() }),
   },
   'store.session.children': { description: 'Child sessions (subagents, workflows) for interrupt cascade.', params: z.object({ parentId: z.string() }), result: z.array(SessionEntity) },
 
@@ -188,7 +193,7 @@ export const agentToHostRequests = requests({
   'interaction.resolveWithGrant': {
     description: 'Resolve and persist the remembered grant atomically (F3 approval transactions). A grant failure denies.',
     params: z.object({ requestId: z.string(), status: z.enum(['approved', 'denied']), resolution: z.unknown().optional(), grant: CreateGrantParams.optional() }),
-    result: z.object({ resolved: z.boolean(), status: PermissionRequestStatus }),
+    result: z.object({ resolved: z.boolean(), status: z.enum(['approved', 'denied']).describe('Denied when the grant could not be stored.') }),
   },
   'interaction.expireRequest': { description: 'Expire one pending request.', params: Id, result: z.object({ expired: z.boolean() }) },
   'interaction.expireOld': { description: 'Expire requests older than maxAgeMs.', params: z.object({ maxAgeMs: z.number().int().positive() }), result: Count },
@@ -200,6 +205,11 @@ export const agentToHostRequests = requests({
     description: 'Find a remembered grant covering this action.',
     params: z.object({ ...GrantTarget, rootSessionId: z.string().optional() }),
     result: z.object({ matched: z.boolean(), grant: PermissionGrantEntity.nullable() }),
+  },
+  'interaction.control': {
+    description: 'Whether a session has an owner (who may be offline) and whether that owner is connected now.',
+    params: SessionIdParams,
+    result: z.object({ controlled: z.boolean(), connected: z.boolean() }),
   },
   'interaction.createGrant': { description: 'Persist a remembered grant.', params: CreateGrantParams, result: PermissionGrantEntity.nullable() },
 

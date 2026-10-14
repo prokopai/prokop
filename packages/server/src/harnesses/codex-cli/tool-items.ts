@@ -6,7 +6,7 @@ import {
   transitionToolToInterrupted, updatePart,
 } from '@/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
-import { MAX_ATTACHMENT_SIZE } from '@/infrastructure/sqlite/attachments';
+import { MAX_ATTACHMENT_SIZE } from '@/domains/attachments';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,

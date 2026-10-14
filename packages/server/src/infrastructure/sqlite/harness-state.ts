@@ -51,6 +51,9 @@ export function initializeHarnessStateSchema(db: Database): void {
 function migrateNativeTables(db: Database): void {
   if (db.query('SELECT 1 FROM harness_state_migrations WHERE id = ?').get(MIGRATION_ID)) return;
   const bool = (column: string): string => `json(CASE WHEN ${column} THEN 'true' ELSE 'false' END)`;
+  // Orphans can only exist if foreign keys were ever off; skip them rather than fail startup.
+  const LIVE_SESSION = 'session_id IN (SELECT id FROM sessions)';
+  const LIVE_SOURCE = 'source_session_id IN (SELECT id FROM sessions)';
   db.transaction(() => {
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, lookup, blocks_switch, value)
       SELECT 'codex-cli', 'binding', session_id, session_id, thread_id, pending_turn != 0, json_object(
@@ -58,43 +61,43 @@ function migrateNativeTables(db: Database): void {
         'pendingTurn', ${bool('pending_turn')}, 'pendingUserId', pending_user_id,
         'pendingAssistantId', pending_assistant_id, 'pendingTurnId', pending_turn_id,
         'goalRootTurnId', goal_root_turn_id, 'goalRequested', ${bool('goal_requested')})
-      FROM codex_session_bindings`);
+      FROM codex_session_bindings WHERE ${LIVE_SESSION}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'codex-cli', 'rollback-intent', session_id, session_id, 1, json_object(
         'operation', operation, 'targetMessageId', target_message_id, 'content', content,
         'beforeTurnId', before_turn_id, 'turnIds', json(turn_ids), 'phase', phase)
-      FROM codex_rollback_intents`);
+      FROM codex_rollback_intents WHERE ${LIVE_SESSION}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'codex-cli', 'fork-intent', source_session_id, source_session_id, 1, json_object(
         'targetMessageId', target_message_id, 'beforeTurnId', before_turn_id, 'createdAt', created_at)
-      FROM codex_fork_intents`);
+      FROM codex_fork_intents WHERE ${LIVE_SOURCE}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, message_id, blocks_switch, value)
       SELECT 'codex-cli', 'inherited-user', i.message_id, m.session_id, i.message_id, 0,
         json_object('upstreamClientId', i.upstream_client_id)
       FROM codex_inherited_user_ids i JOIN messages m ON m.id = i.message_id`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'codex-cli', 'model', session_id, session_id, 0, json_object('model', model, 'effort', effort)
-      FROM codex_session_models`);
+      FROM codex_session_models WHERE ${LIVE_SESSION}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, lookup, blocks_switch, value)
       SELECT 'claude-cli', 'binding', session_id, session_id, native_session_id, pending != 0, json_object(
         'nativeSessionId', native_session_id, 'workspaceRoot', workspace_root, 'cliVersion', cli_version,
         'pending', ${bool('pending')})
-      FROM claude_session_bindings`);
+      FROM claude_session_bindings WHERE ${LIVE_SESSION}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'claude-cli', 'rollback-intent', session_id, session_id, 1, json_object(
         'operation', operation, 'targetMessageId', target_message_id, 'phase', phase)
-      FROM claude_rollback_intents`);
+      FROM claude_rollback_intents WHERE ${LIVE_SESSION}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'claude-cli', 'fork-intent', source_session_id, source_session_id, 1, json_object(
         'targetMessageId', target_message_id, 'createdAt', created_at)
-      FROM claude_fork_intents`);
+      FROM claude_fork_intents WHERE ${LIVE_SOURCE}`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, message_id, blocks_switch, value)
       SELECT 'claude-cli', 'inherited-user', i.message_id, m.session_id, i.message_id, 0,
         json_object('nativeUserId', i.native_user_id)
       FROM claude_inherited_user_ids i JOIN messages m ON m.id = i.message_id`);
     db.run(`INSERT INTO harness_state (harness, kind, key, session_id, blocks_switch, value)
       SELECT 'claude-cli', 'model', session_id, session_id, 0, json_object('model', model, 'effort', effort)
-      FROM claude_session_models`);
+      FROM claude_session_models WHERE ${LIVE_SESSION}`);
     db.run('INSERT INTO harness_state_migrations (id, applied_at) VALUES (?, ?)', [MIGRATION_ID, new Date().toISOString()]);
   })();
 }

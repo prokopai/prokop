@@ -88,7 +88,8 @@ import {
 import { getTerminalManager, installTerminalSessionStore } from '@/transport/terminal';
 import { broadcastEvent, broadcastSessionUpdated, sendToConnectionEvent } from '@/transport/websocket/broadcast';
 import { addWorkspaceFilesChangedObserver } from '@/application/workspaces/files-changed';
-import { getWorkspaceTools, setMcpChangeListener } from '@/infrastructure/mcp';
+import { setMcpChangeListener } from '@/infrastructure/mcp';
+import { harnessMcpTools } from '@/application/ports/mcp-tools';
 import { browserService } from '@/infrastructure/browser/service';
 import { installBrowserRequestsPort } from '@/application/ports/browser';
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
@@ -105,11 +106,7 @@ import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
 import { createProkopHarness } from '@/harnesses/prokop';
 import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
-import { codexApprovals } from '@/harnesses/codex-cli/approvals';
-import { installCodexApprovalPort } from '@/application/ports/codex-approval';
 import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { claudeApprovals } from '@/harnesses/claude-cli/approvals';
-import { installClaudeApprovalPort } from '@/application/ports/claude-approval';
 import { installAskResolutionPort } from '@/application/ports/ask-resolution';
 import {
   codexCliAvailable,
@@ -222,19 +219,17 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const worktreeAttachments = {
     changed: (worktreeId: string): void => refreshWorktreeAttachments?.(worktreeId),
   };
-  installCodexApprovalPort(codexApprovals);
   const notificationApplication = getProkopNotificationsApplication();
   installHarnessNotificationPort({
     notifyTerminalMessage: (message, sessionId) => notificationApplication.notifyTerminalMessage(message, sessionId),
     notifyPermissionRequired: (requestId, rootSessionId) =>
       notificationApplication.notifyPermissionRequired(requestId, rootSessionId),
   });
-  installClaudeApprovalPort(claudeApprovals);
   // The prokop composition owns the ask waiters; wire-side resolution must
   // land in the same composed permission runtime execution enters.
   installAskResolutionPort(prokopAskResolution);
   const codexExecution = createCodexExecution({
-    mcp: { tools: getWorkspaceTools },
+    mcp: { tools: (path, sessionId) => harnessMcpTools().tools(path, sessionId) },
     connect: spawnCodexAppServer,
     version: codexCliVersion,
     prepareHook: createPretoolChannel,
@@ -249,7 +244,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     },
   });
   const claudeExecution = createClaudeExecution({
-    mcp: { tools: getWorkspaceTools },
+    mcp: { tools: (path, sessionId) => harnessMcpTools().tools(path, sessionId) },
     instructions: {
       listPreconfigs,
       getPreconfig: id => agents.getPreconfigOrAgent(id),

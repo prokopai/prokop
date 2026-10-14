@@ -188,6 +188,15 @@
             "$ref": "#/$defs/MaybeSession"
           }
         },
+        "store.session.handoffBrief": {
+          "description": "Frozen brief for the current segment after a harness switch, or null.",
+          "params": {
+            "$ref": "#/$defs/store.session.handoffBrief.params"
+          },
+          "result": {
+            "$ref": "#/$defs/store.session.handoffBrief.result"
+          }
+        },
         "store.session.children": {
           "description": "Child sessions (subagents, workflows) for interrupt cascade.",
           "params": {
@@ -627,6 +636,15 @@
           },
           "result": {
             "$ref": "#/$defs/interaction.matchGrant.result"
+          }
+        },
+        "interaction.control": {
+          "description": "Whether a session has an owner (who may be offline) and whether that owner is connected now.",
+          "params": {
+            "$ref": "#/$defs/SessionIdParams"
+          },
+          "result": {
+            "$ref": "#/$defs/interaction.control.result"
           }
         },
         "interaction.createGrant": {
@@ -2810,6 +2828,21 @@
         "harnesses"
       ]
     },
+    "interaction.control.result": {
+      "type": "object",
+      "properties": {
+        "controlled": {
+          "type": "boolean"
+        },
+        "connected": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "controlled",
+        "connected"
+      ]
+    },
     "interaction.createGrant.result": {
       "anyOf": [
         {
@@ -3053,7 +3086,12 @@
           "type": "boolean"
         },
         "status": {
-          "$ref": "#/$defs/PermissionRequestStatus"
+          "type": "string",
+          "enum": [
+            "approved",
+            "denied"
+          ],
+          "description": "Denied when the grant could not be stored."
         }
       },
       "required": [
@@ -3611,6 +3649,35 @@
       },
       "required": [
         "session"
+      ]
+    },
+    "store.session.handoffBrief.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "store.session.handoffBrief.result": {
+      "type": "object",
+      "properties": {
+        "brief": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "brief"
       ]
     },
     "store.session.update.params": {

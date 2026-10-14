@@ -3,7 +3,7 @@ import type { Audience } from '@prokopai/agent-protocol';
 import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
 import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
 import {
-  createProtocolKnowledgeWrite, createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery,
+  createProtocolKnowledgeWrite, createProtocolMcpTools, createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery,
 } from '@/agent-bridge/agent-tools';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
@@ -31,6 +31,13 @@ import { getTerminalManager } from '@/transport/terminal';
 import {
   broadcastEvent, broadcastToSessionEvent, sendToAskTargetsEvent, sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
+import { configureHarnessAsks } from '@/infrastructure/runtime/harness-asks';
+import { createProtocolHarnessAsks } from '@/agent-bridge/agent-asks';
+import { createHarnessAskHandlers } from '@/agent-bridge/host-asks';
+import { localHarnessAsks } from './harness-asks';
+import { installAgentAskPort } from '@/application/ports/agent-asks';
+import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
+import { askResolveHandlers, createAgentAskPort, directAskDelivery } from './agent-asks';
 
 /** The Prokop terminal port over the in-process terminal manager. */
 export function terminalPortFromManager(manager: () => ReturnType<typeof getTerminalManager>): TerminalAccess {
@@ -60,7 +67,12 @@ export function configureAgentPorts(): void {
   const terminals = terminalPortFromManager(getTerminalManager);
   configureAgentTerminals(terminals);
   configureKnowledgeWrites(null);
-  if (!agentLoopbackEnabled()) return;
+  configureHarnessAsks(localHarnessAsks);
+  configureHarnessMcpTools({ tools: getWorkspaceTools });
+  if (!agentLoopbackEnabled()) {
+    installAgentAskPort(createAgentAskPort(directAskDelivery));
+    return;
+  }
 
   const hostStorage = getStorage();
   const hostRuntime = getRuntimeHost();
@@ -91,10 +103,12 @@ export function configureAgentPorts(): void {
       : { ...await executeSkillManageTool(input, directory, 'none', undefined, { local: true }) },
     terminals,
   });
-  const { agent } = createAgentLoopback({
-    handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools },
+  const { agent, host } = createAgentLoopback({
+    handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
+      ...createHarnessAskHandlers(localHarnessAsks) },
     notifications: runtime.notifications,
-  });
+  }, askResolveHandlers);
+  installAgentAskPort(createAgentAskPort(async answer => (await host.request('ask.resolve', answer)).resolved));
 
   // Sync lookups the agent cannot ask the host for, filled from host answers.
   // Agent IDs: every session the agent reads or writes (a miss grants fewer
@@ -112,6 +126,8 @@ export function configureAgentPorts(): void {
   configureSessionSearchHost(createProtocolSessionSearchHost(agent) as unknown as SessionSearchHost);
   configureKnowledgeWrites(createProtocolKnowledgeWrite(agent));
   configureAgentTerminals(createProtocolTerminals(agent));
+  configureHarnessAsks(createProtocolHarnessAsks(agent));
+  configureHarnessMcpTools(createProtocolMcpTools(agent));
   configureRuntimeHost(createProtocolRuntimeHost(agent, {
     titles: hostRuntime.titles,
     toolPolicy: hostRuntime.toolPolicy,
@@ -140,5 +156,5 @@ export function configureAgentPorts(): void {
       return { audience: audience as Audience, message };
     },
   }));
-  console.info('[agent-bridge] Prokop storage, runtime host and host tools run through the agent protocol loopback');
+  console.info('[agent-bridge] harness storage, asks, runtime host and host tools run through the agent protocol loopback');
 }

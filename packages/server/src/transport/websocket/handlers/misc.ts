@@ -13,8 +13,7 @@ import { getAskResolutionPort } from '@/application/ports/ask-resolution';
 import { getControlState } from '@/transport/websocket/control-registry';
 import { requireWireApplication } from '@/transport/websocket/application';
 import { checkAskResponseEligibility } from '@/application/ports/control';
-import { getCodexApprovalPort } from '@/application/ports/codex-approval';
-import { getClaudeApprovalPort } from '@/application/ports/claude-approval';
+import { getAgentAskPort, isAgentAskId } from '@/application/ports/agent-asks';
 import type {
   ClientRegisterMessage,
   AskResponseMessage,
@@ -57,30 +56,28 @@ export function handleNotificationAcknowledge(
 }
 
 export interface AskResponseDependencies {
-  resolveAsk(toolCallId: string, response: unknown, requestId?: string): Promise<boolean>;
+  resolveAsk(toolCallId: string, response: unknown, requestId?: string, sessionId?: string | null): Promise<boolean>;
   getSessionIdForPendingAsk(toolCallId: string, requestId?: string): Promise<string | null>;
   getAuthorityForPendingAsk(toolCallId: string): AskAuthority | undefined;
 }
 
-const harnessApproval = (toolCallId: string) => toolCallId.startsWith('codex-approval:')
-  ? getCodexApprovalPort() : toolCallId.startsWith('claude-approval:') ? getClaudeApprovalPort() : null;
-const isHarnessApproval = (toolCallId: string): boolean =>
-  toolCallId.startsWith('codex-approval:') || toolCallId.startsWith('claude-approval:');
+/** Claude Code and Codex asks: their waiters live in the agent (`ask.resolve`). */
+const isAgentAsk = isAgentAskId;
 
 // The installed prokop ask-resolution port routes through the composed
 // permission runtime. When no port is installed (router-level tests, hosts
 // without the wired application) fall back to the process-default Capek
 // runtime, matching behavior before the composition resolves.
 const askResponseDependencies: AskResponseDependencies = {
-  resolveAsk: (toolCallId, response, requestId) => isHarnessApproval(toolCallId)
-    ? (harnessApproval(toolCallId)?.resolve(toolCallId, response, requestId) ?? Promise.resolve(false))
+  resolveAsk: (toolCallId, response, requestId, sessionId) => isAgentAsk(toolCallId)
+    ? (sessionId && getAgentAskPort()?.resolve({ sessionId, toolCallId, requestId, response })) || Promise.resolve(false)
     : (getAskResolutionPort()?.resolveAsk(toolCallId, response, requestId)
       ?? capekResolveAsk(toolCallId, response, requestId)),
-  getSessionIdForPendingAsk: (toolCallId, requestId) => isHarnessApproval(toolCallId)
-    ? Promise.resolve(harnessApproval(toolCallId)?.getSessionId(toolCallId, requestId) ?? null)
+  getSessionIdForPendingAsk: (toolCallId, requestId) => isAgentAsk(toolCallId)
+    ? (getAgentAskPort()?.sessionIdFor(toolCallId, requestId) ?? Promise.resolve(null))
     : (getAskResolutionPort()?.getSessionIdForPendingAsk(toolCallId, requestId)
       ?? capekGetSessionIdForPendingAsk(toolCallId, requestId)),
-  getAuthorityForPendingAsk: (toolCallId) => isHarnessApproval(toolCallId)
+  getAuthorityForPendingAsk: (toolCallId) => isAgentAsk(toolCallId)
     ? { visibilityScope: 'controller_only', resolutionMode: 'controller_only' }
     : (getAskResolutionPort()?.getAuthorityForPendingAsk(toolCallId)
       ?? capekGetAuthorityForPendingAsk(toolCallId)),
@@ -95,7 +92,7 @@ export async function handleAskResponseWithDependencies(
   const { toolCallId, response, requestId } = msg;
   const askSessionId = await dependencies.getSessionIdForPendingAsk(toolCallId, requestId);
   // Native harness requests require a live request identity, never a legacy tool-call fallback.
-  if (isHarnessApproval(toolCallId) && (!requestId || !askSessionId)) return;
+  if (isAgentAsk(toolCallId) && (!requestId || !askSessionId)) return;
   if (askSessionId) {
     const controlState = getControlState(askSessionId);
     const senderClientId = getClientIdForConnection(ws);
@@ -139,7 +136,7 @@ export async function handleAskResponseWithDependencies(
       return;
     }
   }
-  await dependencies.resolveAsk(toolCallId, response, requestId);
+  await dependencies.resolveAsk(toolCallId, response, requestId, askSessionId);
 }
 
 export async function handleAskResponse(

@@ -2,7 +2,8 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, sep } from 'node:path';
 import type { Session } from '@prokopai/sdk';
-import { MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment } from '@/infrastructure/sqlite/attachments';
+import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
+import type { AttachmentRecord as Attachment } from '@/infrastructure/storage/contracts';
 import { getAttachment } from '@/infrastructure/storage/runtime';
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 

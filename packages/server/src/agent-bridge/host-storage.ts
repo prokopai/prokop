@@ -24,6 +24,7 @@ export function createStorageHostHandlers(bundle: StorageBundle): HostHandlers {
         metadata: { ...(current.metadata ?? {}), ...metadataPatch },
       } as Partial<Session>);
     },
+    'store.session.handoffBrief': async ({ sessionId }) => ({ brief: await conversation.getHandoffBrief(sessionId) }),
     'store.session.children': ({ parentId }) => conversation.getChildSessions(parentId),
 
     'store.message.create': ({ message }) => conversation.createMessage(message),

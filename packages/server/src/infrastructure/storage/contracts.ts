@@ -70,6 +70,8 @@ export interface ConversationStore {
   getSession(id: string): Promise<Session | null>;
   updateSession(id: string, updates: SessionUpdates): Promise<Session | null>;
   getChildSessions(parentId: string): Promise<Session[]>;
+  /** Frozen brief for the current segment after a harness switch, or null. */
+  getHandoffBrief(sessionId: string): Promise<string | null>;
   createMessage(message: Message): Promise<Message>;
   getMessage(id: string): Promise<Message | null>;
   getMessageWithParts(messageId: string): Promise<MessageWithParts | null>;

@@ -65,6 +65,9 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
     '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/attachments',
     '@/infrastructure/sqlite/response-formats', '@/infrastructure/sqlite/tool-output-artifacts',
     '@/infrastructure/sqlite/workspaces',
+    // Native harness state, atomic commits and the handoff brief (host/agent split, plan 1g/1h).
+    '@/infrastructure/sqlite/harness-state', '@/infrastructure/sqlite/storage-commit',
+    '@/infrastructure/sqlite/session-harness-switch',
   ],
   'packages/server/src/harnesses/prokop/host/compaction-recovery.ts': [
     '@/transport/websocket/broadcast', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
@@ -281,6 +284,23 @@ const layerRules: DependencyRule[] = [
     exceptions: layerBootstrapExceptions,
   },
   {
+    name: 'layer-harness-host-access',
+    rationale: 'Harnesses run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools), never SQLite or transport directly. Prokop host adapters and learning move host-side later and stay excluded until then.',
+    appliesTo: [harnessesDir],
+    excludedDirs: [resolve(prokopHarnessDir, 'host'), resolve(prokopHarnessDir, 'learning')],
+    forbiddenSpecifiers: [
+      { exact: 'bun:sqlite' },
+      { prefix: '@/infrastructure/sqlite' },
+      { prefix: '@/transport' },
+    ],
+    exceptions: {
+      // The todo tool's own todos.db is agent-private state, not the host database (plan decision 4).
+      'packages/server/src/harnesses/prokop/tools/todo/tool.ts': ['bun:sqlite'],
+      // A test drives the real terminal manager to verify the tool against it.
+      'packages/server/src/harnesses/prokop/tools/terminal/terminal.test.ts': ['@/transport/terminal'],
+    },
+  },
+  {
     name: 'layer-agent-bridge',
     rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure, application port contracts and @prokopai/agent-protocol, never transport, application services or harness internals.',
     appliesTo: [agentBridgeDir],
@@ -409,6 +429,25 @@ describe('server layer boundaries', () => {
 
     expect(result.violations).toEqual([]);
     expect(result.staleExceptions).toEqual([]);
+  });
+
+  test('harnesses reach SQLite and transport only through ports', () => {
+    const rule = layerRules.find(candidate => candidate.name === 'layer-harness-host-access')!;
+    const result = evaluateRules(scanDirectory(serverSourceRoot), serverSourceRoot, repositoryRoot, [rule]);
+    expect(result.violations).toEqual([]);
+    expect(result.staleExceptions).toEqual([]);
+
+    const offending: ScannedFile[] = [{
+      path: resolve(harnessesDir, 'codex-cli/example.ts'),
+      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';\nimport { isControlled } from '@/transport/websocket/control-registry';",
+    }, {
+      path: resolve(prokopHarnessDir, 'host/example.ts'),
+      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';",
+    }];
+    expect(evaluateRules(offending, serverSourceRoot, repositoryRoot, [rule]).violations).toEqual([
+      'packages/server/src/harnesses/codex-cli/example.ts imports @/infrastructure/sqlite/session-store (value) [rule: layer-harness-host-access]',
+      'packages/server/src/harnesses/codex-cli/example.ts imports @/transport/websocket/control-registry (value) [rule: layer-harness-host-access]',
+    ]);
   });
 
   test('layer rules run against the target directories', () => {

@@ -8,11 +8,8 @@ import { sessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 import { notifyHarnessPermissionRequired } from '@/harnesses/shared/notifications';
 import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
 import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { createPendingAsk, expirePermissionRequest, resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
-import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
-import { getDatabase } from '@/infrastructure/sqlite/database';
+import { harnessAsks } from '@/infrastructure/runtime/harness-asks';
 import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
-import { getControllerConnections, isControlled } from '@/transport/websocket/control-registry';
 
 const AUTHORITY = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } as const;
 const BASH_TOOL = 'claude-cli:Bash';
@@ -45,6 +42,7 @@ interface PendingQuestion {
 export class ClaudeApprovals {
   private readonly pending = new Map<string, Pending>();
   private readonly byTool = new Map<string, string>();
+  private readonly resolving = new Set<string>();
   constructor(private readonly timeoutMs: () => number = getPermissionTimeoutMs) {}
 
   hasLiveRequest(requestId: string): boolean { return this.pending.has(requestId); }
@@ -83,7 +81,9 @@ export class ClaudeApprovals {
       if (toolName === CLAUDE_QUESTION_TOOL) {
         const questions = parseClaudeQuestions(input as Record<string, unknown>);
         if (!questions) return denied('Malformed Claude tool');
-        if (!isControlled(sessionId)) return denied('Claude question requires a session controller');
+        if (!(await harnessAsks().sessionControl(sessionId)).controlled) {
+          return denied('Claude question requires a session controller');
+        }
         return this.open(sessionId, workspaceId, toolName, delivery, signal, options, childForTool,
           claudeQuestionAsk(questions), { key: null, scopes: ['once'] },
           { questions, input: input as Record<string, unknown> });
@@ -98,7 +98,7 @@ export class ClaudeApprovals {
       const grantScopes: readonly string[] = ask.allowedScopes ?? ['once'];
       if (toolName === 'Bash' && typeof input.command === 'string') {
         grantKey = JSON.stringify([root, input.command]);
-        const matched = matchGrant({ workspaceId, toolName: BASH_TOOL, resource: 'shell-command',
+        const matched = await harnessAsks().matchGrant({ workspaceId, toolName: BASH_TOOL, resource: 'shell-command',
           action: 'execute', permissionKey: grantKey, rootSessionId: sessionId });
         if (matched.matched && matched.grant && (matched.grant.scope === 'workspace'
           || matched.grant.scope === 'session' && matched.grant.boundRootSessionId === sessionId)) {
@@ -109,7 +109,7 @@ export class ClaudeApprovals {
       // Nobody owns the session (scheduled or API runs): no one can answer.
       // An owner whose window is briefly offline keeps the ask, which is
       // stored and shown when they reconnect, like Codex approvals.
-      if (!isControlled(sessionId)) {
+      if (!(await harnessAsks().sessionControl(sessionId)).controlled) {
         return denied('Claude tool requires a session controller');
       }
       return this.open(sessionId, workspaceId, toolName, delivery, signal, options, childForTool,
@@ -132,7 +132,7 @@ export class ClaudeApprovals {
     const toolCallId = `claude-approval:${crypto.randomUUID()}`;
     const timeout = this.timeoutMs();
     const now = Date.now();
-    const dbId = createPendingAsk({ requestId, toolCallId, toolName: `claude-cli:${toolName}`,
+    const dbId = await harnessAsks().createPendingAsk({ requestId, toolCallId, toolName: `claude-cli:${toolName}`,
       sessionId: childId ?? sessionId, rootSessionId: sessionId, workspaceId, ask,
       isPermission: !question, status: 'pending', createdAt: now, expiresAt: now + timeout });
     return new Promise<PermissionResult>(resolve => {
@@ -158,51 +158,50 @@ export class ClaudeApprovals {
   }
 
   async resolve(toolCallId: string, response: unknown, requestId?: string): Promise<boolean> {
-    if (!requestId || this.byTool.get(toolCallId) !== requestId) return false;
+    if (!requestId || this.byTool.get(toolCallId) !== requestId || this.resolving.has(requestId)) return false;
     const pending = this.pending.get(requestId);
-    if (!pending || pending.toolCallId !== toolCallId
-      || (await getSession(pending.sessionId))?.harness !== 'claude-cli') return false;
-    const controlled = isControlled(pending.controllerSessionId)
-      && getControllerConnections(pending.controllerSessionId).length > 0;
-    if (pending.question) {
-      const answers = controlled ? claudeQuestionAnswers(pending.question.questions, response) : null;
-      if (!resolvePermissionRequestByRequestId(requestId, answers ? 'approved' : 'denied', response)) {
-        this.settle(requestId, denied('Claude question expired'), true);
+    if (!pending || pending.toolCallId !== toolCallId) return false;
+    // Claimed before the first await: a second answer to the same ask is refused.
+    this.resolving.add(requestId);
+    try {
+      if ((await getSession(pending.sessionId))?.harness !== 'claude-cli') return false;
+      // Only a connected controller may answer.
+      const { connected: controlled } = await harnessAsks().sessionControl(pending.controllerSessionId);
+      if (pending.question) {
+        const answers = controlled ? claudeQuestionAnswers(pending.question.questions, response) : null;
+        const { resolved } = await harnessAsks().resolveRequest(requestId, answers ? 'approved' : 'denied', response);
+        if (!resolved) {
+          this.settle(requestId, denied('Claude question expired'), true);
+          return false;
+        }
+        this.settle(requestId, answers ? { behavior: 'allow', updatedInput: { ...pending.question.input, answers } }
+          : denied('Claude question was not answered'), false);
+        return true;
+      }
+      const value = response && typeof response === 'object' && !Array.isArray(response)
+        ? response as Record<string, unknown> : null;
+      const allowed = controlled
+        && value?.type === 'permission' && typeof value.grant === 'string'
+        && (pending.key ? pending.scopes : ['once']).includes(value.grant)
+        && value.scope === undefined && value.duration === undefined;
+      // Remembered grants persist atomically with the resolution; a grant
+      // failure denies the approval (never accept without its requested scope).
+      const remembered = allowed && pending.key && (value.grant === 'session' || value.grant === 'workspace');
+      const { resolved, status } = await harnessAsks().resolveRequest(requestId, allowed ? 'approved' : 'denied',
+        response, remembered ? { workspaceId: pending.workspaceId, toolName: BASH_TOOL,
+          resource: 'shell-command', action: 'execute', permissionKey: pending.key!,
+          grantOptions: { scope: value.grant as 'session' | 'workspace',
+            matcher: 'exact', action: 'execute', patterns: [pending.key!],
+            ...(value.grant === 'session' ? { boundRootSessionId: pending.controllerSessionId } : {}) } } : undefined);
+      if (!resolved) {
+        this.settle(requestId, denied('Claude permission expired'), true);
         return false;
       }
-      this.settle(requestId, answers ? { behavior: 'allow', updatedInput: { ...pending.question.input, answers } }
-        : denied('Claude question was not answered'), false);
+      this.settle(requestId, status === 'approved' ? { behavior: 'allow' } : denied('Claude permission denied'), false);
       return true;
+    } finally {
+      this.resolving.delete(requestId);
     }
-    const value = response && typeof response === 'object' && !Array.isArray(response)
-      ? response as Record<string, unknown> : null;
-    const allowed = controlled
-      && value?.type === 'permission' && typeof value.grant === 'string'
-      && (pending.key ? pending.scopes : ['once']).includes(value.grant)
-      && value.scope === undefined && value.duration === undefined;
-    // Remembered grants persist atomically with the resolution; a grant
-    // failure denies the approval (never accept without its requested scope).
-    let granted = true;
-    if (allowed && pending.key && (value.grant === 'session' || value.grant === 'workspace')) {
-      try {
-        getDatabase().transaction(() => {
-          createGrantFromOptions({ workspaceId: pending.workspaceId, toolName: BASH_TOOL,
-            resource: 'shell-command', action: 'execute', permissionKey: pending.key!,
-            grantOptions: { scope: value.grant as 'session' | 'workspace',
-              matcher: 'exact', action: 'execute', patterns: [pending.key!],
-              ...(value.grant === 'session' ? { boundRootSessionId: pending.controllerSessionId } : {}) } });
-        })();
-      } catch {
-        granted = false;
-      }
-    }
-    if (!resolvePermissionRequestByRequestId(requestId, allowed && granted ? 'approved' : 'denied', response)) {
-      this.settle(requestId, denied('Claude permission expired'), true);
-      return false;
-    }
-    this.settle(requestId, allowed && granted
-      ? { behavior: 'allow' } : denied('Claude permission denied'), false);
-    return true;
   }
 
   cancelSession(sessionId: string): void {
@@ -219,7 +218,11 @@ export class ClaudeApprovals {
     this.pending.delete(id);
     this.byTool.delete(pending.toolCallId);
     clearTimeout(pending.timer);
-    if (expired) expirePermissionRequest(pending.dbId);
+    if (expired) {
+      void harnessAsks().expireRequest(pending.dbId).catch((error: unknown) => {
+        console.warn('[claude-cli] ask expiry failed:', error instanceof Error ? error.message : 'unknown error');
+      });
+    }
     pending.delivery.broadcastToSession(pending.controllerSessionId, { type: 'ask.timeout',
       sessionId: pending.controllerSessionId, toolCallId: pending.toolCallId, requestId: id });
     pending.finish(result);

@@ -3,15 +3,13 @@ import type { AssistantMessage, Part, Session, TextPart, ToolPart } from '@proko
 import { forkSession, getSessionMessages, type SDKMessage, type SDKUserMessage, type Options, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
-import { getDatabase } from '@/infrastructure/sqlite/database';
 import {
   deleteClaudeRollbackIntent, getClaudeBinding, getClaudeRollbackIntent, hasClaudeForkIntent, insertClaudeBinding,
   isClaudeNativeSessionBound, markClaudeBindingPending, releaseClaudeBinding, setClaudeRollbackPhase,
   startClaudeRollbackIntent,
 } from './native-state';
-import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import {
-  createMessage, createPart, getSession, getToolPartByCallId, getWorkspace, listMessagesWithParts,
+  createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, getWorkspace, listMessagesWithParts,
   transitionToolToCompleted, transitionToolToError, transitionToolToInterrupted, updateMessage, updatePart, updateSession,
 } from '@/infrastructure/storage/runtime';
 import { storeTransaction } from '@/infrastructure/storage/transaction';
@@ -34,13 +32,12 @@ import {
 import { forkClaudeSession } from './fork';
 import { claudeDeveloperInstructions, defaultClaudePreconfigId, type ClaudeInstructionSources } from './instructions';
 import { createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from './dynamic-tools';
-import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
+import { cliWorkspaceAvailable, resolveCliRoot } from '@/harnesses/shared/cli-workspace';
 import { notifyHarnessTurnFinished } from '@/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
 import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '@/harnesses/shared/domain-tools';
 import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/filesystem/session-temp';
-import { readHandoffBrief } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { createClaudeWorkspaceMcp } from './mcp-tools';
@@ -140,11 +137,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       await deleteClaudeRollbackIntent(undefined, sessionId, 'fork');
       const workspace = await getWorkspace(session.workspaceId);
       if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace is unavailable');
-      const worktree = session.workspaceRootId
-        ? createManagedWorktreeRepository(getDatabase).get(session.workspaceRootId) : null;
-      if (session.workspaceRootId && (!worktree || worktree.workspaceId !== session.workspaceId
-        || worktree.state !== 'available')) throw new Error('Claude workspace is unavailable');
-      const root = realpathSync(worktree?.path ?? workspace.path);
+      const selectedRoot = await resolveCliRoot(session, workspace);
+      if (!selectedRoot) throw new Error('Claude workspace is unavailable');
+      const root = realpathSync(selectedRoot);
       const binding = await getClaudeBinding(sessionId);
       const local = await listMessagesWithParts(sessionId);
       const inherited = await inheritedUserIds(local);
@@ -302,12 +297,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         const imageData = await loadClaudeImages(images);
         const workspace = await getWorkspace(session.workspaceId);
         if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace unavailable');
-        const path = session.workspaceRootId
-          ? createManagedWorktreeRepository(getDatabase).get(session.workspaceRootId) : null;
-        if (session.workspaceRootId && (!path || path.workspaceId !== session.workspaceId || path.state !== 'available')) {
-          throw new Error('Selected worktree unavailable');
-        }
-        const selectedRoot = path?.path ?? workspace.path;
+        const selectedRoot = await resolveCliRoot(session, workspace);
+        if (!selectedRoot) throw new Error('Selected worktree unavailable');
         if (!existsSync(selectedRoot)) throw new Error('Claude workspace root unavailable');
         const root = realpathSync(selectedRoot);
         const workspaceMcpTools = deps.mcp ? await deps.mcp.tools(workspace.path, sessionId) : [];
@@ -440,7 +431,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
           openSegment = { part: { ...openSegment.part, text: next }, text: next };
         };
-        const handoffBrief = readHandoffBrief(sessionId);
+        const handoffBrief = await getHandoffBrief(sessionId);
         for await (const event of runClaudeTurn({ cwd: root, prompt: content, images: imageData,
           userMessageId: user.id, instructions: [developerInstructions, sessionTempInstructions(tempDirectory), handoffBrief].filter(Boolean).join('\n\n'), dynamicTools, workspaceMcp, tempDirectory,
           goalCondition, sessionId: nativeId, resume: !!binding,
@@ -719,11 +710,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         }
         const workspace = await getWorkspace(session.workspaceId);
         if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace is unavailable');
-        const worktree = session.workspaceRootId
-          ? createManagedWorktreeRepository(getDatabase).get(session.workspaceRootId) : null;
-        if (session.workspaceRootId && (!worktree || worktree.workspaceId !== session.workspaceId
-          || worktree.state !== 'available')) throw new Error('Claude workspace is unavailable');
-        return await forkClaudeSession(input, { root: realpathSync(worktree?.path ?? workspace.path),
+        const selectedRoot = await resolveCliRoot(session, workspace);
+        if (!selectedRoot) throw new Error('Claude workspace is unavailable');
+        return await forkClaudeSession(input, { root: realpathSync(selectedRoot),
           version: deps.version ?? claudeCliVersion,
           busy: id => active.has(id) || rollingBack.has(id),
           readHistory: deps.readHistory, forkHistory: deps.forkHistory });
@@ -779,11 +768,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       try {
         const workspace = await getWorkspace(session.workspaceId);
         if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace unavailable');
-        const worktree = session.workspaceRootId
-          ? createManagedWorktreeRepository(getDatabase).get(session.workspaceRootId) : null;
-        if (session.workspaceRootId && (!worktree || worktree.workspaceId !== session.workspaceId
-          || worktree.state !== 'available')) throw new Error('Selected worktree unavailable');
-        const root = realpathSync(worktree?.path ?? workspace.path);
+        const selectedRoot = await resolveCliRoot(session, workspace);
+        if (!selectedRoot) throw new Error('Selected worktree unavailable');
+        const root = realpathSync(selectedRoot);
         const selection = await getClaudeModelSelection(sessionId);
         const binding = await getClaudeBinding(sessionId);
         if (!binding || binding.pending || binding.workspace_root !== root

@@ -41,6 +41,7 @@ import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { prokopToolOutputArtifactStore } from '@/infrastructure/sqlite/tool-output-artifacts';
 import { findHarnessState, getHarnessState } from '@/infrastructure/sqlite/harness-state';
 import { commitSqlite } from '@/infrastructure/sqlite/storage-commit';
+import { readHandoffBrief } from '@/infrastructure/sqlite/session-harness-switch';
 
 export const prokopStorageBundle: StorageBundle = {
   conversation: {
@@ -60,6 +61,7 @@ export const prokopStorageBundle: StorageBundle = {
     persistStreamingPartSnapshots: async (...args) => persistStreamingPartSnapshots(...args),
     transitionToolToRunningByCallId: async (...args) => transitionToolToRunningByCallId(...args),
     getChildSessions: async (...args) => getChildSessions(...args),
+    getHandoffBrief: async (...args) => readHandoffBrief(...args),
     listMessagesWithParts: async (...args) => listMessagesWithParts(...args),
     listLatestMessagesWithPartsPage: async (...args) => listLatestMessagesWithPartsPage(...args),
     getPartsBySession: async (...args) => getPartsBySession(...args),

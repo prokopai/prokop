@@ -1,5 +1,5 @@
 import type { AgentEndpoint } from '@prokopai/agent-protocol';
-import type { WorkspaceMcpResult } from '@/application/ports/mcp-tools';
+import type { WorkspaceMcpResult, WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { capabilityToolFromMcp } from '@/infrastructure/mcp/capability-tool';
 import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
 import type { TerminalAccess } from './host-tools';
@@ -25,6 +25,33 @@ export function createProtocolToolDiscovery(endpoint: AgentEndpoint): WorkspaceT
           source: 'mcp', name: definition.name, workspacePath, sessionId, arguments: input, context,
         }, { signal }) as WorkspaceMcpResult,
       })]));
+    },
+  };
+}
+
+/**
+ * Agent-side MCP tools for Claude Code and Codex turns: the host grants
+ * access when listing and re-checks it on every call; the turn's own
+ * `authorized` check also runs before each call.
+ */
+export function createProtocolMcpTools(endpoint: AgentEndpoint): WorkspaceMcpToolsPort {
+  const request = endpoint.request.bind(endpoint);
+  return {
+    async tools(workspacePath, sessionId) {
+      if (!sessionId) return [];
+      const { tools, context } = await request('tool.list', { source: 'mcp', workspacePath, sessionId });
+      if (!context) return [];
+      return tools.map(definition => ({
+        ...definition,
+        serverName: definition.serverName ?? '',
+        toolName: definition.toolName ?? definition.name,
+        execute: async (input, signal, authorized) => {
+          if (authorized && !await authorized()) throw new Error('MCP access is not allowed for this agent');
+          return await request('tool.call', {
+            source: 'mcp', name: definition.name, workspacePath, sessionId, arguments: input, context,
+          }, { signal }) as WorkspaceMcpResult;
+        },
+      }));
     },
   };
 }
