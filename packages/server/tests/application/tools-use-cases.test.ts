@@ -8,7 +8,7 @@ import type {
   ToolCatalogPort,
   ToolEnvironmentPort,
   ToolCatalogEntry,
-} from '@/application/ports/tool-catalog';
+} from '@prokopai/core/application/ports/tool-catalog';
 
 function makeDefinition(overrides: Partial<ToolCatalogEntry> = {}): ToolCatalogEntry {
   return {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, unlinkSync, symlinkSync, realpathSync } from 'node:fs';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
-import { Paths } from '@/infrastructure/runtime/paths';
+import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
@@ -9,11 +9,11 @@ import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
-import { projectMessagesForClient } from '@/application/sessions/tool-debug';
+import { projectMessagesForClient } from '@prokopai/core/application/sessions/tool-debug';
 import { bindCodexThread } from '@/harnesses/codex-cli/bindings';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { CodexApprovals, codexApprovals } from '@/harnesses/codex-cli/approvals';
-import { shouldAutoApproveAsk } from '@/domains/permissions';
+import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { getPermissionRequestByRequestId, listPendingAsksBySession,
   listPendingRequestsByRootSession } from '@/infrastructure/sqlite/pending-asks';
 import { saveCodexModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
@@ -22,11 +22,11 @@ import { hookCommand, type HookDecision } from '@/harnesses/codex-cli/pretool-ho
 import type { CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
 import type { CodexConnection } from '@/harnesses/codex-cli/app-server';
 import type { PermissionAsk, ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import { installHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
-import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { codexBinding, codexRollbackIntent, updateLegacyRow } from '#tests/helpers/legacy-native';
 
 beforeEach(() => { setupTestDatabase(); seedWorkspace({ id: 'ws', path: process.cwd() }); });

@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { withKnowledgeMutationLock } from '@/infrastructure/filesystem/knowledge-mutation-lock';
+import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
 
 const USER_FILE = 'USER.md';
 const MEMORY_FILE = 'MEMORY.md';

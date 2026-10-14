@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import type { Preconfig } from '@prokopai/sdk';
-import { runHeadlessTurn, type HeadlessSessionRunInput } from '@/application/ports/headless-execution';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import { runHeadlessTurn, type HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 
 const input: HeadlessSessionRunInput = {
   harness: 'claude-cli',

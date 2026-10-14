@@ -1,17 +1,17 @@
 import {
   emitRuntimeEvent,
   type BroadcastFn,
-} from '@/infrastructure/runtime/host-dependencies';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getAgentDirectory } from '@/harnesses/prokop/context/sources';
-import { discoverWorkspaceTools } from '@/infrastructure/tools/tool-source';
+import { discoverWorkspaceTools } from '@prokopai/core/infrastructure/tools/tool-source';
 import {
   buildRetrieveToolOutputAiTool,
   RETRIEVE_TOOL_OUTPUT_NAME,
   wrapToolsWithOutputPolicy,
 } from '@/harnesses/prokop/tool-output/policy';
-import { getSession } from '@/infrastructure/storage/runtime';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 import type { AskBroadcastFn } from '@/harnesses/prokop/permission/ask-user-api';
-import { hasScopedToolRegistryResolver } from '@/infrastructure/tools/registry';
+import { hasScopedToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import { join } from 'path';
 import { buildExternalTools } from '@/harnesses/prokop/execution/tool-builders/external-tools';
 import { buildWorkspaceTools } from '@/harnesses/prokop/execution/tool-builders/workspace-tools';

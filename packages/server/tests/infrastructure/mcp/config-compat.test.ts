@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadMcpConfig } from '@/infrastructure/mcp/config';
-import { PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@/infrastructure/runtime/paths';
-import { resetWorkspaceDirWarnings } from '@/infrastructure/runtime/workspace-dirs';
+import { PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@prokopai/core/infrastructure/runtime/paths';
+import { resetWorkspaceDirWarnings } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 
 describe('mcp config workspace-dir fallback', () => {
   let root: string;

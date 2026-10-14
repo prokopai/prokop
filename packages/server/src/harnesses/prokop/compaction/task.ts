@@ -15,11 +15,11 @@ import { streamText as aiStreamText } from 'ai';
 import { randomUUID } from 'crypto';
 import type {
   AssistantMessage, CompactionPart, MessageWithParts, TextPart, ToolPart } from '@prokopai/sdk/types';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
-import { findProviderFromModel } from '@/infrastructure/providers/model-selection';
-import { getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
-import { emitRuntimeEvent, type BroadcastFn } from '@/infrastructure/runtime/host-dependencies';
-import { compactionFailureRecord } from '@/domains/sessions/compaction-failure';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
+import { findProviderFromModel } from '@prokopai/core/infrastructure/providers/model-selection';
+import { getModelsConfig } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { emitRuntimeEvent, type BroadcastFn } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { compactionFailureRecord } from '@prokopai/core/domains/sessions/compaction-failure';
 import {
   buildEffectiveContextHistory,
   createMessage,
@@ -27,7 +27,7 @@ import {
   getPartsBySession,
   listMessagesWithParts,
   updatePart,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 import type {
   CompactionPolicy,
   CompactionTrigger,

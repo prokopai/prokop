@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { ServerWebSocket } from 'bun';
-import type { RuntimeDelivery, RuntimeEvent } from '@/infrastructure/runtime/events';
+import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import { prokopDeliveryBindings } from '@/adapters/prokop/runtime-host/delivery';
 import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
 import { createBunWebSocketAdapter } from '@/transport/websocket/bun-adapter';

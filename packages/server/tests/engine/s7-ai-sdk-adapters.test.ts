@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   createCapabilityTool,
   createOpenAiResponsesModel,
-} from '@/infrastructure/providers/ai-sdk';
+} from '@prokopai/core/infrastructure/providers/ai-sdk';
 
 describe('S7 AI SDK adapters', () => {
   test('creates an MCP-compatible capability tool without changing execution output', async () => {

@@ -1,6 +1,6 @@
 import type { Ask, AskAuthority, CodexModel, HarnessModelChoice, Session, SessionHarness } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type {
   ControllerGatePort,
   SessionControlPort,
@@ -10,11 +10,11 @@ import type {
   PendingAskPort,
   PendingAskRecord,
   SessionRepositoryPort,
-} from '@/application/ports/session';
-import type { ToolCatalogPort } from '@/application/ports/tool-catalog';
+} from '@prokopai/core/application/ports/session';
+import type { ToolCatalogPort } from '@prokopai/core/application/ports/tool-catalog';
 import type { WorktreeAttachmentRefreshPort } from '@/application/ports/worktree';
 import { sendGateRejection } from './chat';
-import { projectMessagesForClient } from './tool-debug';
+import { projectMessagesForClient } from '@prokopai/core/application/sessions/tool-debug';
 import { checkHarnessCreate, prokopFeatureError, unknownHarnessError } from './harness-policy';
 import { resolveSessionVariant } from '@/domains/sessions/variant';
 

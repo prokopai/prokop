@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assertTestSafeDatabasePath, configureConnection } from '@/infrastructure/sqlite/database';
-import { getDataDir } from '@/infrastructure/runtime/paths';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 describe('SQLite connection configuration', () => {
   test('a write waits for another process to release its lock', async () => {

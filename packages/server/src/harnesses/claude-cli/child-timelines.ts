@@ -1,9 +1,9 @@
 import type { AssistantMessage, Session, TextPart, ToolPart } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import {
   createMessage, createPart, createSession, getToolPartByCallId, transitionToolToCompleted, transitionToolToError,
   transitionToolToInterrupted, updateMessage, updateSession,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
 import type { ClaudeTurnEvent } from './sdk-turn';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';

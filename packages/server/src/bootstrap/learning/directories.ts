@@ -1,8 +1,8 @@
 import { join, resolve } from 'node:path';
 import type { Workspace } from '@prokopai/sdk';
-import type { AgentsApplication } from '@/application/agents';
-import { agentHomeWorkspaceId } from '@/domains/agents/home';
-import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
+import { agentHomeWorkspaceId } from '@prokopai/core/domains/agents/home';
+import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 
 /** Matches foreground memory and skill tools, including legacy workspace memory.
  * Personal memory lives in the agent directory, not home/.prokopai. */

@@ -1,12 +1,12 @@
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import type { RuntimeConfiguration } from '@/infrastructure/providers/configuration/contracts';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
 import {
   findModel,
   findModelVariant,
   getMaxOutputTokens,
   getModelsConfig,
   type ModelDefinition,
-} from '@/config';
+} from '@prokopai/core/config';
 import {
   getCompactionAutoReserveCapTokens,
   getCompactionAutoSafetyMarginTokens,
@@ -26,7 +26,7 @@ import {
   getLLMSubagentMaxSteps,
   getLLMTemperature,
   getLLMZhipuCodingApiKey,
-} from '@/infrastructure/runtime/environment';
+} from '@prokopai/core/infrastructure/runtime/environment';
 
 interface RuntimeConfigurationAccessors {
   findModel: RuntimeConfiguration['findModel'];

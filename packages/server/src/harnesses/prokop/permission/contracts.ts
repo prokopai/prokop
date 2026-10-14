@@ -24,7 +24,7 @@
 import type { Ask, AskApi, AskPermissionResponse } from '@prokopai/sdk/tool';
 import type { PermissionRiskLevel } from '@prokopai/sdk/tool';
 import type { AskAuthority, AskRequestMessage, AskTimedOutMessage, ClientCapability } from '@prokopai/sdk/types';
-import type { PendingAskRecord } from '@/infrastructure/runtime/host';
+import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
 
 /** Provider options translated at composition. The generic ask timeout has
  * no current configuration source and stays the fixed 5-minute constant;

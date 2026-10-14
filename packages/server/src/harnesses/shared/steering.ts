@@ -1,7 +1,7 @@
 import type { Message, Part, QueuedMessage, UserMessage } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getStorage } from '@/infrastructure/storage/runtime';
-import { storeTransaction, type StoreTransaction } from '@/infrastructure/storage/transaction';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 
 /** A steer message handed to a native runtime and not yet seen in its turn. */
 export interface DispatchedSteer {

@@ -1,6 +1,6 @@
 import type { RuntimePlugin, PluginContext } from '@/harnesses/prokop/composition/kernel/types';
-import type { WorkspacePolicyOptions } from '@/infrastructure/filesystem/workspace-policy/contracts';
-import { createWorkspaceService } from '@/infrastructure/filesystem/workspace-policy/policy';
+import type { WorkspacePolicyOptions } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
+import { createWorkspaceService } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import { capekWorkspacePolicyKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /**

@@ -27,7 +27,7 @@ import {
 import { deleteScheduledJobsByWorkspace } from '@/infrastructure/sqlite/scheduled-job-store';
 import { getTerminalManager } from '@/transport/terminal';
 import { shutdownWorkspace } from '@/infrastructure/mcp';
-import { getWorkspacesDir } from '@/infrastructure/runtime/paths';
+import { getWorkspacesDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { workspacePathPolicyPort } from '@/adapters/workspace-paths';
 import type {
   WorkspaceCleanupPort,

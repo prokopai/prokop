@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
-import type { AgentDirectoryPort } from '@/application/ports/agents';
+import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
+import type { AgentDirectoryPort } from '@prokopai/core/application/ports/agents';
 
 const roots: string[] = [];
 

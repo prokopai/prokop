@@ -1,5 +1,5 @@
-import { getSession } from '@/infrastructure/storage/runtime';
-import { notifyWorkspaceFilesChanged } from '@/application/workspaces/files-changed';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
+import { notifyWorkspaceFilesChanged } from '@prokopai/core/application/workspaces/files-changed';
 
 /**
  * Rollback dispatch: the CLI restores files as part of the rollback turn and

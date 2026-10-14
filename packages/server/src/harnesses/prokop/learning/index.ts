@@ -1,9 +1,9 @@
-import type { HeadlessSessionRunInput, HeadlessSessionRunResult, LearningReviewSpec } from '@/application/ports/headless-execution';
-import type { LearningRuntimePort } from '@/application/ports/learning-runtime';
-import { getLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import type { HeadlessSessionRunInput, HeadlessSessionRunResult, LearningReviewSpec } from '@prokopai/core/application/ports/headless-execution';
+import type { LearningRuntimePort } from '@prokopai/core/application/ports/learning-runtime';
+import { getLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
 import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
-import { listDomainToolFallbackDefinitions } from '@/infrastructure/tools/domain-tool-source';
+import { listDomainToolFallbackDefinitions } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { executeLearningComposition } from './learning-composition';
 
 /**

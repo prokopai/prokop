@@ -3,7 +3,7 @@ import {
   disconnectProvider,
   getConnectableProviders,
   getProviderStatus,
-} from '@/infrastructure/providers/registry';
+} from '@prokopai/core/infrastructure/providers/registry';
 import type { ProviderRegistryPort } from '@/application/ports/provider-accounts';
 
 /**

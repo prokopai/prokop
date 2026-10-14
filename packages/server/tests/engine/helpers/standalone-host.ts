@@ -4,7 +4,7 @@ import type { PermissionGrant } from '@prokopai/sdk/tool';
 import type {
   PendingAskRecord,
   RuntimeHost,
-} from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/runtime/host';
 
 interface StandaloneHostOptions {
   workspace: string;

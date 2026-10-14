@@ -10,19 +10,19 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { createComposition, createProcessScope, enterAgentScope, facadeProcessPlugins } from '#tests/engine/helpers/standalone-composition';
 import {
   createSingleModelConfiguration,
   resolveModelSpecifier,
 } from '@/infrastructure/providers/configuration/single-model';
 import { createStandaloneHost } from '#tests/engine/helpers/standalone-host';
-import { SandboxProvider } from '@/infrastructure/sandbox/provider';
-import { expandPath } from '@/infrastructure/filesystem/workspace-policy/policy';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
+import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
+import { expandPath } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { configureSchedulerHost } from '@/harnesses/prokop/scheduler/host';
-import { configureRuntimeHost } from '@/infrastructure/runtime/host';
-import { resetProviders } from '@/infrastructure/providers/registry';
+import { configureRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { capekStorageKey, capekProviderRegistryKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 const roots: string[] = [];

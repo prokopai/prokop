@@ -44,15 +44,15 @@ import {
 import { getWorkspacePermissionMode } from '@/infrastructure/sqlite/workspaces';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
-import type { AgentsApplication } from '@/application/agents';
-import { markManualSessionTitle } from '@/infrastructure/session-title';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
+import { markManualSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import {
   cleanupAllPendingAsks,
   expirePermissionRequest,
   listAllPendingAsks,
   listPendingRequestsByRootSession,
 } from '@/infrastructure/sqlite/pending-asks';
-import { getAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
+import { getAgentAskPort, isNativeHarnessAskId } from '@prokopai/core/application/ports/agent-asks';
 import type {
   AttachmentRecord,
   GroupedSessionPage,
@@ -61,7 +61,7 @@ import type {
   SessionRepositoryPort,
   SessionUpdateInput,
   TranscriptPage,
-} from '@/application/ports/session';
+} from '@prokopai/core/application/ports/session';
 import type {
   MessageWithParts,
   QueuedMessage,
@@ -70,7 +70,7 @@ import type {
   ToolPart,
 } from '@prokopai/sdk';
 import type { Preconfig } from '@prokopai/sdk';
-import type { SessionPageInfo, ToolOutputArtifactPage as SessionToolOutputArtifactPage } from '@/application/ports/session';
+import type { SessionPageInfo, ToolOutputArtifactPage as SessionToolOutputArtifactPage } from '@prokopai/core/application/ports/session';
 
 function toTranscriptPage(result: {
   messages: MessageWithParts[];

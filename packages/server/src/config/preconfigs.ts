@@ -5,12 +5,12 @@ import {
   createPreconfig,
   updatePreconfig,
   deletePreconfig,
-} from '@/infrastructure/config/preconfig';
+} from '@prokopai/core/infrastructure/config/preconfig';
 import {
   firstUnknownSubagentId,
   knownSubagentIds,
-} from '@/domains/agents';
-import { getAllModels } from '@/config';
+} from '@prokopai/core/domains/agents';
+import { getAllModels } from '@prokopai/core/config';
 import {
   ConfigurationNotFoundError,
   ConfigurationValidationError,

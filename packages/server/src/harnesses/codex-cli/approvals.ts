@@ -6,17 +6,17 @@ import {
   grantScopesForFinding,
   readAskConcerns,
   shouldAutoApproveAsk,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 import { sessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 import { notifyHarnessPermissionRequired } from '@/harnesses/shared/notifications';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { harnessAsks } from '@/infrastructure/runtime/harness-asks';
-import { getSession } from '@/infrastructure/storage/runtime';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
+import { harnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { logCodexPermissionDenial, type CodexPermissionReason } from './permission-diagnostics';
 import { unwrapCodexApprovalCommand } from './approval-command';
-import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
-import { isWithinRoot } from '@/domains/permissions';
+import { ensureSessionTempDir } from '@prokopai/core/infrastructure/filesystem/session-temp';
+import { isWithinRoot } from '@prokopai/core/domains/permissions';
 
 const AUTHORITY = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } as const;
 const COMMAND_TOOL = 'codex-cli:command';

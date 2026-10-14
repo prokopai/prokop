@@ -1,9 +1,9 @@
-import { getProkopEnvValue } from '@/infrastructure/runtime/environment';
-import { agentDirectoryPath } from '@/domains/agents/home';
-import { getDataDir, getUploadDir } from '@/infrastructure/runtime/paths';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import type { WorkspaceCapabilityHost } from '@/infrastructure/filesystem/workspace-policy/contracts';
-import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
+import { getProkopEnvValue } from '@prokopai/core/infrastructure/runtime/environment';
+import { agentDirectoryPath } from '@prokopai/core/domains/agents/home';
+import { getDataDir, getUploadDir } from '@prokopai/core/infrastructure/runtime/paths';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { WorkspaceCapabilityHost } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
+import { ensureSessionTempDir } from '@prokopai/core/infrastructure/filesystem/session-temp';
 
 type ToolWorkspaceOptions = Parameters<RuntimeHost['workspace']['createToolWorkspaceHost']>[0];
 

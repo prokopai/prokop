@@ -8,7 +8,7 @@ import {
   resolvePath as serviceResolvePath,
   resolveRootForQuery,
   selectEditableRoot,
-} from '@/infrastructure/filesystem/workspace-policy/policy';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import type { WorkspacePathPolicyPort } from '@/application/ports/workspace-paths';
 
 /**

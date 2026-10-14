@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { analyzeCommand, classifyShellCommand, commandSegmentSpans, decide, type CommandAnalyzeContext } from '@/domains/permissions';
+import { analyzeCommand, classifyShellCommand, commandSegmentSpans, decide, type CommandAnalyzeContext } from '@prokopai/core/domains/permissions';
 
 /**
  * Golden tests for the permissions v2 command pipeline

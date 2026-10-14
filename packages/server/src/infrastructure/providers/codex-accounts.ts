@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { CodexProviderConfig, ProviderAccountStatus } from '@prokopai/sdk';
 import { NotFoundError } from '@/application/http-errors';
 import { buildCodexConfig, parseIdTokenClaims, type OAuthTokenSet } from '@/domains/provider-accounts/oauth';
-import { getProviderPath } from '@/infrastructure/runtime/paths';
+import { getProviderPath } from '@prokopai/core/infrastructure/runtime/paths';
 
 const configSchema = z.object({
   type: z.literal('oauth'),

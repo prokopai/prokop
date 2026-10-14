@@ -1,5 +1,5 @@
 import { getHostGuidance } from '@/harnesses/prokop/context/host-guidance';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import type { PermissionRiskLevel } from '@prokopai/sdk/tool';
 import { serviceKey } from '@/harnesses/prokop/composition/kernel/service-key';
 import type {
@@ -12,7 +12,7 @@ import {
   DOMAIN_TOOL_PAYLOAD_FIELD,
   registerDomainToolFallback,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { validateContextAssemblyData, type ContextAssemblyData } from '@/harnesses/prokop/context/assembler';
 import {
   buildSkillManageToolDescription,
@@ -20,7 +20,7 @@ import {
   skillManageToolDefinition,
 } from '@/harnesses/shared/skills/skill-manage-tool';
 import { buildSkillToolDefinition, executeSkillTool } from '@/harnesses/shared/skills/skill-tool';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { capekStorageKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /**

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Ask } from '@prokopai/sdk/tool';
 import type { Session } from '@prokopai/sdk/types';
 import type { PermissionAsk } from '@prokopai/sdk/tool';
-import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import {
   createAskApi,
   getAuthorityForPendingAsk,
@@ -16,8 +16,8 @@ import {
   requestPermission,
   resolvePermission,
 } from '@/harnesses/prokop/permission/permission-request-manager';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 
 interface InteractionState {
   records: Map<string, PendingAskRecord>;

@@ -8,14 +8,14 @@ import {
 } from '@/harnesses/prokop/context/sources';
 import { RETRIEVE_TOOL_OUTPUT_NAME } from '@/harnesses/prokop/tool-output/policy';
 import type { Preconfig } from '@prokopai/sdk/types';
-import type { AgentsApplication } from '@/application/agents';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
 import {
   getDefaultPreconfig,
   getPreconfig,
   listPreconfigs,
   listSubagentPreconfigs,
-} from '@/infrastructure/config/preconfig';
-import { getGlobalAgentsPath } from '@/infrastructure/runtime/paths';
+} from '@prokopai/core/infrastructure/config/preconfig';
+import { getGlobalAgentsPath } from '@prokopai/core/infrastructure/runtime/paths';
 
 /** The retrieval tool ships as a contributed tool through the
  * tool-output policy plugin, so under the scoped resolver it reaches

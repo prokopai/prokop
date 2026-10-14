@@ -1,6 +1,6 @@
 import type { HostHandlers } from '@prokopai/agent-protocol';
 import type { Session } from '@prokopai/sdk/types';
-import type { CommitRequest, StorageBundle } from '@/infrastructure/storage/contracts';
+import type { CommitRequest, StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 
 /**
  * Host side of the storage protocol: serves agent `store.*`, queue,

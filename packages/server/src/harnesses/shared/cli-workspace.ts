@@ -1,5 +1,5 @@
 import type { Session, Workspace } from '@prokopai/sdk';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 
 /**
  * CLI turns need a real root on disk. Virtual workspaces qualify: "virtual"

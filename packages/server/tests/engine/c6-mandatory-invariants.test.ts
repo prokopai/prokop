@@ -23,13 +23,13 @@ import {
 import {
   createWorkspaceService,
   withWorkspaceService,
-} from '@/infrastructure/filesystem/workspace-policy/policy';
-import type { WorkspaceService } from '@/infrastructure/filesystem/workspace-policy/contracts';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import type { WorkspaceService } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 import {
   createWorkspaceCapability,
   isLexicallyContained,
-} from '@/infrastructure/filesystem/workspace-policy/policy';
-import type { WorkspaceCapabilityHost } from '@/infrastructure/filesystem/workspace-policy/contracts';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import type { WorkspaceCapabilityHost } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 import {
   applyToolOutputPolicy,
   retrieveToolOutput,
@@ -46,20 +46,20 @@ import {
 } from '@/harnesses/prokop/compaction/policy';
 import type { CompactionService } from '@/harnesses/prokop/compaction/policy';
 import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
-import { getToolOutputArtifactPage } from '@/infrastructure/storage/runtime';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { getToolOutputArtifactPage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   configureStorage,
   createMessage,
   createPart,
   createSession,
   updateSession,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));

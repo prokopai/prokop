@@ -15,7 +15,7 @@ import {
   registerDomainToolFallback,
   type DomainToolExecuteContext,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { getHostGuidance } from '@/harnesses/prokop/context/host-guidance';
 import type { SessionSearchHost } from '@/harnesses/shared/session-search/host';
 import {
@@ -24,8 +24,8 @@ import {
   sessionSearchToolDefinition,
   type SessionSearchResult,
 } from '@/harnesses/shared/session-search/session-search-tool';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { getWorkspace } from '@/infrastructure/storage/runtime';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import { capekSessionSearchHostKey, capekStorageKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /**

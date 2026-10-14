@@ -5,30 +5,30 @@
  * callback starts, so no async work runs with unseeded accessors.
  */
 
-import { withRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { withRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { withContextAssembler } from '@/harnesses/prokop/context/assembler';
 import { withContextSources } from '@/harnesses/prokop/context/sources';
 import { withRetryPolicy } from '@/harnesses/prokop/retry/policy';
 import { withCompactionService } from '@/harnesses/prokop/compaction/policy';
 import { withAskPermissionPolicy } from '@/harnesses/prokop/permission/policy';
 import { withPermissionRuntimeService } from '@/harnesses/prokop/permission/runtime';
-import { withWorkspaceService } from '@/infrastructure/filesystem/workspace-policy/policy';
+import { withWorkspaceService } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import { withToolOutputService } from '@/harnesses/prokop/tool-output/policy';
 import { withGoalDomain } from '@/harnesses/prokop/goals/service';
 export { createAgentScope, createProcessScope } from '@/harnesses/prokop/composition/kernel/kernel';
 import type { AgentScopeHandle } from '@/harnesses/prokop/composition/kernel/types';
-import { withProviderOverrides } from '@/infrastructure/providers/registry';
+import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
 import {
   DOMAIN_TOOL_PAYLOAD_FIELD,
   isDomainToolPayload,
   withContributedDomainToolPayloads,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
-import { withRuntimeHost } from '@/infrastructure/runtime/host';
-import { withSandboxController } from '@/infrastructure/sandbox/controller';
-import { withStorage } from '@/infrastructure/storage/runtime';
-import { withToolRegistryResolver } from '@/infrastructure/tools/registry';
-import { withWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { withRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { withSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { withStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
+import { withWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { capekGoalDomainKey } from '@/harnesses/prokop/composition/plugins/goal-domain';
 import {
   capekContextAssemblerKey,

@@ -7,8 +7,8 @@ import type {
   regenerateSessionTitle as CapekRegenerateSessionTitle,
 } from '@/harnesses/prokop/execution/chat-handler';
 import type { revertToStep as CapekRevertToStep } from '@/harnesses/prokop/execution/revert';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/bindings/runtime-configuration';
 import { configureProkopStorage, prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';

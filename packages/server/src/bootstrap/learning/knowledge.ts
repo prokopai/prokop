@@ -1,5 +1,5 @@
 import type { LearningScope } from '@prokopai/sdk';
-import type { LearningKnowledgeResult as KnowledgeOperationResult, LearningRuntimePort } from '@/application/ports/learning-runtime';
+import type { LearningKnowledgeResult as KnowledgeOperationResult, LearningRuntimePort } from '@prokopai/core/application/ports/learning-runtime';
 
 export interface LearningKnowledgeBoundary {
   scope: LearningScope;

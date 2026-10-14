@@ -1,6 +1,6 @@
 import type { MessageEvent, Part, UserMessage } from '@prokopai/sdk/types';
-import { getAttachment, getNextSteerQueuedMessage } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+import { getAttachment, getNextSteerQueuedMessage } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 
 export type SteerDeliveryEvent = MessageEvent | { type: 'queue.sending'; sessionId: string; queueId: string };
 

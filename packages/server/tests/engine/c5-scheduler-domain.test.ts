@@ -35,21 +35,21 @@ import { CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/compositio
 import { CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/workflow-domain';
 import { CURRENT_MEMORY_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/memory-domain';
 import { CURRENT_SKILLS_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { resetProviders } from '@/infrastructure/providers/registry';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import {
   resetDomainToolFallbacksForTests,
   getContributedDomainToolPayloads,
   getDomainToolFallback,
-} from '@/infrastructure/tools/domain-tool-source';
-import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { configureStorage } from '@/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { resolvePermission } from '@/harnesses/prokop/permission/permission-request-manager';
-import { clearCache } from '@/infrastructure/tools/registry';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));

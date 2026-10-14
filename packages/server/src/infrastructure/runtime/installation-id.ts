@@ -1,6 +1,6 @@
 import { closeSync, lstatSync, openSync, readFileSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
-import { getDataDir } from './paths';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 const ID_FILE = 'installation-id';
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

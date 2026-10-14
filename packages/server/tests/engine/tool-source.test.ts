@@ -4,7 +4,7 @@ import {
   discoverWorkspaceTools,
   getWorkspaceToolDiscovery,
   initializeWorkspaceDiscovery,
-} from '@/infrastructure/tools/tool-source';
+} from '@prokopai/core/infrastructure/tools/tool-source';
 
 afterEach(() => configureWorkspaceToolDiscovery());
 

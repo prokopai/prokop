@@ -15,15 +15,15 @@ import type {
   SessionRepositoryPort,
   ToolOutputArtifactPage,
   TranscriptPage,
-} from '@/application/ports/session';
-import type { ToolCatalogPort } from '@/application/ports/tool-catalog';
+} from '@prokopai/core/application/ports/session';
+import type { ToolCatalogPort } from '@prokopai/core/application/ports/tool-catalog';
 import type { WorktreeAttachmentRefreshPort } from '@/application/ports/worktree';
 import type { HarnessSettingsApplication } from '@/application/harnesses/settings';
 import {
   getToolDebugData,
   projectMessagesForClient,
   type ToolDebugData,
-} from './tool-debug';
+} from '@prokopai/core/application/sessions/tool-debug';
 import { checkHarnessCreate } from './harness-policy';
 
 export interface SessionHttpCreateInput {

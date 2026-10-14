@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   classifyFileOperation,
   requiresHumanReview,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 import { fileConcernAsk } from '@/harnesses/prokop/tools/file-permission';
 
 const root = '/workspace';

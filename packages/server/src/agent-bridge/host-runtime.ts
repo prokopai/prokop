@@ -1,6 +1,6 @@
 import type { AgentSide, Audience, HostHandlers, NotificationHandlers } from '@prokopai/agent-protocol';
 import type { AskAuthority, AssistantMessage, ServerMessage } from '@prokopai/sdk/types';
-import type { InteractionHost, PendingAskRecord, WorkspaceCapabilityBindings } from '@/infrastructure/runtime/host';
+import type { InteractionHost, PendingAskRecord, WorkspaceCapabilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 
 /** Where delivered wire messages go on the host (WebSocket broadcast in production). */
 export interface HostDeliveryRouter {

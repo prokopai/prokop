@@ -1,5 +1,5 @@
-import { getStorage } from '@/infrastructure/storage/runtime';
-import { insertNative, updateNative, withinTransaction, type StoreTransaction } from '@/infrastructure/storage/transaction';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { insertNative, updateNative, withinTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 
 /**
  * Codex native records other than the thread binding (see bindings.ts).

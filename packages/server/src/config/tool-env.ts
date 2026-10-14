@@ -1,7 +1,7 @@
 import { atomicWriteFile, readFileSafe } from './files';
-import { getEnvFilePath } from '@/infrastructure/runtime/paths';
-import { getProkopEnvValue, getAllProkopEnvKeys, reloadProkopEnv } from '@/infrastructure/runtime/environment';
-import { listTools } from '@/infrastructure/tools/registry';
+import { getEnvFilePath } from '@prokopai/core/infrastructure/runtime/paths';
+import { getProkopEnvValue, getAllProkopEnvKeys, reloadProkopEnv } from '@prokopai/core/infrastructure/runtime/environment';
+import { listTools } from '@prokopai/core/infrastructure/tools/registry';
 import { ENV_PRESETS, getPreset, isPresetKey } from './env-presets';
 import { ConfigurationPersistenceError, ConfigurationValidationError } from './errors';
 

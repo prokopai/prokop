@@ -4,8 +4,8 @@ import {
   getDomainToolFallback,
   mergeDomainToolVisualization,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
-import { getWorkspace } from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import {
   createAskApi,
   rejectPendingAsksByToolCallId,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { definition, execute } from './tool';
+import { definition, execute } from '@prokopai/core/infrastructure/browser/tools/browser-tab-manage/tool';
 import { createMockContext, VirtualFS, getAskCall } from '@/harnesses/prokop/tools/test-utils';
 
 let vfs: VirtualFS;

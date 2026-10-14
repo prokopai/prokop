@@ -22,8 +22,8 @@ import {
   findModel,
   getMaxOutputTokens,
   getRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
-import { listMessagesWithParts } from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import type {
   AutoThresholdResult,
   CompactionPolicy,

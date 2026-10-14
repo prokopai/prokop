@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { classifyApiError, withRetry, ApiErrorType, type ClassifiedError } from '@/infrastructure/providers/errors';
+import { classifyApiError, withRetry, ApiErrorType, type ClassifiedError } from '@prokopai/core/infrastructure/providers/errors';
 
 describe('classifyApiError', () => {
   test('classifies timeout errors by name', () => {

@@ -1,5 +1,5 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { getMcpAuthPath, getDataDir } from '@/infrastructure/runtime/paths';
+import { getMcpAuthPath, getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 export interface McpAuthTokens { accessToken: string; refreshToken?: string; expiresAt?: number; scope?: string }
 export interface McpClientInfo {

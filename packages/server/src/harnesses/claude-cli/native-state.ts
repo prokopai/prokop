@@ -1,8 +1,8 @@
-import type { NativeRecord } from '@/infrastructure/storage/contracts';
-import { getStorage } from '@/infrastructure/storage/runtime';
+import type { NativeRecord } from '@prokopai/core/infrastructure/storage/contracts';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import {
   insertNative, updateNative, withinTransaction, type StoreTransaction,
-} from '@/infrastructure/storage/transaction';
+} from '@prokopai/core/infrastructure/storage/transaction';
 
 /**
  * Claude Code native records: the session binding, rollback and fork

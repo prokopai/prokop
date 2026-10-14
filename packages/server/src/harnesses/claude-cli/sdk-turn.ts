@@ -2,7 +2,7 @@ import { createSdkMcpServer, query, type CanUseTool, type Options, type SDKActiv
 import type { ClaudeImage } from './images';
 import { claudeCliVersion } from './version';
 import { parseClaudeUsage, type ClaudeTurnUsage } from './usage';
-import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
+import { sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { HTML_RENDER_TOOL_NAME } from '@prokopai/sdk';
 import { claudeWorkspaceToolName } from './mcp-tools';

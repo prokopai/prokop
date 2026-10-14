@@ -3,15 +3,15 @@ import type { MessageWithParts, ToolModelOutputPart, ToolPart } from '@prokopai/
 import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
 import { createStreamHandlers } from '@/harnesses/prokop/execution/stream-handlers';
 import { buildExternalTools } from '@/harnesses/prokop/execution/tool-builders/external-tools';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureStorage, createMessage, createPart, createSession, getPart } from '@/infrastructure/storage/runtime';
-import { withToolRegistryResolver } from '@/infrastructure/tools/registry';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureStorage, createMessage, createPart, createSession, getPart } from '@prokopai/core/infrastructure/storage/runtime';
+import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import {
   capekToolOutputToAiSdk,
   createCapekToolOutputEnvelope,
   isCapekToolOutputEnvelope,
   normalizeToolModelOutput,
-} from '@/infrastructure/tools/model-output';
+} from '@prokopai/core/infrastructure/tools/model-output';
 
 const image: ToolModelOutputPart = {
   type: 'image',

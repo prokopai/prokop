@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { homedir } from 'node:os';
-import { analyzeCommand, classifyShellCommand } from '@/domains/permissions';
+import { analyzeCommand, classifyShellCommand } from '@prokopai/core/domains/permissions';
 import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
 import { classifyCodexHook, type CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
 

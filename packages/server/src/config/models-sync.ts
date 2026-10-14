@@ -1,8 +1,8 @@
-import type { ModelsConfig, ProviderDefinition } from '@/config';
+import type { ModelsConfig, ProviderDefinition } from '@prokopai/core/config';
 import { getModelsDocument, saveModelsDocument, validateModelsDocument } from '@/config/models';
 import { ConfigurationValidationError } from '@/config/errors';
 
-import { getModelsRegistryUrl } from '@/infrastructure/runtime/environment';
+import { getModelsRegistryUrl } from '@prokopai/core/infrastructure/runtime/environment';
 
 const MODELS_REGISTRY_URL = getModelsRegistryUrl();
 

@@ -12,10 +12,10 @@ import {
   DOMAIN_TOOL_PAYLOAD_FIELD,
   registerDomainToolFallback,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
-import type { RuntimeDelivery, RuntimeEvent } from '@/infrastructure/runtime/events';
-import type { BroadcastFn, RuntimeHost } from '@/infrastructure/runtime/host';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
+import type { BroadcastFn, RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
 import { selfDelegationGuidance } from '@/harnesses/prokop/subagent/guidance';
 import {

@@ -10,7 +10,7 @@ import type {
   ToolEnvClearPortResult,
   ToolEnvListPortResult,
   ToolEnvSetPortResult,
-} from '@/application/ports/tool-catalog';
+} from '@prokopai/core/application/ports/tool-catalog';
 
 /**
  * Prokop tool catalog and environment adapters (S4). The catalog delegates

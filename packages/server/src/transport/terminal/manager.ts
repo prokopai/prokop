@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'fs';
 import { basename } from 'path';
-import { readEnvInt } from '@/infrastructure/runtime/env-compat';
+import { readEnvInt } from '@prokopai/core/infrastructure/runtime/env-compat';
 import type { ServerWebSocket } from 'bun';
 
 type TerminalSocket = ServerWebSocket<unknown>;

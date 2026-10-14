@@ -8,8 +8,8 @@ import {
   configurePreconfigSource,
 } from '@/harnesses/prokop/context/sources';
 import { buildSystemMessage } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 
 const preconfig = {
   id: 'agent',

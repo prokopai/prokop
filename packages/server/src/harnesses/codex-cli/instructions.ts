@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { HTML_RENDER_TOOL_NAME, type Preconfig, type Workspace } from '@prokopai/sdk';
-import { renderHtmlGuidance } from '@/infrastructure/visuals/render-html';
+import { renderHtmlGuidance } from '@prokopai/core/infrastructure/visuals/render-html-guidance';
 import { formatCodexAgentSkills, listCodexAgentSkills } from './agent-skills';
 import { codexWorkspaceMemory } from './workspace-memory';
 

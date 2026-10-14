@@ -6,13 +6,13 @@
  * behavior.
  */
 
-import { getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
+import { getModelsConfig } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   emitRuntimeEvent,
   emitSessionUpdated,
-} from '@/infrastructure/runtime/host-dependencies';
-import { getMessageWithParts, getSession, updateSession } from '@/infrastructure/storage/runtime';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getMessageWithParts, getSession, updateSession } from '@prokopai/core/infrastructure/storage/runtime';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import type { CompactionTriggerReason, GenerateSummaryFn } from '@/harnesses/prokop/compaction/contracts';
 import { getCompactionService } from '@/harnesses/prokop/compaction/policy';
 import {

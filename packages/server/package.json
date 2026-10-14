@@ -27,14 +27,20 @@
     "test:coverage": "bun test ./tests ./src --path-ignore-patterns '**/tests/engine/**' --coverage"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.116",
+    "@ai-sdk/openai": "^3.0.84",
+    "@ai-sdk/openai-compatible": "^2.0.74",
     "@anthropic-ai/claude-agent-sdk": "0.3.278",
     "@clack/prompts": "^0.10.0",
     "@hono/zod-validator": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@openrouter/ai-sdk-provider": "^2.3.3",
     "@prokopai/agent-protocol": "workspace:*",
+    "@prokopai/core": "workspace:*",
     "@prokopai/sdk": "workspace:*",
     "@zip.js/zip.js": "^2.7.60",
     "adm-zip": "^0.5.16",
+    "ai": "^6.0.116",
     "bun-pty": "^0.4.8",
     "cross-spawn": "^7.0.6",
     "fast-glob": "^3.3.3",
@@ -49,12 +55,7 @@
     "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "xml2js": "^0.6.2",
-    "zod": "^4.4.3",
-    "@ai-sdk/anthropic": "^3.0.116",
-    "@ai-sdk/openai": "^3.0.84",
-    "@ai-sdk/openai-compatible": "^2.0.74",
-    "@openrouter/ai-sdk-provider": "^2.3.3",
-    "ai": "^6.0.116"
+    "zod": "^4.4.3"
   },
   "imports": {
     "#tests/db": "./tests/helpers/db.ts",

@@ -1,8 +1,8 @@
 import type { TextPart, ToolPart, ReasoningPart, MessageEvent } from '@prokopai/sdk/types';
-import { createPart, updatePart, getPart, persistStreamingPartSnapshots } from '@/infrastructure/storage/runtime';
+import { createPart, updatePart, getPart, persistStreamingPartSnapshots } from '@prokopai/core/infrastructure/storage/runtime';
 import { parseToolInput } from '@/harnesses/prokop/execution/part-utils';
 import { randomUUID } from 'crypto';
-import { isCapekToolOutputEnvelope } from '@/infrastructure/tools/model-output';
+import { isCapekToolOutputEnvelope } from '@prokopai/core/infrastructure/tools/model-output';
 
 const STREAM_PART_PERSIST_INTERVAL_MS = 300;
 

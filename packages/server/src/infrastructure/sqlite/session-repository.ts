@@ -10,9 +10,9 @@
 
 import type { Database } from 'bun:sqlite';
 import type { Session, SessionStatus, SubagentStatus, SessionListFilter, SessionCategory, SessionCategoryCounts, PermissionMode, SessionHarnessSwitch } from '@prokopai/sdk';
-import { withDerivedHarnessState } from '@/domains/sessions/harness-state';
+import { withDerivedHarnessState } from '@prokopai/core/domains/sessions/harness-state';
 import { resolveSessionVariant } from '@/domains/sessions/variant';
-import { findModelVariantKeys, getModelsConfig } from '@/config';
+import { findModelVariantKeys, getModelsConfig } from '@prokopai/core/config';
 import { getWorkspacePermissionMode } from './workspaces';
 import type {
   ListSessionPageOptions,

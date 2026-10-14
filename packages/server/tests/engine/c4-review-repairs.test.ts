@@ -11,11 +11,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
 import type { RuntimePlugin, ToolDefinition as KernelToolDefinition } from '@/harnesses/prokop/composition/kernel/types';
 import { createComposition, enterAgentScope } from '#tests/engine/helpers/standalone-composition';
-import { resetProviders } from '@/infrastructure/providers/registry';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 import { CURRENT_SCHEDULER_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
@@ -24,10 +24,10 @@ import { CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/compositio
 import { CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/workflow-domain';
 import { CURRENT_MEMORY_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/memory-domain';
 import { CURRENT_SKILLS_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { createToolOutputArtifact, withStorage } from '@/infrastructure/storage/runtime';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { createToolOutputArtifact, withStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 
 function minimalHost(): RuntimeHost {

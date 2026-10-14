@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Preconfig } from '@prokopai/sdk';
-import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import { installLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
 import { buildAiSdkTools } from '@/harnesses/prokop/execution/build-tools';
 import { createProkopHeadlessExecution } from '@/harnesses/prokop/execution';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';

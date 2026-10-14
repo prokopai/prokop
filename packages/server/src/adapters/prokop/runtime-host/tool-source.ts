@@ -2,21 +2,21 @@ import {
   configureToolsPath,
   getTool as capekGetTool,
   listTools as capekListTools,
-} from '@/infrastructure/tools/registry';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
-import { listDomainToolFallbackDefinitions } from '@/infrastructure/tools/domain-tool-source';
-import { resolveToolsPath } from '@/config';
-import type { ToolCatalogEntry } from '@/application/ports/tool-catalog';
+} from '@prokopai/core/infrastructure/tools/registry';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
+import { listDomainToolFallbackDefinitions } from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { resolveToolsPath } from '@prokopai/core/config';
+import type { ToolCatalogEntry } from '@prokopai/core/application/ports/tool-catalog';
 import { getTools } from '@/infrastructure/mcp';
-import { getToolsDir } from '@/infrastructure/runtime/paths';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { getToolsDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import type { LoadedTool } from '@prokopai/sdk/tool';
-import { getBuiltinToolsPort } from '@/application/ports/builtin-tools';
+import { getBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { prokopPreconfigSource } from '@/agent';
 import { createMcpAccess, createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
-import { browserTools } from '@/infrastructure/browser/catalog';
+import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
 
 /** Harness-owned built-ins, read through the installed port at call time

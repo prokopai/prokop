@@ -1,4 +1,4 @@
-import type { HarnessRegistration } from '@/application/sessions/harness-execution';
+import type { HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
 import {
   createProkopHeadlessExecution,
   createProkopSessionExecution,

@@ -1,10 +1,10 @@
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureProkopRuntimeDefaults, prokopAgentBindings } from '@/agent';
 import { prokopDeliveryBindings } from './delivery';
 import { prokopInteractionBindings } from './interaction';
 import { prokopWorkspaceBindings } from './workspace';
 
-export type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+export type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 
 /**
  * The in-process runtime host: the Prokop runtime's own bindings plus the

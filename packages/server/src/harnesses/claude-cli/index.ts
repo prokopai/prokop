@@ -1,6 +1,6 @@
-import type { HarnessRegistration } from '@/application/sessions/harness-execution';
-import type { SessionExecutionPort } from '@/application/ports/execution';
-import { runHeadlessTurn } from '@/application/ports/headless-execution';
+import type { HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import { runHeadlessTurn } from '@prokopai/core/application/ports/headless-execution';
 
 export { createClaudeExecution } from './execution';
 export { claudeCliAvailable, claudeCliVersion } from './version';

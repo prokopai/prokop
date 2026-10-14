@@ -1,13 +1,13 @@
-import type { AgentsApplication } from '@/application/agents';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
 import type { Workspace, WorkspaceLearningSettings } from '@prokopai/sdk';
 import { createLearningHistoryApi } from '@/application/learning/history-api';
 import { broadcastEvent, broadcastSessionUpdated } from '@/transport/websocket/broadcast';
 import { createLearningService } from '@/application/learning/service';
 import { createLearningReviewRunner, type LearningReviewRunnerDependencies } from '@/application/learning/review-runner';
 import { createLearningRecovery } from '@/application/learning/recovery';
-import type { LearningRuntimePort } from '@/application/ports/learning-runtime';
+import type { LearningRuntimePort } from '@prokopai/core/application/ports/learning-runtime';
 import { learningReviewTools, type LearningReviewToolRegistry } from '@/application/learning/review-tools';
-import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@/application/ports/headless-execution';
+import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
 import { createLearningDirectoryResolver } from './directories';
 import { createLearningHistory } from './history';
 import { createLearningExecution } from './review';
@@ -27,7 +27,7 @@ import {
   getPreconfigSync,
   preconfigFileMtimeMs,
   updatePreconfig,
-} from '@/infrastructure/config/preconfig';
+} from '@prokopai/core/infrastructure/config/preconfig';
 
 export function createWiredLearning(
   agents: Pick<AgentsApplication, 'getAgentDirectory' | 'getPreconfigOrAgent' | 'isAgentSync'>,

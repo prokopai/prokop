@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import type { ToolDefinition } from '@prokopai/sdk/tool';
-import type { RuntimeHost, SessionWorkspaceContext, ToolPolicyHost } from '@/infrastructure/runtime/host';
+import type { RuntimeHost, SessionWorkspaceContext, ToolPolicyHost } from '@prokopai/core/infrastructure/runtime/host';
 import { buildExternalTools } from '@/harnesses/prokop/execution/tool-builders/external-tools';
-import { withToolRegistryResolver } from '@/infrastructure/tools/registry';
-import type { RuntimeHost as InternalRuntimeHost } from '@/infrastructure/runtime/host';
-import { withRuntimeHost } from '@/infrastructure/runtime/host';
+import { withToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
+import type { RuntimeHost as InternalRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { withRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import {
   resolveSessionWorkspace,
   resolveToolDefinition,
-} from '@/infrastructure/runtime/host-dependencies';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
 
 function host(overrides: Partial<InternalRuntimeHost>): InternalRuntimeHost {
   return {

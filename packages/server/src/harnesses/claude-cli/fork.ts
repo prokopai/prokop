@@ -1,9 +1,9 @@
 import { forkSession, getSessionMessages } from '@anthropic-ai/claude-agent-sdk';
-import type { ForkExecutionResult, SessionExecutionPort } from '@/application/ports/execution';
+import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { Session } from '@prokopai/sdk';
-import { getSession, listMessagesWithParts } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
-import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { getClaudeModelSelection } from './models';
 import {
   copyClaudeModelSelection, deleteClaudeForkIntent, getClaudeBinding, getClaudeRollbackIntent, hasClaudeForkIntent,

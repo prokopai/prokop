@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CallToolRequestSchema, CallToolResultSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
-import type { WorkspaceMcpTool } from '@/application/ports/mcp-tools';
+import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
 
 const SERVER_NAME = 'workspace';
 

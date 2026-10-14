@@ -1,8 +1,8 @@
 import { forkSession, getSessionMessages, type SessionMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { MessageWithParts } from '@prokopai/sdk';
-import type { RevertExecutionResult } from '@/application/ports/execution';
-import { listMessagesWithParts } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+import type { RevertExecutionResult } from '@prokopai/core/application/ports/execution';
+import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import {
   deleteClaudeBinding, deleteClaudeInheritedUserId, deleteClaudeRollbackIntent, getClaudeBinding,
   getClaudeInheritedUserId, getClaudeRollbackIntent, rebindClaudeSession, setClaudeInheritedUserId,

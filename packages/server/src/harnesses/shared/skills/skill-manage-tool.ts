@@ -4,7 +4,7 @@ import { join } from 'path';
 import type { PermissionAsk } from '@prokopai/sdk/tool';
 import { PermissionRiskLevel } from '@prokopai/sdk/tool';
 import { scanSkillsFromDir } from '@/harnesses/shared/skills/registry';
-import { withKnowledgeMutationLock } from '@/infrastructure/filesystem/knowledge-mutation-lock';
+import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
 import { knowledgeWriteDelegate } from '@/harnesses/shared/knowledge-writes';
 
 type SkillManageAction = 'list' | 'create' | 'update' | 'patch' | 'delete';

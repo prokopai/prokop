@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AssistantMessage, ServerMessage } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import {
   bindCodexThread, getCodexBinding, markCodexSteerReply, markCodexTurnPending, markCodexTurnStarted,
 } from '@/harnesses/codex-cli/bindings';
@@ -8,8 +8,8 @@ import { commitSteer } from '@/harnesses/shared/steering';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { createMessage, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { addMessageToQueue, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
-import { getStorage } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { codexBinding } from '#tests/helpers/legacy-native';
 import { seedSession, seedWorkspace } from '#tests/seed';

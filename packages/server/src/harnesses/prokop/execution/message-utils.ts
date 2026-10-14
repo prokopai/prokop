@@ -7,10 +7,10 @@ import {
   isFilePart,
   parseToolInput,
 } from '@/harnesses/prokop/execution/part-utils';
-import { stripVisualization } from '@/infrastructure/tools/strip-visualization';
-import { getAttachment } from '@/infrastructure/storage/runtime';
+import { stripVisualization } from '@prokopai/core/infrastructure/tools/strip-visualization';
+import { getAttachment } from '@prokopai/core/infrastructure/storage/runtime';
 import { isToolOutputArtifactReference, RETRIEVE_TOOL_OUTPUT_NAME } from '@/harnesses/prokop/tool-output/policy';
-import { toolModelOutputToAiSdk } from '@/infrastructure/tools/model-output';
+import { toolModelOutputToAiSdk } from '@prokopai/core/infrastructure/tools/model-output';
 
 type AiSdkContent = string | Array<{
   type: 'text' | 'tool-call' | 'tool-result' | 'image' | 'file';

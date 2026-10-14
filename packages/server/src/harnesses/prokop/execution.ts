@@ -16,15 +16,15 @@ import type {
   InterruptExecutionResult,
   RevertExecutionResult,
   SessionExecutionPort,
-} from '@/application/ports/execution';
+} from '@prokopai/core/application/ports/execution';
 import type {
   HeadlessRunOptions,
   HeadlessSessionRunInput,
   HeadlessSessionRunResult,
   LearningReviewSpec,
-} from '@/application/ports/headless-execution';
+} from '@prokopai/core/application/ports/headless-execution';
 import { runLearningReview } from '@/harnesses/prokop/learning';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createProkopRuntimeContext } from '@/harnesses/prokop/bindings/events';
 import { withProkopComposedScopeSync, withProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
 

@@ -2,8 +2,8 @@ import { existsSync, chmodSync, writeFileSync, renameSync, unlinkSync, readFileS
 import { dirname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
-import { getWebPushCredentialsPath } from '@/infrastructure/runtime/paths';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { getWebPushCredentialsPath } from '@prokopai/core/infrastructure/runtime/paths';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import webpush from 'web-push';
 import type { PushSubscription } from 'web-push';
 

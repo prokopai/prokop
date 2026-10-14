@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { analyzeCommand, classifyFileOperation, decide, effectivePath } from '@/domains/permissions';
+import { analyzeCommand, classifyFileOperation, decide, effectivePath } from '@prokopai/core/domains/permissions';
 import { classifyClaudeTool } from '@/harnesses/claude-cli/tool-policy';
 import { classifyCodexHook, type CodexHookCall } from '@/harnesses/codex-cli/hook-policy';
 

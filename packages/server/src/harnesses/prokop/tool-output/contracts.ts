@@ -40,7 +40,7 @@
  */
 
 import type { Tool } from 'ai';
-import type { ToolOutputArtifactFormat, ToolOutputArtifactPage } from '@/infrastructure/storage/contracts';
+import type { ToolOutputArtifactFormat, ToolOutputArtifactPage } from '@prokopai/core/infrastructure/storage/contracts';
 
 export interface ToolOutputPolicyOptions {
   /** Serialized-char threshold above which output becomes an artifact. */

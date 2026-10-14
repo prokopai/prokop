@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from 'node:fs';
 import type { AssistantMessage, Part, Session, TextPart, ToolPart } from '@prokopai/sdk';
 import { forkSession, getSessionMessages, type SDKMessage, type SDKUserMessage, type Options, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
 import {
   deleteClaudeRollbackIntent, getClaudeBinding, getClaudeRollbackIntent, hasClaudeForkIntent, insertClaudeBinding,
@@ -11,8 +11,8 @@ import {
 import {
   createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, getWorkspace, listMessagesWithParts,
   transitionToolToCompleted, transitionToolToError, transitionToolToInterrupted, updateMessage, updatePart, updateSession,
-} from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import { getClaudeModelSelection } from './models';
 import { claudeCliVersion } from './version';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
@@ -37,9 +37,9 @@ import { notifyHarnessTurnFinished } from '@/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
 import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '@/harnesses/shared/domain-tools';
-import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/filesystem/session-temp';
-import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
-import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
+import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
+import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
 import { createClaudeWorkspaceMcp } from './mcp-tools';
 
 
@@ -120,7 +120,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
   }
 
   async function rollback(sessionId: string, operation: 'edit' | 'revert', targetId: string,
-    content: string | null): Promise<import('@/application/ports/execution').RevertExecutionResult> {
+    content: string | null): Promise<import('@prokopai/core/application/ports/execution').RevertExecutionResult> {
     const session = await getSession(sessionId);
     if (!session || session.harness !== 'claude-cli' || session.parentId || session.status !== 'active'
       || active.has(sessionId) || rollingBack.has(sessionId)) throw new Error('Claude session is unavailable or busy');

@@ -7,7 +7,7 @@
  */
 
 import type { RuntimePlugin, ServiceKey } from '@/harnesses/prokop/composition/kernel/types';
-import type { RuntimeConfiguration } from '@/infrastructure/providers/configuration/contracts';
+import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
 import type { ContextSources } from '@/harnesses/prokop/context/sources';
 import {
   connectProvider,
@@ -17,13 +17,13 @@ import {
   getProvider,
   getProviderStatus,
   registerProvider,
-} from '@/infrastructure/providers/registry';
-import type { ConnectableProvider } from '@/infrastructure/providers/types';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import type { SandboxController } from '@/infrastructure/sandbox/controller';
+} from '@prokopai/core/infrastructure/providers/registry';
+import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import type { SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import type { SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import {
   clearCache,
   configureToolsPath,
@@ -33,8 +33,8 @@ import {
   stopWatching,
   watchTools,
   type ToolRegistryResolver,
-} from '@/infrastructure/tools/registry';
-import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+} from '@prokopai/core/infrastructure/tools/registry';
+import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import {
   capekContextSourcesKey,
   capekInstalledToolRegistryKey,

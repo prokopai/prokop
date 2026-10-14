@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Session, ToolPart } from '@prokopai/sdk';
 import { createSessionHttpApplication } from '@/application/sessions/http';
-import type { SessionRepositoryPort, TranscriptPage } from '@/application/ports/session';
+import type { SessionRepositoryPort, TranscriptPage } from '@prokopai/core/application/ports/session';
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {

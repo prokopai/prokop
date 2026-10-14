@@ -9,7 +9,7 @@
  */
 
 import type { Message, Session } from '@prokopai/sdk/types';
-import type { BroadcastFn } from '@/infrastructure/runtime/host-dependencies';
+import type { BroadcastFn } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 
 /** Inward-facing storage port the host (the current Jean2 server store)
  * fulfills. Shapes are SDK structural copies; no SQL crosses the boundary. */

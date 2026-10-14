@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { stripVisualization, extractVisualization } from '@/infrastructure/tools/strip-visualization';
+import { stripVisualization, extractVisualization } from '@prokopai/core/infrastructure/tools/strip-visualization';
 
 describe('stripVisualization', () => {
   test('returns null unchanged', () => {

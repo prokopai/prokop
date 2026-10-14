@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { getWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
-const realBarrel = await import('@/infrastructure/tools/registry');
-const realConfig = await import('@/config');
-const realPaths = await import('@/infrastructure/runtime/paths');
+const realBarrel = await import('@prokopai/core/infrastructure/tools/registry');
+const realConfig = await import('@prokopai/core/config');
+const realPaths = await import('@prokopai/core/infrastructure/runtime/paths');
 
 const realConfigureToolsPath = realBarrel.configureToolsPath;
-const { configureWorkspaceToolDiscovery: realConfigureWorkspaceToolDiscovery } = await import('@/infrastructure/tools/tool-source');
+const { configureWorkspaceToolDiscovery: realConfigureWorkspaceToolDiscovery } = await import('@prokopai/core/infrastructure/tools/tool-source');
 
 let resolvedToolsPath = '/resolved/tools';
 let resolvedPathError: Error | null = null;
@@ -14,7 +14,7 @@ const configuredPaths: (string | undefined)[] = [];
 
 // File-scoped module mocks. Every other export is the real implementation, so
 // unrelated module consumers keep their original behavior.
-mock.module('@/config', () => ({
+mock.module('@prokopai/core/config', () => ({
   ...realConfig,
   resolveToolsPath: (): string => {
     if (resolvedPathError) throw resolvedPathError;
@@ -22,12 +22,12 @@ mock.module('@/config', () => ({
   },
 }));
 
-mock.module('@/infrastructure/runtime/paths', () => ({
+mock.module('@prokopai/core/infrastructure/runtime/paths', () => ({
   ...realPaths,
   getToolsDir: (): string => '/tools-dir',
 }));
 
-mock.module('@/infrastructure/tools/registry', () => ({
+mock.module('@prokopai/core/infrastructure/tools/registry', () => ({
   ...realBarrel,
   configureToolsPath: (path?: string): void => {
     configuredPaths.push(path);
@@ -36,7 +36,7 @@ mock.module('@/infrastructure/tools/registry', () => ({
 
 const adapter = await import('@/adapters/prokop/runtime-host/tool-source');
 const { builtinTools } = await import('@/harnesses/prokop/tools');
-const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@/application/ports/builtin-tools');
+const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@prokopai/core/application/ports/builtin-tools');
 
 let savedToolsPathEnv: string | undefined;
 

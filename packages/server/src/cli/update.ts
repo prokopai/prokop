@@ -4,8 +4,8 @@ import { existsSync, statSync, openSync, renameSync } from 'fs';
 
 import { VERSION } from '@/version';
 import { getStatus, stopDaemon, getLogFilePath } from '@/infrastructure/daemon';
-import { getToolEnv } from '@/infrastructure/runtime/environment';
-import { isInitialized } from '@/config';
+import { getToolEnv } from '@prokopai/core/infrastructure/runtime/environment';
+import { isInitialized } from '@prokopai/core/config';
 
 export interface UpdateOptions {
   version?: string;

@@ -9,7 +9,7 @@
  * diagnostics are off.
  */
 
-import { readEnvInt } from '@/infrastructure/runtime/env-compat';
+import { readEnvInt } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { isPerfDiagnosticsEnabled } from './perf';
 
 const TICK_MS = 100;

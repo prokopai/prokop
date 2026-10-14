@@ -5,7 +5,7 @@ import { registerSessionRoutes } from '@/transport/http/routes/sessions';
 import { createSessionHttpApplication, type SessionHttpApplication } from '@/application/sessions/http';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import type { HarnessSettingsRepository } from '@/application/ports/harness-settings';
-import type { SessionRepositoryPort } from '@/application/ports/session';
+import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
 import type { Session, ToolPart } from '@prokopai/sdk';
 
 function makeSession(overrides: Partial<Session> = {}): Session {

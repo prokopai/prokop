@@ -1,8 +1,8 @@
 import type { AgentEndpoint, AgentHandlers, Audience } from '@prokopai/agent-protocol';
 import type { ServerMessage, SessionHarness } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionExecutionPort } from '@/application/ports/execution';
-import type { HeadlessRunOptions, HeadlessSessionRunInput, HeadlessSessionRunResult } from '@/application/ports/headless-execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import type { HeadlessRunOptions, HeadlessSessionRunInput, HeadlessSessionRunResult } from '@prokopai/core/application/ports/headless-execution';
 import { nextDeliverSeq } from './deliver-seq';
 
 /** One harness's execution as the agent runs it; the host registers the same shape. */

@@ -6,7 +6,7 @@ import {
   readInstallManifest,
   writeInstallManifest,
   type InstallManifest,
-} from '@/infrastructure/tools/install-manifest';
+} from '@prokopai/core/infrastructure/tools/install-manifest';
 import {
   clearCache,
   configureToolsPath,
@@ -15,7 +15,7 @@ import {
   scanTools,
   stopWatching,
   withToolRegistryResolver,
-} from '@/infrastructure/tools/registry';
+} from '@prokopai/core/infrastructure/tools/registry';
 
 const root = join(process.cwd(), '.tmp-capek-tool-registry');
 const manifest = (entry: string): InstallManifest => ({

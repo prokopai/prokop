@@ -21,12 +21,12 @@ import {
   type ToolOutputPolicyContext,
   type ToolOutputPolicyOptions,
 } from '@/harnesses/prokop/tool-output/policy';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
 import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';

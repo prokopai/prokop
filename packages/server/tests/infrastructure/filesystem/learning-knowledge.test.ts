@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { addEntry } from '@/harnesses/shared/memory/registry';
 import { createLearningKnowledgeFiles } from '@/infrastructure/filesystem/learning-knowledge';
-import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
+import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(await realpath(tmpdir()), 'learning-files-test-')); });

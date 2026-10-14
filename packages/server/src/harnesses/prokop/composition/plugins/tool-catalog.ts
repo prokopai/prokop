@@ -9,7 +9,7 @@
 
 import type { LoadedTool } from '@prokopai/sdk/tool';
 import type { RuntimePlugin, EffectiveTool, PluginContext, ServiceKey } from '@/harnesses/prokop/composition/kernel/types';
-import type { ToolRegistryResolver } from '@/infrastructure/tools/registry';
+import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /** The narrow surface a contributed resolver reads: effective tools plus

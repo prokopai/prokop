@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { getRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { getRuntimeHost as getProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import { getRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { getRuntimeHost as getProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import {
   prokopRuntimeConfiguration,

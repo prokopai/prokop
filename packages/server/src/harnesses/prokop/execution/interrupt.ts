@@ -1,7 +1,7 @@
 import type { InterruptReason, SessionInterruptResult } from '@prokopai/sdk/types';
-import { isSandboxActive } from '@/infrastructure/runtime/host-dependencies';
-import { getSandboxController } from '@/infrastructure/sandbox/controller';
-import { getChildSessions, getSession, updateSession } from '@/infrastructure/storage/runtime';
+import { isSandboxActive } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { getChildSessions, getSession, updateSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { rejectPendingAsksBySession } from '@/harnesses/prokop/permission/ask-user-api';
 
 interface ToolExecution {

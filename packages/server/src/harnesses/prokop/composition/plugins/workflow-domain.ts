@@ -9,7 +9,7 @@ import {
   DOMAIN_TOOL_PAYLOAD_FIELD,
   registerDomainToolFallback,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import {
   buildWorkflowToolDefinition,
   canSpawnSubagent,

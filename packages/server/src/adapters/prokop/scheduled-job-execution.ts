@@ -1,6 +1,6 @@
-import { getModelsConfig } from '@/config';
+import { getModelsConfig } from '@prokopai/core/config';
 import type { ScheduledJob, Session } from '@prokopai/sdk';
-import { getDefaultPreconfig, getPreconfig } from '@/infrastructure/config/preconfig';
+import { getDefaultPreconfig, getPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
 import { createScheduledJobRunner } from '@/infrastructure/scheduling/scheduled-job-runner';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace, getWorkspacePermissionMode } from '@/infrastructure/sqlite/workspaces';

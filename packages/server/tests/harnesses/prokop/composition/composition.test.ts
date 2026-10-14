@@ -3,25 +3,25 @@ import { resolve } from 'path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import ts from 'typescript';
 import { buildSystemMessage } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
-import { createWorkspaceCapability } from '@/infrastructure/filesystem/workspace-policy/policy';
-import { createModelForProvider, getConnectableProviders, getProvider } from '@/infrastructure/providers/registry';
-import { configureWorkspaceToolDiscovery, getWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
-import { configureToolsPath } from '@/infrastructure/tools/registry';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
+import { createWorkspaceCapability } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import { createModelForProvider, getConnectableProviders, getProvider } from '@prokopai/core/infrastructure/providers/registry';
+import { configureWorkspaceToolDiscovery, getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
+import { configureToolsPath } from '@prokopai/core/infrastructure/tools/registry';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import {
   configureRuntimeConfiguration,
   getRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
-import { configureWorkspacePolicy } from '@/infrastructure/filesystem/workspace-policy/policy';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { configureWorkspacePolicy } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
 } from '@/harnesses/prokop/context/sources';
 import { configureSessionSearchHost, getSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { getRuntimeHost as getProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { getRuntimeHost as getProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
+import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   capekContextAssemblerKey,
   capekContextSourcesKey,
@@ -60,6 +60,8 @@ const compositionRootPath = resolve(serverSourceRoot, 'bootstrap/create-runtime.
 const expectedCompositionSteps = [
   'installBuiltinToolsPort',
   'configureProkopStorage',
+  // Managed worktrees share their workspace's knowledge (host store lookup).
+  'configureWorkspaceKnowledgeRoot',
   'configureProkopRuntimeConfiguration',
   'configureProkopWorkspacePolicy',
   'configureProkopPreconfigSource',
@@ -135,14 +137,16 @@ describe('Čapek composition root', () => {
       '@/agent',
       '@/application/ports/execution-lifecycle',
       '@/bootstrap/application',
-      '@/application/agents',
-      '@/application/ports/builtin-tools',
+      '@prokopai/core/application/agents',
+      '@prokopai/core/application/ports/builtin-tools',
       '@/adapters/prokop/session-repository',
       '@/infrastructure/sqlite/session-search-query-repository',
       '@/infrastructure/sqlite/database',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/workspaces',
       '@/bootstrap/agent-ports',
+      '@prokopai/core/infrastructure/runtime/workspace-dirs',
+      '@/infrastructure/sqlite/workspace-knowledge-root',
     ];
     for (const imp of imports) {
       expect(allowedSpecifiers).toContain(imp.specifier);

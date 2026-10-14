@@ -1,8 +1,8 @@
-import type { ForkExecutionResult, SessionExecutionPort } from '@/application/ports/execution';
-import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import type { Session } from '@prokopai/sdk';
-import { getSession, listMessagesWithParts } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import { CodexAppServer, codexObject, type CodexConnection } from './app-server';
 import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import {

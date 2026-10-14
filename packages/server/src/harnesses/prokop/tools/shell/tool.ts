@@ -8,8 +8,8 @@ import {
   resolveCommandPath,
   stripRedundantCd,
   type ShellRiskContext,
-} from '@/domains/permissions';
-import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
+} from '@prokopai/core/domains/permissions';
+import { sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import { isToolPathAllowed } from '@/harnesses/prokop/tools/file-permission';
 
 interface Input {

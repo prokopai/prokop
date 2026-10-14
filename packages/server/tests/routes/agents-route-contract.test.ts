@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { Hono } from 'hono';
 import { registerAgentRoutes } from '@/transport/http/routes/agents';
 import { HttpError } from '@/application/http-errors';
-import type { AgentsApplication } from '@/application/agents';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
 import type { Agent, Preconfig } from '@prokopai/sdk';
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {

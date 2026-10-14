@@ -1,15 +1,15 @@
 import type { CanUseTool, PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 import type { Ask } from '@prokopai/sdk';
-import { shouldAutoApproveAsk } from '@/domains/permissions';
+import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { classifyClaudeTool } from './tool-policy';
 import { CLAUDE_QUESTION_TOOL, claudeQuestionAnswers, claudeQuestionAsk, parseClaudeQuestions,
   type ClaudeQuestion } from './questions';
 import { sessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 import { notifyHarnessPermissionRequired } from '@/harnesses/shared/notifications';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { harnessAsks } from '@/infrastructure/runtime/harness-asks';
-import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
+import { harnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
+import { getSession, getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 
 const AUTHORITY = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } as const;
 const BASH_TOOL = 'claude-cli:Bash';

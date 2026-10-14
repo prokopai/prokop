@@ -4,8 +4,8 @@ import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 import { Database } from 'bun:sqlite';
 import { runProkopaiRenameMigration } from '@/cli/rename-migrate';
-import { resolveDatabasePath } from '@/config';
-import { Paths, PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@/infrastructure/runtime/paths';
+import { resolveDatabasePath } from '@prokopai/core/config';
+import { Paths, PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@prokopai/core/infrastructure/runtime/paths';
 
 // The real migration targets the real homedir; tests must not touch it. We
 // verify the step functions against temp dirs by driving the module through

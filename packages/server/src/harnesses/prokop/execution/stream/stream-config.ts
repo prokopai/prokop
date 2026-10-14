@@ -5,8 +5,8 @@ import {
   getLLMTemperature,
   getLLMMaxSteps,
   getModelsConfig,
-} from '@/infrastructure/providers/configuration/runtime';
-import { getProvider } from '@/infrastructure/providers/registry';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { getProvider } from '@prokopai/core/infrastructure/providers/registry';
 import { buildSchemaPromptInstruction } from '@/harnesses/prokop/execution/structured-output';
 import type { ResponseFormat } from '@prokopai/sdk/types';
 

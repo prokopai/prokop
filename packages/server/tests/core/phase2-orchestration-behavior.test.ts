@@ -9,9 +9,9 @@ import type { ConnectionId } from '@/transport/websocket/connection-id';
 import type { RouterContext } from '@/transport/websocket/router-context';
 import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
-import { createPreconfig } from '@/infrastructure/config/preconfig';
-import { activateSandbox, deactivateSandbox } from '@/infrastructure/sandbox';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { createPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
+import { activateSandbox, deactivateSandbox } from '@prokopai/core/infrastructure/sandbox';
 import { createSession, getChildSessions, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import {
   createMessage,

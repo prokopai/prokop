@@ -4,7 +4,7 @@ import {
   createSessionControlApplication,
   type SessionControlApplication,
 } from '@/application/control';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import type { SessionControlPort } from '@/application/ports/control';
 
 type Origin = string;

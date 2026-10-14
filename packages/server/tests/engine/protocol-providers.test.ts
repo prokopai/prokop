@@ -2,11 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { generateText } from 'ai';
 import type { MessageWithParts, ResponseFormat } from '@prokopai/sdk/types';
 import { createSingleModelConfiguration } from '@/infrastructure/providers/configuration/single-model';
-import { withRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { createProtocolModel } from '@/infrastructure/providers/protocol-model';
-import { withProviderOverrides } from '@/infrastructure/providers/registry';
-import type { ConnectableProvider } from '@/infrastructure/providers/types';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
+import { withRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { createProtocolModel } from '@prokopai/core/infrastructure/providers/protocol-model';
+import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
+import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
 import { buildStreamConfig } from '@/harnesses/prokop/execution/stream/stream-config';
 import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
 

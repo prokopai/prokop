@@ -1,4 +1,4 @@
-import type { HarnessAskStore } from '@/infrastructure/runtime/harness-asks';
+import type { HarnessAskStore } from '@prokopai/core/infrastructure/runtime/harness-asks';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createPendingAsk, expirePermissionRequest, resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';

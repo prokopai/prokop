@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { withProviderOverrides } from '@/infrastructure/providers/registry';
-import type { ConnectableProvider, ModelFactoryOptions } from '@/infrastructure/providers/types';
+import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
+import type { ConnectableProvider, ModelFactoryOptions } from '@prokopai/core/infrastructure/providers/types';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { setupTestDataDir, resetTestDataDir } from '#tests/test-dir';
 import { seedWorkspaceWithSession } from '#tests/seed';
@@ -76,11 +76,11 @@ function executeCompactionWithModel(
   return withProviderOverrides(compactionProviders, () => executeCompaction(...args));
 }
 
-const realConfig = { ...await import('@/config') };
-const realEnvironment = { ...await import('@/infrastructure/runtime/environment') };
+const realConfig = { ...await import('@prokopai/core/config') };
+const realEnvironment = { ...await import('@prokopai/core/infrastructure/runtime/environment') };
 
 function installConfigurationMocks(): void {
-  mock.module('@/config', () => ({
+  mock.module('@prokopai/core/config', () => ({
     findModel: () => ({ providerId: 'openai' }),
     getModelsConfig: () => ({
       defaultModel: 'gpt-4o',
@@ -90,7 +90,7 @@ function installConfigurationMocks(): void {
     clearModelsCache: () => {},
   }));
 
-  mock.module('@/infrastructure/runtime/environment', () => ({
+  mock.module('@prokopai/core/infrastructure/runtime/environment', () => ({
     getLLMOpenAIApiKey: () => 'test-key',
     getCompactionMaxTokens: () => 2000,
     getCompactionPreserveRecentToolCount: () => 3,
@@ -132,8 +132,8 @@ describe('Integration: WebSocket message handlers', () => {
     installDeliveryPort(null as never);
     resetTestDatabase();
     resetTestDataDir();
-    mock.module('@/config', () => realConfig);
-    mock.module('@/infrastructure/runtime/environment', () => realEnvironment);
+    mock.module('@prokopai/core/config', () => realConfig);
+    mock.module('@prokopai/core/infrastructure/runtime/environment', () => realEnvironment);
   });
 
   function createUserMsg(id: string, sid: string = sessionId, ts: number = Date.now()) {

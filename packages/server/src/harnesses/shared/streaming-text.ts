@@ -1,5 +1,5 @@
 import type { Part, TextPart } from '@prokopai/sdk';
-import { getStorage, updatePart } from '@/infrastructure/storage/runtime';
+import { getStorage, updatePart } from '@prokopai/core/infrastructure/storage/runtime';
 
 const STREAM_PERSIST_INTERVAL_MS = 300;
 

@@ -8,7 +8,7 @@ import { createDeliveryPort, participantConnectionIdsFor, controllerConnectionId
 import type { ClientEntry, RouterContext } from './router-context';
 import { handleClientMessage } from './message-router';
 import type { TerminalManager } from '@/transport/terminal/manager';
-import { readEnvInt } from '@/infrastructure/runtime/env-compat';
+import { readEnvInt } from '@prokopai/core/infrastructure/runtime/env-compat';
 import type { TerminalEventManager } from '@/transport/terminal/event-manager';
 import { encodeFrame, OPCODES } from '@/transport/terminal/frames';
 import { stallMonitor } from '@/utils/stall-monitor';

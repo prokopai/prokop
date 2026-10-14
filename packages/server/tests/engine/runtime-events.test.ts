@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import { withRuntimeHost } from '@/infrastructure/runtime/host';
-import { emitRuntimeEvent } from '@/infrastructure/runtime/host-dependencies';
-import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { withRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { emitRuntimeEvent } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import type { RuntimeDelivery } from '@prokopai/core/infrastructure/runtime/events';
 
 function runtimeHost(deliveries: string[]): RuntimeHost {
   return {

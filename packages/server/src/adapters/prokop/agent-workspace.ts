@@ -1,5 +1,5 @@
-import type { AgentPreconfigPort, AgentWorkspacePort } from '@/application/ports/agents';
-import { getPreconfig, listPreconfigs } from '@/infrastructure/config/preconfig';
+import type { AgentPreconfigPort, AgentWorkspacePort } from '@prokopai/core/application/ports/agents';
+import { getPreconfig, listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 import {
   createWorkspace,
   deleteWorkspace,

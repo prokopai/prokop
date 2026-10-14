@@ -15,14 +15,14 @@ import { claudeMemoryShape, claudeSessionSearchShape, claudeSkillManageShape,
   createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from '@/harnesses/claude-cli/dynamic-tools';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@/harnesses/shared/tool-viz';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
+import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
-import { Paths } from '@/infrastructure/runtime/paths';
+import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { mkdirSync } from 'node:fs';
 
 const root = mkdtempSync(join(tmpdir(), 'claude-memory-'));

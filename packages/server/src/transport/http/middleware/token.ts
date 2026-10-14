@@ -1,5 +1,5 @@
 // Transport HTTP auth token validation (env-var based)
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 /**
  * Auth token management — env-var only.

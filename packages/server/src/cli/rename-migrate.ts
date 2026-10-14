@@ -8,9 +8,9 @@ import {
 } from 'fs';
 import { homedir } from 'os';
 import { isAbsolute, join, relative, resolve, sep } from 'path';
-import { clearConfigCache, resolveDatabasePath } from '@/config';
-import { reloadProkopEnv, wasEnvInjectedFromFile } from '@/infrastructure/runtime/environment';
-import { getDataDir, Paths, LEGACY_JEAN2_DIR_NAME, PROKOPAI_DIR_NAME } from '@/infrastructure/runtime/paths';
+import { clearConfigCache, resolveDatabasePath } from '@prokopai/core/config';
+import { reloadProkopEnv, wasEnvInjectedFromFile } from '@prokopai/core/infrastructure/runtime/environment';
+import { getDataDir, Paths, LEGACY_JEAN2_DIR_NAME, PROKOPAI_DIR_NAME } from '@prokopai/core/infrastructure/runtime/paths';
 import {
   checkpointDatabase,
   rewriteWorkspacePathsForRename,

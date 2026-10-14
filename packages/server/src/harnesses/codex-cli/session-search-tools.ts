@@ -1,5 +1,5 @@
 import type { SessionSearchDomainBridge } from '@/harnesses/shared/domain-tools';
-import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
+import { getSession, getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
 import type { CodexMemoryCallResult } from './memory-tools';
 

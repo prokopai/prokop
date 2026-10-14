@@ -1,7 +1,7 @@
 import type { MessageWithParts } from '@prokopai/sdk';
-import { listMessagesWithParts } from '@/infrastructure/storage/runtime';
-import { storeTransaction, type StoreTransaction } from '@/infrastructure/storage/transaction';
-import type { RevertExecutionResult } from '@/application/ports/execution';
+import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import type { RevertExecutionResult } from '@prokopai/core/application/ports/execution';
 import { CodexAppServer, codexObject } from './app-server';
 import type { CodexBinding } from './bindings';
 import {

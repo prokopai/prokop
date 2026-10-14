@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AskRequestMessage, AskTimedOutMessage } from '@prokopai/sdk';
-import { getAgentAskPort } from '@/application/ports/agent-asks';
+import { getAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 import {
   disposeProkopExecutionScope,
   initializeProkopExecutionScope,

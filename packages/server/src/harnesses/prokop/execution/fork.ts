@@ -1,5 +1,5 @@
 import type { Message, MessageWithParts, Part, Session } from '@prokopai/sdk/types';
-import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import {
   createMessage,
   createPart,
@@ -7,7 +7,7 @@ import {
   getSession,
   getWorkspaceAutoApproveSeverity,
   listMessagesWithParts,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 
 interface ForkOptions {
   sessionId: string;

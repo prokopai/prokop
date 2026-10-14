@@ -9,7 +9,7 @@ import {
   isSensitivePath,
   isWithinRoot,
   requiresHumanReview,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 
 const root = resolve('/workspace/project');
 

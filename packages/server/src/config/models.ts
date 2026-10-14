@@ -1,9 +1,9 @@
-import { resolveModelsPath, clearModelsCache, type ModelsConfig, type ModelDefinition } from '@/config';
+import { resolveModelsPath, clearModelsCache, type ModelsConfig, type ModelDefinition } from '@prokopai/core/config';
 import { atomicWriteFile } from '@/config/files';
 import { existsSync, readFileSync } from 'fs';
 import { ConfigurationNotFoundError, ConfigurationValidationError, ConfigurationConflictError } from '@/config/errors';
-import { getProkopEnvValue } from '@/infrastructure/runtime/environment';
-import { getProviderStatus } from '@/infrastructure/providers/registry';
+import { getProkopEnvValue } from '@prokopai/core/infrastructure/runtime/environment';
+import { getProviderStatus } from '@prokopai/core/infrastructure/providers/registry';
 import type {
   ModelsConfigResponse,
   ModelRuntimeStatus,
@@ -66,8 +66,8 @@ export async function saveModelsDocument(config: ModelsConfig): Promise<ModelsCo
   return config;
 }
 
-export { validateModelsDocument } from './schema';
-import { validateModelsDocument } from './schema';
+export { validateModelsDocument } from '@prokopai/core/config/schema';
+import { validateModelsDocument } from '@prokopai/core/config/schema';
 
 export async function createModel(providerId: string, data: CreateModelRequest): Promise<ModelsConfig> {
   const config = getModelsDocument();

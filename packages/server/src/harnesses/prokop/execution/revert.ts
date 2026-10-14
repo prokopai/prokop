@@ -1,6 +1,6 @@
 import type { MessageWithParts } from '@prokopai/sdk/types';
-import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@/domains/sessions/harness-state';
-import { deleteMessage, getSession, listMessagesWithParts, updateMessage } from '@/infrastructure/storage/runtime';
+import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@prokopai/core/domains/sessions/harness-state';
+import { deleteMessage, getSession, listMessagesWithParts, updateMessage } from '@prokopai/core/infrastructure/storage/runtime';
 
 interface RevertResult {
   revertedTo: { messageId: string | null; messageCount: number };

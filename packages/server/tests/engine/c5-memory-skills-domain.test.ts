@@ -21,7 +21,7 @@ import {
   configureInstructionSource,
   configurePreconfigSource,
 } from '@/harnesses/prokop/context/sources';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import {
@@ -34,11 +34,11 @@ import {
   capekSkillsDomainKey,
   installSkillsToolFallback,
 } from '@/harnesses/prokop/composition/plugins/skills-domain';
-import { resetDomainToolFallbacksForTests } from '@/infrastructure/tools/domain-tool-source';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { MEMORY_GUIDANCE } from '@/harnesses/shared/memory/registry';
 import { SKILL_MANAGE_GUIDANCE } from '@/harnesses/shared/skills/skill-manage-tool';
 

@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { MessageWithParts } from '@prokopai/sdk/types';
 import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { withStorage } from '@/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { withStorage } from '@prokopai/core/infrastructure/storage/runtime';
 
 const image: MessageWithParts = {
   message: { id: 'user', sessionId: 'session', role: 'user', createdAt: 1 },

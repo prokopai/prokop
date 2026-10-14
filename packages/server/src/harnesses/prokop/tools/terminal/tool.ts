@@ -21,9 +21,9 @@ import {
   stripRedundantCd,
   type ConcernsPermissionAsk,
   type ShellRiskContext,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 import { agentTerminals } from './port';
-import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
+import { sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import { isToolPathAllowed } from '@/harnesses/prokop/tools/file-permission';
 
 interface TerminalInput {

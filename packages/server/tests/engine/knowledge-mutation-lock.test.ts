@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { addEntry, removeEntry, replaceEntry } from '@/harnesses/shared/memory/registry';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
-import { withKnowledgeMutationLock } from '@/infrastructure/filesystem/knowledge-mutation-lock';
+import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'capek-knowledge-lock-')); });

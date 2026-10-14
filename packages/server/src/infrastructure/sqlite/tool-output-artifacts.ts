@@ -4,13 +4,13 @@ import {
   DEFAULT_TOOL_OUTPUT_PAGE_CHARS,
   isToolOutputArtifactId,
   MAX_TOOL_OUTPUT_PAGE_CHARS,
-} from '@/infrastructure/storage/tool-output-artifacts';
+} from '@prokopai/core/infrastructure/storage/tool-output-artifacts';
 import type {
   CreateToolOutputArtifact,
   ToolOutputArtifact,
   ToolOutputArtifactPage,
   ToolOutputArtifactStore,
-} from '@/infrastructure/storage/contracts';
+} from '@prokopai/core/infrastructure/storage/contracts';
 import { getDatabase } from './database';
 
 export {

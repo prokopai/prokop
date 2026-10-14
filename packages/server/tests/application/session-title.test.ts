@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { MessageWithParts, ServerMessage, Session } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import type { TitleGenerationPort } from '@/application/ports/titles';
 import { createSessionTitleRegeneration } from '@/application/sessions/title';
 

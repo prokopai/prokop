@@ -7,8 +7,8 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { jsonSchema, type Tool } from 'ai';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   configureAgentSource,
   configureInstructionSource,
@@ -51,18 +51,18 @@ import {
   capekToolResolverKey,
   capekWorkspaceToolDiscoveryKey,
 } from '@/harnesses/prokop/composition/plugins/service-keys';
-import { resetProviders } from '@/infrastructure/providers/registry';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import { configureRuntimeHost } from '@/infrastructure/runtime/host';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { configureRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { configureSchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import type { SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost } from '@/harnesses/shared/session-search/host';
 import type { SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
-import { getTool } from '@/infrastructure/tools/registry';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { getTool } from '@prokopai/core/infrastructure/tools/registry';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function minimalHost(): RuntimeHost {
   return {

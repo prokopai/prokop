@@ -20,13 +20,13 @@ import {
   listInstalledTools as capekListInstalledTools,
   scanTools,
   type ToolRegistryResolver,
-} from '@/infrastructure/tools/registry';
+} from '@prokopai/core/infrastructure/tools/registry';
 import { createContributedToolResolver } from '@/harnesses/prokop/composition/plugins/tool-catalog';
 import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
 import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 import type { RuntimePlugin } from '@/harnesses/prokop/composition/plugins/compose';
 
-import { browserTools } from '@/infrastructure/browser/catalog';
+import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
 const REFRESH_TTL_MS = 60_000;
 

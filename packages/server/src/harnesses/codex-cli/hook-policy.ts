@@ -4,7 +4,7 @@ import {
   classifyShellCommand,
   requiresHumanReview,
   type ConcernsPermissionAsk,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 import type { SessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 
 export interface CodexHookCall {

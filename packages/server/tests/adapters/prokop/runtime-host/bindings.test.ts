@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { getRuntimeHost as getProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import { getRuntimeHost as getProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import {
   configureProkopBindings,
   prokopCompatibilityBindings,
@@ -11,9 +11,9 @@ import { prokopSandboxBindings } from '@/harnesses/prokop/bindings/sandbox';
 import { prokopTitleBindings } from '@/harnesses/prokop/bindings/titles';
 import { prokopToolPolicy } from '@/harnesses/prokop/bindings/tool-policy';
 import { prokopWorkspaceBindings } from '@/adapters/prokop/runtime-host/workspace';
-import { generateSessionTitle, hasManualSessionTitle, isDefaultSessionTitle } from '@/infrastructure/session-title';
-import { isSandboxActive } from '@/infrastructure/sandbox';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
+import { generateSessionTitle, hasManualSessionTitle, isDefaultSessionTitle } from '@prokopai/core/infrastructure/session-title';
+import { isSandboxActive } from '@prokopai/core/infrastructure/sandbox';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';

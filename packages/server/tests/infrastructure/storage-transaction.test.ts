@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { insertNative, storeTransaction, StoreCommitError, updateNative } from '@/infrastructure/storage/transaction';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { insertNative, storeTransaction, StoreCommitError, updateNative } from '@prokopai/core/infrastructure/storage/transaction';
 import { createTestSession } from '#tests/factories';
 
 const target = { harness: 'codex-cli' as const, kind: 'binding', key: 's1' };

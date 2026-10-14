@@ -1,12 +1,12 @@
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { ControllerGatePort } from '@/application/ports/control';
-import type { SessionRepositoryPort } from '@/application/ports/session';
-import type { ToolCatalogPort } from '@/application/ports/tool-catalog';
+import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
+import type { ToolCatalogPort } from '@prokopai/core/application/ports/tool-catalog';
 import type { WorktreeAttachmentRefreshPort } from '@/application/ports/worktree';
 import { sendGateRejection } from './chat';
 import { unknownHarnessError } from './harness-policy';
-import { projectMessagesForClient } from './tool-debug';
+import { projectMessagesForClient } from '@prokopai/core/application/sessions/tool-debug';
 
 export interface SessionTranscriptDeps<Origin> {
   repository: SessionRepositoryPort;

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createRuntime } from '@/bootstrap/create-runtime';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
 import {
   configureRuntimeConfiguration,
   getRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
-import { SandboxLanguageModel } from '@/infrastructure/sandbox/model';
-import { activateSandbox, deactivateSandbox } from '@/infrastructure/sandbox';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { SandboxLanguageModel } from '@prokopai/core/infrastructure/sandbox/model';
+import { activateSandbox, deactivateSandbox } from '@prokopai/core/infrastructure/sandbox';
 
 let originalRuntimeConfiguration: ReturnType<typeof getRuntimeConfiguration>;
 

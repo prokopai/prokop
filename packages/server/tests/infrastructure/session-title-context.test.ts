@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { formatContextReference, joinContextEnvelope, type MessageWithParts } from '@prokopai/sdk';
-import { fallbackSessionTitle } from '@/infrastructure/session-title';
+import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 
 test('fallback titles read context references as paths and skip captured terminal output', () => {
   const terminal = { kind: 'terminal' as const, id: 't1', label: 'zsh', text: 'secretToken leaked in logs' };

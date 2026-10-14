@@ -22,7 +22,7 @@ import {
   ApiErrorType,
   classifyApiError,
   type ClassifiedError,
-} from '@/infrastructure/providers/errors';
+} from '@prokopai/core/infrastructure/providers/errors';
 
 export interface StreamRetryPolicy {
   maxRetries?: number;

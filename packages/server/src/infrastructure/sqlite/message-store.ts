@@ -6,7 +6,7 @@
 
 import { getDatabase } from './database';
 import { notifyWorkspaceActivity } from '@/application/workspaces/activity';
-import { notifyWorkspaceFilesChanged } from '@/application/workspaces/files-changed';
+import { notifyWorkspaceFilesChanged } from '@prokopai/core/application/workspaces/files-changed';
 import { getWorkspaceLastConversationAt } from './workspaces';
 import { notifyLearningActivity } from '@/application/learning/activity';
 import { getSession } from './session-store';

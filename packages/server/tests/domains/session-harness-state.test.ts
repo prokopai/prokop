@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { deriveSessionHarnessState } from '@/domains/sessions/harness-state';
+import { deriveSessionHarnessState } from '@prokopai/core/domains/sessions/harness-state';
 
 describe('session harness state derivation', () => {
   test('prokop and missing-harness sessions derive the neutral defaults', () => {

@@ -5,7 +5,7 @@ import {
   getDomainToolFallback,
   mergeDomainToolVisualization,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import type { ToolMap } from '@/harnesses/prokop/execution/tool-builders/types';
 
 /**

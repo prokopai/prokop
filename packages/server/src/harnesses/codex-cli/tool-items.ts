@@ -1,12 +1,12 @@
 import { HTML_RENDER_TOOL_NAME, resolveToolSummary, type AnyVisualization, type ToolPart } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { projectToolPartForClient } from '@/application/sessions/tool-debug';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { projectToolPartForClient } from '@prokopai/core/application/sessions/tool-debug';
 import {
   createPart, getStorage, getSession, getToolPartByCallId, transitionToolToCompleted, transitionToolToError,
   transitionToolToInterrupted, updatePart,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
-import { MAX_ATTACHMENT_SIZE } from '@/domains/attachments';
+import { MAX_ATTACHMENT_SIZE } from '@prokopai/core/domains/attachments';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,

@@ -4,7 +4,7 @@ import type {
   ToolCatalogPort,
   ToolEnvironmentPort,
   ToolEnvStatus,
-} from '@/application/ports/tool-catalog';
+} from '@prokopai/core/application/ports/tool-catalog';
 
 /**
  * Tool HTTP use cases (S4). Owns the route-level behavior for the tools

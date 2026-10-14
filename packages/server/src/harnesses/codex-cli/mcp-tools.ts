@@ -1,4 +1,4 @@
-import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
+import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
 import { codexObject } from './app-server';
 export interface CodexMcpCallResult {
   success: boolean;

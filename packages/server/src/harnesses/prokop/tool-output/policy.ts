@@ -25,8 +25,8 @@ import { ToolContext, ToolDefinition, ToolResult } from '@prokopai/sdk/tool';
 import {
   createToolOutputArtifact,
   getToolOutputArtifactPage,
-} from '@/infrastructure/storage/runtime';
-import type { ToolOutputArtifactFormat, ToolOutputArtifactPage } from '@/infrastructure/storage/contracts';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import type { ToolOutputArtifactFormat, ToolOutputArtifactPage } from '@prokopai/core/infrastructure/storage/contracts';
 import type {
   ToolOutputArtifactReference,
   ToolOutputArtifactService,
@@ -37,7 +37,7 @@ import type {
 import {
   isCapekToolOutputEnvelope,
   type CapekToolOutputEnvelope,
-} from '@/infrastructure/tools/model-output';
+} from '@prokopai/core/infrastructure/tools/model-output';
 
 export const TOOL_OUTPUT_THRESHOLD_CHARS = 50_000;
 export const TOOL_OUTPUT_PREVIEW_CHARS = 10_000;

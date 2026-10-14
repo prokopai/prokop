@@ -1,6 +1,6 @@
-import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import type { Preconfig } from '@prokopai/sdk/types';
-import type { CapabilityTool } from '@/infrastructure/providers/ai-sdk';
+import type { CapabilityTool } from '@prokopai/core/infrastructure/providers/ai-sdk';
 
 interface McpDiscoveryDeps {
   session(id: string): { workspaceId: string; preconfigId?: string | null } | null;

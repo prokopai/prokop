@@ -13,12 +13,12 @@ import {
   resolveModelSpecifier,
 } from '@/infrastructure/providers/configuration/single-model';
 import { createStandaloneHost } from './standalone-host';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
-import { SandboxProvider } from '@/infrastructure/sandbox/provider';
-import type { AutoResponderRule, SandboxControlEvent } from '@/infrastructure/sandbox/types';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
+import type { AutoResponderRule, SandboxControlEvent } from '@prokopai/core/infrastructure/sandbox/types';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
 import { rejectAsk, resolveAsk } from '@/harnesses/prokop/permission/ask-user-api';
 import type { Preconfig } from '@prokopai/sdk/types';
@@ -191,7 +191,7 @@ export class StandaloneAgent {
   async retrieveToolOutput(sessionId: string, artifactId: string): Promise<{ content: string } | null> {
     if (this.#closed) throw new Error('Agent is closed');
     const { agentScope } = await this.#composition;
-    const { getToolOutputArtifactPage } = await import('@/infrastructure/storage/runtime');
+    const { getToolOutputArtifactPage } = await import('@prokopai/core/infrastructure/storage/runtime');
     return enterAgentScope(agentScope, () =>
       getToolOutputArtifactPage(sessionId, artifactId));
   }

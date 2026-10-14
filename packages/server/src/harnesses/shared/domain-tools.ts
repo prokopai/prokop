@@ -4,7 +4,7 @@ import type { PermissionAsk, PermissionRiskLevel } from '@prokopai/sdk';
 import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
 import { executeSessionSearchTool } from '@/harnesses/shared/session-search/session-search-tool';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
-import { listDomainToolFallbackDefinitions } from '@/infrastructure/tools/domain-tool-source';
+import { listDomainToolFallbackDefinitions } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 
 export {
   formatMemorySection,

@@ -1,7 +1,7 @@
 import type { ServerMessage, Session, AskAuthority } from '@prokopai/sdk';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import { installWorkspaceActivityListener } from '@/application/workspaces/activity';
-import { installWorkspaceFilesChangedListener } from '@/application/workspaces/files-changed';
+import { installWorkspaceFilesChangedListener } from '@prokopai/core/application/workspaces/files-changed';
 
 export type BroadcastFn = (message: ServerMessage) => void;
 

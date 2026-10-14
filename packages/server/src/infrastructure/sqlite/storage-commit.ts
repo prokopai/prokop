@@ -1,5 +1,5 @@
-import type { CommitCheck, CommitRequest, CommitResult, CommitWrite } from '@/infrastructure/storage/contracts';
-import { CommitFailure, nativeValueMatches } from '@/infrastructure/storage/commit-guards';
+import type { CommitCheck, CommitRequest, CommitResult, CommitWrite } from '@prokopai/core/infrastructure/storage/contracts';
+import { CommitFailure, nativeValueMatches } from '@prokopai/core/infrastructure/storage/commit-guards';
 import type { Message, Session } from '@prokopai/sdk/types';
 import { getDatabase } from './database';
 import { deleteHarnessState, getHarnessState, putHarnessState } from './harness-state';

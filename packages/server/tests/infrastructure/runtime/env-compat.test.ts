@@ -6,7 +6,7 @@ import {
   resetEnvCompatWarnings,
   PROKOPAI_ENV_PREFIX,
   JEAN2_ENV_PREFIX,
-} from '@/infrastructure/runtime/env-compat';
+} from '@prokopai/core/infrastructure/runtime/env-compat';
 
 describe('env-compat', () => {
   const saved: Record<string, string | undefined> = {};

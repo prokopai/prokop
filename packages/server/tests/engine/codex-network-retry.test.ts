@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { APICallError, jsonSchema, stepCountIs, streamText, tool, wrapLanguageModel } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { createOpenAiResponsesModel } from '@/infrastructure/providers/ai-sdk';
-import { codexNetworkRetryMiddleware } from '@/infrastructure/providers/codex-network-retry';
+import { createOpenAiResponsesModel } from '@prokopai/core/infrastructure/providers/ai-sdk';
+import { codexNetworkRetryMiddleware } from '@prokopai/core/infrastructure/providers/codex-network-retry';
 
 const socketError = () => Object.assign(new TypeError('The socket connection was closed unexpectedly.'), {
   code: 'ECONNRESET',

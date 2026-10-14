@@ -3,18 +3,18 @@ import {
   PROTOCOL_VERSION, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type NotificationHandlers,
 } from '@prokopai/agent-protocol';
 import { createAgentSupervisor, type AgentSupervisor } from '@/agent-bridge/agent-supervisor';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import serverPackage from '@/../package.json' with { type: 'json' };
 import { recoverAfterAgentExit } from './agent-recovery';
 import type { SessionHarness } from '@prokopai/sdk';
-import { installHarnessNotificationPort, type HarnessNotificationPort } from '@/application/ports/harness-notifications';
+import { installHarnessNotificationPort, type HarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 import {
   localHarnessProbes, composeAgentSide, configureAgentTerminals, configureKnowledgeWrites, executeMemoryTool, getSessionSearchHost, executeSkillManageTool, directAgentAsks, type AgentExecutor, type AgentHeadlessRun,
 } from '@/agent';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
-import { configureHarnessProbes } from '@/application/ports/harness-probes';
-import type { HarnessOperation } from '@/application/sessions/harness-execution';
+import { configureHarnessProbes } from '@prokopai/core/application/ports/harness-probes';
+import type { HarnessOperation } from '@prokopai/core/application/sessions/harness-execution';
 import { isKnowledgeDirectory } from './knowledge-directories';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
@@ -23,25 +23,25 @@ import { agentLoopbackEnabled, agentProcessEnabled, createAgentLoopback } from '
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
 import { prokopMcpAccess } from '@/adapters/prokop/runtime-host/tool-source';
 import { getWorkspaceTools } from '@/infrastructure/mcp/manager';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
-import { getDataDir } from '@/infrastructure/runtime/paths';
-import { workspaceKnowledgeRoot } from '@/infrastructure/runtime/workspace-dirs';
-import { isSandboxActive } from '@/infrastructure/sandbox';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
-import type { LlmCallContext } from '@/infrastructure/sandbox/types';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { storedWorkspaceKnowledgeRoot } from '@/infrastructure/sqlite/workspace-knowledge-root';
+import { isSandboxActive } from '@prokopai/core/infrastructure/sandbox';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { LlmCallContext } from '@prokopai/core/infrastructure/sandbox/types';
 import { addWorkspaceAdditionalPath, removeWorkspaceAdditionalPath } from '@/infrastructure/sqlite/workspaces';
-import { getStorage } from '@/infrastructure/storage/runtime';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { getTerminalManager } from '@/transport/terminal';
 import {
   broadcastEvent, broadcastToSessionEvent, sendToAskTargetsEvent, sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
-import { configureHarnessAsks } from '@/infrastructure/runtime/harness-asks';
+import { configureHarnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
 import { createHarnessAskHandlers, protocolAgentAsks } from '@/agent-bridge/host-asks';
 import { localHarnessAsks } from './harness-asks';
-import { installAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
-import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
-import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import { installAgentAskPort, isNativeHarnessAskId } from '@prokopai/core/application/ports/agent-asks';
+import { configureHarnessMcpTools } from '@prokopai/core/application/ports/mcp-tools';
+import { installLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
 import { learningReviewTools } from '@/application/learning/review-tools';
 
 /** The Prokop terminal port over the in-process terminal manager. */
@@ -121,7 +121,7 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
   const runtime = createRuntimeHostHandlers({
     interaction: hostRuntime.interaction,
     resolveSessionWorkspace,
-    knowledgeRoot: workspaceKnowledgeRoot,
+    knowledgeRoot: storedWorkspaceKnowledgeRoot,
     addWorkspaceRoot: addWorkspaceAdditionalPath,
     removeWorkspaceRoot: removeWorkspaceAdditionalPath,
     router: {

@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 // packages/server/src/cli.ts
 
-import '@/infrastructure/runtime/environment';  // This loads .env automatically
+import '@prokopai/core/infrastructure/runtime/environment';  // This loads .env automatically
 
 import { startServer, type ServerOptions } from '@/index';
-import { isInitialized } from '@/config';
-import { getDatabasePath } from '@/infrastructure/runtime/environment';
+import { isInitialized } from '@prokopai/core/config';
+import { getDatabasePath } from '@prokopai/core/infrastructure/runtime/environment';
 import {
   startDaemon,
   stopDaemon,
@@ -28,7 +28,7 @@ import { runMigrations, getDatabase } from '@/infrastructure/sqlite/database';
 import { performUpdate, type UpdateOptions } from '@/cli/update';
 import { syncModels, type SyncResult } from '@/config/models-sync';
 import { cleanupOrphanedData, vacuumDatabase, formatBytes } from '@/infrastructure/sqlite/cleanup';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { VERSION } from '@/version';
 
 import '@/cli/clack-utils';

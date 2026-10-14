@@ -1,29 +1,29 @@
 import { tool, jsonSchema } from 'ai';
-import { getTool } from '@/infrastructure/tools/registry';
-import { executeTool } from '@/infrastructure/tools/executor';
-import { createLlmApi } from '@/infrastructure/tools/llm-api';
-import { createWorkspaceCapability } from '@/infrastructure/filesystem/workspace-policy/policy';
+import { getTool } from '@prokopai/core/infrastructure/tools/registry';
+import { executeTool } from '@prokopai/core/infrastructure/tools/executor';
+import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
+import { createWorkspaceCapability } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import {
   createAskApi,
   rejectPendingAsksByToolCallId,
   type AskBroadcastFn,
 } from '@/harnesses/prokop/permission/ask-user-api';
-import { getToolWorkspaceHost } from '@/infrastructure/runtime/host-dependencies';
-import { transitionToolToRunningByCallId } from '@/infrastructure/storage/runtime';
+import { getToolWorkspaceHost } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { transitionToolToRunningByCallId } from '@prokopai/core/infrastructure/storage/runtime';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
 import {
   getContributedDomainToolPayloads,
   getDomainToolFallback,
   mergeDomainToolVisualization,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { isToolAllowedInContext, type ToolExecutionScope } from '@/harnesses/prokop/execution/tool-capabilities';
 import type { ToolMap } from '@/harnesses/prokop/execution/tool-builders/types';
-import { resolveToolDefinition, type BroadcastFn } from '@/infrastructure/runtime/host-dependencies';
+import { resolveToolDefinition, type BroadcastFn } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import {
   capekToolOutputToAiSdk,
   createCapekToolOutputEnvelope,
-} from '@/infrastructure/tools/model-output';
+} from '@prokopai/core/infrastructure/tools/model-output';
 
 export interface ExternalToolsOptions {
   toolNames: string[];

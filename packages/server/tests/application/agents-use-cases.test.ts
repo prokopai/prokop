@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import type { Preconfig, Workspace, WorkspaceSettings } from '@prokopai/sdk';
-import { createAgentsApplication, type AgentsApplication } from '@/application/agents';
+import { createAgentsApplication, type AgentsApplication } from '@prokopai/core/application/agents';
 import type {
   AgentDirectoryPort,
   AgentPreconfigPort,
   AgentWorkspacePort,
-} from '@/application/ports/agents';
-import { agentHomeWorkspaceSettings, agentHomeWorkspaceId } from '@/domains/agents';
+} from '@prokopai/core/application/ports/agents';
+import { agentHomeWorkspaceSettings, agentHomeWorkspaceId } from '@prokopai/core/domains/agents';
 
 interface FakeState {
   files: Map<string, string>;

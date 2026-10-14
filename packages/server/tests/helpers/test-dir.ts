@@ -1,8 +1,8 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { Paths, getModelsConfigPath } from '@/infrastructure/runtime/paths';
-import { clearConfigCache, clearModelsCache } from '@/config';
+import { Paths, getModelsConfigPath } from '@prokopai/core/infrastructure/runtime/paths';
+import { clearConfigCache, clearModelsCache } from '@prokopai/core/config';
 import defaultModelsJson from '@/config/models.json';
 
 let activeTestDir: string | null = null;

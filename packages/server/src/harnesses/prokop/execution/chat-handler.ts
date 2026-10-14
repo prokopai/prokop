@@ -8,7 +8,7 @@ import {
   isSandboxActive,
   emitTerminal,
   resolveSessionWorkspace,
-} from '@/infrastructure/runtime/host-dependencies';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getDefaultPreconfig, getPreconfigOrAgent } from '@/harnesses/prokop/context/sources';
 import {
   addMessageToQueue,
@@ -28,16 +28,16 @@ import {
   updateMessage,
   updatePart,
   updateSession,
-} from '@/infrastructure/storage/runtime';
-import type { AskBroadcastFn } from '@/infrastructure/runtime/host';
-import type { RuntimeDelivery, RuntimeEvent, RuntimeEventContext } from '@/infrastructure/runtime/events';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import type { AskBroadcastFn } from '@prokopai/core/infrastructure/runtime/host';
+import type { RuntimeDelivery, RuntimeEvent, RuntimeEventContext } from '@prokopai/core/infrastructure/runtime/events';
 import { getGoalDomain } from '@/harnesses/prokop/goals/service';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { getApiKeyForProvider } from '@/infrastructure/providers/configuration/runtime';
-import { getProvider } from '@/infrastructure/providers/registry';
-import { resolveModelId, resolveProviderId } from '@/infrastructure/providers/model-selection';
+import { getApiKeyForProvider } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { getProvider } from '@prokopai/core/infrastructure/providers/registry';
+import { resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure/providers/model-selection';
 import { revertCrossesHarnessSwitch, revertToStep } from '@/harnesses/prokop/execution/revert';
-import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@/domains/sessions/harness-state';
+import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
 
 export type RuntimeRequestContext<Origin = unknown> = RuntimeEventContext<Origin>;

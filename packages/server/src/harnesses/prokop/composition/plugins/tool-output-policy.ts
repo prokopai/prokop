@@ -1,4 +1,4 @@
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import type { RuntimePlugin, PluginContext, ToolDefinition as KernelToolDefinition } from '@/harnesses/prokop/composition/kernel/types';
 import {
   createToolOutputService,

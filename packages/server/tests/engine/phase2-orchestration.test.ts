@@ -3,18 +3,18 @@ import type { LanguageModel } from 'ai';
 import type {
   AssistantMessage, GoalState, Message, MessageWithParts, Part, Preconfig, Session } from '@prokopai/sdk/types';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { SandboxLanguageModel } from '@/infrastructure/sandbox/model';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
+import { SandboxLanguageModel } from '@prokopai/core/infrastructure/sandbox/model';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import {
   configureAgentSource,
   configurePreconfigSource,
 } from '@/harnesses/prokop/context/sources';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { registerProvider, resetProviders } from '@/infrastructure/providers/registry';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { registerProvider, resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
 import { canSpawnSubagent, executeSubagent } from '@/harnesses/prokop/subagent/task-tool';
 import { getSubagentResumeError } from '@/harnesses/prokop/subagent/policy';
-import { createLlmApi } from '@/infrastructure/tools/llm-api';
+import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
 import { evaluateGoal } from '@/harnesses/prokop/goals/evaluator';
 import { runGoalLoop } from '@/harnesses/prokop/goals/loop';
 import { executeWorkflow } from '@/harnesses/prokop/workflow/execution';
@@ -28,7 +28,7 @@ import { synthesizeResults } from '@/harnesses/prokop/workflow/synthesizer';
 import {
   configureRuntimeHost,
   type RuntimeHost,
-} from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/runtime/host';
 import { setDefaultContextAssembler } from '@/harnesses/prokop/context/assembler';
 import { fixedBuilderContextAssembler } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
 import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
@@ -38,11 +38,11 @@ import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugin
 import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
 import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
 import type { StreamChatEvent } from '@/harnesses/prokop/retry/stream-chat';
-import type { RuntimeDelivery, RuntimeEvent } from '@/infrastructure/runtime/events';
+import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import type { ChatOptions } from '@/harnesses/prokop/execution/agent';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 
 const preconfig: Preconfig = {
   id: 'research',

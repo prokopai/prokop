@@ -9,9 +9,9 @@ import { createSessionLifecycleApplication } from '@/application/sessions/lifecy
 import { createSessionTranscriptApplication } from '@/application/sessions/transcript';
 import { createSessionQueueApplication } from '@/application/sessions/queue';
 import { createClientSendRegistry } from '@/application/sessions/client-sends';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionRepositoryPort, PendingAskPort, AskAuthorityPort, PendingAskRecord } from '@/application/ports/session';
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionRepositoryPort, PendingAskPort, AskAuthorityPort, PendingAskRecord } from '@prokopai/core/application/ports/session';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { ControllerGatePort, ControllerGateRejection, SessionControlPort } from '@/application/ports/control';
 
 type Origin = string;

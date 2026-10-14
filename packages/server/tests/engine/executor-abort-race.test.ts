@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { executeTool } from '@/infrastructure/tools/executor';
+import { executeTool } from '@prokopai/core/infrastructure/tools/executor';
 import type { LoadedTool, ToolContext, ToolResult } from '@prokopai/sdk/tool';
-import { createWorkspaceCapability } from '@/infrastructure/filesystem/workspace-policy/policy';
+import { createWorkspaceCapability } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 
 // ---------------------------------------------------------------------------
 // Regression: a tool that never settles (blocked on ctx.ask(), an external

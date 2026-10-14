@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { Paths } from '@/infrastructure/runtime/paths';
+import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { createMcpManager } from '@/infrastructure/mcp/manager';
 
 let root: string;

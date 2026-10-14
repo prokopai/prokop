@@ -1,8 +1,8 @@
 import { serviceKey } from '@/harnesses/prokop/composition/kernel/service-key';
 import type { RuntimePlugin, PluginContext } from '@/harnesses/prokop/composition/kernel/types';
 import type { Session } from '@prokopai/sdk/types';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import type { GoalDomainService } from '@/harnesses/prokop/goals/service';
 import { evaluateGoalWithDeps, type GoalEvaluatorDeps } from '@/harnesses/prokop/goals/evaluator';
 import { runGoalLoopWithDeps, type GoalLoopDeps } from '@/harnesses/prokop/goals/loop';

@@ -2,15 +2,15 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import {
   configureRuntimeConfiguration,
   getRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   configureProkopRuntimeConfiguration,
   createProkopRuntimeConfiguration,
   prokopRuntimeConfiguration,
   withContractTier,
 } from '@/harnesses/prokop/bindings/runtime-configuration';
-import * as configModule from '@/config';
-import * as environment from '@/infrastructure/runtime/environment';
+import * as configModule from '@prokopai/core/config';
+import * as environment from '@prokopai/core/infrastructure/runtime/environment';
 
 describe('Čapek runtime configuration adapter', () => {
   afterEach(() => {

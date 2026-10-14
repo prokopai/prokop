@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { validate } from './validate';
-import type { AgentsApplication } from '@/application/agents';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
 import { NotFoundError } from '@/application/http-errors';
 import { updateAgentMemorySchema } from './schemas';
 

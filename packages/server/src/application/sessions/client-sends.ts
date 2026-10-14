@@ -1,5 +1,5 @@
 import type { ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 
 /** Client ids are UUIDs; anything else is ignored and the send is untracked. */
 const CLIENT_MESSAGE_ID = /^[A-Za-z0-9-]{8,64}$/;

@@ -1,7 +1,7 @@
 import type { AssistantMessage, Session, TextPart } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { createMessage, createPart, getSession, updateMessage, updateSession } from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { createMessage, createPart, getSession, updateMessage, updateSession } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
 import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import { codexObject, type CodexNotification } from './app-server';

@@ -1,19 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import type { Message, Session, ToolPart } from '@prokopai/sdk/types';
-import { createInMemoryConversationStore, createInMemoryMessageQueueStore } from '@/infrastructure/storage/memory';
+import { createInMemoryConversationStore, createInMemoryMessageQueueStore } from '@prokopai/core/infrastructure/storage/memory';
 import {
   createInMemoryToolOutputArtifactStore,
   MAX_TOOL_OUTPUT_PAGE_CHARS,
-} from '@/infrastructure/storage/tool-output-artifacts';
-import type { ConversationStore, ToolOutputArtifactStore } from '@/infrastructure/storage/contracts';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+} from '@prokopai/core/infrastructure/storage/tool-output-artifacts';
+import type { ConversationStore, ToolOutputArtifactStore } from '@prokopai/core/infrastructure/storage/contracts';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   createPart as createRuntimePart,
   deleteMessage as deleteRuntimeMessage,
   syncMessageFts,
   updatePart as updateRuntimePart,
   withStorage,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 
 function session(id: string, parentId: string | null = null, createdAt = '2026-01-01T00:00:00.000Z'): Omit<Session, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string } {
   return {

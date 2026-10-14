@@ -18,11 +18,11 @@ import {
   withWorkspaceService,
   type WorkspaceService,
   type WorkspaceServiceCreateOptions,
-} from '@/infrastructure/filesystem/workspace-policy/policy';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import type {
   WorkspaceCapabilityHost,
   WorkspacePolicyOptions,
-} from '@/infrastructure/filesystem/workspace-policy/contracts';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
 import {
   enterAgentScope,
@@ -30,15 +30,15 @@ import {
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
 import { capekWorkspacePolicyKey } from '@/harnesses/prokop/composition/plugins/service-keys';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
 import { workspacePolicyPlugin } from '@/harnesses/prokop/composition/plugins/workspace-policy';
-import { configureWorkspacePolicy } from '@/infrastructure/filesystem/workspace-policy/policy';
+import { configureWorkspacePolicy } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 
 function minimalHost(): RuntimeHost {
   return {

@@ -1,6 +1,6 @@
 import type { NotificationsApplication } from '@/application/notifications';
-import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
-import type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import type { RuntimeDelivery } from '@prokopai/core/infrastructure/runtime/events';
+import type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import {
   broadcastEvent,
   broadcastToSessionEvent,

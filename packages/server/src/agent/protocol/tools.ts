@@ -1,7 +1,7 @@
 import type { AgentEndpoint } from '@prokopai/agent-protocol';
-import type { WorkspaceMcpResult, WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
-import { capabilityToolFromMcp } from '@/infrastructure/mcp/capability-tool';
-import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import type { WorkspaceMcpResult, WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
+import { capabilityToolFromMcp } from '@prokopai/core/infrastructure/mcp/capability-tool';
+import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import type { Session, Workspace } from '@prokopai/sdk/types';
 
 /**

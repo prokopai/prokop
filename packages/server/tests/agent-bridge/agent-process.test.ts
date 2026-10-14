@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Preconfig, ServerMessage } from '@prokopai/sdk';
-import { getAgentAskPort } from '@/application/ports/agent-asks';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import { getAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import { bindHarnessExecutors, getAgentSupervisor } from '@/bootstrap/agent-ports';
 import { createHarnessRegistrations } from '@/agent/composition/harness-registrations';
-import { createPreconfig } from '@/infrastructure/config/preconfig';
-import { activateSandbox, deactivateSandbox } from '@/infrastructure/sandbox';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
+import { createPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
+import { activateSandbox, deactivateSandbox } from '@prokopai/core/infrastructure/sandbox';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { addMessageToQueue, getQueuedMessage } from '@/infrastructure/sqlite/queued-messages';
 import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';

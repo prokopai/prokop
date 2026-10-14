@@ -136,7 +136,7 @@ test('new message in a fork resumes native forked history instead of starting an
   const wire = { actor: { attachOriginToSession: () => {} }, delivery: {
     send: (_origin: string, event: unknown) => { events.push(event); },
     broadcastToSession: (_id: string, event: unknown) => { events.push(event); },
-  } } as unknown as import('@/application/ports/delivery').SessionWirePorts<string>;
+  } } as unknown as import('@prokopai/core/application/ports/delivery').SessionWirePorts<string>;
   await execution.sendMessage(wire, 'origin', forkedSession.id, 'next question');
   expect(running.sent.some(entry => entry.method === 'thread/start')).toBe(false);
   expect(running.sent.find(entry => entry.method === 'thread/resume')?.params).toMatchObject({ threadId: 'fork-1' });

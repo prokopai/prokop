@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ServerMessage } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getAgentAskPort } from '@/application/ports/agent-asks';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { getAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 import { codexApprovals } from '@/harnesses/codex-cli/approvals';
-import { harnessAsks } from '@/infrastructure/runtime/harness-asks';
+import { harnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
 import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { matchGrant } from '@/infrastructure/sqlite/permissions';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';

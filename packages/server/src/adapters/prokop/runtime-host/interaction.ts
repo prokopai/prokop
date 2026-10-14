@@ -1,4 +1,4 @@
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import {
   cancelPendingRequestsBySession,
@@ -14,9 +14,9 @@ import {
   resolvePermissionRequestByRequestId,
 } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
-import { severityFromMode } from '@/domains/permissions';
+import { severityFromMode } from '@prokopai/core/domains/permissions';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
-import type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 
 export const prokopInteractionBindings: ProkopCompatibilityBindings['interaction'] = {
   createPendingAsk: async (record) => createPendingAsk(record),

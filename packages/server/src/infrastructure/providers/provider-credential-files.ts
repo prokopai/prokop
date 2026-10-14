@@ -1,6 +1,6 @@
 import type { ProviderCredentialStatus, ProviderCredentialsResponse } from '@prokopai/sdk';
-import { getProkopEnvValue, reloadProkopEnv } from '@/infrastructure/runtime/environment';
-import { getEnvFilePath } from '@/infrastructure/runtime/paths';
+import { getProkopEnvValue, reloadProkopEnv } from '@prokopai/core/infrastructure/runtime/environment';
+import { getEnvFilePath } from '@prokopai/core/infrastructure/runtime/paths';
 import { atomicWriteFile, readFileSafe } from '@/config/files';
 import {
   ConfigurationNotFoundError,

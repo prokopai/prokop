@@ -7,7 +7,7 @@ import {
   getPreconfigJsonPath,
   getPreconfigMdPath,
   updatePreconfig,
-} from '@/infrastructure/config/preconfig';
+} from '@prokopai/core/infrastructure/config/preconfig';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';
 
 function createInput(id: string): Omit<Preconfig, 'id'> & { id: string } {

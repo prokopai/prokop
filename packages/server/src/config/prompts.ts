@@ -9,7 +9,7 @@ import {
   ConfigurationConflictError,
   ConfigurationPersistenceError,
 } from './errors';
-import { getPromptsDir } from '@/infrastructure/runtime/paths';
+import { getPromptsDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 function getPromptsDirPath(): string {
   return getPromptsDir();

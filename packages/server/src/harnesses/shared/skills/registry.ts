@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import type { SkillInfo } from '@prokopai/sdk/types';
 
 function parseFrontmatter(raw: string): { frontmatter: Record<string, unknown>; content: string } {

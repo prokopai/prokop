@@ -10,7 +10,7 @@ import type {
   ScheduledJobRunSessionsPort,
   ScheduledJobWorkspacePort,
 } from '@/application/ports/scheduling';
-import { getHeadlessExecutionPort } from '@/application/ports/headless-execution';
+import { getHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
 
 export type SchedulingCreateResult =
   | { kind: 'created'; job: ScheduledJob }

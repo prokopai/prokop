@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { clearModelsCache } from '@/config';
+import { clearModelsCache } from '@prokopai/core/config';
 import { setDefaults } from '@/config/models';
 import { ConfigurationValidationError } from '@/config/errors';
 

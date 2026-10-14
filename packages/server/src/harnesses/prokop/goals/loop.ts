@@ -1,7 +1,7 @@
 import type { GoalState, Session } from '@prokopai/sdk/types';
-import { emitSessionUpdated } from '@/infrastructure/runtime/host-dependencies';
-import { getSession, updateSession } from '@/infrastructure/storage/runtime';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
+import { emitSessionUpdated } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getSession, updateSession } from '@prokopai/core/infrastructure/storage/runtime';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import {
   buildContinuationMessage,
   evaluateGoal,

@@ -1,4 +1,4 @@
-import { readEnv, readEnvInt } from '@/infrastructure/runtime/env-compat';
+import { readEnv, readEnvInt } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 export interface OpenClientResult {
   opened: boolean;

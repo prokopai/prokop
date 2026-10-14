@@ -3,9 +3,9 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { AttachmentKind } from '@prokopai/sdk';
-import { getAttachmentDir } from '@/infrastructure/runtime/paths';
+import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 
-import { determineKind, MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
+import { determineKind, MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
 
 export interface AttachmentRow {
   id: string;

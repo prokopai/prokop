@@ -1,6 +1,6 @@
 import { isAbsolute, join } from 'node:path';
 import { safeSkillDirectory, type AgentSkillsDomainBridge } from '@/harnesses/shared/domain-tools';
-import { getSession } from '@/infrastructure/storage/runtime';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
 import type { CodexMemoryCallResult } from './memory-tools';
 

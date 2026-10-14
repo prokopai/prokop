@@ -32,6 +32,8 @@ const utilsDir = resolve(serverSourceRoot, 'utils');
 const agentBridgeDir = resolve(serverSourceRoot, 'agent-bridge');
 // The agent's composition and protocol ports; host code reaches it only through its public entry (`@/agent`).
 const agentDir = resolve(serverSourceRoot, 'agent');
+// Runtime core shared by host and agent (packages/core, Phase 2.5c).
+const coreSourceRoot = resolve(serverSourceRoot, '../../core/src');
 const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir, agentBridgeDir, agentDir];
 const infrastructureSqliteDir = resolve(infrastructureDir, 'sqlite');
 const prokopToolsDir = resolve(prokopHarnessDir, 'tools');
@@ -53,18 +55,18 @@ const serverWebSocketExceptions: Record<string, string[]> = {};
 
 const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   'packages/server/src/harnesses/prokop/bindings/context-sources.ts': [
-    '@/infrastructure/config/preconfig', '@/infrastructure/runtime/paths',
+    '@prokopai/core/infrastructure/config/preconfig', '@prokopai/core/infrastructure/runtime/paths',
   ],
   'packages/server/src/adapters/prokop/runtime-host/delivery.ts': [
     '@/transport/websocket/broadcast',
   ],
   'packages/server/src/adapters/prokop/runtime-host/interaction.ts': [
-    '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/permissions', '@/infrastructure/sqlite/session-store', '@/infrastructure/runtime/environment',
+    '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/permissions', '@/infrastructure/sqlite/session-store', '@prokopai/core/infrastructure/runtime/environment',
   ],
   'packages/server/src/harnesses/prokop/bindings/runtime-configuration.ts': [
-    '@/config', '@/infrastructure/runtime/environment',
+    '@prokopai/core/config', '@prokopai/core/infrastructure/runtime/environment',
   ],
-  'packages/server/src/harnesses/prokop/bindings/sandbox.ts': ['@/infrastructure/sandbox'],
+  'packages/server/src/harnesses/prokop/bindings/sandbox.ts': ['@prokopai/core/infrastructure/sandbox'],
   'packages/server/src/adapters/prokop/runtime-host/storage.ts': [
     '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
     '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/attachments',
@@ -77,10 +79,10 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   'packages/server/src/adapters/prokop/runtime-host/compaction-recovery.ts': [
     '@/transport/websocket/broadcast', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
   ],
-  'packages/server/src/harnesses/prokop/bindings/titles.ts': ['@/infrastructure/session-title'],
+  'packages/server/src/harnesses/prokop/bindings/titles.ts': ['@prokopai/core/infrastructure/session-title'],
   'packages/server/src/adapters/prokop/runtime-host/tool-source.ts': [
-    '@/config', '@/infrastructure/mcp', '@/infrastructure/runtime/paths',
-    '@/infrastructure/runtime/env-compat',
+    '@prokopai/core/config', '@/infrastructure/mcp', '@prokopai/core/infrastructure/runtime/paths',
+    '@prokopai/core/infrastructure/runtime/env-compat',
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/workspaces',
   ],
   'packages/server/src/adapters/prokop/runtime-host/workspace.ts': [
@@ -88,29 +90,29 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   ],
   // The tool workspace core moved out of the old host workspace module with these edges.
   'packages/server/src/harnesses/prokop/bindings/tool-workspace.ts': [
-    '@/infrastructure/runtime/environment', '@/infrastructure/runtime/paths',
+    '@prokopai/core/infrastructure/runtime/environment', '@prokopai/core/infrastructure/runtime/paths',
   ],
   // Default layout of the runtime's own bindings (was composition/bindings.ts).
-  'packages/server/src/harnesses/prokop/bindings/agent.ts': ['@/infrastructure/runtime/workspace-dirs'],
+  'packages/server/src/harnesses/prokop/bindings/agent.ts': ['@prokopai/core/infrastructure/runtime/workspace-dirs'],
   'packages/server/src/adapters/prokop/session-repository.ts': [
-    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/tool-output-artifacts', '@/infrastructure/sqlite/attachments', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/workspaces', '@/adapters/prokop/runtime-host/compaction-recovery', '@/infrastructure/session-title',
+    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/tool-output-artifacts', '@/infrastructure/sqlite/attachments', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/workspaces', '@/adapters/prokop/runtime-host/compaction-recovery', '@prokopai/core/infrastructure/session-title',
   ],
   'packages/server/src/adapters/prokop/scheduled-job-repository.ts': [
     '@/infrastructure/sqlite/scheduled-job-store',
   ],
   'packages/server/src/adapters/prokop/scheduled-job-execution.ts': [
-    '@/config', '@/infrastructure/config/preconfig', '@/infrastructure/scheduling/scheduled-job-runner',
+    '@prokopai/core/config', '@prokopai/core/infrastructure/config/preconfig', '@/infrastructure/scheduling/scheduled-job-runner',
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/workspaces', '@/infrastructure/sqlite/scheduled-job-store',
   ],
   'packages/server/src/adapters/prokop/terminal.ts': [
     '@/infrastructure/sqlite/database', '@/infrastructure/sqlite/terminal-session-repository',
   ],
   'packages/server/src/adapters/prokop/agent-workspace.ts': [
-    '@/infrastructure/config/preconfig', '@/infrastructure/sqlite/workspaces',
+    '@prokopai/core/infrastructure/config/preconfig', '@/infrastructure/sqlite/workspaces',
   ],
   'packages/server/src/adapters/prokop/workspace.ts': [
     '@/infrastructure/sqlite/workspaces', '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/pinned-messages',
-    '@/infrastructure/sqlite/scheduled-job-store', '@/transport/terminal', '@/infrastructure/mcp', '@/infrastructure/runtime/paths',
+    '@/infrastructure/sqlite/scheduled-job-store', '@/transport/terminal', '@/infrastructure/mcp', '@prokopai/core/infrastructure/runtime/paths',
   ],
 
   'packages/server/src/adapters/prokop/tools.ts': [
@@ -134,7 +136,7 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   ],
   'packages/server/src/adapters/prokop/notifications.ts': [
     '@/infrastructure/sqlite/notification-repository', '@/infrastructure/web-push/sender',
-    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/scheduled-job-store', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/runtime/environment',
+    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/scheduled-job-store', '@/infrastructure/sqlite/pending-asks', '@prokopai/core/infrastructure/runtime/environment',
     '@/transport/websocket/control-registry',
   ],
   'packages/server/src/adapters/prokop/permissions.ts': ['@/infrastructure/sqlite/permissions'],
@@ -162,13 +164,13 @@ const aiSdkExceptions: Record<string, string[]> = {};
 // pinned empty by the S4 ask-response gate.
 const layerTransportRenameCompatExceptions: Record<string, string[]> = {
   'packages/server/src/transport/websocket/bun-adapter.ts': [
-    '@/infrastructure/runtime/env-compat',
+    '@prokopai/core/infrastructure/runtime/env-compat',
   ],
   'packages/server/src/transport/terminal/manager.ts': [
-    '@/infrastructure/runtime/env-compat',
+    '@prokopai/core/infrastructure/runtime/env-compat',
   ],
   'packages/server/src/transport/http/middleware/token.ts': [
-    '@/infrastructure/runtime/env-compat',
+    '@prokopai/core/infrastructure/runtime/env-compat',
   ],
 };
 
@@ -182,8 +184,8 @@ const layerTransportLegacyExceptions: Record<string, string[]> = {};
 const layerTransportAppExceptions: Record<string, string[]> = {
   'packages/server/src/transport/http/app.ts': [
     '@/version',
-    '@/infrastructure/runtime/environment',
-    '@/infrastructure/runtime/env-compat',
+    '@prokopai/core/infrastructure/runtime/environment',
+    '@prokopai/core/infrastructure/runtime/env-compat',
     '@/infrastructure/runtime/client-assets',
     '@/bootstrap/application',
   ],
@@ -203,7 +205,7 @@ const layerHttpRoutesLegacyExceptions: Record<string, string[]> = {};
 // here until the route is migrated onto a sandbox application port.
 const layerHttpRoutesSandboxExceptions: Record<string, string[]> = {
   'packages/server/src/transport/http/routes/sandbox.ts': [
-    '@/infrastructure/sandbox/controller', '@/infrastructure/sandbox/types', '@/infrastructure/sandbox',
+    '@prokopai/core/infrastructure/sandbox/controller', '@prokopai/core/infrastructure/sandbox/types', '@prokopai/core/infrastructure/sandbox',
   ],
 };
 
@@ -216,11 +218,11 @@ const layerBootstrapExceptions: Record<string, string[]> = {};
 // imports (binary detection and the HTTP error hierarchy used by editable
 // file mutations) are the only exceptions, pinned by the S5 gate below.
 const layerInfrastructureExceptions: Record<string, string[]> = {
-  'packages/server/src/infrastructure/sqlite/database.ts': ['@/config', '@/utils/perf'],
-  'packages/server/src/infrastructure/sqlite/session-repository.ts': ['@/config'],
+  'packages/server/src/infrastructure/sqlite/database.ts': ['@prokopai/core/config', '@/utils/perf'],
+  'packages/server/src/infrastructure/sqlite/session-repository.ts': ['@prokopai/core/config'],
   'packages/server/src/infrastructure/mcp/manager.ts': ['@/version'],
-  'packages/server/src/infrastructure/daemon/index.ts': ['@/config'],
-  'packages/server/src/infrastructure/session-title.ts': ['@/config'],
+  'packages/server/src/infrastructure/daemon/index.ts': ['@prokopai/core/config'],
+  'packages/server/src/infrastructure/session-title.ts': ['@prokopai/core/config'],
   'packages/server/src/infrastructure/providers/provider-credential-files.ts': [
     '@/config/errors', '@/config/files',
   ],
@@ -334,7 +336,7 @@ const layerRules: DependencyRule[] = [
     allowedResolvedDirs: [transportDir, applicationDir, runtimeHostDir],
     exceptions: {
       ...layerTransportLegacyExceptions,
-      'packages/server/src/transport/websocket/handlers/misc.ts': ['@/infrastructure/sandbox/controller', '@/infrastructure/sandbox/types', '@/agent'],
+      'packages/server/src/transport/websocket/handlers/misc.ts': ['@prokopai/core/infrastructure/sandbox/controller', '@prokopai/core/infrastructure/sandbox/types', '@/agent'],
       ...layerTransportRenameCompatExceptions,
       ...layerTransportAppExceptions,
     },
@@ -972,13 +974,13 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect([...new Set(imports.map((imp) => imp.specifier))].sort()).toEqual([
-      '@/agent', '@/infrastructure/runtime/events',
-      '@/application/ports/session',
+      '@/agent', '@prokopai/core/infrastructure/runtime/events',
+      '@prokopai/core/application/ports/session',
       '@/transport/websocket/broadcast',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/session-store',
       // The failure record shape shared with the agent's own compaction failures.
-      '@/domains/sessions/compaction-failure',
+      '@prokopai/core/domains/sessions/compaction-failure',
     ].sort());
 
     const sourceText = file!.sourceText;
@@ -994,8 +996,8 @@ describe('server layer boundaries', () => {
     // The inward-facing port lives with the other session ports; the Capek
     // domain depends on deps only. The server store remains the current
     // query provider until the remaining storage migration.
-    const portsPath = resolve(applicationDir, 'ports/session.ts');
-    const file = scanDirectory(serverSourceRoot).find((candidate) => candidate.path === portsPath);
+    const portsPath = resolve(coreSourceRoot, 'application/ports/session.ts');
+    const file = scanDirectory(coreSourceRoot).find((candidate) => candidate.path === portsPath);
     expect(file).toBeDefined();
     expect(file!.sourceText).toContain('export interface CompactionRecoveryPort');
     expect(file!.sourceText).toContain('listOrphanedCompactionTriggers(sessionId: string): Message[]');
@@ -1041,7 +1043,7 @@ describe('server layer boundaries', () => {
 
     const allowedSpecifiers = [
       'hono',
-      '@/application/agents',
+      '@prokopai/core/application/agents',
       './validate',
       './schemas',
       '@/application/http-errors',
@@ -1081,8 +1083,8 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
-      '@/application/ports/agents',
-      '@/infrastructure/config/preconfig',
+      '@prokopai/core/application/ports/agents',
+      '@prokopai/core/infrastructure/config/preconfig',
       '@/infrastructure/sqlite/workspaces',
     ].sort());
   });
@@ -1113,7 +1115,7 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
-      '@/application/ports/agents',
+      '@prokopai/core/application/ports/agents',
       'fs',
       'fs/promises',
     ].sort());
@@ -1237,7 +1239,7 @@ describe('server layer boundaries', () => {
     expect(file).toBeDefined();
 
     expect(parseImports(file!.sourceText, file!.path).map((imp) => imp.specifier).sort()).toEqual([
-      '@/infrastructure/storage/contracts', '@/infrastructure/storage/tool-output-artifacts',
+      '@prokopai/core/infrastructure/storage/contracts', '@prokopai/core/infrastructure/storage/tool-output-artifacts',
       './database',
       'node:crypto',
     ].sort());
@@ -1308,7 +1310,7 @@ describe('server layer boundaries', () => {
         expect(specifiers).toEqual([
           './attention-signals',
           '@/application/ports/session-message',
-          '@/domains/sessions/harness-state',
+          '@prokopai/core/domains/sessions/harness-state',
           '@prokopai/sdk',
           'bun:sqlite',
         ]);
@@ -1392,7 +1394,7 @@ describe('server layer boundaries', () => {
       '@/adapters/workspace-paths',
       '@/application/ports/workspace',
       '@/infrastructure/mcp',
-      '@/infrastructure/runtime/paths',
+      '@prokopai/core/infrastructure/runtime/paths',
       '@/transport/terminal',
       '@/infrastructure/sqlite/pinned-messages',
       '@/infrastructure/sqlite/scheduled-job-store',
@@ -1683,7 +1685,7 @@ describe('server layer boundaries', () => {
     ];
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([...allowedSpecifiers].sort());
 
-    const forbiddenPrefixes = ['@/store', '@/config', '@prokopai/runtime', '@/tools'];
+    const forbiddenPrefixes = ['@/store', '@prokopai/core/config', '@prokopai/runtime', '@/tools'];
     for (const imp of imports) {
       for (const prefix of forbiddenPrefixes) {
         expect(imp.specifier.startsWith(prefix)).toBe(false);
@@ -1790,7 +1792,7 @@ describe('server layer boundaries', () => {
     const toolsImports = parseImports(toolsFile!.sourceText, toolsFile!.path);
     expect(toolsImports.map((imp) => imp.specifier).sort()).toEqual([
       '@/adapters/prokop/runtime-host/tool-source',
-      '@/application/ports/tool-catalog',
+      '@prokopai/core/application/ports/tool-catalog',
       '@/config/errors',
       '@/config/tool-env',
     ].sort());
@@ -1801,8 +1803,8 @@ describe('server layer boundaries', () => {
     const runner = scanDirectory(serverSourceRoot).find((candidate) => candidate.path === runnerPath);
     expect(runner).toBeDefined();
     expect(parseImports(runner!.sourceText, runner!.path).map((imp) => imp.specifier).sort()).toEqual([
-      '@/infrastructure/providers/model-selection',
-      '@/application/ports/headless-execution',
+      '@prokopai/core/infrastructure/providers/model-selection',
+      '@prokopai/core/application/ports/headless-execution',
       '@/application/ports/scheduling',
       '@prokopai/sdk',
       'crypto',
@@ -1813,8 +1815,8 @@ describe('server layer boundaries', () => {
     expect(adapter).toBeDefined();
     expect(parseImports(adapter!.sourceText, adapter!.path).map((imp) => imp.specifier).sort()).toEqual([
       '@/application/ports/scheduling',
-      '@/config',
-      '@/infrastructure/config/preconfig',
+      '@prokopai/core/config',
+      '@prokopai/core/infrastructure/config/preconfig',
       '@/infrastructure/scheduling/scheduled-job-runner',
       '@/infrastructure/sqlite/scheduled-job-store',
       '@/infrastructure/sqlite/session-store',
@@ -1874,7 +1876,7 @@ describe('server layer boundaries', () => {
     expect(files.map((file) => relative(learningDir, file.path)).sort())
       .toEqual(['directories.ts', 'history.ts', 'home-tool.ts', 'index.ts', 'knowledge.ts', 'review.ts']);
     const specifiers = files.flatMap((file) => parseImports(file.sourceText, file.path).map((imp) => imp.specifier));
-    expect(specifiers).toContain('@/application/ports/learning-runtime');
+    expect(specifiers).toContain('@prokopai/core/application/ports/learning-runtime');
     expect(specifiers.some((specifier) => specifier.startsWith('@/harnesses/'))).toBe(false);
   });
 
@@ -1889,6 +1891,24 @@ describe('server layer boundaries', () => {
         const deep = imp.specifier.startsWith('@/harnesses') || imp.specifier.startsWith('@/agent/');
         if (deep && !(file.path.endsWith('.test.ts') && testHelpers.has(imp.specifier))) {
           offenders.push(`${relativePath} imports ${imp.specifier} [rule: agent-public-entry]`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test('2.5c gate: the runtime core imports only itself, the SDK and npm packages', () => {
+    const offenders: string[] = [];
+    for (const file of scanDirectory(coreSourceRoot)) {
+      for (const imp of parseImports(file.sourceText, file.path)) {
+        const specifier = imp.specifier;
+        const local = specifier.startsWith('./') || specifier.startsWith('../');
+        if (local && !isWithin(resolve(dirname(file.path), specifier), coreSourceRoot)) {
+          offenders.push(`${relative(repositoryRoot, file.path)} imports ${specifier} (outside packages/core)`);
+        }
+        if (specifier.startsWith('@/') || specifier.startsWith('#') || specifier.startsWith('@prokopai/server')
+          || specifier.startsWith('@prokopai/agent') || specifier.startsWith('@prokopai/core')) {
+          offenders.push(`${relative(repositoryRoot, file.path)} imports ${specifier}`);
         }
       }
     }
@@ -2128,7 +2148,7 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
-      '@/infrastructure/providers/registry',
+      '@prokopai/core/infrastructure/providers/registry',
       '@/application/ports/provider-accounts',
     ].sort());
   });
@@ -2201,7 +2221,8 @@ describe('server layer boundaries', () => {
     expect(imports).toContain('@/harnesses/codex-cli');
     expect(imports).toContain('@/harnesses/claude-cli');
     expect(imports.some(specifier => specifier.startsWith('@/infrastructure/codex/'))).toBe(false);
-    const dispatch = files.find(file => file.path === resolve(applicationDir, 'sessions/harness-execution.ts'))!;
+    const dispatchPath = resolve(coreSourceRoot, 'application/sessions/harness-execution.ts');
+    const dispatch = scanDirectory(coreSourceRoot).find(file => file.path === dispatchPath)!;
     expect(parseImports(dispatch.sourceText, dispatch.path).some(imp => imp.specifier.startsWith('@/harnesses/'))).toBe(false);
     for (const file of named) {
       const path = relative(harnessesDir, file.path);
@@ -2342,7 +2363,7 @@ describe('server layer boundaries', () => {
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
       '@/application/notifications',
       '@/domains/scheduling/notifications',
-      '@/infrastructure/runtime/environment',
+      '@prokopai/core/infrastructure/runtime/environment',
       '@/infrastructure/sqlite/notification-repository',
       '@/infrastructure/sqlite/pending-asks',
       '@/infrastructure/sqlite/scheduled-job-store',

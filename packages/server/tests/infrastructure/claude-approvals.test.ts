@@ -7,8 +7,8 @@ import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending
 import { ClaudeApprovals } from '@/harnesses/claude-cli/approvals';
 import { handleClientRegistration, registerConnection, unregisterConnection } from '@/transport/websocket/connection-registry';
 import { handleClaim, removeSessionControl } from '@/transport/websocket/control-registry';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { installHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 
 let connection: ReturnType<typeof registerConnection>;
 let socket: object;

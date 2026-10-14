@@ -1,5 +1,5 @@
 import type { Session } from '@prokopai/sdk/types';
-import { getSession } from '@/infrastructure/storage/runtime';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 
 export type ToolExecutionScope = 'subsession' | 'scheduled';
 

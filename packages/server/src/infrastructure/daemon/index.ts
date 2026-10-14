@@ -11,11 +11,11 @@ import {
   watchFile,
   writeFileSync,
 } from 'fs';
-import { getPidFilePath as getPidFilePathFromPaths, getLogFilePath as getLogFilePathFromPaths, getDataDir } from '@/infrastructure/runtime/paths';
+import { getPidFilePath as getPidFilePathFromPaths, getLogFilePath as getLogFilePathFromPaths, getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
-import { getPort, getHost } from '@/config';
-import { getToolEnv, getTlsEnabled, getTlsCertFile, getTlsKeyFile, getClientEnabled, getLocalHttpEnabled, getLocalHost, resolveTlsPort } from '@/infrastructure/runtime/environment';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { getPort, getHost } from '@prokopai/core/config';
+import { getToolEnv, getTlsEnabled, getTlsCertFile, getTlsKeyFile, getClientEnabled, getLocalHttpEnabled, getLocalHost, resolveTlsPort } from '@prokopai/core/infrastructure/runtime/environment';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 export interface DaemonStatus {
   running: boolean;

@@ -1,8 +1,8 @@
 import type { ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { ControllerGatePort, ControllerGateRejection } from '@/application/ports/control';
-import type { SessionRepositoryPort } from '@/application/ports/session';
+import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
 import { clientSends, type ClientSendRegistry } from './client-sends';
 
 export interface SessionChatDeps<Origin> {

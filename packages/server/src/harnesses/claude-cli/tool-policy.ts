@@ -5,7 +5,7 @@ import {
   requiresHumanReview,
   type ConcernsPermissionAsk,
   type FileOperation,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 import type { SessionPermissionRoots } from '@/harnesses/shared/permission-roots';
 
 const valid = (value: unknown): value is string => typeof value === 'string'

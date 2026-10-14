@@ -2,8 +2,8 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { McpConfig, McpServerConfig, McpLocalServerConfig, McpRemoteServerConfig } from '@prokopai/sdk';
 import { BUILTIN_BROWSER_MCP_NAME, BUILTIN_VISUALS_MCP_NAME } from '@prokopai/sdk';
-import { resolveWorkspaceDir } from '@/infrastructure/runtime/workspace-dirs';
-import { getDataDir } from '@/infrastructure/runtime/paths';
+import { resolveWorkspaceDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { isBuiltinNameValid, mcpConfigSchema, mcpNameSchema, mcpServerConfigSchema } from '@/domains/mcp/config';
 
 const writes = new Map<string, Promise<unknown>>();

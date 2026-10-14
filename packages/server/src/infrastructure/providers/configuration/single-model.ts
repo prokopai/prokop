@@ -1,5 +1,5 @@
-import type { RuntimeConfiguration } from '@/infrastructure/providers/configuration/contracts';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
+import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 
 export interface ModelSpecifierSelection {
   modelId: string;

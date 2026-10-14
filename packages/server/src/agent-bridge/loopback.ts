@@ -2,8 +2,8 @@ import {
   createAgentEndpoint, createHostEndpoint, createLoopback,
   type AgentEndpoint, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type NotificationHandlers,
 } from '@prokopai/agent-protocol';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { createProtocolStorageBundle } from '@/agent';
 import { createStorageHostHandlers } from './host-storage';
 

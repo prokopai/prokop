@@ -7,14 +7,14 @@ import {
   updateSession,
   transitionToolToInterrupted,
   syncMessageFts,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 
-import { findModel, getMaxOutputTokens, getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
+import { findModel, getMaxOutputTokens, getModelsConfig } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { randomUUID } from 'crypto';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import { emitSessionUpdated } from '@/infrastructure/runtime/host-dependencies';
+import { emitSessionUpdated } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { rejectPendingAsksBySession } from '@/harnesses/prokop/permission/ask-user-api';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
 
 import {
   createStepCallbacks,
@@ -26,11 +26,11 @@ import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-uti
 import { buildAiSdkTools, type BuildToolsOptions } from '@/harnesses/prokop/execution/build-tools';
 import { getContextAssembler } from '@/harnesses/prokop/context/assembler';
 import { getAgentDirectory } from '@/harnesses/prokop/context/sources';
-import { initializeWorkspaceDiscovery } from '@/infrastructure/tools/tool-source';
+import { initializeWorkspaceDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { resolveEffectiveSubagentTargets } from '@/harnesses/prokop/subagent/policy';
 import { join } from 'path';
 
-import { classifyApiError } from '@/infrastructure/providers/errors';
+import { classifyApiError } from '@prokopai/core/infrastructure/providers/errors';
 import { createErrorEvent, type ErrorEvent } from '@/harnesses/prokop/execution/error-handling';
 import type { CompactionPolicy } from '@/harnesses/prokop/compaction/contracts';
 import { computeAutoThreshold } from '@/harnesses/prokop/compaction/policy';

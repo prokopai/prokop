@@ -11,7 +11,7 @@ import {
   registerDomainToolFallback,
   type DomainToolExecuteContext,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import type { SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import {
   executeSchedulerTool,
@@ -19,8 +19,8 @@ import {
   schedulerToolDefinition,
   type SchedulerToolResult,
 } from '@/harnesses/prokop/scheduler/scheduler-tool';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { getSession, getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import { capekSchedulerHostKey, capekStorageKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /**

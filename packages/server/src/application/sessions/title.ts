@@ -1,6 +1,6 @@
 import type { MessageWithParts, ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionRepositoryPort } from '@/application/ports/session';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
 import type { TitleGenerationPort } from '@/application/ports/titles';
 
 export interface SessionTitleDeps {

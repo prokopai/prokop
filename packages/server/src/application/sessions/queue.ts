@@ -1,7 +1,7 @@
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import type { ControllerGatePort } from '@/application/ports/control';
-import type { SessionRepositoryPort } from '@/application/ports/session';
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { sendGateRejection } from './chat';
 import { unknownHarnessError } from './harness-policy';
 import { clientSends, type ClientSendRegistry } from './client-sends';

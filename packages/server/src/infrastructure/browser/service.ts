@@ -1,20 +1,20 @@
 import type { Ask, AskApi, PermissionAsk } from '@prokopai/sdk/tool';
 import type { AskAuthority } from '@prokopai/sdk';
 import type { BrowserRequestsPort } from '@/application/ports/browser';
-import type { WorkspaceMcpResult } from '@/application/ports/mcp-tools';
-import { shouldAutoApproveAsk } from '@/domains/permissions';
+import type { WorkspaceMcpResult } from '@prokopai/core/application/ports/mcp-tools';
+import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createPendingAsk, expirePermissionRequest, resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { getAllClients, getConnectionById } from '@/transport/websocket/connection-registry';
 import { getControllerConnections } from '@/transport/websocket/control-registry';
 import { broadcastToSessionEvent, sendToAskTargetsEvent, sendToConnectionEvent } from '@/transport/websocket/broadcast';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
-import { browserTools, validateBrowserInput } from './catalog';
+import { browserTools, validateBrowserInput } from '@prokopai/core/infrastructure/browser/catalog';
 
 const CONTROLLER: AskAuthority = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' };
 const object = (value: unknown): Record<string, unknown> | null =>

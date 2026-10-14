@@ -1,6 +1,6 @@
 import type { AgentEndpoint, CommitWrite } from '@prokopai/agent-protocol';
 import type { Session } from '@prokopai/sdk/types';
-import type { NativeHarness, NativeKey, NativeRecord, StorageBundle } from '@/infrastructure/storage/contracts';
+import type { NativeHarness, NativeKey, NativeRecord, StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 
 /**
  * Agent side of the storage protocol: a `StorageBundle` whose every call is a

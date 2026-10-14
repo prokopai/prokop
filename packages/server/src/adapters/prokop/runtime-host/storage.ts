@@ -1,5 +1,5 @@
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import {
   buildEffectiveContextHistory,
   createMessage,

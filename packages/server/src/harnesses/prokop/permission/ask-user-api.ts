@@ -9,7 +9,7 @@
 
 import type { AskApi } from '@prokopai/sdk/tool'
 import type { AskAuthority } from '@prokopai/sdk/types';
-import type { PendingAskRecord } from '@/infrastructure/runtime/host';
+import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
 import { ASK_TIMEOUT } from '@/harnesses/prokop/permission/policy';
 import { getPermissionRuntimeService } from '@/harnesses/prokop/permission/runtime';
 import type { AskBroadcastFn } from '@/harnesses/prokop/permission/contracts';

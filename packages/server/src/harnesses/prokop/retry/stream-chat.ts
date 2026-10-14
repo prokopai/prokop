@@ -12,7 +12,7 @@
  */
 
 import type { ChatOptions } from '@/harnesses/prokop/execution/agent';
-import { getLLMMaxSteps } from '@/infrastructure/providers/configuration/runtime';
+import { getLLMMaxSteps } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
 import { getCompactionService } from '@/harnesses/prokop/compaction/policy';
 import type { UsageEventData } from '@/harnesses/prokop/execution/step-handlers';
@@ -25,8 +25,8 @@ import {
   ERROR_SERVER_ERROR,
   ERROR_TIMEOUT,
   type ClassifiedError,
-} from '@/infrastructure/providers/errors';
-import { emitSessionUpdated } from '@/infrastructure/runtime/host-dependencies';
+} from '@prokopai/core/infrastructure/providers/errors';
+import { emitSessionUpdated } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import {
   buildEffectiveContextHistory,
   getNextSteerQueuedMessage,
@@ -36,7 +36,7 @@ import {
   transitionToolToInterrupted,
   updateMessage,
   updateSession,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 import { rejectPendingAsksBySession } from '@/harnesses/prokop/permission/ask-user-api';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
 import { deliverSteerMessages } from '@/harnesses/prokop/execution/steering';

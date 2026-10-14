@@ -1,6 +1,6 @@
 import type { MemoryDomainBridge } from '@/harnesses/shared/domain-tools';
-import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
-import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
+import { getSession, getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
+import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { codexObject } from './app-server';
 
 export interface CodexMemoryCallResult {

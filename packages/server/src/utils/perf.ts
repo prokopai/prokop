@@ -1,4 +1,4 @@
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 const PERF_DIAGNOSTICS_ENABLED =
   readEnv('PERF_DIAGNOSTICS') === 'true';

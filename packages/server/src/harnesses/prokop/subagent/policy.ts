@@ -1,6 +1,6 @@
 import type { Preconfig, Session } from '@prokopai/sdk/types';
 import { listPreconfigs as runtimeListPreconfigs } from '@/harnesses/prokop/context/sources';
-import { getSession as runtimeGetSession } from '@/infrastructure/storage/runtime';
+import { getSession as runtimeGetSession } from '@prokopai/core/infrastructure/storage/runtime';
 
 export type SubagentPolicyReason =
   | 'allowed'

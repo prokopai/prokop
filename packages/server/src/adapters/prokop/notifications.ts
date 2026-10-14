@@ -1,4 +1,4 @@
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getScheduledJob } from '@/infrastructure/sqlite/scheduled-job-store';
 import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';

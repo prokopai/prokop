@@ -1,35 +1,35 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { jsonSchema, type Tool } from 'ai';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import type { RuntimeConfiguration } from '@/infrastructure/providers/configuration/contracts';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
   getRuntimeConfiguration,
   withRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   getConnectableProviders,
   getProvider,
   registerProvider,
   resetProviders,
   withProviderOverrides,
-} from '@/infrastructure/providers/registry';
-import type { ConnectableProvider } from '@/infrastructure/providers/types';
+} from '@prokopai/core/infrastructure/providers/registry';
+import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
 import {
   configureStorage,
   createSession,
   getStorage,
   withStorage,
-} from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   configureWorkspaceToolDiscovery,
   discoverWorkspaceTools,
   getWorkspaceToolDiscovery,
   withWorkspaceToolDiscovery,
   type WorkspaceToolDiscovery,
-} from '@/infrastructure/tools/tool-source';
+} from '@prokopai/core/infrastructure/tools/tool-source';
 
 function buildConfiguration(temperature: number): RuntimeConfiguration {
   return {

@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { generateText, jsonSchema, stepCountIs, streamText, tool } from 'ai';
 import type { AssistantMessage, MessageWithParts } from '@prokopai/sdk/types';
-import { createProtocolModel } from '@/infrastructure/providers/protocol-model';
+import { createProtocolModel } from '@prokopai/core/infrastructure/providers/protocol-model';
 import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
 import { createSingleModelConfiguration } from '@/infrastructure/providers/configuration/single-model';
-import { withRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { withProviderOverrides } from '@/infrastructure/providers/registry';
+import { withRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
 import { buildStreamConfig } from '@/harnesses/prokop/execution/stream/stream-config';
 
 function stored(reasoning?: string, mode?: AssistantMessage['mode']): MessageWithParts {

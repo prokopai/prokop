@@ -3,7 +3,7 @@ import type { TodoListVisualization, TodoListItem } from '@prokopai/sdk';
 import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
-import { getDataDir } from '@/infrastructure/runtime/paths';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
 const VALID_PRIORITIES = ['high', 'medium', 'low'];

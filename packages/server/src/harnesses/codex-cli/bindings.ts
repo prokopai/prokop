@@ -1,6 +1,6 @@
-import type { NativeRecord } from '@/infrastructure/storage/contracts';
-import { getStorage } from '@/infrastructure/storage/runtime';
-import { insertNative, updateNative, withinTransaction, type StoreTransaction } from '@/infrastructure/storage/transaction';
+import type { NativeRecord } from '@prokopai/core/infrastructure/storage/contracts';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { insertNative, updateNative, withinTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 
 export interface CodexBinding {
   sessionId: string;

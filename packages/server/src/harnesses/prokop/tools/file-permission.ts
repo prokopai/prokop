@@ -20,7 +20,7 @@ import {
   type Concern,
   type ConcernsPermissionAsk,
   type FileOperation,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 
 /** Raw tool asks carry target; builder-produced ones do not. Both pass through. */
 export type ToolPermissionAsk = ConcernsPermissionAsk & { target?: 'permission' };

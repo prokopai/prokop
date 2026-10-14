@@ -22,7 +22,7 @@ import {
   getParticipantClientIds,
   getParticipantConnections,
 } from '@/transport/websocket/control-registry';
-import { scanTools } from '@/infrastructure/tools/registry';
+import { scanTools } from '@prokopai/core/infrastructure/tools/registry';
 import { closeDatabase, getDatabase } from '@/infrastructure/sqlite/database';
 import { backfillFts } from '@/infrastructure/session-search/fts';
 import type { ServerMessage, AskAuthority } from '@prokopai/sdk';
@@ -30,12 +30,12 @@ import { getTerminalManager, getTerminalEventManager } from '@/transport/termina
 import { cleanupRunningSessionsOnStartup } from '@/infrastructure/sqlite/terminal-session-store';
 import { reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
 import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { disposeExecutionLifecycle, initializeExecutionLifecycle } from '@/application/ports/execution-lifecycle';
 import { reconcileAllOrphanedToolCalls } from '@/infrastructure/sqlite/message-store';
 import { cleanupAllPendingAsks } from '@/infrastructure/sqlite/pending-asks';
 import { cleanupOrphanedData } from '@/infrastructure/sqlite/cleanup';
-import { getPort } from '@/config';
+import { getPort } from '@prokopai/core/config';
 import { validateToken, isAuthDisabled } from '@/transport/http/middleware/token';
 import { createRequestHandler } from '@/transport/request-handler';
 import { createListenerSet, type ListenerEndpoint, type ListenerSet } from '@/transport/listeners';
@@ -63,8 +63,8 @@ import {
   resolveTlsPort,
   isLoopbackHost,
   isWildcardHost,
-} from '@/infrastructure/runtime/environment';
-import { activateSandbox } from '@/infrastructure/sandbox';
+} from '@prokopai/core/infrastructure/runtime/environment';
+import { activateSandbox } from '@prokopai/core/infrastructure/sandbox';
 import { getEmbeddedClientAssetsRoot } from '@/infrastructure/runtime/client-assets';
 import { getOrCreateInstallationId } from '@/infrastructure/runtime/installation-id';
 import { buildPairingUrl } from '@/infrastructure/runtime/pairing-urls';

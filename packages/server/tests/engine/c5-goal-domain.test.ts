@@ -15,7 +15,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AssistantMessage, GoalState, Session, TextPart } from '@prokopai/sdk/types';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import {
   CURRENT_GOAL_DOMAIN_PLUGIN_ID,
@@ -38,10 +38,10 @@ import {
 } from '@/harnesses/prokop/goals/loop';
 import { getGoalDomain, withGoalDomain } from '@/harnesses/prokop/goals/service';
 import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function minimalHost(): RuntimeHost {
   return {

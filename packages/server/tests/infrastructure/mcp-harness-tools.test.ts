@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createClaudeWorkspaceMcp } from '@/harnesses/claude-cli/mcp-tools';
 import { createCodexMcpTools } from '@/harnesses/codex-cli/mcp-tools';
-import type { WorkspaceMcpTool } from '@/application/ports/mcp-tools';
+import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
 
 describe('harness MCP adapters', () => {
   test('Claude preserves raw schemas and result content and denies after cancellation', async () => {

@@ -16,13 +16,13 @@ import {
 import { createContextSectionsPlugin } from '@/harnesses/prokop/composition/plugins/context-sections';
 import { defaultAgentDriverPlugin } from '@/harnesses/prokop/composition/plugins/default-agent-driver';
 import { getContextSources } from '@/harnesses/prokop/context/sources';
-import { getRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
-import { getSandboxController } from '@/infrastructure/sandbox/controller';
+import { getRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { getSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { getSchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { getStorage } from '@/infrastructure/storage/runtime';
-import { getWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { goalDomainPlugin, CURRENT_GOAL_DOMAIN_PLUGIN_ID } from '@/harnesses/prokop/composition/plugins/goal-domain';
 import {
   memoryDomainPlugin,

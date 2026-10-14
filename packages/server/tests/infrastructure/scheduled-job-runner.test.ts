@@ -4,8 +4,8 @@ import type {
   ScheduledRunSessionPort,
   ScheduledRunWorkspacePort,
 } from '@/application/ports/scheduling';
-import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
-import type { HeadlessSessionRunInput } from '@/application/ports/headless-execution';
+import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
+import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import type { ScheduledJobRunnerDeps } from '@/infrastructure/scheduling/scheduled-job-runner';
 
 const { createScheduledJobRunner } = await import('@/infrastructure/scheduling/scheduled-job-runner');

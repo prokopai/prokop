@@ -2,11 +2,11 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Session } from '@prokopai/sdk';
-import { agentDirectoryPath } from '@/domains/agents/home';
-import { effectivePath } from '@/domains/permissions';
-import { getDataDir, getUploadDir } from '@/infrastructure/runtime/paths';
-import { getWorkspace } from '@/infrastructure/storage/runtime';
-import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
+import { agentDirectoryPath } from '@prokopai/core/domains/agents/home';
+import { effectivePath } from '@prokopai/core/domains/permissions';
+import { getDataDir, getUploadDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
+import { ensureSessionTempDir } from '@prokopai/core/infrastructure/filesystem/session-temp';
 
 /** Allowed roots for a session's permission checks. */
 export interface SessionPermissionRoots {

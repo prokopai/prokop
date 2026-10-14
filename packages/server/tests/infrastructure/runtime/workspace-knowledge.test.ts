@@ -8,7 +8,7 @@ import {
   resolveWorkspaceMemoryDir,
   resolveWorkspaceSkillsDir,
   workspaceKnowledgeRoot,
-} from '@/infrastructure/runtime/workspace-dirs';
+} from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';

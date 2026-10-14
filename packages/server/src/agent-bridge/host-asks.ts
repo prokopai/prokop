@@ -1,7 +1,7 @@
 import type { HostHandlers } from '@prokopai/agent-protocol';
-import type { HarnessAskStore } from '@/infrastructure/runtime/harness-asks';
-import type { CreateGrantParams } from '@/infrastructure/runtime/host';
-import type { AgentAskPort } from '@/application/ports/agent-asks';
+import type { HarnessAskStore } from '@prokopai/core/infrastructure/runtime/harness-asks';
+import type { CreateGrantParams } from '@prokopai/core/infrastructure/runtime/host';
+import type { AgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 
 /**
  * Host side of the harness ask store: the two `interaction.*` requests only

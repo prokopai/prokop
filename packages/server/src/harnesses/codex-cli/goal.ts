@@ -1,6 +1,6 @@
 import type { CodexGoalState, Session } from '@prokopai/sdk';
-import type { ApplicationDeliveryPort } from '@/application/ports/delivery';
-import { getSession, updateSession } from '@/infrastructure/storage/runtime';
+import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
+import { getSession, updateSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
 
 const GOAL_STATUSES = new Set(['active', 'paused', 'blocked', 'usageLimited', 'budgetLimited', 'complete']);

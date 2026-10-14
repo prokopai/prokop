@@ -1,21 +1,21 @@
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { relative, isAbsolute, sep } from 'node:path';
 import type { AssistantMessage, Message, Part, Session, TextPart } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { InterruptExecutionResult } from '@/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { InterruptExecutionResult } from '@prokopai/core/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '@/harnesses/shared/steering';
 import {
   createMessage, createPart, deleteMessage, getAttachment, getHandoffBrief, getMessageWithParts, getSession, getWorkspace,
   listMessagesWithParts, updateMessage, updatePart, updateSession,
-} from '@/infrastructure/storage/runtime';
-import { storeTransaction } from '@/infrastructure/storage/transaction';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import { cliWorkspaceAvailable, resolveCliRoot } from '@/harnesses/shared/cli-workspace';
 import { notifySessionFilesChanged } from '@/harnesses/shared/files-changed';
 import { notifyHarnessTurnFinished } from '@/harnesses/shared/notifications';
-import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
-import type { AttachmentRecord as Attachment } from '@/infrastructure/storage/contracts';
-import { getAttachmentDir } from '@/infrastructure/runtime/paths';
+import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
+import type { AttachmentRecord as Attachment } from '@prokopai/core/infrastructure/storage/contracts';
+import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
 import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
 import { hasCodexForkIntent } from './native-state';
@@ -39,11 +39,11 @@ import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBr
 import { applyRollback, clearRollbackIntent, getRollbackIntent, readRollbackHistory, readTurnIds, retargetReadyEdit, sameTurns, saveRollbackIntent, setRollbackPhase } from './rollback';
 import { forkCodexSession } from './fork';
 import { codexCliVersion } from './version';
-import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/filesystem/session-temp';
-import { isWithinRoot } from '@/domains/permissions';
-import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
+import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
+import { isWithinRoot } from '@prokopai/core/domains/permissions';
+import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
 import { createCodexMcpTools } from './mcp-tools';
-import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 
 export { codexCliVersion } from './version';
 
@@ -362,7 +362,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
     return run.steerChain;
   }
   async function rollback<Origin>(sessionId: string, operation: 'edit' | 'revert', targetMessageId: string,
-    content: string | null, wire?: SessionWirePorts<Origin>): Promise<import('@/application/ports/execution').RevertExecutionResult | null> {
+    content: string | null, wire?: SessionWirePorts<Origin>): Promise<import('@prokopai/core/application/ports/execution').RevertExecutionResult | null> {
     const session = await getSession(sessionId);
     if (!session || session.harness !== 'codex-cli' || session.status === 'closed'
       || codexObject(session.metadata)?.codexCompactPending

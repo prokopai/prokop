@@ -8,9 +8,9 @@ import {
   loadInstructions,
   readAgentMemoryFile,
 } from '@/harnesses/prokop/context/sources';
-import { getWorkspace } from '@/infrastructure/storage/runtime';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import { getHostGuidance } from '@/harnesses/prokop/context/host-guidance';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import {
   validateContextAssemblyData,
   type ContextAssembler,

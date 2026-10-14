@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Tool } from 'ai';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { getToolOutputArtifactPage, withStorage } from '@/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { getToolOutputArtifactPage, withStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import {
   applyToolOutputPolicy,
   isToolOutputArtifactReference,
@@ -13,7 +13,7 @@ import {
 import {
   createCapekToolOutputEnvelope,
   isCapekToolOutputEnvelope,
-} from '@/infrastructure/tools/model-output';
+} from '@prokopai/core/infrastructure/tools/model-output';
 
 function policyContext(toolName = 'synthetic') {
   return {

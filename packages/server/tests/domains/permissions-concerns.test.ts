@@ -9,7 +9,7 @@ import {
   matchDestructiveRule,
   type Finding,
   type InvocationShape,
-} from '@/domains/permissions';
+} from '@prokopai/core/domains/permissions';
 
 function finding(partial: Partial<Finding> = {}): Finding {
   return { concerns: [], catastrophic: false, evidence: [], resolvedPaths: [], ...partial };

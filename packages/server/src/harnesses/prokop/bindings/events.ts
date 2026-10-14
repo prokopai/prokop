@@ -1,7 +1,7 @@
-import type { RuntimeDelivery, RuntimeEvent, RuntimeEventContext } from '@/infrastructure/runtime/events';
+import type { RuntimeDelivery, RuntimeEvent, RuntimeEventContext } from '@prokopai/core/infrastructure/runtime/events';
 import type { Session as CapekSession } from '@prokopai/sdk/types/session';
 import type { AskAuthority, ServerMessage } from '@prokopai/sdk';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 
 export function mapCapekEventToServerMessage(event: RuntimeEvent): ServerMessage | null {
   switch (event.kind) {

@@ -49,7 +49,7 @@ import { createProkopProviderRegistryPort } from '@/adapters/providers/runtime-r
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { getModelsConfigWithStatus } from '@/config/models';
-import { findModelVariantKeys } from '@/config';
+import { findModelVariantKeys } from '@prokopai/core/config';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import { countMessagesInSession } from '@/infrastructure/sqlite/message-store';
@@ -83,32 +83,32 @@ import {
 } from '@/adapters/prokop';
 import { getTerminalManager, installTerminalSessionStore } from '@/transport/terminal';
 import { broadcastEvent, broadcastSessionUpdated, sendToConnectionEvent } from '@/transport/websocket/broadcast';
-import { addWorkspaceFilesChangedObserver } from '@/application/workspaces/files-changed';
+import { addWorkspaceFilesChangedObserver } from '@prokopai/core/application/workspaces/files-changed';
 import { setMcpChangeListener } from '@/infrastructure/mcp';
-import { harnessProbes } from '@/application/ports/harness-probes';
+import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { browserService } from '@/infrastructure/browser/service';
 import { installBrowserRequestsPort } from '@/application/ports/browser';
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { createTransportControllerPorts } from '@/transport/websocket/control-port';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
-import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
-import { getDataDir } from '@/infrastructure/runtime/paths';
+import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { codexAccounts } from '@/infrastructure/providers/codex-accounts';
 import { codexAccountRuntime } from '@/infrastructure/providers/codex';
 import { createCodexAccountUsagePort } from '@/infrastructure/providers/codex-usage';
 import { createProviderUsagePort } from '@/infrastructure/providers/usage';
-import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
+import { getLLMApiKeys } from '@prokopai/core/infrastructure/runtime/environment';
 import {
   createProkopLearningRuntime, codexCliAvailable, codexCliVersion, createHarnessRegistrations, claudeCliAvailable, claudeCliVersion, cliWorkspaceAvailable,
 } from '@/agent';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
-import { createHarnessExecution } from '@/application/sessions/harness-execution';
+import { createHarnessExecution } from '@prokopai/core/application/sessions/harness-execution';
 import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
-import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
-import { fallbackSessionTitle } from '@/infrastructure/session-title';
+import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
+import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
 import { createDeviceAccessRepository } from '@/infrastructure/sqlite/device-access';

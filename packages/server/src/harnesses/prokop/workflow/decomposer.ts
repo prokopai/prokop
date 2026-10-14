@@ -1,6 +1,6 @@
 import { listSubagentPreconfigs } from '@/harnesses/prokop/context/sources';
 import type { WorkflowSubtask, Preconfig } from '@prokopai/sdk/types';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import {
   runOrchestratorSession,
   type OrchestratorSessionOptions,

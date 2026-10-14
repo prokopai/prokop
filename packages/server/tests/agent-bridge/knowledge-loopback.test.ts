@@ -7,8 +7,8 @@ import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 

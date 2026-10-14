@@ -18,12 +18,12 @@ import {
   resolveModelSpecifier,
 } from '@/infrastructure/providers/configuration/single-model';
 import { createStandaloneHost } from '#tests/engine/helpers/standalone-host';
-import { SandboxProvider } from '@/infrastructure/sandbox/provider';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { loadedToolsPlugin } from '@/harnesses/prokop/composition/plugins/loaded-tools';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { capekToolResolverKey } from '@/harnesses/prokop/composition/plugins/service-keys';
-import type { ToolRegistryResolver } from '@/infrastructure/tools/registry';
+import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import { retrieveToolOutputStandardTool } from '@/harnesses/prokop/tool-output/policy';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 

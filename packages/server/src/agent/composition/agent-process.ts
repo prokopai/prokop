@@ -4,10 +4,10 @@ import {
   type AgentEndpoint, type AgentHandlers, type MessageChannel,
 } from '@prokopai/agent-protocol';
 import type { SessionHarness } from '@prokopai/sdk';
-import { createAgentsApplication } from '@/application/agents';
-import type { AgentWorkspacePort } from '@/application/ports/agents';
-import { installBuiltinToolsPort } from '@/application/ports/builtin-tools';
-import { getPreconfig, listPreconfigs } from '@/infrastructure/config/preconfig';
+import { createAgentsApplication } from '@prokopai/core/application/agents';
+import type { AgentWorkspacePort } from '@prokopai/core/application/ports/agents';
+import { installBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
+import { getPreconfig, listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 import {
   configureProkopAgentSource,
   configureProkopInstructionSource,
@@ -20,10 +20,11 @@ import {
 import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
 import { warmInstalledToolsCache } from '@/harnesses/prokop/bindings/tool-resolver';
 import { builtinTools } from '@/harnesses/prokop/tools';
-import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
-import { getDataDir } from '@/infrastructure/runtime/paths';
-import { activateSandbox } from '@/infrastructure/sandbox';
-import { installSandboxController } from '@/infrastructure/sandbox/controller';
+import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { configureWorkspaceKnowledgeRoot } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
+import { activateSandbox } from '@prokopai/core/infrastructure/sandbox';
+import { installSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { ForwardingSandboxController } from '@/agent/protocol/sandbox';
 import { composeAgentSide } from './agent-side';
 import { createHarnessRegistrations } from './harness-registrations';
@@ -86,6 +87,8 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
     titles: { 'codex-cli': hostOnly('Codex title regeneration'), 'claude-cli': hostOnly('Claude title regeneration') },
   });
   side.registerExecutors(registrations);
+  // CLI memory and skill tools resolve worktree knowledge from the roots the host resolved.
+  configureWorkspaceKnowledgeRoot(side.knowledgeRootOf);
 
   handlers.initialize = async (params) => {
     if (params.protocolVersion !== PROTOCOL_VERSION) {

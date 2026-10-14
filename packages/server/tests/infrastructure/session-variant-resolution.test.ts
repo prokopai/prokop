@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Database } from 'bun:sqlite';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
-import { clearModelsCache } from '@/config';
+import { clearModelsCache } from '@prokopai/core/config';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import type { Session } from '@prokopai/sdk';
 

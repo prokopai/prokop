@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';
 import type { AgentScopeHandle, ProcessScopeHandle } from '@/harnesses/prokop/composition/kernel/types';
-import { withRuntimeHost, getRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { withRuntimeHost, getRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { createStandaloneHost } from './standalone-host';
 import { createFacadeAgentPlugins, type FacadeScopeValues } from './facade-plugins';
 

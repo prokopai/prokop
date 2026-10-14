@@ -1,7 +1,7 @@
 import type { Preconfig } from '@prokopai/sdk';
 import type { ToolResult } from '@prokopai/sdk/tool';
 import type { LearningReviewToolRegistry } from '@/application/learning/review-tools';
-import type { HeadlessSessionRunPort } from '@/application/ports/headless-execution';
+import type { HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
 
 /** What a learning review sees agent-side: its run input and its host-backed tools. */
 export interface ReviewCall {

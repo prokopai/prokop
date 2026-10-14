@@ -2,10 +2,10 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, sep } from 'node:path';
 import type { Session } from '@prokopai/sdk';
-import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@/domains/attachments';
-import type { AttachmentRecord as Attachment } from '@/infrastructure/storage/contracts';
-import { getAttachment } from '@/infrastructure/storage/runtime';
-import { getAttachmentDir } from '@/infrastructure/runtime/paths';
+import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
+import type { AttachmentRecord as Attachment } from '@prokopai/core/infrastructure/storage/contracts';
+import { getAttachment } from '@prokopai/core/infrastructure/storage/runtime';
+import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 export interface ClaudeImage extends Attachment {
   data: string;

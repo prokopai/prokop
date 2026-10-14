@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import type { Session } from '@prokopai/sdk';
-import type { SessionExecutionPort } from '@/application/ports/execution';
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import { createHarnessExecution, type HarnessRegistration } from '@/application/sessions/harness-execution';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import { createHarnessExecution, type HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
 import { createClaudeCliHarness } from '@/harnesses/claude-cli';
 
 function fixture() {

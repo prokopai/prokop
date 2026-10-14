@@ -1,6 +1,6 @@
 import type { AgentSide, Audience, HostEndpoint, NotificationHandlers } from '@prokopai/agent-protocol';
 import type { ServerMessage, SessionHarness } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { type AgentExecutor, type AgentHeadlessRun } from '@/agent';
 
 interface RequestContext {

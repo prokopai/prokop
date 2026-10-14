@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import type { NativeHarness, NativeKey, NativeRecord } from '@/infrastructure/storage/contracts';
+import type { NativeHarness, NativeKey, NativeRecord } from '@prokopai/core/infrastructure/storage/contracts';
 import { getDatabase } from './database';
 
 /**
@@ -10,7 +10,7 @@ import { getDatabase } from './database';
  * JSON. Writes are compare-and-set so they map onto `store.commit` checks.
  */
 
-export type { NativeHarness } from '@/infrastructure/storage/contracts';
+export type { NativeHarness } from '@prokopai/core/infrastructure/storage/contracts';
 export type HarnessStateKey = NativeKey;
 export type HarnessStateRecord<V = unknown> = NativeRecord<V>;
 

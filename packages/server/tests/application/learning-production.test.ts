@@ -8,7 +8,7 @@ import { createWiredLearning } from '@/bootstrap/learning';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
 import { learningReviewTools } from '@/application/learning/review-tools';
 import { reviewHeadless, type ReviewCall } from '#tests/helpers/learning-review';
-import type { HeadlessSessionRunInput } from '@/application/ports/headless-execution';
+import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import { createSessionSchema, updateSessionSchema } from '@/transport/http/routes/schemas';
 import { registerLearningRoutes } from '@/transport/http/routes/learning';
 import { getSession, updateSession, createSession } from '@/infrastructure/sqlite/session-store';

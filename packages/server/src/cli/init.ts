@@ -4,7 +4,7 @@ import {
   getPromptsDir,
   getEnvFilePath,
   getGlobalAgentsPath,
-} from '@/infrastructure/runtime/paths';
+} from '@prokopai/core/infrastructure/runtime/paths';
 
 import {
   getConfigPath,
@@ -15,9 +15,9 @@ import {
   clearConfigCache,
   getModelsConfigPath,
   clearModelsCache,
-} from '@/config';
+} from '@prokopai/core/config';
 import { runMigrations } from '@/infrastructure/sqlite/database';
-import { initializePreconfigs, migrateUuidPreconfigs } from '@/infrastructure/config/preconfig';
+import { initializePreconfigs, migrateUuidPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 import defaultModelsJson from '@/config/models.json';
 
 export interface InitOptions {

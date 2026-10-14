@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
-import type { AutoResponderRule, SandboxResponse } from '@/infrastructure/sandbox/types';
-import { isSandboxActive } from '@/infrastructure/sandbox';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { AutoResponderRule, SandboxResponse } from '@prokopai/core/infrastructure/sandbox/types';
+import { isSandboxActive } from '@prokopai/core/infrastructure/sandbox';
 
 interface AutoResponderRequestBody {
   rules?: AutoResponderRule[];

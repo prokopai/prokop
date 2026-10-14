@@ -13,7 +13,7 @@
  *   override the advice methods on its instance, but the runtime never
  *   consults those overrides for mandatory decisions.
  */
-import { resolveAskAuthority } from '@/domains/permissions/ask-authority';
+import { resolveAskAuthority } from '@prokopai/core/domains/permissions/ask-authority';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Ask } from '@prokopai/sdk/tool';
@@ -21,11 +21,11 @@ import type { AskPermissionResponse, GrantScope, PermissionIntent } from '@proko
 import type { PermissionAsk, PermissionRiskLevel } from '@prokopai/sdk/tool';
 import { SHELL_FILESYSTEM_COMMANDS } from '@prokopai/sdk/tool';
 import { SHELL_DANGEROUS_COMMANDS } from '@prokopai/sdk/tool';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type {
   CreateGrantParams,
   PendingAskRecord,
-} from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/runtime/host';
 import type {
   AskPermissionPolicyOptions,
   AskPermissionPolicyService,

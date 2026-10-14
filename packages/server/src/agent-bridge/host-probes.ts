@@ -1,6 +1,6 @@
 import type { HostEndpoint } from '@prokopai/agent-protocol';
 import type { CodexModel, HarnessUsageLimits } from '@prokopai/sdk';
-import type { HarnessProbePort } from '@/application/ports/harness-probes';
+import type { HarnessProbePort } from '@prokopai/core/application/ports/harness-probes';
 
 /** Host side of the CLI probes: each read is an agent request. */
 export function createProtocolHarnessProbes(endpoint: () => HostEndpoint): HarnessProbePort {

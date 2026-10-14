@@ -3,7 +3,7 @@ import {
   initializePreconfigs,
   listPreconfigs,
   getPreconfig,
-} from '@/infrastructure/config/preconfig';
+} from '@prokopai/core/infrastructure/config/preconfig';
 import { builtinTools, builtinToolNames } from '@/harnesses/prokop/tools';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';
 
@@ -105,7 +105,7 @@ describe('default preconfigs', () => {
     expect(modified).toBe(true);
 
     async function updateAndGet(): Promise<boolean> {
-      const { updatePreconfig } = await import('@/infrastructure/config/preconfig');
+      const { updatePreconfig } = await import('@prokopai/core/infrastructure/config/preconfig');
       await updatePreconfig('explore', { description: 'user-edited' });
       await initializePreconfigs();
       const explore = await getPreconfig('explore');

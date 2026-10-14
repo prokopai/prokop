@@ -1,5 +1,5 @@
 import type { AgentHandlers } from '@prokopai/agent-protocol';
-import type { HarnessProbePort } from '@/application/ports/harness-probes';
+import type { HarnessProbePort } from '@prokopai/core/application/ports/harness-probes';
 import { listCachedClaudeModels, readCachedClaudeUsageLimits, readClaudeSessionTitle } from '@/harnesses/claude-cli';
 import { listCachedCodexModels, readCachedCodexUsageLimits } from '@/harnesses/codex-cli';
 

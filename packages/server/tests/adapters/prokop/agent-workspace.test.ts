@@ -3,16 +3,16 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { setupTestDataDir, resetTestDataDir } from '#tests/test-dir';
-import { createAgentsApplication } from '@/application/agents';
+import { createAgentsApplication } from '@prokopai/core/application/agents';
 import {
   createProkopAgentPreconfigPort,
   createProkopAgentWorkspacePort,
   createProkopSessionRepository,
 } from '@/adapters/prokop';
-import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
-import { agentHomeWorkspaceSettings } from '@/domains/agents';
+import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
+import { agentHomeWorkspaceSettings } from '@prokopai/core/domains/agents';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { getDataDir } from '@/infrastructure/runtime/paths';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 describe('prokop agents adapters over the real store and filesystem', () => {
   beforeEach(() => {

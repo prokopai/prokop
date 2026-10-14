@@ -10,14 +10,14 @@ import {
   DOMAIN_TOOL_PAYLOAD_FIELD,
   registerDomainToolFallback,
   type DomainToolPayload,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { validateContextAssemblyData, type ContextAssemblyData } from '@/harnesses/prokop/context/assembler';
 import type { ContextSources } from '@/harnesses/prokop/context/sources';
 import { executeMemoryTool, memoryToolDefinition } from '@/harnesses/shared/memory/memory-tool';
 import { loadMemoryInstructions } from '@/harnesses/shared/memory/registry';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { getHostGuidance } from '@/harnesses/prokop/context/host-guidance';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import { capekContextSourcesKey, capekStorageKey } from '@/harnesses/prokop/composition/plugins/service-keys';
 
 /**

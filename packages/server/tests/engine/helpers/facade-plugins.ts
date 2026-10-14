@@ -6,17 +6,17 @@
  * controller, or provider overrides.
  */
 
-import type { RuntimeConfiguration } from '@/infrastructure/providers/configuration/contracts';
+import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
 import type { ContextSources } from '@/harnesses/prokop/context/sources';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 import type { RuntimePlugin } from '@/harnesses/prokop/composition/kernel/types';
-import type { ConnectableProvider } from '@/infrastructure/providers/types';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import type { SandboxController } from '@/infrastructure/sandbox/controller';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import type { ToolRegistryResolver } from '@/infrastructure/tools/registry';
-import type { WorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
-import type { WorkspacePolicyOptions } from '@/infrastructure/filesystem/workspace-policy/contracts';
+import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
+import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
+import type { WorkspacePolicyOptions } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 import { getSchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
 import { createContextSectionsPlugin } from '@/harnesses/prokop/composition/plugins/context-sections';

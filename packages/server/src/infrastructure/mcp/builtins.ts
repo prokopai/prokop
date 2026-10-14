@@ -1,6 +1,6 @@
 import { BUILTIN_MCP_NAMES, type McpBuiltinId, type McpStatus } from '@prokopai/sdk';
-import type { WorkspaceMcpResult } from '@/application/ports/mcp-tools';
-import { browserTools } from '@/infrastructure/browser/catalog';
+import type { WorkspaceMcpResult } from '@prokopai/core/application/ports/mcp-tools';
+import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 import { browserConnection, browserService } from '@/infrastructure/browser/service';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { renderHtml, renderHtmlDefinition } from '@/infrastructure/visuals/render-html';

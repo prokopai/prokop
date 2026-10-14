@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
 import { installSchedulerToolFallback } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
 import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
@@ -11,7 +11,7 @@ import {
   getDomainToolFallback,
   resetDomainToolFallbacksForTests,
   withContributedDomainToolPayloads,
-} from '@/infrastructure/tools/domain-tool-source';
+} from '@prokopai/core/infrastructure/tools/domain-tool-source';
 
 // The retired compat barrel also re-exported the C6 step 2 store-wiring
 // seam (reconcileSessionCompactionWithDeps / reconcileAllSessionsCompaction

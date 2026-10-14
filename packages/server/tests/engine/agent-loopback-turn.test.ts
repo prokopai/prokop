@@ -15,10 +15,10 @@ import { createProtocolRuntimeHost } from '@/agent/protocol/runtime-host';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createAgentLoopback, createLoopbackStorage } from '@/agent-bridge/loopback';
 import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
-import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import type { RuntimeDelivery } from '@prokopai/core/infrastructure/runtime/events';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { StandaloneAgent } from '#tests/engine/helpers/standalone-agent';
 
 const cleanup: Array<() => Promise<void> | void> = [];

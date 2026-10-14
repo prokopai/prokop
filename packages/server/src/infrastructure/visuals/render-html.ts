@@ -13,12 +13,14 @@ import {
   formatHtmlRenderMarker,
   type HtmlRenderReference,
 } from '@prokopai/sdk';
-import type { WorkspaceMcpResult } from '@/application/ports/mcp-tools';
+import type { WorkspaceMcpResult } from '@prokopai/core/application/ports/mcp-tools';
+import { WHEN_TO_USE } from '@prokopai/core/infrastructure/visuals/render-html-guidance';
+
+export { renderHtmlGuidance } from '@prokopai/core/infrastructure/visuals/render-html-guidance';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 
-const WHEN_TO_USE = 'Use it without being asked whenever a chart, table, diagram, timeline, comparison or mockup would explain the answer better than text, such as numbers across categories or over time. Short answers stay text.';
 
 const description = [
   'Show a finished HTML page inline in this conversation, above your text reply: a chart, table, diagram, comparison, timeline or UI mockup.',
@@ -33,14 +35,6 @@ const description = [
   'Use --chart-1 to --chart-5 for data series.',
 ].join(' ');
 
-/**
- * Harness instructions while render_html is available. Claude Code may defer
- * MCP tools and Codex reaches them only through its MCP bridge, so neither
- * model sees the tool description until it looks.
- */
-export function renderHtmlGuidance(call: string): string {
-  return `You can show an HTML page inline in your reply with the render_html tool (${call}). ${WHEN_TO_USE} Read its tool description before the first call: it has the layout and theme rules.`;
-}
 
 const DEFAULT_HEIGHT = 480;
 

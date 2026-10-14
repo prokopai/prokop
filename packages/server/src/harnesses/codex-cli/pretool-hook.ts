@@ -2,11 +2,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type Server, type Socket } from 'node:net';
-import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { spawnCodexAppServer, CodexAppServer, codexObject, type CodexConnection } from './app-server';
 import { validHookCall, type CodexHookCall } from './hook-policy';
 import { logCodexPermissionDenial } from './permission-diagnostics';
-import { sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
+import { sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
 
 const MAX_INPUT = 128 * 1024;
 // The hook runs in Codex's shell. Keep its code inline for compiled Prokop binaries.

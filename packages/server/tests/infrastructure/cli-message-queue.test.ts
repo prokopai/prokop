@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from 'bun:test';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type CliRunningFlag } from '@/harnesses/shared/message-queue';
 import { addMessageToQueue } from '@/infrastructure/sqlite/queued-messages';
 import { getSession } from '@/infrastructure/sqlite/session-store';

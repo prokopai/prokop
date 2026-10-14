@@ -4,11 +4,11 @@ import type { ServerMessage } from '@prokopai/sdk';
 import { createTurnHandlers, type AgentExecutor } from '@/agent/protocol/turns';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createAgentLoopback } from '@/agent-bridge/loopback';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
-import { harnessProbes } from '@/application/ports/harness-probes';
-import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { getLearningReviewToolPort } from '@/application/ports/learning-review-tools';
+import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
+import { getHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
+import { getLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
 import { learningReviewTools } from '@/application/learning/review-tools';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 

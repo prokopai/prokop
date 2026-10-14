@@ -1,5 +1,5 @@
 import type { AgentEndpoint } from '@prokopai/agent-protocol';
-import type { HarnessAskStore } from '@/infrastructure/runtime/harness-asks';
+import type { HarnessAskStore } from '@prokopai/core/infrastructure/runtime/harness-asks';
 
 /** Agent side of the harness ask store: every call is an `interaction.*` host request. */
 export function createProtocolHarnessAsks(endpoint: AgentEndpoint): HarnessAskStore {

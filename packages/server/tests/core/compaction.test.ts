@@ -10,7 +10,7 @@ import {
 import type { GenerateSummaryFn } from '@/harnesses/prokop/compaction/contracts';
 import { createMessage, createPart, getPartsBySession, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import type { AssistantMessage, CompactionPart, ToolPart } from '@prokopai/sdk';
-import type { RuntimeEvent } from '@/infrastructure/runtime/events';
+import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 
 function createFakeGenerateSummary(overrides: {
   text?: string;

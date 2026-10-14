@@ -19,8 +19,8 @@ import {
   knownSubagentIds,
   sanitizeCanSpawnSubagentsIds,
   shouldMaterializeAgent,
-} from '@/domains/agents';
-import { PROMOTION_ERRORS } from '@/domains/agents';
+} from '@prokopai/core/domains/agents';
+import { PROMOTION_ERRORS } from '@prokopai/core/domains/agents';
 
 function preconfig(overrides: Partial<Preconfig> = {}): Preconfig {
   return {

@@ -6,15 +6,15 @@
 import {
   reconcileAllSessionsCompaction as reconcileAllSessionsWithDeps, reconcileSessionCompaction as reconcileSessionWithDeps, type CompactionRecoveryDeps, mapCapekEventToServerMessage,
 } from '@/agent';
-import type { RuntimeEventSink } from '@/infrastructure/runtime/events';
-import type { CompactionRecoveryPort } from '@/application/ports/session';
+import type { RuntimeEventSink } from '@prokopai/core/infrastructure/runtime/events';
+import type { CompactionRecoveryPort } from '@prokopai/core/application/ports/session';
 import {
   broadcastEvent,
   broadcastSessionUpdated,
   type BroadcastSessionFn,
 } from '@/transport/websocket/broadcast';
 import { createMessage, createPart, findOrphanedCompactionTriggers } from '@/infrastructure/sqlite/message-store';
-import { compactionFailureRecord } from '@/domains/sessions/compaction-failure';
+import { compactionFailureRecord } from '@prokopai/core/domains/sessions/compaction-failure';
 import { getSession, listSessions, updateSession } from '@/infrastructure/sqlite/session-store';
 
 export interface ReconcileOptions {

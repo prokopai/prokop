@@ -6,8 +6,8 @@ import {
   emitToAskTargets,
   emitToController,
   resolveSessionWorkspace,
-} from '@/infrastructure/runtime/host-dependencies';
-import { getLLMSubagentMaxSteps } from '@/infrastructure/providers/configuration/runtime';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getLLMSubagentMaxSteps } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   buildEffectiveContextHistory,
   createMessage,
@@ -16,9 +16,9 @@ import {
   getWorkspace,
   updateMessage,
   updateSession,
-} from '@/infrastructure/storage/runtime';
-import type { AskBroadcastFn, BroadcastFn } from '@/infrastructure/runtime/host';
-import { classifyApiError } from '@/infrastructure/providers/errors';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import type { AskBroadcastFn, BroadcastFn } from '@prokopai/core/infrastructure/runtime/host';
+import { classifyApiError } from '@prokopai/core/infrastructure/providers/errors';
 import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
 
 export async function executeChildSession(options: {

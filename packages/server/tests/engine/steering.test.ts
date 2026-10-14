@@ -7,13 +7,13 @@ import type { Preconfig } from '@prokopai/sdk/types';
 import { createComposition, createProcessScope, enterAgentScope, facadeProcessPlugins } from '#tests/engine/helpers/standalone-composition';
 import { createSingleModelConfiguration } from '@/infrastructure/providers/configuration/single-model';
 import { createStandaloneHost } from '#tests/engine/helpers/standalone-host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
-import { SandboxProvider } from '@/infrastructure/sandbox/provider';
-import type { AutoResponderRule, SandboxHistoryEntry } from '@/infrastructure/sandbox/types';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import { SandboxProvider } from '@prokopai/core/infrastructure/sandbox/provider';
+import type { AutoResponderRule, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
 import { handleChat } from '@/harnesses/prokop/execution/chat-handler';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
-import type { RuntimeEvent } from '@/infrastructure/runtime/events';
+import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 
 const tempRoots: string[] = [];
 afterEach(async () => {

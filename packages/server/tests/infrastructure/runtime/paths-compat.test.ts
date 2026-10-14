@@ -2,8 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync, mkdirSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { Paths, PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@/infrastructure/runtime/paths';
-import { resolveWorkspaceDir, resetWorkspaceDirWarnings } from '@/infrastructure/runtime/workspace-dirs';
+import { Paths, PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@prokopai/core/infrastructure/runtime/paths';
+import { resolveWorkspaceDir, resetWorkspaceDirWarnings } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 
 // Paths default resolution reads the real homedir; these tests exercise the
 // resolution rule through Paths.configure overrides and the shared resolve

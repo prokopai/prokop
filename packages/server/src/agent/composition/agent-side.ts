@@ -8,20 +8,20 @@ import {
   createProtocolKnowledgeWrite, createProtocolMcpTools, createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery,
 } from '@/agent/protocol/tools';
 import { createTurnHandlers, type AgentExecutor, type AgentHeadlessRun } from '@/agent/protocol/turns';
-import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
-import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
-import { severityFromMode } from '@/domains/permissions';
+import { installHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
+import { installLearningReviewToolPort } from '@prokopai/core/application/ports/learning-review-tools';
+import { configureHarnessMcpTools } from '@prokopai/core/application/ports/mcp-tools';
+import { severityFromMode } from '@prokopai/core/domains/permissions';
 import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
 import { createProkopToolWorkspaceHost } from '@/harnesses/prokop/bindings/tool-workspace';
 import { configureAgentTerminals } from '@/harnesses/prokop/tools/terminal/port';
 import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { configureHarnessAsks } from '@/infrastructure/runtime/harness-asks';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { resolveWorkspaceDir } from '@/infrastructure/runtime/workspace-dirs';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { configureHarnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { resolveWorkspaceDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { askHandlers } from './asks';
 import { probeHandlers } from './probes';
 
@@ -46,7 +46,11 @@ export function composeAgentSide(
   handlers: AgentHandlers,
   local: Pick<RuntimeHost, 'titles' | 'toolPolicy' | 'layout' | 'guidance'>,
   settings: AgentSideSettings,
-): { registerExecutors(registrations: AgentRegistrations): void } {
+): {
+  registerExecutors(registrations: AgentRegistrations): void;
+  /** Knowledge roots of the session roots the host resolved (a miss: the path is its own root). */
+  knowledgeRootOf(workingPath: string): string;
+} {
   Object.assign(handlers, askHandlers, probeHandlers);
   installHarnessNotificationPort({
     notifyTerminalMessage: (message, sessionId) =>
@@ -107,6 +111,7 @@ export function composeAgentSide(
   }));
 
   return {
+    knowledgeRootOf,
     registerExecutors(registrations) {
       const executors = Object.fromEntries(Object.entries(registrations)
         .map(([harness, registration]) => [harness, registration.execution])) as Record<SessionHarness, AgentExecutor>;

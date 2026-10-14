@@ -5,7 +5,7 @@ import {
   MEMORY_CHAR_LIMIT,
   USER_CHAR_LIMIT,
 } from '@/harnesses/shared/domain-tools';
-import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
+import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 
 /** Format opted-in workspace memory for Codex without memory-tool guidance. */
 export async function codexWorkspaceMemory(workspace: Workspace, root: string): Promise<string | null> {

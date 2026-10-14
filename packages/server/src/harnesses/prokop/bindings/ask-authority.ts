@@ -1,6 +1,6 @@
 import { ASK_TIMEOUT } from '@/harnesses/prokop/permission/ask-user-api';
-import { resolveAskAuthority } from '@/domains/permissions/ask-authority';
-import type { AskAuthorityPort } from '@/application/ports/session';
+import { resolveAskAuthority } from '@prokopai/core/domains/permissions/ask-authority';
+import type { AskAuthorityPort } from '@prokopai/core/application/ports/session';
 
 /**
  * Ask authority adapter (S3): the ask timeout, and authority derived from a

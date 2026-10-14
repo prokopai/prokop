@@ -7,7 +7,7 @@ import {
   getPreconfigSync,
   listPreconfigs,
   updatePreconfig,
-} from '@/infrastructure/config/preconfig';
+} from '@prokopai/core/infrastructure/config/preconfig';
 import {
   createValidatedPreconfig,
   updateValidatedPreconfig,

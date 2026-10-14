@@ -1,8 +1,8 @@
 import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { isAbsolute, join } from 'node:path';
-import { getSession, getWorkspace } from '@/infrastructure/storage/runtime';
-import { resolveWorkspaceMemoryDir } from '@/infrastructure/runtime/workspace-dirs';
+import { getSession, getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
+import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { safeSkillDirectory,
   type AgentSkillsDomainBridge, type MemoryDomainBridge, type SessionSearchDomainBridge } from '@/harnesses/shared/domain-tools';
 

@@ -1,7 +1,7 @@
 import { basename, dirname, join, resolve } from 'node:path';
-import { agentsRoot } from '@/domains/agents/home';
-import { getDataDir } from '@/infrastructure/runtime/paths';
-import { getLegacyProkopWorkspaceDir, getProkopaiWorkspaceDir } from '@/infrastructure/runtime/workspace-dirs';
+import { agentsRoot } from '@prokopai/core/domains/agents/home';
+import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { getLegacyProkopWorkspaceDir, getProkopaiWorkspaceDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
 
 /**

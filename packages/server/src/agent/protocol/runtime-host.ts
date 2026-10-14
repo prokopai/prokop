@@ -1,10 +1,10 @@
 import type { AgentEndpoint, Audience } from '@prokopai/agent-protocol';
 import type { AutoApproveSeverity, ServerMessage } from '@prokopai/sdk/types';
-import type { WorkspaceCapabilityHost } from '@/infrastructure/filesystem/workspace-policy/contracts';
-import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
+import type { WorkspaceCapabilityHost } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
+import type { RuntimeDelivery } from '@prokopai/core/infrastructure/runtime/events';
 import type {
   PendingAskRecord, RuntimeHost, TitleHost, ToolPolicyHost, WorkspaceCapabilityBindings,
-} from '@/infrastructure/runtime/host';
+} from '@prokopai/core/infrastructure/runtime/host';
 import { nextDeliverSeq } from './deliver-seq';
 
 type ToolWorkspaceOptions = Parameters<WorkspaceCapabilityBindings['createToolWorkspaceHost']>[0];

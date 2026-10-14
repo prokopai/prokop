@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import { getProviderPath, getProvidersDir } from '@/infrastructure/runtime/paths';
+import { getProviderPath, getProvidersDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 function ensureProvidersDir(): string {
   const dir = getProvidersDir();

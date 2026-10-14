@@ -24,8 +24,8 @@ import {
   getEmbeddedClientAssetsRoot,
   hasClientAssets,
 } from '@/infrastructure/runtime/client-assets';
-import { getClientEnabled } from '@/infrastructure/runtime/environment';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { getClientEnabled } from '@prokopai/core/infrastructure/runtime/environment';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { VERSION } from '@/version';
 import { HttpError } from '@/application/http-errors';
 import { createWiredApplication, type WiredApplication } from '@/bootstrap/application';

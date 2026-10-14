@@ -12,8 +12,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig, Workspace } from '@prokopai/sdk/types';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   ContextAssemblyDataError,
   getContextAssembler,
@@ -46,15 +46,15 @@ import {
   fixedBuilderContextAssembler,
 } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
 import { capekContextAssemblerKey } from '@/harnesses/prokop/composition/plugins/service-keys';
-import { resetProviders } from '@/infrastructure/providers/registry';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
-import type { SandboxControlEvent, SandboxHistoryEntry } from '@/infrastructure/sandbox/types';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { SandboxControlEvent, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 const roots: string[] = [];
 

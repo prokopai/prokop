@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { LanguageModel } from 'ai';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
   findModel,
   findModelVariant,
   getMaxOutputTokens,
-} from '@/infrastructure/providers/configuration/runtime';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
-import { findProviderFromModel, resolveModelId, resolveProviderId } from '@/infrastructure/providers/model-selection';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
+import { findProviderFromModel, resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure/providers/model-selection';
 import {
   connectProvider,
   createModelForProvider,
   getProviderStatus,
   registerProvider,
   resetProviders,
-} from '@/infrastructure/providers/registry';
+} from '@prokopai/core/infrastructure/providers/registry';
 
 afterEach(() => {
   configureRuntimeConfiguration();

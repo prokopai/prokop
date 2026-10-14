@@ -1,8 +1,8 @@
 import { existsSync, statSync } from 'node:fs';
 import { basename, extname, isAbsolute, join, normalize, resolve, sep } from 'node:path';
 
-import { getClientEnabled } from '@/infrastructure/runtime/environment';
-import { readEnv } from '@/infrastructure/runtime/env-compat';
+import { getClientEnabled } from '@prokopai/core/infrastructure/runtime/environment';
+import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',

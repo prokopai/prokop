@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { chmodSync, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ensureSessionTempDir, sessionTempEnvironment } from '@/infrastructure/filesystem/session-temp';
+import { ensureSessionTempDir, sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
 
 const fixtures: string[] = [];
 function fixture(): string {

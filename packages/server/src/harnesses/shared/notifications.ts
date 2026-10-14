@@ -1,6 +1,6 @@
 import type { Message } from '@prokopai/sdk';
-import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { getSession } from '@/infrastructure/storage/runtime';
+import { getHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 
 /** Learning reviews run as top-level sessions but are background work, never a user's chat. */
 async function isLearningRun(sessionId: string): Promise<boolean> {

@@ -10,7 +10,7 @@ import {
   scanTools,
   stopWatching,
   withToolRegistryResolver,
-} from '@/infrastructure/tools/registry';
+} from '@prokopai/core/infrastructure/tools/registry';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 
 const root = join(process.cwd(), '.tmp-capek-installed-cache');

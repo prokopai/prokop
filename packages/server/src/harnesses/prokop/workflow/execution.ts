@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import type { ToolDefinition } from '@prokopai/sdk/tool';
 import type { WorkflowInput, WorkflowResult, WorkflowSubtask } from '@prokopai/sdk/types';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
-import { getSession } from '@/infrastructure/storage/runtime';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { listSubagentPreconfigs } from '@/harnesses/prokop/context/sources';
 import {
   canSpawnSubagent,

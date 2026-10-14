@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { listPendingAsksBySession } from '@/infrastructure/sqlite/pending-asks';
-import { getStorage } from '@/infrastructure/storage/runtime';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedSession, seedWorkspace } from '#tests/seed';
 

@@ -5,10 +5,13 @@ import { isWithin, parseImports, resolveLocalSpecifier, scanDirectory } from '#t
 
 const repositoryRoot = resolve(import.meta.dir, '../../../..');
 const sourceRoot = resolve(repositoryRoot, 'packages/server/src');
+// Shared runtime core (packages/core, host/agent split phase 2.5c).
+const coreRoot = resolve(repositoryRoot, 'packages/core/src');
 const prokopRoot = resolve(sourceRoot, 'harnesses/prokop');
 const kernelRoot = resolve(prokopRoot, 'composition/kernel');
 
 function importsUnder(directory: string): Array<{ file: string; specifier: string; target: string | null }> {
+  if (!existsSync(directory)) return [];
   return scanDirectory(directory).filter(file => !file.path.endsWith('.test.ts')).flatMap(file =>
     parseImports(file.sourceText, file.path).map(imp => ({
       file: relative(sourceRoot, file.path),
@@ -37,7 +40,8 @@ describe('server-owned engine boundaries', () => {
       'harnesses/codex-cli', 'harnesses/claude-cli',
     ];
     for (const directory of directories) {
-      const imports = importsUnder(resolve(sourceRoot, directory));
+      // Shared services moved to packages/core keep the same folders there.
+      const imports = [...importsUnder(resolve(sourceRoot, directory)), ...importsUnder(resolve(coreRoot, directory))];
       expect(imports.length).toBeGreaterThan(0);
       expect(imports.filter(imp => imp.target && isWithin(imp.target, prokopRoot))).toEqual([]);
     }

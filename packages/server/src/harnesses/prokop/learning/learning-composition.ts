@@ -5,7 +5,7 @@ import {
   enterAgentScope,
   type RuntimePlugin,
 } from '@/harnesses/prokop/composition/plugins/compose';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { runtimeHostValuePlugin } from '@/harnesses/prokop/composition/plugins/value-plugins';
 import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
 import type { Preconfig } from '@prokopai/sdk';

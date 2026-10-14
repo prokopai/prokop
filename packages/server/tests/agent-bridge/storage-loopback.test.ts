@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import type { ToolPart } from '@prokopai/sdk/types';
 import { createLoopbackStorage } from '@/agent-bridge/loopback';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import {
   createTestAssistantMessage, createTestSession, createTestTextPart, createTestToolPart, createTestUserMessage,

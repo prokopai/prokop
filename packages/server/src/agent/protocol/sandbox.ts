@@ -1,6 +1,6 @@
 import type { AgentEndpoint } from '@prokopai/agent-protocol';
-import { SandboxController } from '@/infrastructure/sandbox/controller';
-import type { LlmCallContext, SandboxResponse } from '@/infrastructure/sandbox/types';
+import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { LlmCallContext, SandboxResponse } from '@prokopai/core/infrastructure/sandbox/types';
 
 /**
  * The agent process's sandbox controller: every sandboxed model call is

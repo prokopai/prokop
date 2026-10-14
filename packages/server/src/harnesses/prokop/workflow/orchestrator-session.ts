@@ -5,8 +5,8 @@ import {
   emitRuntimeEvent,
   emitSessionCreated,
   emitSessionUpdated,
-} from '@/infrastructure/runtime/host-dependencies';
-import { getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getModelsConfig } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   createMessage,
   createPart,
@@ -14,9 +14,9 @@ import {
   getSession,
   getWorkspaceAutoApproveSeverity,
   updateSession,
-} from '@/infrastructure/storage/runtime';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
-import { getModelWithMetadata } from '@/infrastructure/providers/model-resolution';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
+import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/model-resolution';
 import { extractJsonFromText } from '@/harnesses/prokop/execution/structured-output';
 
 /**

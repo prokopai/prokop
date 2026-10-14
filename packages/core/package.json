@@ -1,0 +1,37 @@
+{
+  "name": "@prokopai/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runtime core shared by the Prokop host and the agent process: ports, domains, providers, tools, sandbox, paths (host/agent split, see docs/plans/host-agent-split.md)",
+  "exports": {
+    "./application/agents": "./src/application/agents/index.ts",
+    "./config": "./src/config/index.ts",
+    "./domains/agents": "./src/domains/agents/index.ts",
+    "./domains/attachments": "./src/domains/attachments/index.ts",
+    "./domains/permissions": "./src/domains/permissions/index.ts",
+    "./infrastructure/config/defaults": "./src/infrastructure/config/defaults/index.ts",
+    "./infrastructure/sandbox": "./src/infrastructure/sandbox/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.116",
+    "@ai-sdk/openai": "^3.0.84",
+    "@ai-sdk/openai-compatible": "^2.0.74",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@openrouter/ai-sdk-provider": "^2.3.3",
+    "@prokopai/sdk": "workspace:*",
+    "ai": "^6.0.116",
+    "gray-matter": "^4.0.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "@types/node": "^22.19.15",
+    "bun-types": "^1.3.9",
+    "typescript": "^5.7.2"
+  }
+}

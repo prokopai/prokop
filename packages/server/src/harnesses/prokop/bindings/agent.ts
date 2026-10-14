@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { RuntimeHost } from '@/infrastructure/runtime/host';
+import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { fixedBuilderContextAssembler } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
 import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
 import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
@@ -8,7 +8,7 @@ import { installSkillsToolFallback } from '@/harnesses/prokop/composition/plugin
 import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
 import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
 import { setDefaultContextAssembler } from '@/harnesses/prokop/context/assembler';
-import { resolveWorkspaceMemoryDir, resolveWorkspaceSkillsDir } from '@/infrastructure/runtime/workspace-dirs';
+import { resolveWorkspaceMemoryDir, resolveWorkspaceSkillsDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { prokopSandboxBindings } from './sandbox';
 import { prokopTitleBindings } from './titles';
 import { prokopToolPolicy } from './tool-policy';

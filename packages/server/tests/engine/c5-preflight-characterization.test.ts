@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { jsonSchema, tool } from 'ai';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk/types';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { buildAiSdkTools, type BuildToolsOptions } from '@/harnesses/prokop/execution/build-tools';
 import {
   configureAgentSource,
@@ -29,9 +29,9 @@ import { LifecycleError } from '@/harnesses/prokop/composition/kernel/errors';
 import { CURRENT_CONTEXT_SECTION_IDS } from '@/harnesses/prokop/composition/plugins/context-sections';
 import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { resetProviders } from '@/infrastructure/providers/registry';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { resetDomainToolFallbacksForTests } from '@/infrastructure/tools/domain-tool-source';
+import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { installSchedulerToolFallback } from '@/harnesses/prokop/composition/plugins/scheduler-domain';
 import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
 import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/subagent-domain';
@@ -43,10 +43,10 @@ import {
   configureSessionSearchHost,
   type SessionSearchHost,
 } from '@/harnesses/shared/session-search';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureStorage, createSession } from '@/infrastructure/storage/runtime';
-import { clearCache, scanTools } from '@/infrastructure/tools/registry';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
+import { clearCache, scanTools } from '@prokopai/core/infrastructure/tools/registry';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 const roots: string[] = [];
 

@@ -1,6 +1,6 @@
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import type { GoalEvaluation, MessageWithParts, TextPart, ToolPart } from '@prokopai/sdk/types';
-import { listMessagesWithParts } from '@/infrastructure/storage/runtime';
+import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { runOrchestratorSession } from '@/harnesses/prokop/workflow/orchestrator-session';
 
 /**

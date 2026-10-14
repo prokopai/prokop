@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { RuntimeEvent } from '@/infrastructure/runtime/events';
+import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import type { ServerMessage } from '@prokopai/sdk';
 import {
   createProkopRuntimeContext,

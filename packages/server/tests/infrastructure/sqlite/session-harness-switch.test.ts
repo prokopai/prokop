@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { createTestAssistantMessage, createTestSession, createTestTextPart, createTestToolPart, createTestUserMessage } from '#tests/helpers/factories';
 import { seedWorkspace } from '#tests/seed';
-import { HARNESS_SWITCH_FORK_REASON, HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@/domains/sessions/harness-state';
+import { HARNESS_SWITCH_FORK_REASON, HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { forkSession } from '@/harnesses/prokop/execution/fork';
 import { revertCrossesHarnessSwitch, revertToStep } from '@/harnesses/prokop/execution/revert';
 import { getDatabase } from '@/infrastructure/sqlite/database';

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
-import { configureWorkspacePolicy } from '@/infrastructure/filesystem/workspace-policy/policy';
-import type { WorkspacePolicyOptions } from '@/infrastructure/filesystem/workspace-policy/contracts';
-import { SENSITIVE_PATH_PATTERNS } from '@/domains/permissions/paths';
+import { configureWorkspacePolicy } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import type { WorkspacePolicyOptions } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
+import { SENSITIVE_PATH_PATTERNS } from '@prokopai/core/domains/permissions/paths';
 
 export const JEAN2_BLOCKED_PATHS = [
   '/etc/',

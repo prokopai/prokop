@@ -5,19 +5,19 @@ import {
   emitSessionCreated,
   emitSessionUpdated,
   emitToSession,
-} from '@/infrastructure/runtime/host-dependencies';
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getPreconfigOrAgent, listSubagentPreconfigs } from '@/harnesses/prokop/context/sources';
 import {
   createSession,
   getSession,
   getWorkspaceAutoApproveSeverity,
   updateSession,
-} from '@/infrastructure/storage/runtime';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
-import type { RuntimeEvent } from '@/infrastructure/runtime/events';
-import type { SessionUpdates } from '@/infrastructure/storage/contracts';
+} from '@prokopai/core/infrastructure/storage/runtime';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
+import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
+import type { SessionUpdates } from '@prokopai/core/infrastructure/storage/contracts';
 import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
-import { resolveModelId, resolveProviderId } from '@/infrastructure/providers/model-selection';
+import { resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure/providers/model-selection';
 import {
   collectSubagentAncestry,
   evaluateSubagentTarget,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { SandboxController, sandboxController } from '@/infrastructure/sandbox/controller';
-import type { LlmCallContext } from '@/infrastructure/sandbox/types';
+import { SandboxController, sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { LlmCallContext } from '@prokopai/core/infrastructure/sandbox/types';
 
 function context(overrides: Partial<LlmCallContext> = {}): LlmCallContext {
   return {
@@ -21,7 +21,7 @@ afterEach(() => sandboxController.reset());
 
 describe('package sandbox controller', () => {
   test('exports one stable singleton', async () => {
-    const imported = await import('@/infrastructure/sandbox/controller');
+    const imported = await import('@prokopai/core/infrastructure/sandbox/controller');
     expect(imported.sandboxController).toBe(sandboxController);
   });
 

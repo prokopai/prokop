@@ -13,7 +13,7 @@
  * create grants outside the canonical allowed scopes.
  */
 
-import type { PendingAskRecord } from '@/infrastructure/runtime/host';
+import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
 import { getPermissionRuntimeService, } from '@/harnesses/prokop/permission/runtime';
 import { PERMISSION_TIMEOUT } from '@/harnesses/prokop/permission/policy';
 import type { PermissionBroadcastFn, RequestPermissionParams } from '@/harnesses/prokop/permission/contracts';

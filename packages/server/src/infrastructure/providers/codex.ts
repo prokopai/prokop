@@ -3,9 +3,9 @@
  * Uses the generalized OAuth manager for PKCE + authorization code flow.
  */
 import type { ProviderStatus } from '@prokopai/sdk';
-import { createOpenAiResponsesModel } from '@/infrastructure/providers/ai-sdk';
-import { registerProvider } from '@/infrastructure/providers/registry';
-import type { ConnectableProvider, TokenResponse } from '@/infrastructure/providers/types';
+import { createOpenAiResponsesModel } from '@prokopai/core/infrastructure/providers/ai-sdk';
+import { registerProvider } from '@prokopai/core/infrastructure/providers/registry';
+import type { ConnectableProvider, TokenResponse } from '@prokopai/core/infrastructure/providers/types';
 import { codexAccounts } from './codex-accounts';
 import { CodexAccountRuntime } from './codex-account-runtime';
 import {

@@ -19,11 +19,11 @@ import {
   configureInstructionSource,
   configurePreconfigSource,
 } from '@/harnesses/prokop/context/sources';
-import { configureRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { enterAgentScope } from '@/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { resetDomainToolFallbacksForTests } from '@/infrastructure/tools/domain-tool-source';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import {
   CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID,
   SELF_DELEGATION_SECTION_ID,
@@ -43,10 +43,10 @@ import {
   type SubagentServiceDeps,
 } from '@/harnesses/prokop/subagent/task-tool';
 import { selfDelegationGuidance } from '@/harnesses/prokop/subagent/guidance';
-import { configureStorage, createSession } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { clearCache } from '@/infrastructure/tools/registry';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
+import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
+import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function minimalHost(): RuntimeHost {
   return {

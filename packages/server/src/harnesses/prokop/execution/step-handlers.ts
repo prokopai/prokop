@@ -1,10 +1,10 @@
 import type { ModelMessage } from 'ai';
 import type { MessageEvent, StepPart } from '@prokopai/sdk/types';
 import { estimateNextStepTokens } from '@/harnesses/prokop/compaction/usage';
-import { createPart, updatePart } from '@/infrastructure/storage/runtime';
+import { createPart, updatePart } from '@prokopai/core/infrastructure/storage/runtime';
 import { createStepPart } from '@/harnesses/prokop/execution/part-utils';
 import { randomUUID } from 'crypto';
-import { getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
+import { getModelsConfig } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 
 interface StepUsage {
   inputTokens?: number;
@@ -17,8 +17,8 @@ interface StepUsage {
   };
 }
 
-import type { UsageEventData } from '@/infrastructure/runtime/events';
-export type { UsageEventData } from '@/infrastructure/runtime/events';
+import type { UsageEventData } from '@prokopai/core/infrastructure/runtime/events';
+export type { UsageEventData } from '@prokopai/core/infrastructure/runtime/events';
 
 export interface StepCallbacksContext {
   messageId: string;

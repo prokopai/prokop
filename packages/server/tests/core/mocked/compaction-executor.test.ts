@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import type { AssistantMessage, ToolPart } from '@prokopai/sdk';
-import { withProviderOverrides } from '@/infrastructure/providers/registry';
-import { getRuntimeConfiguration, withRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
+import { withProviderOverrides } from '@prokopai/core/infrastructure/providers/registry';
+import { getRuntimeConfiguration, withRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
   getRuntimeHost as getProkopCompatibilityBindings,
   withRuntimeHost as withProkopCompatibilityBindings,
-} from '@/infrastructure/runtime/host';
-import type { RuntimeEvent } from '@/infrastructure/runtime/events';
-import type { ConnectableProvider, ModelFactoryOptions } from '@/infrastructure/providers/types';
-import { getStorage } from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/runtime/host';
+import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
+import type { ConnectableProvider, ModelFactoryOptions } from '@prokopai/core/infrastructure/providers/types';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createRuntime } from '@/bootstrap/create-runtime';
 import { executeCompaction, isCompactionActive } from '@/harnesses/prokop/compaction/executor';
 import { convertToAiSdkMessages } from '@/harnesses/prokop/execution/message-utils';

@@ -1,8 +1,8 @@
 import type { RouterContext } from '@/transport/websocket/router-context';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import { handleClientRegistration, getClientByClientId, getClientIdForConnection, getConnectionById } from '@/transport/websocket/connection-registry';
-import { sandboxController } from '@/infrastructure/sandbox/controller';
-import type { SandboxRespondMessage } from '@/infrastructure/sandbox/types';
+import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
+import type { SandboxRespondMessage } from '@prokopai/core/infrastructure/sandbox/types';
 import {
   resolveAsk as capekResolveAsk, getSessionIdForPendingAsk as capekGetSessionIdForPendingAsk, getAuthorityForPendingAsk as capekGetAuthorityForPendingAsk,
 } from '@/agent';
@@ -10,7 +10,7 @@ import { getBrowserRequestsPort } from '@/application/ports/browser';
 import { getControlState } from '@/transport/websocket/control-registry';
 import { requireWireApplication } from '@/transport/websocket/application';
 import { checkAskResponseEligibility } from '@/application/ports/control';
-import { getAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
+import { getAgentAskPort, isNativeHarnessAskId } from '@prokopai/core/application/ports/agent-asks';
 import type {
   ClientRegisterMessage,
   AskResponseMessage,

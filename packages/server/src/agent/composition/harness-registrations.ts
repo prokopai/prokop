@@ -1,16 +1,16 @@
 import type { SessionHarness } from '@prokopai/sdk';
-import type { AgentsApplication } from '@/application/agents';
-import type { SessionExecutionPort } from '@/application/ports/execution';
-import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { harnessMcpTools } from '@/application/ports/mcp-tools';
-import type { HarnessRegistration } from '@/application/sessions/harness-execution';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import { getHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
+import { harnessMcpTools } from '@prokopai/core/application/ports/mcp-tools';
+import type { HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
 import { createClaudeCliHarness, createClaudeExecution } from '@/harnesses/claude-cli';
 import { codexCliVersion, createCodexCliHarness, createCodexExecution } from '@/harnesses/codex-cli';
 import { spawnCodexAppServer } from '@/harnesses/codex-cli/app-server';
 import { createPretoolChannel } from '@/harnesses/codex-cli/pretool-hook';
 import { createProkopHarness } from '@/harnesses/prokop';
 import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '@/harnesses/shared/domain-tools';
-import { listPreconfigs } from '@/infrastructure/config/preconfig';
+import { listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 
 /**
  * The three harness registrations, built the same way in the host (which

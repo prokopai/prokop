@@ -7,8 +7,8 @@ import {
   prokopInstructionSource,
   prokopPreconfigSource,
 } from '@/harnesses/prokop/bindings/context-sources';
-import type { AgentsApplication } from '@/application/agents';
-import { getGlobalAgentsPath } from '@/infrastructure/runtime/paths';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
+import { getGlobalAgentsPath } from '@prokopai/core/infrastructure/runtime/paths';
 
 function makeAgentsApplication(calls: string[]): AgentsApplication {
   const preconfig = {

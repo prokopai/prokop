@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite';
 import { dirname, join, resolve, sep } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolveDatabasePath } from '@/config';
+import { resolveDatabasePath } from '@prokopai/core/config';
 import { isPerfDiagnosticsEnabled } from '@/utils/perf';
 import { initializeSessionMessageSchema } from './session-message-schema';
 import { initializeLearningSchema } from './learning-schema';

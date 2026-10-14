@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@/application/ports/delivery';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createClientSendRegistry } from '@/application/sessions/client-sends';
 
 type Sent = { to: string; message: ServerMessage };

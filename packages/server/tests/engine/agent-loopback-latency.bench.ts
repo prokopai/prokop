@@ -12,8 +12,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 import { createLoopbackStorage } from '@/agent-bridge/loopback';
-import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { StandaloneAgent } from '#tests/engine/helpers/standalone-agent';
 
 const grep: LoadedTool = {

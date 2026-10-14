@@ -1,6 +1,6 @@
 import type { AgentHandlers } from '@prokopai/agent-protocol';
 import type { AskAuthority } from '@prokopai/sdk';
-import { isNativeHarnessAskId, type AgentAskPort } from '@/application/ports/agent-asks';
+import { isNativeHarnessAskId, type AgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 import { claudeApprovals } from '@/harnesses/claude-cli/approvals';
 import { codexApprovals } from '@/harnesses/codex-cli/approvals';
 import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { startDaemon } from '@/infrastructure/daemon';
-import { Paths } from '@/infrastructure/runtime/paths';
+import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 
 const envKeys = ['PROKOPAI_DATA_DIR', 'JEAN2_DATA_DIR', 'DAEMON_TEST_SECRET', 'PROKOPAI_HOST', 'JEAN2_HOST'] as const;
 

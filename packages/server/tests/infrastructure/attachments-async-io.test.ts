@@ -5,7 +5,7 @@ import { seedWorkspaceWithSession } from '#tests/seed';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';
 import { createProkopSessionRepository } from '@/adapters/prokop/session-repository';
 import { createAttachment, deleteAttachmentsForSession, getAttachmentsForSession } from '@/infrastructure/sqlite/attachments';
-import { getAttachmentDir } from '@/infrastructure/runtime/paths';
+import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 let ids: { workspaceId: string; sessionId: string };
 

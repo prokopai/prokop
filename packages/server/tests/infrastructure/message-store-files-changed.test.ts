@@ -3,7 +3,7 @@ import type { ToolPart } from '@prokopai/sdk';
 import {
   installWorkspaceFilesChangedListener,
   notifyWorkspaceFilesChanged,
-} from '@/application/workspaces/files-changed';
+} from '@prokopai/core/application/workspaces/files-changed';
 import {
   createMessage,
   createPart,

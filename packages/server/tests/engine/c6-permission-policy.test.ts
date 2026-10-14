@@ -32,8 +32,8 @@ import {
   requestPermission as forwardedRequestPermission,
   resolvePermission as forwardedResolvePermission,
 } from '@/harnesses/prokop/permission/permission-request-manager';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import type { PendingAskRecord } from '@/infrastructure/runtime/host';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
 import {
   enterAgentScope,
 } from '@/harnesses/prokop/composition/plugins/compose';

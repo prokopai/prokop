@@ -8,9 +8,9 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { LoadedTool } from '@prokopai/sdk/tool';
-import type { SandboxHistoryEntry } from '@/infrastructure/sandbox/types';
+import type { SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
 import { StandaloneAgent } from '#tests/engine/helpers/standalone-agent';
 
 const roots: string[] = [];

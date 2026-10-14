@@ -1,5 +1,5 @@
-import { ensureSessionTempDir, sessionTempInstructions } from '@/infrastructure/filesystem/session-temp';
-import type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
+import type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 
 // The managed-worktree lifecycle tool was removed with the git-worktree
 // builtin; worktree management lives in the application/transport layers.

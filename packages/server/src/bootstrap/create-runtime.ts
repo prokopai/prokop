@@ -14,14 +14,16 @@ import {
 } from '@/agent';
 import type { ProkopSessionSearchHostDeps } from '@/adapters/prokop/runtime-host/session-search';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
-import type { AgentsApplication } from '@/application/agents';
+import type { AgentsApplication } from '@prokopai/core/application/agents';
 import { installExecutionLifecyclePort } from '@/application/ports/execution-lifecycle';
-import { installBuiltinToolsPort } from '@/application/ports/builtin-tools';
+import { installBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
 import { createProkopSessionRepository } from '@/adapters/prokop/session-repository';
 import { createSessionSearchQueryRepository } from '@/infrastructure/sqlite/session-search-query-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { configureAgentPorts } from '@/bootstrap/agent-ports';
+import { configureWorkspaceKnowledgeRoot } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
+import { storedWorkspaceKnowledgeRoot } from '@/infrastructure/sqlite/workspace-knowledge-root';
 
 /** S5 session-search host dependencies. The query port is the SQLite
  * infrastructure repository with an injected store accessor; session and
@@ -63,6 +65,8 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   installBuiltinToolsPort({ tools: () => builtinTools });
 
   configureProkopStorage();
+  // Managed worktrees share their workspace's knowledge; the host looks them up in its store.
+  configureWorkspaceKnowledgeRoot(storedWorkspaceKnowledgeRoot);
   configureProkopRuntimeConfiguration();
   configureProkopWorkspacePolicy();
   configureProkopPreconfigSource(agents);

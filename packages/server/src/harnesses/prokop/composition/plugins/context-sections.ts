@@ -19,8 +19,8 @@ import type {
 } from '@/harnesses/prokop/composition/kernel/types';
 import { loadMemoryInstructions } from '@/harnesses/shared/memory/registry';
 import { getHostGuidance } from '@/harnesses/prokop/context/host-guidance';
-import { getHostLayout } from '@/infrastructure/runtime/host-layout';
-import { getWorkspace } from '@/infrastructure/storage/runtime';
+import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import {
   legacySelfDelegationGuidanceSection,
   legacySessionSearchGuidanceSection,

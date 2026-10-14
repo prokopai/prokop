@@ -1,6 +1,6 @@
-import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { SessionExecutionPort } from '@/application/ports/execution';
-import { getStorage } from '@/infrastructure/storage/runtime';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
+import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { describeError, logHarness, type HarnessName } from './diagnostics';
 
 /** Persists and announces whether a CLI session is busy. */

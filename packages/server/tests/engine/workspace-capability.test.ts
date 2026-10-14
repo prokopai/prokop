@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync } from 'fs';
 import { homedir, tmpdir } from 'os';
 import { join, resolve } from 'path';
 import type { LoadedTool, ToolContext, ToolResult } from '@prokopai/sdk/tool';
-import { executeTool } from '@/infrastructure/tools/executor';
+import { executeTool } from '@prokopai/core/infrastructure/tools/executor';
 import {
   createWorkspaceCapability,
   isLexicallyContained,
-} from '@/infrastructure/filesystem/workspace-policy/policy';
-import type { WorkspaceCapabilityHost } from '@/infrastructure/filesystem/workspace-policy/contracts';
+} from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
+import type { WorkspaceCapabilityHost } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 
 const createdDirectories: string[] = [];
 

@@ -6,7 +6,7 @@ import {
   getProkopEnvValue,
   reloadProkopEnv,
   wasEnvInjectedFromFile,
-} from '@/infrastructure/runtime/environment';
+} from '@prokopai/core/infrastructure/runtime/environment';
 import {
   clearProviderCredential,
   listProviderCredentials,

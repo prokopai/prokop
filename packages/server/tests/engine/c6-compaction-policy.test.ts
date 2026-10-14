@@ -21,14 +21,14 @@ import {
   reconcileSessionCompaction,
   type CompactionRecoveryDeps,
 } from '@/harnesses/prokop/compaction/recovery';
-import { createDefaultRuntimeConfiguration } from '@/infrastructure/providers/configuration/defaults';
+import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
   withRuntimeConfiguration,
-} from '@/infrastructure/providers/configuration/runtime';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import type { BroadcastFn, BroadcastSessionFn } from '@/infrastructure/runtime/host';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+} from '@prokopai/core/infrastructure/providers/configuration/runtime';
+import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
   configureStorage,
   createMessage,
@@ -37,7 +37,7 @@ import {
   getPartsBySession,
   getSession,
   listMessagesWithParts,
-} from '@/infrastructure/storage/runtime';
+} from '@prokopai/core/infrastructure/storage/runtime';
 import { configureSchedulerHost, type SchedulerHost } from '@/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
 import { createAgentScope } from '@/harnesses/prokop/composition/kernel/kernel';

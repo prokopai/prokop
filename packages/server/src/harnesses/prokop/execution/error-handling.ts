@@ -1,6 +1,6 @@
 import type { AuthErrorMessage, ContextOverflowErrorMessage, InvalidRequestErrorMessage, ErrorMessage } from '@prokopai/sdk/types';
-import { ApiErrorType, ERROR_AUTH, ERROR_INVALID_REQUEST, ERROR_CHAT_FAILED } from '@/infrastructure/providers/errors';
-import type { ClassifiedError } from '@/infrastructure/providers/errors';
+import { ApiErrorType, ERROR_AUTH, ERROR_INVALID_REQUEST, ERROR_CHAT_FAILED } from '@prokopai/core/infrastructure/providers/errors';
+import type { ClassifiedError } from '@prokopai/core/infrastructure/providers/errors';
 
 export type ErrorEvent = AuthErrorMessage | ContextOverflowErrorMessage | InvalidRequestErrorMessage | ErrorMessage;
 

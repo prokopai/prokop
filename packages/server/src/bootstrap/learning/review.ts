@@ -5,8 +5,8 @@ import { createKnowledgeStagingMutator } from '@/application/learning/knowledge-
 import { createLearningHistorySearch } from '@/application/learning/history-search';
 import type { LearningReviewToolRegistry } from '@/application/learning/review-tools';
 import type { LearningReviewRunnerDependencies } from '@/application/learning/review-runner';
-import type { HeadlessSessionRunPort } from '@/application/ports/headless-execution';
-import type { LearningRuntimePort } from '@/application/ports/learning-runtime';
+import type { HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
+import type { LearningRuntimePort } from '@prokopai/core/application/ports/learning-runtime';
 import type { LearningEvidenceScope } from '@/domains/learning/policy';
 import type { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
 import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';

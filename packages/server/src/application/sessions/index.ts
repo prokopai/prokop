@@ -1,7 +1,7 @@
-import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { ControllerGatePort, SessionControlPort } from '@/application/ports/control';
-import type { AskAuthorityPort, PendingAskPort, SessionRepositoryPort } from '@/application/ports/session';
-import type { ToolCatalogPort } from '@/application/ports/tool-catalog';
+import type { AskAuthorityPort, PendingAskPort, SessionRepositoryPort } from '@prokopai/core/application/ports/session';
+import type { ToolCatalogPort } from '@prokopai/core/application/ports/tool-catalog';
 import type { WorktreeAttachmentRefreshPort } from '@/application/ports/worktree';
 import {
   createSessionChatApplication,
@@ -90,4 +90,4 @@ export {
   type SessionTranscriptApplication,
 };
 
-export type { SessionWirePorts } from '@/application/ports/delivery';
+export type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';

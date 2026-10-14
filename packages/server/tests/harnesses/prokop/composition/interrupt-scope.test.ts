@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createAskApi } from '@/harnesses/prokop/permission/ask-user-api';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
+import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
+import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import type { AskRequestMessage, AskTimedOutMessage } from '@prokopai/sdk';
 import { createProkopSessionExecution } from '@/harnesses/prokop/execution';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
