@@ -1,5 +1,5 @@
 import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
-import { configureProkopRuntimeDefaults, prokopAgentBindings } from '@/harnesses/prokop/bindings/agent';
+import { configureProkopRuntimeDefaults, prokopAgentBindings } from '@/agent';
 import { prokopDeliveryBindings } from './delivery';
 import { prokopInteractionBindings } from './interaction';
 import { prokopWorkspaceBindings } from './workspace';

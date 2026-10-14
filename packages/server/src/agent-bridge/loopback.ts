@@ -4,7 +4,7 @@ import {
 } from '@prokopai/agent-protocol';
 import type { StorageBundle } from '@/infrastructure/storage/contracts';
 import { readEnv } from '@/infrastructure/runtime/env-compat';
-import { createProtocolStorageBundle } from './agent-storage';
+import { createProtocolStorageBundle } from '@/agent';
 import { createStorageHostHandlers } from './host-storage';
 
 /**

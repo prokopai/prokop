@@ -8,13 +8,13 @@ import serverPackage from '@/../package.json' with { type: 'json' };
 import { recoverAfterAgentExit } from './agent-recovery';
 import type { SessionHarness } from '@prokopai/sdk';
 import { installHarnessNotificationPort, type HarnessNotificationPort } from '@/application/ports/harness-notifications';
-import type { AgentExecutor, AgentHeadlessRun } from '@/agent-bridge/agent-turns';
+import {
+  localHarnessProbes, composeAgentSide, configureAgentTerminals, configureKnowledgeWrites, executeMemoryTool, getSessionSearchHost, executeSkillManageTool, directAgentAsks, type AgentExecutor, type AgentHeadlessRun,
+} from '@/agent';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
 import { configureHarnessProbes } from '@/application/ports/harness-probes';
 import type { HarnessOperation } from '@/application/sessions/harness-execution';
-import { localHarnessProbes } from './agent-probes';
-import { composeAgentSide } from './agent-side';
 import { isKnowledgeDirectory } from './knowledge-directories';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
@@ -22,11 +22,6 @@ import { createToolHostHandlers, type SessionSearchService, type TerminalAccess 
 import { agentLoopbackEnabled, agentProcessEnabled, createAgentLoopback } from '@/agent-bridge/loopback';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
 import { prokopMcpAccess } from '@/adapters/prokop/runtime-host/tool-source';
-import { configureAgentTerminals } from '@/harnesses/prokop/tools/terminal/port';
-import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
-import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
-import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
 import { getWorkspaceTools } from '@/infrastructure/mcp/manager';
 import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
 import { getRuntimeHost } from '@/infrastructure/runtime/host';
@@ -42,11 +37,10 @@ import {
   broadcastEvent, broadcastToSessionEvent, sendToAskTargetsEvent, sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
 import { configureHarnessAsks } from '@/infrastructure/runtime/harness-asks';
-import { createHarnessAskHandlers } from '@/agent-bridge/host-asks';
+import { createHarnessAskHandlers, protocolAgentAsks } from '@/agent-bridge/host-asks';
 import { localHarnessAsks } from './harness-asks';
-import { installAgentAskPort } from '@/application/ports/agent-asks';
+import { installAgentAskPort, isNativeHarnessAskId } from '@/application/ports/agent-asks';
 import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
-import { directAgentAsks, protocolAgentAsks } from './agent-asks';
 import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
 import { learningReviewTools } from '@/application/learning/review-tools';
 
@@ -153,11 +147,20 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
   });
   const turns = createTurnForwarding(host, params => runtime.notifications.deliver?.(params as never),
     () => options.onBusyChange?.());
+  // Claude Code and Codex waiters live in the connected agent: the host knows which ones it opened.
+  const liveNativeAsks = new Set<string>();
+  const createPendingAsk = runtime.handlers['interaction.createPendingAsk']!;
 
   return {
     handlers: {
       ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
       ...createHarnessAskHandlers(localHarnessAsks),
+      'interaction.createPendingAsk': async (params, context) => {
+        const created = await createPendingAsk(params, context);
+        const record = params.record as { toolCallId?: string; requestId?: string };
+        if (record.requestId && record.toolCallId && isNativeHarnessAskId(record.toolCallId)) liveNativeAsks.add(record.requestId);
+        return created;
+      },
       'learning.tool': async ({ sessionId, name, arguments: input }) => ({ ...await learningReviewTools.call(sessionId, name, input) }),
       'sandbox.call': async ({ context }, { signal }) =>
         ({ ...await sandboxController.waitForResponse(context as unknown as LlmCallContext, signal) }),
@@ -167,13 +170,17 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
       'sandbox.completed': ({ callId }) => sandboxController.complete(callId),
     },
     busy: turns.busy,
-    agentExited: turns.agentExited,
+    agentExited() {
+      liveNativeAsks.clear();
+      turns.agentExited();
+    },
     connect(next) {
       endpoint = next;
       configureHarnessProbes(createProtocolHarnessProbes(host));
       installAgentAskPort(protocolAgentAsks({
         lookup: (toolCallId, requestId) => host().request('ask.lookup', { toolCallId, requestId }),
         resolve: async answer => (await host().request('ask.resolve', answer)).resolved,
+        hasLiveRequest: requestId => liveNativeAsks.has(requestId),
       }));
     },
     bind: registrations => Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => {

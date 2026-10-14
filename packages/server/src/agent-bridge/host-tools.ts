@@ -1,31 +1,6 @@
 import type { HostHandlers } from '@prokopai/agent-protocol';
 import type { WorkspaceMcpTool } from '@/application/ports/mcp-tools';
-import type { Session, Workspace } from '@prokopai/sdk/types';
-
-/**
- * Session search store, structurally `SessionSearchHost`
- * (harnesses/shared/session-search/host.ts): the host serves it as
- * `search.*` and the agent-side port exposes it again.
- */
-export interface SessionSearchService {
-  getWorkspace(id: string): Promise<Workspace | null>;
-  getSession(id: string): Promise<Session | null>;
-  listWorkspaceSessions(workspaceId: string): Promise<Session[]>;
-  listAgentSessions(agentId: string, limit: number): Promise<Session[]>;
-  countSessionMessages(sessionId: string): Promise<number>;
-  searchMessages(options: {
-    query: string; workspaceId?: string; agentId?: string; sessionId?: string;
-    roleFilter: string[]; limit: number; sort: 'relevance' | 'newest' | 'oldest';
-  }): Promise<Array<{ messageId: string; sessionId: string; workspaceId: string; role: string; content: string;
-    timestamp: number; sessionTitle: string | null; rank: number }>>;
-  countMessagesBefore(sessionId: string, timestamp: number): Promise<number>;
-  countMessagesAfter(sessionId: string, timestamp: number): Promise<number>;
-  getLatestMessage(sessionId: string): Promise<{ id: string; timestamp: number } | null>;
-  getMessage(messageId: string, sessionId: string): Promise<{ id: string; timestamp: number } | null>;
-  listMessagesBefore(sessionId: string, timestamp: number, limit: number): Promise<Array<{ id: string; role: string; timestamp: number }>>;
-  listMessagesAfter(sessionId: string, timestamp: number, limit: number): Promise<Array<{ id: string; role: string; timestamp: number }>>;
-  getMessageSummary(messageId: string): Promise<{ role: string; timestamp: number; content: string; toolName: string } | null>;
-}
+import type { SessionSearchService, TerminalAccess } from '@/agent';
 
 /** Session state MCP access was granted for; a change revokes access. */
 export interface ToolAccessContext {
@@ -34,23 +9,7 @@ export interface ToolAccessContext {
   path: string;
 }
 
-/** Host terminal access, same shape as the Prokop terminal port. */
-export interface TerminalAccess {
-  create(options: {
-    cwd: string; workspaceId: string; origin: 'user' | 'agent';
-    agentEnv?: Record<string, string>; title?: string; ownerSessionId?: string;
-  }): Promise<string | null>;
-  get(id: string): Promise<{
-    id: string; title: string; cwd: string; status: string;
-    exitCode?: number | null; origin?: 'user' | 'agent'; lastActivityAt?: number;
-  } | null>;
-  executionCwd(id: string): Promise<string | null>;
-  setCwd(id: string, cwd: string): Promise<boolean>;
-  write(id: string, data: string): Promise<boolean>;
-  read(id: string, fromOffset: number, maxBytes: number): Promise<{ text: string; nextOffset: number; totalBytes: number } | null>;
-  list(workspacePath: string): Promise<NonNullable<Awaited<ReturnType<TerminalAccess['get']>>>[]>;
-  destroy(id: string): Promise<void>;
-}
+export type { SessionSearchService, TerminalAccess };
 
 export interface HostToolServices {
   mcp: {

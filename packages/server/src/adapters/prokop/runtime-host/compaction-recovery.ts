@@ -4,13 +4,10 @@
  */
 
 import {
-  reconcileAllSessionsCompaction as reconcileAllSessionsWithDeps,
-  reconcileSessionCompaction as reconcileSessionWithDeps,
-  type CompactionRecoveryDeps,
-} from '@/harnesses/prokop/compaction/recovery';
+  reconcileAllSessionsCompaction as reconcileAllSessionsWithDeps, reconcileSessionCompaction as reconcileSessionWithDeps, type CompactionRecoveryDeps, mapCapekEventToServerMessage,
+} from '@/agent';
 import type { RuntimeEventSink } from '@/infrastructure/runtime/events';
 import type { CompactionRecoveryPort } from '@/application/ports/session';
-import { mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
 import {
   broadcastEvent,
   broadcastSessionUpdated,

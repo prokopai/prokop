@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import type { Audience } from '@prokopai/agent-protocol';
 import type { LoadedTool } from '@prokopai/sdk/tool';
 import type { ServerMessage } from '@prokopai/sdk/types';
-import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
+import { createProtocolRuntimeHost } from '@/agent/protocol/runtime-host';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createAgentLoopback, createLoopbackStorage } from '@/agent-bridge/loopback';
 import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';

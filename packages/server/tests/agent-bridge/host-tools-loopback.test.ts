@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { WorkspaceMcpTool } from '@/application/ports/mcp-tools';
-import { createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery } from '@/agent-bridge/agent-tools';
+import { createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery } from '@/agent/protocol/tools';
 import { createToolHostHandlers, type HostToolServices, type TerminalAccess, type ToolAccessContext } from '@/agent-bridge/host-tools';
 import { createAgentLoopback } from '@/agent-bridge/loopback';
 import { capabilityToolFromMcp } from '@/infrastructure/mcp/capability-tool';

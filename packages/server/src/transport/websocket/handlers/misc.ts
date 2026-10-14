@@ -4,10 +4,8 @@ import { handleClientRegistration, getClientByClientId, getClientIdForConnection
 import { sandboxController } from '@/infrastructure/sandbox/controller';
 import type { SandboxRespondMessage } from '@/infrastructure/sandbox/types';
 import {
-  resolveAsk as capekResolveAsk,
-  getSessionIdForPendingAsk as capekGetSessionIdForPendingAsk,
-  getAuthorityForPendingAsk as capekGetAuthorityForPendingAsk,
-} from '@/harnesses/prokop/permission/ask-user-api';
+  resolveAsk as capekResolveAsk, getSessionIdForPendingAsk as capekGetSessionIdForPendingAsk, getAuthorityForPendingAsk as capekGetAuthorityForPendingAsk,
+} from '@/agent';
 import { getBrowserRequestsPort } from '@/application/ports/browser';
 import { getControlState } from '@/transport/websocket/control-registry';
 import { requireWireApplication } from '@/transport/websocket/application';

@@ -9,14 +9,14 @@ import {
   configureProkopWorkspaceToolDiscovery,
 } from '@/adapters/prokop/runtime-host';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
-import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
-import { warmInstalledToolsCache } from '@/harnesses/prokop/bindings/tool-resolver';
+import {
+  disposeProkopExecutionScope, initializeProkopExecutionScope, warmInstalledToolsCache, builtinTools,
+} from '@/agent';
 import type { ProkopSessionSearchHostDeps } from '@/adapters/prokop/runtime-host/session-search';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import type { AgentsApplication } from '@/application/agents';
 import { installExecutionLifecyclePort } from '@/application/ports/execution-lifecycle';
 import { installBuiltinToolsPort } from '@/application/ports/builtin-tools';
-import { builtinTools } from '@/harnesses/prokop/tools';
 import { createProkopSessionRepository } from '@/adapters/prokop/session-repository';
 import { createSessionSearchQueryRepository } from '@/infrastructure/sqlite/session-search-query-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';

@@ -7,7 +7,7 @@ import type { SessionHarness } from '@prokopai/sdk';
 import { createAgentsApplication } from '@/application/agents';
 import type { AgentWorkspacePort } from '@/application/ports/agents';
 import { installBuiltinToolsPort } from '@/application/ports/builtin-tools';
-import { createProkopAgentPreconfigPort } from '@/adapters/prokop/agent-workspace';
+import { getPreconfig, listPreconfigs } from '@/infrastructure/config/preconfig';
 import {
   configureProkopAgentSource,
   configureProkopInstructionSource,
@@ -24,8 +24,7 @@ import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-director
 import { getDataDir } from '@/infrastructure/runtime/paths';
 import { activateSandbox } from '@/infrastructure/sandbox';
 import { installSandboxController } from '@/infrastructure/sandbox/controller';
-import { ForwardingSandboxController } from '@/agent-bridge/agent-sandbox';
-import { forbidDatabase } from '@/infrastructure/sqlite/database';
+import { ForwardingSandboxController } from '@/agent/protocol/sandbox';
 import { composeAgentSide } from './agent-side';
 import { createHarnessRegistrations } from './harness-registrations';
 
@@ -52,12 +51,13 @@ export interface AgentProcessOptions {
  * data directory (models, preconfigs, agent directories) like the host does.
  */
 export function startAgentProcess(channel: MessageChannel, options: AgentProcessOptions): AgentEndpoint {
-  forbidDatabase('the agent process reaches host state through the agent protocol');
+  // The host database refuses this process (infrastructure/sqlite/database.ts).
+  process.env.PROKOPAI_PROCESS_ROLE = 'agent';
   const agents = createAgentsApplication({
     dataDir: () => getDataDir(),
     directory: createAgentDirectoryPort(),
     workspaces: hostOnlyWorkspaces,
-    preconfigs: createProkopAgentPreconfigPort(),
+    preconfigs: { get: getPreconfig, list: listPreconfigs },
   });
   installBuiltinToolsPort({ tools: () => builtinTools });
   configureProkopRuntimeConfiguration();

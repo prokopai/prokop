@@ -4,7 +4,15 @@
  * compaction recovery. Re-exports the runtime's own bindings so the
  * composition root has one entry for in-process wiring.
  */
-export * from '@/harnesses/prokop/bindings';
+export {
+  configureProkopAgentSource, configureProkopInstructionSource, configureProkopPreconfigSource,
+  prokopAgentSource, prokopInstructionSource, prokopPreconfigSource,
+  createProkopRuntimeContext, mapCapekEventToServerMessage, type ProkopEventRouter,
+  configureProkopRuntimeConfiguration, prokopRuntimeConfiguration,
+  prokopSandboxBindings, prokopTitleBindings, prokopToolPolicy,
+  configureProkopWorkspacePolicy, JEAN2_BLOCKED_PATHS, prokopWorkspacePolicyOptions,
+  createProkopAskAuthorityPort, configureProkopRuntimeDefaults, prokopAgentBindings, type ProkopAgentBindings,
+} from '@/agent';
 export { deliverCapekEvent, prokopDeliveryBindings } from './delivery';
 export { prokopInteractionBindings } from './interaction';
 export { configureProkopSessionSearchHost, prokopSessionSearchHost } from './session-search';

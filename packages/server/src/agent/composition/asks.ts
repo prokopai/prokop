@@ -46,17 +46,9 @@ export const askHandlers: AgentHandlers = {
   'ask.resolve': async answer => ({ resolved: await agentAsks.resolve(answer) }),
 };
 
-/** Liveness of native harness waiters (in process today; from the agent connection in Phase 2). */
+/** Liveness of native harness waiters in this process. */
 const hasLiveRequest = (requestId: string): boolean =>
   claudeApprovals.hasLiveRequest(requestId) || codexApprovals.hasLiveRequest(requestId);
 
 /** In process: the host calls the agent's waiters directly. */
 export const directAgentAsks: AgentAskPort = { ...agentAsks, hasLiveRequest };
-
-/** Across the protocol: every lookup and answer is a request to the agent. */
-export function protocolAgentAsks(request: {
-  lookup(toolCallId: string, requestId?: string): ReturnType<AgentAskPort['lookup']>;
-  resolve(answer: Parameters<AgentAskPort['resolve']>[0]): Promise<boolean>;
-}): AgentAskPort {
-  return { lookup: request.lookup, resolve: request.resolve, hasLiveRequest };
-}

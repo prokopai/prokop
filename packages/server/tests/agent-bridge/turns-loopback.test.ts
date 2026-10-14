@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { AgentHandlers } from '@prokopai/agent-protocol';
 import type { ServerMessage } from '@prokopai/sdk';
-import { createTurnHandlers, type AgentExecutor } from '@/agent-bridge/agent-turns';
+import { createTurnHandlers, type AgentExecutor } from '@/agent/protocol/turns';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createAgentLoopback } from '@/agent-bridge/loopback';
 import type { SessionWirePorts } from '@/application/ports/delivery';

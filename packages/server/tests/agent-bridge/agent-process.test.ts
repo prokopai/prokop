@@ -4,7 +4,7 @@ import { getAgentAskPort } from '@/application/ports/agent-asks';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import { bindHarnessExecutors, getAgentSupervisor } from '@/bootstrap/agent-ports';
-import { createHarnessRegistrations } from '@/bootstrap/harness-registrations';
+import { createHarnessRegistrations } from '@/agent/composition/harness-registrations';
 import { createPreconfig } from '@/infrastructure/config/preconfig';
 import { activateSandbox, deactivateSandbox } from '@/infrastructure/sandbox';
 import { sandboxController } from '@/infrastructure/sandbox/controller';

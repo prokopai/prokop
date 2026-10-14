@@ -99,21 +99,16 @@ import { codexAccountRuntime } from '@/infrastructure/providers/codex';
 import { createCodexAccountUsagePort } from '@/infrastructure/providers/codex-usage';
 import { createProviderUsagePort } from '@/infrastructure/providers/usage';
 import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
-import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
 import {
-  codexCliAvailable,
-  codexCliVersion,
-} from '@/harnesses/codex-cli';
+  createProkopLearningRuntime, codexCliAvailable, codexCliVersion, createHarnessRegistrations, claudeCliAvailable, claudeCliVersion, cliWorkspaceAvailable,
+} from '@/agent';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution } from '@/application/sessions/harness-execution';
-import { createHarnessRegistrations } from './harness-registrations';
 import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
-import { claudeCliAvailable, claudeCliVersion } from '@/harnesses/claude-cli';
 import { fallbackSessionTitle } from '@/infrastructure/session-title';
-import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
 import { createDeviceAccessRepository } from '@/infrastructure/sqlite/device-access';

@@ -45,6 +45,9 @@ describe('harness asks over the agent protocol loopback (SQLite)', () => {
     expect(getPermissionRequestByRequestId(ask.requestId!)).toMatchObject({ status: 'pending', rootSessionId: 's1' });
 
     const port = getAgentAskPort()!;
+    // The host knows the connected agent holds this waiter (pending-ask listing must not expire it).
+    expect(port.hasLiveRequest(ask.requestId!)).toBe(true);
+    expect(port.hasLiveRequest('other-request')).toBe(false);
     expect(await port.lookup(ask.toolCallId, ask.requestId)).toEqual({ sessionId: 's1',
       authority: { visibilityScope: 'controller_only', resolutionMode: 'controller_only' } });
     expect(await port.lookup(ask.toolCallId, 'wrong')).toBeNull();

@@ -59,15 +59,11 @@ class DatabaseSingleton {
     }
   }
 
-  /** Set in the agent process, which reaches host state only through the agent protocol. */
-  private forbidden: string | null = null;
-
-  forbid(reason: string): void {
-    this.forbidden = reason;
-  }
-
   getDatabase(): Database {
-    if (this.forbidden) throw new Error(`No host database in this process: ${this.forbidden}`);
+    // The agent process declares its role and reaches host state only through the agent protocol.
+    if (process.env.PROKOPAI_PROCESS_ROLE === 'agent') {
+      throw new Error('No host database in the agent process: host state goes through the agent protocol');
+    }
     if (this.dbOverride) return this.dbOverride;
     if (!this.dbDefault) {
       const dbPath = resolveDatabasePath();
@@ -101,11 +97,6 @@ export const DB = new DatabaseSingleton();
 
 export function getDatabase(): Database {
   return DB.getDatabase();
-}
-
-/** Every later `getDatabase()` throws (the agent process). */
-export function forbidDatabase(reason: string): void {
-  DB.forbid(reason);
 }
 
 export function closeDatabase(): void {

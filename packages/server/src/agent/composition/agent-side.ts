@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import type { AgentEndpoint, AgentHandlers, Audience } from '@prokopai/agent-protocol';
 import type { SessionHarness } from '@prokopai/sdk';
-import { createProtocolHarnessAsks } from '@/agent-bridge/agent-asks';
-import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
-import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
+import { createProtocolHarnessAsks } from '@/agent/protocol/harness-asks';
+import { createProtocolRuntimeHost } from '@/agent/protocol/runtime-host';
+import { createProtocolStorageBundle } from '@/agent/protocol/storage';
 import {
   createProtocolKnowledgeWrite, createProtocolMcpTools, createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery,
-} from '@/agent-bridge/agent-tools';
-import { createTurnHandlers, type AgentExecutor, type AgentHeadlessRun } from '@/agent-bridge/agent-turns';
+} from '@/agent/protocol/tools';
+import { createTurnHandlers, type AgentExecutor, type AgentHeadlessRun } from '@/agent/protocol/turns';
 import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
 import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
@@ -22,8 +22,8 @@ import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime
 import { resolveWorkspaceDir } from '@/infrastructure/runtime/workspace-dirs';
 import { configureStorage } from '@/infrastructure/storage/runtime';
 import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
-import { askHandlers } from './agent-asks';
-import { probeHandlers } from './agent-probes';
+import { askHandlers } from './asks';
+import { probeHandlers } from './probes';
 
 /** Host settings the agent reads synchronously (`initialize` carries them across a process boundary). */
 export interface AgentSideSettings {
