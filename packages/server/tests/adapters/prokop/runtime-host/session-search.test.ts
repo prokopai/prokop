@@ -5,7 +5,7 @@ import {
   createProkopSessionSearchHost,
   prokopSessionSearchHost,
   type ProkopSessionSearchHostDeps,
-} from '@/harnesses/prokop/host/session-search';
+} from '@/adapters/prokop/runtime-host/session-search';
 import { createMessage, createPart } from '@/infrastructure/sqlite/message-store';
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';

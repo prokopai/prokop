@@ -5,10 +5,10 @@ import { configureStorage } from '@/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
 import type { AskRequestMessage, AskTimedOutMessage, PermissionAsk } from '@prokopai/sdk';
 import { prokopAskResolution } from '@/harnesses/prokop/composition/contracts';
-import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
-import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/host/runtime-configuration';
-import { configureProkopStorage } from '@/harnesses/prokop/host/storage';
-import { configureProkopWorkspaceToolDiscovery } from '@/harnesses/prokop/host/tool-source';
+import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
+import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/bindings/runtime-configuration';
+import { configureProkopStorage } from '@/adapters/prokop/runtime-host/storage';
+import { configureProkopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
 import {
   disposeProkopExecutionScope,
   initializeProkopExecutionScope,

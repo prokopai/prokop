@@ -10,11 +10,7 @@ import { harnessProbes } from '@/application/ports/harness-probes';
 import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { getLearningReviewToolPort } from '@/application/ports/learning-review-tools';
 import { learningReviewTools } from '@/application/learning/review-tools';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
-import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
-import { configureRuntimeHost } from '@/infrastructure/runtime/host';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 
 type Call = [string, ...unknown[]];
 
@@ -167,8 +163,7 @@ describe('execution over the agent protocol loopback', () => {
 describe('bootstrap binds harness executors to the agent loopback', () => {
   afterEach(() => {
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
   });
 
@@ -203,8 +198,7 @@ describe('bootstrap binds harness executors to the agent loopback', () => {
 describe('headless runs, probes and harness events over the agent loopback', () => {
   afterEach(() => {
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
   });
 

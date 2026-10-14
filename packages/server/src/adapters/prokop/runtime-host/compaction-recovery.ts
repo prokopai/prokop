@@ -10,7 +10,7 @@ import {
 } from '@/harnesses/prokop/compaction/recovery';
 import type { RuntimeEventSink } from '@/infrastructure/runtime/events';
 import type { CompactionRecoveryPort } from '@/application/ports/session';
-import { mapCapekEventToServerMessage } from '@/harnesses/prokop/host/events';
+import { mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
 import {
   broadcastEvent,
   broadcastSessionUpdated,

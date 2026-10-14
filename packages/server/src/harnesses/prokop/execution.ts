@@ -25,7 +25,7 @@ import type {
 } from '@/application/ports/headless-execution';
 import { runLearningReview } from '@/harnesses/prokop/learning';
 import type { SessionWirePorts } from '@/application/ports/delivery';
-import { createProkopRuntimeContext } from '@/harnesses/prokop/host/events';
+import { createProkopRuntimeContext } from '@/harnesses/prokop/bindings/events';
 import { withProkopComposedScopeSync, withProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
 
 export interface ProkopSessionExecutionDependencies {

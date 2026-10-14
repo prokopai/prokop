@@ -21,7 +21,7 @@ import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
 import { createToolHostHandlers, type SessionSearchService, type TerminalAccess } from '@/agent-bridge/host-tools';
 import { agentLoopbackEnabled, agentProcessEnabled, createAgentLoopback } from '@/agent-bridge/loopback';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
-import { prokopMcpAccess } from '@/harnesses/prokop/host/tool-source';
+import { prokopMcpAccess } from '@/adapters/prokop/runtime-host/tool-source';
 import { configureAgentTerminals } from '@/harnesses/prokop/tools/terminal/port';
 import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
 import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';

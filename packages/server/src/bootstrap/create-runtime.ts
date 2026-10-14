@@ -7,11 +7,11 @@ import {
   configureProkopStorage,
   configureProkopWorkspacePolicy,
   configureProkopWorkspaceToolDiscovery,
-} from '@/harnesses/prokop/host';
-import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
+} from '@/adapters/prokop/runtime-host';
+import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
-import { warmInstalledToolsCache } from '@/harnesses/prokop/host/tool-resolver';
-import type { ProkopSessionSearchHostDeps } from '@/harnesses/prokop/host/session-search';
+import { warmInstalledToolsCache } from '@/harnesses/prokop/bindings/tool-resolver';
+import type { ProkopSessionSearchHostDeps } from '@/adapters/prokop/runtime-host/session-search';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 import type { AgentsApplication } from '@/application/agents';
 import { installExecutionLifecyclePort } from '@/application/ports/execution-lifecycle';

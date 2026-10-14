@@ -3,14 +3,14 @@ import { getRuntimeHost as getProkopCompatibilityBindings } from '@/infrastructu
 import {
   configureProkopBindings,
   prokopCompatibilityBindings,
-} from '@/harnesses/prokop/composition/bindings';
-import { deliverCapekEvent } from '@/harnesses/prokop/host/events';
-import { prokopDeliveryBindings } from '@/harnesses/prokop/host/delivery';
-import { prokopInteractionBindings } from '@/harnesses/prokop/host/interaction';
-import { prokopSandboxBindings } from '@/harnesses/prokop/host/sandbox';
-import { prokopTitleBindings } from '@/harnesses/prokop/host/titles';
-import { prokopToolPolicy } from '@/harnesses/prokop/host/tool-policy';
-import { prokopWorkspaceBindings } from '@/harnesses/prokop/host/workspace';
+} from '@/adapters/prokop/runtime-host/bindings';
+import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
+import { prokopDeliveryBindings } from '@/adapters/prokop/runtime-host/delivery';
+import { prokopInteractionBindings } from '@/adapters/prokop/runtime-host/interaction';
+import { prokopSandboxBindings } from '@/harnesses/prokop/bindings/sandbox';
+import { prokopTitleBindings } from '@/harnesses/prokop/bindings/titles';
+import { prokopToolPolicy } from '@/harnesses/prokop/bindings/tool-policy';
+import { prokopWorkspaceBindings } from '@/adapters/prokop/runtime-host/workspace';
 import { generateSessionTitle, hasManualSessionTitle, isDefaultSessionTitle } from '@/infrastructure/session-title';
 import { isSandboxActive } from '@/infrastructure/sandbox';
 import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';

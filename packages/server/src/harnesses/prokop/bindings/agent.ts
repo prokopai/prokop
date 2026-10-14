@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { configureRuntimeHost, type RuntimeHost } from '@/infrastructure/runtime/host';
+import type { RuntimeHost } from '@/infrastructure/runtime/host';
 import { fixedBuilderContextAssembler } from '@/harnesses/prokop/composition/plugins/legacy-system-message';
 import { installMemoryToolFallback } from '@/harnesses/prokop/composition/plugins/memory-domain';
 import { installSessionSearchToolFallback } from '@/harnesses/prokop/composition/plugins/session-search-domain';
@@ -9,20 +9,15 @@ import { installTaskToolFallback } from '@/harnesses/prokop/composition/plugins/
 import { installWorkflowToolFallback } from '@/harnesses/prokop/composition/plugins/workflow-domain';
 import { setDefaultContextAssembler } from '@/harnesses/prokop/context/assembler';
 import { resolveWorkspaceMemoryDir, resolveWorkspaceSkillsDir } from '@/infrastructure/runtime/workspace-dirs';
-import { prokopDeliveryBindings } from '@/harnesses/prokop/host/delivery';
-import { prokopInteractionBindings } from '@/harnesses/prokop/host/interaction';
-import { prokopSandboxBindings } from '@/harnesses/prokop/host/sandbox';
-import { prokopTitleBindings } from '@/harnesses/prokop/host/titles';
-import { prokopToolPolicy } from '@/harnesses/prokop/host/tool-policy';
-import { prokopWorkspaceBindings } from '@/harnesses/prokop/host/workspace';
+import { prokopSandboxBindings } from './sandbox';
+import { prokopTitleBindings } from './titles';
+import { prokopToolPolicy } from './tool-policy';
 
-export type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+/** Runtime-host parts the Prokop runtime provides itself, wherever it runs. */
+export type ProkopAgentBindings = Pick<RuntimeHost, 'titles' | 'toolPolicy' | 'sandbox' | 'layout'>;
 
-export const prokopCompatibilityBindings = {
-  interaction: prokopInteractionBindings,
-  delivery: prokopDeliveryBindings,
+export const prokopAgentBindings = {
   titles: prokopTitleBindings,
-  workspace: prokopWorkspaceBindings,
   toolPolicy: prokopToolPolicy,
   sandbox: prokopSandboxBindings,
   layout: {
@@ -31,14 +26,15 @@ export const prokopCompatibilityBindings = {
     agentSkillsDir: (agentDir: string) => join(agentDir, 'skills'),
     toolOutputTempRoot: () => join(tmpdir(), 'jean2'),
   },
-} satisfies RuntimeHost;
+} satisfies ProkopAgentBindings;
 
-export function configureProkopBindings(): void {
-  // The unscoped Jean2 fallback keeps the legacy fixed-builder assembler as
-  // the process default. Composed execution scopes seed their own ordered
-  // assembler through enterAgentScope. The bootstrap owns this installation.
+/**
+ * Process defaults of the Prokop runtime: the legacy fixed-builder context
+ * assembler for unscoped calls (composed scopes seed their own) and the
+ * domain tool fallbacks. The runtime host itself comes from the host side.
+ */
+export function configureProkopRuntimeDefaults(): void {
   setDefaultContextAssembler(fixedBuilderContextAssembler);
-  configureRuntimeHost(prokopCompatibilityBindings);
   installSessionSearchToolFallback();
   installTaskToolFallback();
   installWorkflowToolFallback();

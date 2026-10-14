@@ -44,7 +44,7 @@ import {
   createProkopAskAuthorityPort,
   configureProkopPreconfigSource,
   prokopTitleBindings,
-} from '@/harnesses/prokop/host';
+} from '@/adapters/prokop/runtime-host';
 import { createProkopProviderRegistryPort } from '@/adapters/providers/runtime-registry';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';

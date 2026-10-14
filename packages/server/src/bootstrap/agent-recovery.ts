@@ -1,4 +1,4 @@
-import { reconcileAllSessionsCompaction } from '@/harnesses/prokop/host/compaction-recovery';
+import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import { reconcileAllOrphanedToolCalls } from '@/infrastructure/sqlite/message-store';
 import { cleanupAllPendingAsks, listAllPendingAsks } from '@/infrastructure/sqlite/pending-asks';
 import { reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';

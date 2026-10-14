@@ -35,6 +35,16 @@ export function setupTestDatabase(): Database {
 }
 
 /**
+ * After a test that switched the agent ports (PROKOPAI_AGENT_LOOPBACK=1):
+ * rebuild every port for the configured mode, not only storage and the
+ * runtime host, so no protocol-backed port leaks into later test files.
+ * Restore the env flags first.
+ */
+export function restoreConfiguredRuntime(): void {
+  createRuntime();
+}
+
+/**
  * Tear down the test database override.
  * Call this in afterEach() to prevent leaks.
  */

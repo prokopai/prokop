@@ -3,10 +3,10 @@ import type { RuntimeEvent } from '@/infrastructure/runtime/events';
 import type { ServerMessage } from '@prokopai/sdk';
 import {
   createProkopRuntimeContext,
-  deliverCapekEvent,
   mapCapekEventToServerMessage,
   type ProkopEventRouter,
-} from '@/harnesses/prokop/host/events';
+} from '@/harnesses/prokop/bindings/events';
+import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
 
 function map(event: RuntimeEvent): unknown {
   return mapCapekEventToServerMessage(event);

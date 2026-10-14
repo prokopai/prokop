@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { resolve } from 'path';
 import { createWorkspaceCapability } from '@/infrastructure/filesystem/workspace-policy/policy';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';

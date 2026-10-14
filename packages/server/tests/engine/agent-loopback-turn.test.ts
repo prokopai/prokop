@@ -14,7 +14,7 @@ import type { ServerMessage } from '@prokopai/sdk/types';
 import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createAgentLoopback, createLoopbackStorage } from '@/agent-bridge/loopback';
-import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/host/events';
+import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
 import type { RuntimeDelivery } from '@/infrastructure/runtime/events';
 import type { RuntimeHost } from '@/infrastructure/runtime/host';
 import type { StorageBundle } from '@/infrastructure/storage/contracts';

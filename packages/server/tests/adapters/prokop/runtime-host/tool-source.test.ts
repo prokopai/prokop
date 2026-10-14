@@ -34,7 +34,7 @@ mock.module('@/infrastructure/tools/registry', () => ({
   },
 }));
 
-const adapter = await import('@/harnesses/prokop/host/tool-source');
+const adapter = await import('@/adapters/prokop/runtime-host/tool-source');
 const { builtinTools } = await import('@/harnesses/prokop/tools');
 const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@/application/ports/builtin-tools');
 

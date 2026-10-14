@@ -2,17 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
-import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
-import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
-import { configureRuntimeHost, getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getRuntimeHost } from '@/infrastructure/runtime/host';
 import { getHostLayout } from '@/infrastructure/runtime/host-layout';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 
 /** Production wiring with PROKOPAI_AGENT_LOOPBACK=1 for knowledge: writes and layout. */
@@ -38,9 +35,7 @@ describe('knowledge over the agent protocol loopback (SQLite)', () => {
 
   afterEach(() => {
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureKnowledgeWrites(null);
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
     for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });

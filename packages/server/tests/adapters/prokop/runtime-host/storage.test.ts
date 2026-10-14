@@ -4,7 +4,7 @@ import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
 import {
   configureProkopStorage,
   prokopStorageBundle,
-} from '@/harnesses/prokop/host/storage';
+} from '@/adapters/prokop/runtime-host/storage';
 import {
   createMessage,
   createPart,

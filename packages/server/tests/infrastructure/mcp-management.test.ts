@@ -7,7 +7,7 @@ import { getAllServerStatus, getWorkspaceTools, getServerTools, saveServer, setT
   removeServer, shutdownWorkspace, initializeWorkspace } from '@/infrastructure/mcp/manager';
 import { getTools } from '@/infrastructure/mcp/converter';
 import { Paths } from '@/infrastructure/runtime/paths';
-import { createProkopMcpDiscovery } from '@/harnesses/prokop/host/mcp-discovery';
+import { createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import type { Preconfig } from '@prokopai/sdk/types';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';

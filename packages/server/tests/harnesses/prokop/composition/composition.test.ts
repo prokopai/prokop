@@ -40,10 +40,10 @@ import {
   type AgentScopeHandle,
   type ProcessScopeHandle,
 } from '@/harnesses/prokop/composition/plugins/compose';
-import * as focused from '@/harnesses/prokop/host';
-import { configureProkopSessionSearchHost } from '@/harnesses/prokop/host/session-search';
+import * as focused from '@/adapters/prokop/runtime-host';
+import { configureProkopSessionSearchHost } from '@/adapters/prokop/runtime-host/session-search';
 import { JEAN2_AGENT_PLUGIN_IDS, JEAN2_PROCESS_PLUGIN_IDS } from '@/harnesses/prokop/composition/profile';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { createWiredApplication } from '@/bootstrap/application';
 import { createRuntime } from '@/bootstrap/create-runtime';
 import { createProkopRuntimeComposition } from '@/harnesses/prokop/composition/composition';
@@ -127,13 +127,13 @@ describe('Čapek composition root', () => {
 
     expect(imports.length).toBeGreaterThan(0);
     const allowedSpecifiers = [
-      '@/harnesses/prokop/host',
-      '@/harnesses/prokop/host/storage',
-      '@/harnesses/prokop/host/session-search',
-      '@/harnesses/prokop/composition/bindings',
+      '@/adapters/prokop/runtime-host',
+      '@/adapters/prokop/runtime-host/storage',
+      '@/adapters/prokop/runtime-host/session-search',
+      '@/adapters/prokop/runtime-host/bindings',
       '@/harnesses/prokop/composition/execution-scope',
       '@/application/ports/execution-lifecycle',
-      '@/harnesses/prokop/host/tool-resolver',
+      '@/harnesses/prokop/bindings/tool-resolver',
       '@/bootstrap/application',
       '@/application/agents',
       '@/application/ports/builtin-tools',

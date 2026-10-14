@@ -14,13 +14,13 @@ import {
   configureProkopPreconfigSource,
   configureProkopRuntimeConfiguration,
   configureProkopWorkspacePolicy,
-} from '@/harnesses/prokop/host';
-import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
+  configureProkopRuntimeDefaults,
+  prokopAgentBindings,
+} from '@/harnesses/prokop/bindings';
 import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
-import { warmInstalledToolsCache } from '@/harnesses/prokop/host/tool-resolver';
+import { warmInstalledToolsCache } from '@/harnesses/prokop/bindings/tool-resolver';
 import { builtinTools } from '@/harnesses/prokop/tools';
 import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
-import { getRuntimeHost } from '@/infrastructure/runtime/host';
 import { getDataDir } from '@/infrastructure/runtime/paths';
 import { activateSandbox } from '@/infrastructure/sandbox';
 import { installSandboxController } from '@/infrastructure/sandbox/controller';
@@ -66,8 +66,7 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
   configureProkopAgentSource(agents);
   configureProkopInstructionSource();
   void warmInstalledToolsCache();
-  configureProkopBindings();
-  const local = getRuntimeHost();
+  configureProkopRuntimeDefaults();
 
   const settings = { sandboxActive: false, permissionTimeoutMs: 30 * 60 * 1000 };
   const handlers: AgentHandlers = {};
@@ -78,7 +77,7 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
   });
   // Sandboxed model calls are answered by the host's controller (installed before the scope captures it).
   installSandboxController(new ForwardingSandboxController(agent));
-  const side = composeAgentSide(agent, handlers, local, {
+  const side = composeAgentSide(agent, handlers, prokopAgentBindings, {
     isSandboxActive: () => settings.sandboxActive,
     getPermissionTimeoutMs: () => settings.permissionTimeoutMs,
   });

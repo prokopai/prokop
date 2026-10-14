@@ -1,18 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AskRequestMessage, AskTimedOutMessage } from '@prokopai/sdk';
 import { getAgentAskPort } from '@/application/ports/agent-asks';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
 import {
   disposeProkopExecutionScope,
   initializeProkopExecutionScope,
   resetProkopExecutionCompositionFactoryForTests,
   withProkopExecutionScope,
 } from '@/harnesses/prokop/composition/execution-scope';
-import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
 import { createAskApi } from '@/harnesses/prokop/permission/ask-user-api';
-import { configureRuntimeHost } from '@/infrastructure/runtime/host';
-import { configureStorage } from '@/infrastructure/storage/runtime';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 
 /**
@@ -35,8 +31,7 @@ describe('Prokop asks over the agent protocol loopback', () => {
     await disposeProkopExecutionScope();
     resetProkopExecutionCompositionFactoryForTests();
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
   });
 

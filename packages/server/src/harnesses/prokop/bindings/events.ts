@@ -1,14 +1,7 @@
 import type { RuntimeDelivery, RuntimeEvent, RuntimeEventContext } from '@/infrastructure/runtime/events';
 import type { Session as CapekSession } from '@prokopai/sdk/types/session';
 import type { AskAuthority, ServerMessage } from '@prokopai/sdk';
-import type { NotificationsApplication } from '@/application/notifications';
-import {
-  broadcastEvent,
-  broadcastToSessionEvent,
-  sendToAskTargetsEvent,
-  sendToControllerEvent,
-} from '@/transport/websocket/broadcast';
-import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
+import { getRuntimeHost } from '@/infrastructure/runtime/host';
 
 export function mapCapekEventToServerMessage(event: RuntimeEvent): ServerMessage | null {
   switch (event.kind) {
@@ -143,7 +136,7 @@ export function createProkopRuntimeContext<Origin>(
   return {
     emit(delivery) {
       if (delivery.event.kind === 'terminal') {
-        deliverCapekEvent(delivery);
+        getRuntimeHost().delivery.emit(delivery);
         return;
       }
 
@@ -172,45 +165,10 @@ export function createProkopRuntimeContext<Origin>(
           router.sendToAskTargets(audience.sessionId, audience.authority, message);
           break;
         case 'host':
-          deliverCapekEvent(delivery);
+          getRuntimeHost().delivery.emit(delivery);
           break;
       }
     },
     attachOriginToSession: router.attachOriginToSession,
   };
-}
-
-export function deliverCapekEvent(
-  delivery: RuntimeDelivery,
-  notifications?: Pick<NotificationsApplication, 'notifyTerminalMessage'>,
-): void {
-  if (delivery.event.kind === 'terminal') {
-    (notifications ?? getProkopNotificationsApplication()).notifyTerminalMessage(
-      delivery.event.message,
-      delivery.event.sessionId,
-    );
-    return;
-  }
-
-  const message = mapCapekEventToServerMessage(delivery.event);
-  if (!message) return;
-
-  const audience = audienceOf(delivery);
-  switch (audience.scope) {
-    case 'global':
-      broadcastEvent(message);
-      break;
-    case 'session':
-      broadcastToSessionEvent(audience.sessionId, message);
-      break;
-    case 'controller':
-      sendToControllerEvent(audience.sessionId, message);
-      break;
-    case 'ask_targets':
-      sendToAskTargetsEvent(audience.sessionId, audience.authority, message);
-      break;
-    case 'origin':
-    case 'host':
-      break;
-  }
 }

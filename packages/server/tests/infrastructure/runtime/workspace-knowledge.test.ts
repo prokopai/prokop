@@ -9,7 +9,7 @@ import {
   resolveWorkspaceSkillsDir,
   workspaceKnowledgeRoot,
 } from '@/infrastructure/runtime/workspace-dirs';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 

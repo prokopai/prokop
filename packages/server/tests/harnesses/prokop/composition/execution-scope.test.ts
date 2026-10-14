@@ -9,10 +9,10 @@ import type {
 import type { revertToStep as CapekRevertToStep } from '@/harnesses/prokop/execution/revert';
 import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
-import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
-import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/host/runtime-configuration';
-import { configureProkopStorage, prokopStorageBundle } from '@/harnesses/prokop/host/storage';
-import { configureProkopWorkspaceToolDiscovery } from '@/harnesses/prokop/host/tool-source';
+import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
+import { configureProkopRuntimeConfiguration } from '@/harnesses/prokop/bindings/runtime-configuration';
+import { configureProkopStorage, prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
+import { configureProkopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
 import { createProkopSessionExecution, type ProkopSessionExecutionDependencies } from '@/harnesses/prokop/execution';
 import { createProkopHarness } from '@/harnesses/prokop';
 import {

@@ -7,9 +7,9 @@ import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-sou
 import { configureAgentSource, configurePreconfigSource } from '@/harnesses/prokop/context/sources';
 import { configureStorage } from '@/infrastructure/storage/runtime';
 import type { StorageBundle } from '@/infrastructure/storage/contracts';
-import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
-import { prokopStorageBundle } from '@/harnesses/prokop/host';
+import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host';
 import { buildAiSdkTools, type BuildToolsOptions } from '@/harnesses/prokop/execution/build-tools';
 import { clearCache, scanTools } from '@/infrastructure/tools/registry';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk';

@@ -12,8 +12,8 @@ import { installHarnessNotificationPort } from '@/application/ports/harness-noti
 import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
 import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
 import { severityFromMode } from '@/domains/permissions';
-import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/host/events';
-import { createProkopToolWorkspaceHost } from '@/harnesses/prokop/host/workspace';
+import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/bindings/events';
+import { createProkopToolWorkspaceHost } from '@/harnesses/prokop/bindings/tool-workspace';
 import { configureAgentTerminals } from '@/harnesses/prokop/tools/terminal/port';
 import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
 import { configureSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
@@ -44,7 +44,7 @@ export type AgentRegistrations = Record<SessionHarness, { execution: AgentExecut
 export function composeAgentSide(
   agent: AgentEndpoint,
   handlers: AgentHandlers,
-  local: RuntimeHost,
+  local: Pick<RuntimeHost, 'titles' | 'toolPolicy' | 'layout' | 'guidance'>,
   settings: AgentSideSettings,
 ): { registerExecutors(registrations: AgentRegistrations): void } {
   Object.assign(handlers, askHandlers, probeHandlers);

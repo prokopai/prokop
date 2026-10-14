@@ -18,7 +18,7 @@ import {
   listMessagesWithPartsBeforeSequence,
   reconcileOrphanedToolCalls,
 } from '@/infrastructure/sqlite/message-store';
-import { reconcileSessionCompaction } from '@/harnesses/prokop/host/compaction-recovery';
+import { reconcileSessionCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import {
   listQueuedMessages,
   addMessageToQueue,

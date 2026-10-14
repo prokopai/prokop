@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { ServerWebSocket } from 'bun';
 import type { RuntimeDelivery, RuntimeEvent } from '@/infrastructure/runtime/events';
-import { prokopDeliveryBindings } from '@/harnesses/prokop/host/delivery';
-import { deliverCapekEvent } from '@/harnesses/prokop/host/events';
+import { prokopDeliveryBindings } from '@/adapters/prokop/runtime-host/delivery';
+import { deliverCapekEvent } from '@/adapters/prokop/runtime-host/delivery';
 import { createBunWebSocketAdapter } from '@/transport/websocket/bun-adapter';
 import { installDeliveryPort } from '@/transport/websocket/broadcast';
 import { unregisterConnection } from '@/transport/websocket/connection-registry';

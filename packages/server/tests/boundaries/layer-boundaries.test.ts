@@ -20,7 +20,9 @@ const applicationDir = resolve(serverSourceRoot, 'application');
 const domainsDir = resolve(serverSourceRoot, 'domains');
 const infrastructureDir = resolve(serverSourceRoot, 'infrastructure');
 const adaptersDir = resolve(serverSourceRoot, 'adapters');
-const runtimeHostDir = resolve(serverSourceRoot, 'harnesses/prokop/host');
+// The Prokop runtime host on host services (SQLite, WebSocket delivery), and the runtime's own bindings.
+const runtimeHostDir = resolve(serverSourceRoot, 'adapters/prokop/runtime-host');
+const prokopBindingsDir = resolve(serverSourceRoot, 'harnesses/prokop/bindings');
 const harnessesDir = resolve(serverSourceRoot, 'harnesses');
 const prokopHarnessDir = resolve(harnessesDir, 'prokop');
 const routesDir = resolve(serverSourceRoot, 'transport/http/routes');
@@ -48,20 +50,20 @@ const compatBarrelExceptions: Record<string, string[]> = {};
 const serverWebSocketExceptions: Record<string, string[]> = {};
 
 const layerAdaptersLegacyExceptions: Record<string, string[]> = {
-  'packages/server/src/harnesses/prokop/host/context-sources.ts': [
+  'packages/server/src/harnesses/prokop/bindings/context-sources.ts': [
     '@/infrastructure/config/preconfig', '@/infrastructure/runtime/paths',
   ],
-  'packages/server/src/harnesses/prokop/host/events.ts': [
+  'packages/server/src/adapters/prokop/runtime-host/delivery.ts': [
     '@/transport/websocket/broadcast',
   ],
-  'packages/server/src/harnesses/prokop/host/interaction.ts': [
+  'packages/server/src/adapters/prokop/runtime-host/interaction.ts': [
     '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/permissions', '@/infrastructure/sqlite/session-store', '@/infrastructure/runtime/environment',
   ],
-  'packages/server/src/harnesses/prokop/host/runtime-configuration.ts': [
+  'packages/server/src/harnesses/prokop/bindings/runtime-configuration.ts': [
     '@/config', '@/infrastructure/runtime/environment',
   ],
-  'packages/server/src/harnesses/prokop/host/sandbox.ts': ['@/infrastructure/sandbox'],
-  'packages/server/src/harnesses/prokop/host/storage.ts': [
+  'packages/server/src/harnesses/prokop/bindings/sandbox.ts': ['@/infrastructure/sandbox'],
+  'packages/server/src/adapters/prokop/runtime-host/storage.ts': [
     '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
     '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/attachments',
     '@/infrastructure/sqlite/response-formats', '@/infrastructure/sqlite/tool-output-artifacts',
@@ -70,20 +72,26 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
     '@/infrastructure/sqlite/harness-state', '@/infrastructure/sqlite/storage-commit',
     '@/infrastructure/sqlite/session-harness-switch',
   ],
-  'packages/server/src/harnesses/prokop/host/compaction-recovery.ts': [
+  'packages/server/src/adapters/prokop/runtime-host/compaction-recovery.ts': [
     '@/transport/websocket/broadcast', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
   ],
-  'packages/server/src/harnesses/prokop/host/titles.ts': ['@/infrastructure/session-title'],
-  'packages/server/src/harnesses/prokop/host/tool-source.ts': [
+  'packages/server/src/harnesses/prokop/bindings/titles.ts': ['@/infrastructure/session-title'],
+  'packages/server/src/adapters/prokop/runtime-host/tool-source.ts': [
     '@/config', '@/infrastructure/mcp', '@/infrastructure/runtime/paths',
     '@/infrastructure/runtime/env-compat',
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/workspaces',
   ],
-  'packages/server/src/harnesses/prokop/host/workspace.ts': [
-    '@/infrastructure/sqlite/workspaces', '@/infrastructure/runtime/environment', '@/infrastructure/runtime/paths',
+  'packages/server/src/adapters/prokop/runtime-host/workspace.ts': [
+    '@/infrastructure/sqlite/workspaces',
   ],
+  // The tool workspace core moved out of the old host workspace module with these edges.
+  'packages/server/src/harnesses/prokop/bindings/tool-workspace.ts': [
+    '@/infrastructure/runtime/environment', '@/infrastructure/runtime/paths',
+  ],
+  // Default layout of the runtime's own bindings (was composition/bindings.ts).
+  'packages/server/src/harnesses/prokop/bindings/agent.ts': ['@/infrastructure/runtime/workspace-dirs'],
   'packages/server/src/adapters/prokop/session-repository.ts': [
-    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/tool-output-artifacts', '@/infrastructure/sqlite/attachments', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/workspaces', '@/harnesses/prokop/host/compaction-recovery', '@/infrastructure/session-title',
+    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/tool-output-artifacts', '@/infrastructure/sqlite/attachments', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/workspaces', '@/adapters/prokop/runtime-host/compaction-recovery', '@/infrastructure/session-title',
   ],
   'packages/server/src/adapters/prokop/scheduled-job-repository.ts': [
     '@/infrastructure/sqlite/scheduled-job-store',
@@ -286,10 +294,11 @@ const layerRules: DependencyRule[] = [
   },
   {
     name: 'layer-harness-host-access',
-    rationale: 'Harnesses run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools, notifications, learning review tools), never SQLite, transport or host notification services directly. `prokop/host` holds the host-side Prokop adapters and stays excluded.',
+    rationale: 'Harnesses run in the agent (host/agent split). They reach the host only through ports (storage, runtime host, harness asks, MCP tools, notifications, learning review tools), never SQLite, transport, adapters or host notification services directly. The Prokop runtime host on host services lives in adapters/prokop/runtime-host.',
     appliesTo: [harnessesDir],
-    excludedDirs: [resolve(prokopHarnessDir, 'host')],
     forbiddenSpecifiers: [
+      { prefix: '@/adapters' },
+      { prefix: '@/bootstrap' },
       { exact: 'bun:sqlite' },
       { prefix: '@/infrastructure/sqlite' },
       { prefix: '@/transport' },
@@ -299,7 +308,7 @@ const layerRules: DependencyRule[] = [
       // The todo tool's own todos.db is agent-private state, not the host database (plan decision 4).
       'packages/server/src/harnesses/prokop/tools/todo/tool.ts': ['bun:sqlite'],
       // A test drives the real terminal manager to verify the tool against it.
-      'packages/server/src/harnesses/prokop/tools/terminal/terminal.test.ts': ['@/transport/terminal'],
+      'packages/server/src/harnesses/prokop/tools/terminal/terminal.test.ts': ['@/transport/terminal', '@/bootstrap/agent-ports'],
     },
   },
   {
@@ -360,7 +369,7 @@ const layerRules: DependencyRule[] = [
   {
     name: 'layer-adapters',
     rationale: 'Adapters translate Capek contracts and Jean2 ports. Transport-owned implementation exceptions are explicit and documented; the built-in tools catalog is a server-internal asset leaf (resolver and catalog seam).',
-    appliesTo: [adaptersDir, runtimeHostDir],
+    appliesTo: [adaptersDir, prokopBindingsDir],
     allowedResolvedDirs: [adaptersDir, prokopHarnessDir, applicationDir, domainsDir,
       resolve(harnessesDir, 'shared'), resolve(infrastructureDir, 'providers'),
       resolve(infrastructureDir, 'storage'), resolve(infrastructureDir, 'tools'),
@@ -443,12 +452,15 @@ describe('server layer boundaries', () => {
       path: resolve(harnessesDir, 'codex-cli/example.ts'),
       sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';\nimport { isControlled } from '@/transport/websocket/control-registry';",
     }, {
-      path: resolve(prokopHarnessDir, 'host/example.ts'),
-      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';",
+      // No harness directory is excluded any more: Prokop's host services live in adapters/prokop/runtime-host.
+      path: resolve(prokopHarnessDir, 'bindings/example.ts'),
+      sourceText: "import { getSession } from '@/infrastructure/sqlite/session-store';\nimport { prokopStorageBundle } from '@/adapters/prokop/runtime-host';",
     }];
     expect(evaluateRules(offending, serverSourceRoot, repositoryRoot, [rule]).violations).toEqual([
       'packages/server/src/harnesses/codex-cli/example.ts imports @/infrastructure/sqlite/session-store (value) [rule: layer-harness-host-access]',
       'packages/server/src/harnesses/codex-cli/example.ts imports @/transport/websocket/control-registry (value) [rule: layer-harness-host-access]',
+      'packages/server/src/harnesses/prokop/bindings/example.ts imports @/infrastructure/sqlite/session-store (value) [rule: layer-harness-host-access]',
+      'packages/server/src/harnesses/prokop/bindings/example.ts imports @/adapters/prokop/runtime-host (value) [rule: layer-harness-host-access]',
     ]);
   });
 
@@ -576,7 +588,7 @@ describe('server layer boundaries', () => {
     const result = evaluateRules(files, serverSourceRoot, repositoryRoot, layerRules);
 
     expect(result.violations).toEqual([
-      'packages/server/src/harnesses/prokop/host/storage.ts imports ../../../transport/ws/registry (value) [rule: layer-adapters]',
+      'packages/server/src/adapters/prokop/runtime-host/storage.ts imports ../../../transport/ws/registry (value) [rule: layer-adapters]',
     ]);
   });
 
@@ -787,7 +799,7 @@ describe('server layer boundaries', () => {
 
   test('S5 gate: the capek session-search adapter imports only capek contracts and application ports', () => {
     expect(Object.keys(layerAdaptersLegacyExceptions)).not.toContain(
-      'packages/server/src/harnesses/prokop/host/session-search.ts',
+      'packages/server/src/adapters/prokop/runtime-host/session-search.ts',
     );
 
     const adapterPath = resolve(runtimeHostDir, 'session-search.ts');
@@ -825,8 +837,8 @@ describe('server layer boundaries', () => {
     const result = evaluateRules(files, serverSourceRoot, repositoryRoot, layerRules);
 
     expect(result.violations).toEqual([
-      'packages/server/src/harnesses/prokop/host/session-search.ts imports @/store (value) [rule: layer-adapters]',
-      'packages/server/src/harnesses/prokop/host/session-search.ts imports @/infrastructure/sqlite/session-search-query-repository (value) [rule: layer-adapters]',
+      'packages/server/src/adapters/prokop/runtime-host/session-search.ts imports @/store (value) [rule: layer-adapters]',
+      'packages/server/src/adapters/prokop/runtime-host/session-search.ts imports @/infrastructure/sqlite/session-search-query-repository (value) [rule: layer-adapters]',
     ]);
   });
 
@@ -878,7 +890,7 @@ describe('server layer boundaries', () => {
 
   test('S4/S5 gate: the capek scheduler adapter imports only capek contracts and application ports', () => {
     expect(Object.keys(layerAdaptersLegacyExceptions)).not.toContain(
-      'packages/server/src/harnesses/prokop/host/scheduler.ts',
+      'packages/server/src/adapters/prokop/runtime-host/scheduler.ts',
     );
 
     const adapterPath = resolve(runtimeHostDir, 'scheduler.ts');
@@ -914,8 +926,8 @@ describe('server layer boundaries', () => {
 
     const result = evaluateRules(files, serverSourceRoot, repositoryRoot, layerRules);
     expect(result.violations).toEqual([
-      'packages/server/src/harnesses/prokop/host/scheduler.ts imports @/store/scheduled-jobs (value) [rule: layer-adapters]',
-      'packages/server/src/harnesses/prokop/host/scheduler.ts imports @/scheduler/runner (value) [rule: layer-adapters]',
+      'packages/server/src/adapters/prokop/runtime-host/scheduler.ts imports @/store/scheduled-jobs (value) [rule: layer-adapters]',
+      'packages/server/src/adapters/prokop/runtime-host/scheduler.ts imports @/scheduler/runner (value) [rule: layer-adapters]',
     ]);
   });
 
@@ -959,7 +971,7 @@ describe('server layer boundaries', () => {
     expect([...new Set(imports.map((imp) => imp.specifier))].sort()).toEqual([
       '@/harnesses/prokop/compaction/recovery', '@/infrastructure/runtime/events',
       '@/application/ports/session',
-      '@/harnesses/prokop/host/events',
+      '@/harnesses/prokop/bindings/events',
       '@/transport/websocket/broadcast',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/session-store',
@@ -1775,7 +1787,7 @@ describe('server layer boundaries', () => {
     expect(toolsFile).toBeDefined();
     const toolsImports = parseImports(toolsFile!.sourceText, toolsFile!.path);
     expect(toolsImports.map((imp) => imp.specifier).sort()).toEqual([
-      '@/harnesses/prokop/host/tool-source',
+      '@/adapters/prokop/runtime-host/tool-source',
       '@/application/ports/tool-catalog',
       '@/config/errors',
       '@/config/tool-env',
@@ -1870,9 +1882,9 @@ describe('server layer boundaries', () => {
       const relativePath = relative(serverSourceRoot, file.path);
       // Existing host adapters retain these named runtime-binding edges after relocation.
       const hostEdges: Record<string, string[]> = {
-        'adapters/prokop/tools.ts': ['@/harnesses/prokop/host/tool-source'],
-        'adapters/prokop/session-repository.ts': ['@/harnesses/prokop/host/compaction-recovery'],
-        'index.ts': ['@/harnesses/prokop/host/compaction-recovery'],
+        'adapters/prokop/tools.ts': ['@/adapters/prokop/runtime-host/tool-source'],
+        'adapters/prokop/session-repository.ts': ['@/adapters/prokop/runtime-host/compaction-recovery'],
+        'index.ts': ['@/adapters/prokop/runtime-host/compaction-recovery'],
         'transport/websocket/handlers/misc.ts': ['@/harnesses/prokop/permission/ask-user-api'],
       };
       if (relativePath.startsWith(`harnesses${sep}`) || relativePath.startsWith(`bootstrap${sep}`)) continue;

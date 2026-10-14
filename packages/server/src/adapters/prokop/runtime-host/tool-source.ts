@@ -14,8 +14,8 @@ import type { LoadedTool } from '@prokopai/sdk/tool';
 import { getBuiltinToolsPort } from '@/application/ports/builtin-tools';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { prokopPreconfigSource } from '@/harnesses/prokop/host/context-sources';
-import { createMcpAccess, createProkopMcpDiscovery } from '@/harnesses/prokop/host/mcp-discovery';
+import { prokopPreconfigSource } from '@/harnesses/prokop/bindings/context-sources';
+import { createMcpAccess, createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import { browserTools } from '@/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
 

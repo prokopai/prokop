@@ -46,8 +46,8 @@ import {
 import { toolOutputPolicyPlugin } from '@/harnesses/prokop/composition/plugins/tool-output-policy';
 import { workspacePolicyPlugin } from '@/harnesses/prokop/composition/plugins/workspace-policy';
 import { builtinTools } from '@/harnesses/prokop/tools';
-import { builtinToolsAgentPlugins } from '@/harnesses/prokop/host/tool-resolver';
-import { prokopWorkspacePolicyOptions } from '@/harnesses/prokop/host/workspace-policy';
+import { builtinToolsAgentPlugins } from '@/harnesses/prokop/bindings/tool-resolver';
+import { prokopWorkspacePolicyOptions } from '@/harnesses/prokop/bindings/workspace-policy';
 
 export const JEAN2_PROCESS_PLUGIN_IDS = [
   'current.provider-registry',

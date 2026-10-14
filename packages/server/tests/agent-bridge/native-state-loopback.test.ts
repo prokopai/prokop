@@ -5,14 +5,12 @@ import {
   bindCodexThread, getCodexBinding, markCodexSteerReply, markCodexTurnPending, markCodexTurnStarted,
 } from '@/harnesses/codex-cli/bindings';
 import { commitSteer } from '@/harnesses/shared/steering';
-import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
-import { configureRuntimeHost } from '@/infrastructure/runtime/host';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { createMessage, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { addMessageToQueue, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
+import { getStorage } from '@/infrastructure/storage/runtime';
 import { storeTransaction } from '@/infrastructure/storage/transaction';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { codexBinding } from '#tests/helpers/legacy-native';
 import { seedSession, seedWorkspace } from '#tests/seed';
 
@@ -30,8 +28,7 @@ describe('native harness state over the agent protocol loopback (SQLite)', () =>
 
   afterEach(() => {
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
   });
 

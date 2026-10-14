@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
-import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
-import { getRuntimeHost, configureRuntimeHost } from '@/infrastructure/runtime/host';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
+import { getRuntimeHost } from '@/infrastructure/runtime/host';
 import { listPendingAsksBySession } from '@/infrastructure/sqlite/pending-asks';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { getStorage } from '@/infrastructure/storage/runtime';
+import { resetTestDatabase, restoreConfiguredRuntime, setupTestDatabase } from '#tests/db';
 import { seedSession, seedWorkspace } from '#tests/seed';
 
 /**
@@ -21,8 +21,7 @@ describe('Prokop runtime host over the agent protocol loopback (SQLite)', () => 
 
   afterEach(() => {
     delete process.env.PROKOPAI_AGENT_LOOPBACK;
-    configureStorage(prokopStorageBundle);
-    configureRuntimeHost(prokopCompatibilityBindings);
+    restoreConfiguredRuntime();
     resetTestDatabase();
   });
 

@@ -1,4 +1,4 @@
-import { prokopToolCatalog } from '@/harnesses/prokop/host/tool-source';
+import { prokopToolCatalog } from '@/adapters/prokop/runtime-host/tool-source';
 import { clearToolEnvVar, listToolEnvVars, setToolEnvVar } from '@/config/tool-env';
 import {
   ConfigurationPersistenceError,

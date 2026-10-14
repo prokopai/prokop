@@ -4,11 +4,11 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { getRuntimeConfiguration } from '@/infrastructure/providers/configuration/runtime';
 import { getRuntimeHost as getProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
-import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
+import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import {
   prokopRuntimeConfiguration,
   prokopStorageBundle,
-} from '@/harnesses/prokop/host';
+} from '@/adapters/prokop/runtime-host';
 import { createRuntime } from '@/bootstrap/create-runtime';
 
 const expectedGroupOperations: Record<keyof typeof prokopCompatibilityBindings, string[]> = {

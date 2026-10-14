@@ -8,7 +8,7 @@ import {
   createProkopRuntimeConfiguration,
   prokopRuntimeConfiguration,
   withContractTier,
-} from '@/harnesses/prokop/host/runtime-configuration';
+} from '@/harnesses/prokop/bindings/runtime-configuration';
 import * as configModule from '@/config';
 import * as environment from '@/infrastructure/runtime/environment';
 

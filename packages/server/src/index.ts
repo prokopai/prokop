@@ -29,7 +29,7 @@ import type { ServerMessage, AskAuthority } from '@prokopai/sdk';
 import { getTerminalManager, getTerminalEventManager } from '@/transport/terminal';
 import { cleanupRunningSessionsOnStartup } from '@/infrastructure/sqlite/terminal-session-store';
 import { reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
-import { reconcileAllSessionsCompaction } from '@/harnesses/prokop/host/compaction-recovery';
+import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import { readEnv } from '@/infrastructure/runtime/env-compat';
 import { disposeExecutionLifecycle, initializeExecutionLifecycle } from '@/application/ports/execution-lifecycle';
 import { reconcileAllOrphanedToolCalls } from '@/infrastructure/sqlite/message-store';
