@@ -10,12 +10,14 @@
 
 import type { Message, Session } from '@prokopai/sdk/types';
 import type { BroadcastFn } from '@/infrastructure/runtime/host-dependencies';
-import { getCompactionService } from '@/harnesses/prokop/compaction/policy';
-import { persistCompactionFailure } from '@/harnesses/prokop/compaction/task';
 
 /** Inward-facing storage port the host (the current Jean2 server store)
  * fulfills. Shapes are SDK structural copies; no SQL crosses the boundary. */
 export interface CompactionRecoveryDeps {
+  /** Work is running for the session (a compaction among it): recovery must not touch it. */
+  isWorkActive(sessionId: string): boolean;
+  /** Writes the failure record that answers an orphaned trigger, then broadcasts it. */
+  persistFailure(sessionId: string, triggerMessageId: string, error: string, broadcast: BroadcastFn): Promise<void>;
   /** True when the session's compacting flag is set (a stuck state). */
   isSessionCompacting(sessionId: string): boolean;
   /** Clears the stuck compacting flag and returns the updated session, or
@@ -63,7 +65,7 @@ export async function reconcileSessionCompaction(
   // If compaction is genuinely in-flight (tracked in-memory), skip reconciliation entirely.
   // This prevents false "Compaction interrupted" failures when the user switches sessions
   // while compaction is still running on the server.
-  if (getCompactionService().isCompactionActive(sessionId)) {
+  if (deps.isWorkActive(sessionId)) {
     return 0;
   }
 
@@ -87,7 +89,7 @@ export async function reconcileSessionCompaction(
   for (const trigger of orphanedTriggers) {
     // Idempotent: once persisted, the failure message becomes the outcome,
     // so the orphan query (NOT EXISTS outcome.parent_id) stops matching.
-    await persistCompactionFailure(
+    await deps.persistFailure(
       sessionId,
       trigger.id,
       'Compaction interrupted (session recovered after crash or interruption)',

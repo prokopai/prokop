@@ -1066,6 +1066,20 @@ describe('application session use cases', () => {
       });
     });
 
+    test('resume leaves compaction and tool state alone while the session runs (a compaction counts as running)', async () => {
+      const spy = makeSpy();
+      const app = createSessionLifecycleApplication(makeDeps({
+        repository: makeRepository({
+          getSession: () => makeSession({ compacting: true }),
+          reconcileCompaction: async () => { throw new Error('must not reconcile a running session'); },
+          reconcileOrphanedToolCalls: () => { throw new Error('must not interrupt running tools'); },
+        }),
+        execution: makeExecution({ isSessionActive: () => true }),
+      }));
+      await app.resume(makeWire(spy), origin, 'sess-1');
+      expect(spy.sent.some(message => message.type === 'error')).toBe(false);
+    });
+
     test('resume refuses unknown owners before attaching or clearing running state', async () => {
       const spy = makeSpy();
       const app = createSessionLifecycleApplication(makeDeps({

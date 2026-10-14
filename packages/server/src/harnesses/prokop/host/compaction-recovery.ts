@@ -16,7 +16,8 @@ import {
   broadcastSessionUpdated,
   type BroadcastSessionFn,
 } from '@/transport/websocket/broadcast';
-import { findOrphanedCompactionTriggers } from '@/infrastructure/sqlite/message-store';
+import { createMessage, createPart, findOrphanedCompactionTriggers } from '@/infrastructure/sqlite/message-store';
+import { compactionFailureRecord } from '@/domains/sessions/compaction-failure';
 import { getSession, listSessions, updateSession } from '@/infrastructure/sqlite/session-store';
 
 export interface ReconcileOptions {
@@ -31,6 +32,17 @@ function buildCompactionRecoveryDeps(): CompactionRecoveryDeps & CompactionRecov
   const broadcastSessUpdate: BroadcastSessionFn = broadcastSessionUpdated;
 
   return {
+    // Callers reconcile only idle sessions: at startup, and on session open
+    // when the host sees no live execution (which counts a running compaction).
+    isWorkActive: () => false,
+    async persistFailure(sessionId, triggerMessageId, error, broadcast) {
+      const { message, part } = compactionFailureRecord({ sessionId, triggerMessageId, error, now: Date.now(),
+        messageId: crypto.randomUUID(), partId: crypto.randomUUID() });
+      createMessage(message);
+      createPart(part, sessionId);
+      broadcast({ kind: 'message', action: 'created', message });
+      broadcast({ kind: 'part', action: 'created', sessionId, part });
+    },
     isSessionCompacting(sessionId: string): boolean {
       return getSession(sessionId)?.compacting === true;
     },

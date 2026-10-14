@@ -19,6 +19,7 @@ import { getModelWithMetadata } from '@/infrastructure/providers/model-resolutio
 import { findProviderFromModel } from '@/infrastructure/providers/model-selection';
 import { getModelsConfig } from '@/infrastructure/providers/configuration/runtime';
 import { emitRuntimeEvent, type BroadcastFn } from '@/infrastructure/runtime/host-dependencies';
+import { compactionFailureRecord } from '@/domains/sessions/compaction-failure';
 import {
   buildEffectiveContextHistory,
   createMessage,
@@ -502,39 +503,10 @@ export async function persistCompactionFailure(
   errorMessage: string,
   broadcast: BroadcastFn = emitRuntimeEvent,
 ): Promise<void> {
-  const now = Date.now();
-  const msgId = randomUUID();
-
-  const assistantMessage: AssistantMessage = {
-    id: msgId,
-    sessionId,
-    role: 'assistant',
-    status: 'error',
-    modelId: '',
-    providerId: '',
-    tokens: {
-      prompt: 0,
-      completion: 0,
-    },
-    cost: 0,
-    mode: 'compact_failed',
-    parentId: triggerMessageId,
-    createdAt: now,
-    completedAt: now,
-    error: errorMessage,
-  };
+  const { message: assistantMessage, part: textPart } = compactionFailureRecord({ sessionId, triggerMessageId,
+    error: errorMessage, now: Date.now(), messageId: randomUUID(), partId: randomUUID() });
 
   await createMessage(assistantMessage);
-
-  const textPartId = randomUUID();
-  const textPart: TextPart = {
-    id: textPartId,
-    messageId: msgId,
-    createdAt: now,
-    type: 'text',
-    text: `Compaction failed: ${errorMessage}`,
-  };
-
   await createPart(textPart, sessionId);
 
   broadcast({ kind: 'message', action: 'created', message: assistantMessage });

@@ -1,6 +1,6 @@
 import type { Session } from '@prokopai/sdk/types/session';
 import type { InterruptReason } from '@prokopai/sdk';
-import { executeCompaction as executeCapekCompaction } from '@/harnesses/prokop/compaction/executor';
+import { executeCompaction as executeCapekCompaction, isCompactionActive } from '@/harnesses/prokop/compaction/executor';
 import { forkSession as forkCapekSession } from '@/harnesses/prokop/execution/fork';
 import {
   handleChat as handleCapekChat,
@@ -130,8 +130,9 @@ export function createProkopSessionExecution(
         interruptManager.interruptSession(sessionId, (reason ?? 'user_request') as InterruptReason));
     },
 
+    /** A turn or a compaction runs for the session. */
     isSessionActive(sessionId: string): boolean {
-      return interruptManager.isSessionActive(sessionId);
+      return interruptManager.isSessionActive(sessionId) || isCompactionActive(sessionId);
     },
 
     async compact(sessionId: string, reason: 'manual'): Promise<CompactionExecutionOutcome> {

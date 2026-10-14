@@ -269,8 +269,10 @@ export function createSessionLifecycleApplication<Origin>(
 
       const isRunning = deps.execution.isSessionActive(session.id);
 
-      await deps.repository.reconcileCompaction(session.id);
       if (!isRunning) {
+        // Nothing runs for the session (a compaction counts as running), so a
+        // compacting flag or an unanswered compaction trigger is left from a crash.
+        await deps.repository.reconcileCompaction(session.id);
         deps.repository.reconcileOrphanedToolCalls(session.id);
         // No live execution can hold the running flag: clear any stale
         // running_at/subagent_status left by a crashed or wedged run so the

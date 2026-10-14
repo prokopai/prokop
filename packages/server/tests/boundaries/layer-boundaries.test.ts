@@ -961,6 +961,8 @@ describe('server layer boundaries', () => {
       '@/transport/websocket/broadcast',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/session-store',
+      // The failure record shape shared with the agent's own compaction failures.
+      '@/domains/sessions/compaction-failure',
     ].sort());
 
     const sourceText = file!.sourceText;

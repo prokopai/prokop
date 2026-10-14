@@ -229,6 +229,9 @@ function makeDeps(overrides: Partial<CompactionRecoveryDeps> = {}): {
 } {
   const counters = { broadcasts: 0, sessionUpdates: 0, clears: 0, orphanCalls: 0 };
   const deps: CompactionRecoveryDeps = {
+    // The agent's own view: a compaction in flight is running work.
+    isWorkActive: sessionId => getCompactionService().isCompactionActive(sessionId),
+    persistFailure: persistCompactionFailure,
     isSessionCompacting: () => false,
     clearSessionCompacting: (sessionId: string) => {
       counters.clears++;
@@ -823,6 +826,8 @@ describe('C6 scoped compaction service composition', () => {
 describe('C6 compaction recovery policy', () => {
   function orphanTriggerDeps(ids: string[]): CompactionRecoveryDeps {
     return {
+      isWorkActive: sessionId => getCompactionService().isCompactionActive(sessionId),
+      persistFailure: persistCompactionFailure,
       isSessionCompacting: () => false,
       clearSessionCompacting: () => null,
       listOrphanedCompactionTriggers: () => ids.map((id) => ({ id }) as never),
