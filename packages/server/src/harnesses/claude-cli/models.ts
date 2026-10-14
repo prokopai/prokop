@@ -1,7 +1,7 @@
 import { probeClaudeModels } from './model-probe';
 import type { ModelInfo } from '@anthropic-ai/claude-agent-sdk';
 import type { CodexModel, CodexModelSelection } from '@prokopai/sdk';
-import { getDatabase } from '@/infrastructure/sqlite/database';
+import { readClaudeModelSelection, writeClaudeModelSelection } from './native-state';
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -94,16 +94,9 @@ export async function listClaudeModels(discover: () => Promise<unknown> = probeC
 }
 
 export function getClaudeModelSelection(id: string): CodexModelSelection | null {
-  const row = getDatabase().query<{ model: string; effort: string }, [string]>(
-    'SELECT model, effort FROM claude_session_models WHERE session_id = ?',
-  ).get(id);
-  return row ? { model: row.model, effort: row.effort } : null;
+  return readClaudeModelSelection(id);
 }
 
 export function saveClaudeModelSelection(id: string, selection: CodexModelSelection): void {
-  const result = getDatabase().run(`INSERT INTO claude_session_models (session_id, model, effort)
-    SELECT id, ?, ? FROM sessions WHERE id = ? AND harness = 'claude-cli'
-    ON CONFLICT(session_id) DO UPDATE SET model = excluded.model, effort = excluded.effort`,
-  [selection.model, selection.effort, id]);
-  if (result.changes !== 1) throw new Error('Claude session unavailable');
+  writeClaudeModelSelection(id, selection);
 }

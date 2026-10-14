@@ -11,6 +11,7 @@
 
 import type { Database } from 'bun:sqlite';
 import { widenSessionHarnessConstraint } from './claude-harness-migration';
+import { initializeHarnessStateSchema } from './harness-state';
 
 export interface SessionMessageSchemaOptions {
   /** Passed by the composition root; the infrastructure layer owns no
@@ -317,6 +318,9 @@ export function initializeSessionMessageSchema(
       // Column already exists
     }
   }
+
+  // Native Claude/Codex state in one generic table, copied once from the legacy tables above.
+  initializeHarnessStateSchema(db);
 }
 
 /**

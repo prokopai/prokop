@@ -9,6 +9,7 @@ import type { HarnessModelChoice, Session, SessionHarness, SessionHarnessSwitch 
 import { buildHandoffBrief } from '@/domains/sessions/handoff-brief';
 import { notifyLearningActivity } from '@/application/learning/activity';
 import { getDatabase } from './database';
+import { clearSessionHarnessState, hasBlockingHarnessState, putHarnessState } from './harness-state';
 import { listMessagesWithParts } from './message-store';
 import { getSession, selectEmptySessionHarnessModel } from './session-store';
 
@@ -58,12 +59,8 @@ export function switchSessionHarnessModel(
     if (exists("SELECT 1 FROM pending_asks WHERE session_id = ? AND status = 'pending' LIMIT 1")) {
       return { ok: false, message: 'Answer pending approvals before switching harness' };
     }
-    if (exists('SELECT 1 FROM codex_session_bindings WHERE session_id = ? AND pending_turn = 1')
-      || exists('SELECT 1 FROM claude_session_bindings WHERE session_id = ? AND pending = 1')
-      || exists('SELECT 1 FROM codex_rollback_intents WHERE session_id = ?')
-      || exists('SELECT 1 FROM claude_rollback_intents WHERE session_id = ?')
-      || exists('SELECT 1 FROM codex_fork_intents WHERE source_session_id = ?')
-      || exists('SELECT 1 FROM claude_fork_intents WHERE source_session_id = ?')) {
+    // Pending native turns and rollback or fork intents block; harness_state marks them.
+    if (hasBlockingHarnessState(sessionId)) {
       return { ok: false, message: 'The current harness needs recovery before switching' };
     }
     const metadata = { ...(session.metadata ?? {}) };
@@ -95,16 +92,11 @@ export function switchSessionHarnessModel(
 
     // Detach the old native thread. Returning to a harness used earlier starts a
     // fresh thread too, because that thread never saw the turns in between.
-    const ownMessages = 'SELECT id FROM messages WHERE session_id = ?';
-    db.run('DELETE FROM codex_session_bindings WHERE session_id = ?', [sessionId]);
-    db.run('DELETE FROM claude_session_bindings WHERE session_id = ?', [sessionId]);
-    db.run(`DELETE FROM codex_inherited_user_ids WHERE message_id IN (${ownMessages})`, [sessionId]);
-    db.run(`DELETE FROM claude_inherited_user_ids WHERE message_id IN (${ownMessages})`, [sessionId]);
-    db.run('DELETE FROM codex_session_models WHERE session_id = ?', [sessionId]);
-    db.run('DELETE FROM claude_session_models WHERE session_id = ?', [sessionId]);
+    // Bindings, inherited user IDs and model selections of both harnesses go; intents cannot exist here.
+    clearSessionHarnessState(sessionId);
     if (choice.harness === 'codex-cli' || choice.harness === 'claude-cli') {
-      db.run(`INSERT INTO ${choice.harness === 'codex-cli' ? 'codex' : 'claude'}_session_models
-        (session_id, model, effort) VALUES (?, ?, ?)`, [sessionId, choice.modelId, choice.effort]);
+      putHarnessState({ harness: choice.harness, kind: 'model', key: sessionId, sessionId, blocksSwitch: false,
+        value: { model: choice.modelId, effort: choice.effort } });
     }
     const brief = buildHandoffBrief({ sessionId, from: expectedHarness, to: choice.harness, messages });
     db.run(`INSERT INTO session_harness_briefs (session_id, after_message_id, brief, created_at) VALUES (?, ?, ?, ?)

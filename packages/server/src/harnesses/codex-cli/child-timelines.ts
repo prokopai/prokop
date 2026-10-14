@@ -4,7 +4,7 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { createMessage, createPart, updateMessage } from '@/infrastructure/sqlite/message-store';
 import { StreamingTextWriter } from '@/harnesses/shared/streaming-text';
-import { bindCodexThread, getCodexBinding } from './bindings';
+import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import { codexObject, type CodexNotification } from './app-server';
 import { CodexToolItems } from './tool-items';
 
@@ -87,8 +87,8 @@ export class CodexChildTimelines {
     const existing = this.children.get(threadId);
     if (existing) return existing;
     const parentId = owner?.sessionId ?? this.parent.id;
-    const bound = getDatabase().query<{ session_id: string }, [string]>(
-      'SELECT session_id FROM codex_session_bindings WHERE thread_id = ?').get(threadId);
+    const boundBinding = findCodexBindingByThread(threadId);
+    const bound = boundBinding ? { session_id: boundBinding.sessionId } : null;
     let session: Session;
     if (bound) {
       const candidate = getSession(bound.session_id);

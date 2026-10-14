@@ -6,7 +6,6 @@ import type { SessionWirePorts } from '@/application/ports/delivery';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { Paths } from '@/infrastructure/runtime/paths';
-import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
@@ -14,6 +13,7 @@ import { createPart, listMessagesWithParts } from '@/infrastructure/sqlite/messa
 import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { installHarnessNotificationPort } from '@/application/ports/harness-notifications';
+import { deleteLegacyRow, insertLegacyRow, legacyRows, pick, updateLegacyRows } from '#tests/helpers/legacy-native';
 
 let dataDir: string;
 beforeEach(() => {
@@ -95,9 +95,9 @@ function fixture() {
       return { sessionId: newId };
     },
   });
-  const binding = () => getDatabase().query<{ native_session_id: string; pending: number }, []>(
-    'SELECT native_session_id, pending FROM claude_session_bindings').get();
-  const pending = () => getDatabase().query<{ phase: string }, []>('SELECT phase FROM claude_rollback_intents').get();
+  const binding = () => pick(legacyRows('claude_session_bindings')[0], ['native_session_id', 'pending']) as
+    { native_session_id: string; pending: number } | null;
+  const pending = () => pick(legacyRows('claude_rollback_intents')[0], ['phase']) as { phase: string } | null;
   return { exec, wire, events, histories, forkCalls, binding, pending, starts,
     failFork: () => { forkError = true; }, badFork: () => { badCopy = true; },
     failTurn: () => { failNextTurn = true; }, splitReplies: () => { splitReplies = true; },
@@ -179,8 +179,8 @@ test.each(['lost', 'bad'] as const)('%s fork changes nothing and leaves the sess
 test('a fork intent left by a crash is dropped on the next send', async () => {
   const f = fixture();
   const local = await twoTurns(f);
-  getDatabase().run(`INSERT INTO claude_rollback_intents (session_id, operation, target_message_id, phase)
-    VALUES ('session', 'revert', ?, 'fork')`, [local[1]!.message.id]);
+  insertLegacyRow('claude_rollback_intents', { session_id: 'session', operation: 'revert',
+    target_message_id: local[1]!.message.id, phase: 'fork' });
   await f.exec.sendMessage(f.wire, 'origin', 'session', 'next');
   expect(f.pending()).toBeNull();
   expect(listMessagesWithParts('session')).toHaveLength(6);
@@ -201,7 +201,7 @@ test('Stop during an edited resend releases the edit and the session', async () 
 test('an edit whose resend failed in setup resends when edited again', async () => {
   const f = fixture();
   const local = await twoTurns(f);
-  getDatabase().run('DELETE FROM claude_session_models WHERE session_id = ?', ['session']);
+  deleteLegacyRow('claude_session_models', 'session');
   await f.exec.editMessage(f.wire, 'origin', { sessionId: 'session', messageId: local[2]!.message.id,
     content: 'revised' });
   expect(f.pending()?.phase).toBe('ready');
@@ -244,9 +244,9 @@ test('editing the first message recovers a turn stuck pending after a crash', as
   const f = fixture();
   const local = await twoTurns(f);
   const oldId = f.binding()!.native_session_id;
-  getDatabase().run('UPDATE claude_session_bindings SET pending = 1');
-  getDatabase().run(`INSERT INTO claude_rollback_intents (session_id, operation, target_message_id, phase)
-    VALUES ('session', 'edit', ?, 'sent')`, [local[2]!.message.id]);
+  updateLegacyRows('claude_session_bindings', { pending: 1 });
+  insertLegacyRow('claude_rollback_intents', { session_id: 'session', operation: 'edit',
+    target_message_id: local[2]!.message.id, phase: 'sent' });
   await f.exec.sendMessage(f.wire, 'origin', 'session', 'blocked');
   expect(listMessagesWithParts('session')).toHaveLength(4);
   await f.exec.editMessage(f.wire, 'origin', { sessionId: 'session', messageId: local[0]!.message.id,

@@ -5,7 +5,6 @@ import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { Paths } from '@/infrastructure/runtime/paths';
 import { createSession, getSession, selectEmptySessionHarnessModel, updateSession } from '@/infrastructure/sqlite/session-store';
-import { getDatabase } from '@/infrastructure/sqlite/database';
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { runClaudeCompact } from '@/harnesses/claude-cli/compact';
@@ -14,6 +13,7 @@ import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-a
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
+import { insertLegacyRow, legacyRow, legacyRows, pick } from '#tests/helpers/legacy-native';
 
 let dataDir: string;
 beforeEach(() => {
@@ -166,9 +166,7 @@ test('selected Claude model and effort deliver a persisted reply through the fak
     { message: { role: 'assistant', modelId: 'claude-opus-5', status: 'completed' },
       parts: [{ type: 'text', text: 'reply' }] },
   ]);
-  expect(getDatabase().query<{ pending: number }, [string]>(
-    'SELECT pending FROM claude_session_bindings WHERE session_id = ?',
-  ).get(initial.id)?.pending).toBe(0);
+  expect(legacyRow('claude_session_bindings', initial.id)?.pending).toBe(0);
 });
 
 test('a new ordinary Claude turn uses its persisted local user ID as the native prompt ID', async () => {
@@ -197,7 +195,7 @@ test('Claude Goal uses native transcript verdict to complete and then permits or
     readGoalVerdict: async () => 2 });
   await exec.sendMessage(wire, 'origin', 'session', 'tests pass', undefined, undefined, 'tests pass');
   expect(getSession('session')?.metadata?.claudeGoal).toEqual({ condition: 'tests pass', status: 'ended', iterations: 2 });
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
   expect(listMessagesWithParts('session')[1]?.message).toMatchObject({ status: 'completed' });
   await exec.sendMessage(wire, 'origin', 'session', 'ordinary chat');
   expect(calls).toHaveLength(2);
@@ -224,15 +222,14 @@ test.each([false, true])('Claude Goal without a native verdict remains locked de
   await exec.sendMessage(wire, 'origin', 'session', 'tests pass', undefined, undefined, 'tests pass');
   expect(getSession('session')?.metadata?.claudeGoal).toMatchObject({ status: 'uncertain' });
   expect(events).toContainEqual(expect.objectContaining({ type: 'error', message: 'Claude goal outcome is uncertain' }));
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(1);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(1);
 });
 
 test.each(['active', 'uncertain'] as const)(
   'previously %s Claude Goal remains locked across a new executor', async status => {
     updateSession('session', { metadata: { claudeGoal: { condition: 'tests pass', status, iterations: 0 } } });
-    getDatabase().run(`INSERT INTO claude_session_bindings
-      (session_id, native_session_id, workspace_root, cli_version, pending) VALUES (?, ?, ?, ?, 1)`,
-    ['session', crypto.randomUUID(), process.cwd(), '2.1.274']);
+    insertLegacyRow('claude_session_bindings', { session_id: 'session', native_session_id: crypto.randomUUID(),
+      workspace_root: process.cwd(), cli_version: '2.1.274', pending: 1 });
     const { wire, events } = wireFixture();
     const exec = createClaudeExecution({ version: () => '2.1.274', start: () => { throw new Error('must not launch'); } });
     await exec.sendMessage(wire, 'origin', 'session', 'retry');
@@ -241,7 +238,7 @@ test.each(['active', 'uncertain'] as const)(
       sessionId: 'session', message: 'Claude goal requires reconciliation; do not send in this session' })));
     expect((await exec.compact('session', 'manual', wire.delivery)).ok).toBe(false);
     expect(getSession('session')?.metadata?.claudeGoal).toMatchObject({ status });
-    expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(1);
+    expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(1);
     expect(listMessagesWithParts('session')).toHaveLength(0);
   },
 );
@@ -253,7 +250,7 @@ test('rejects malformed Claude Goal inputs before creating a native binding', as
   await exec.sendMessage(wire, 'origin', 'session', 'tests pass', undefined, undefined, 'tests pass', 4);
   await exec.sendMessage(wire, 'origin', 'session', 'a\nb', undefined, undefined, 'a\nb');
   expect(events).toHaveLength(3);
-  expect(getDatabase().query('SELECT session_id FROM claude_session_bindings').all()).toHaveLength(0);
+  expect(legacyRows('claude_session_bindings')).toHaveLength(0);
 });
 
 test('persists SDK context occupancy separately from cumulative usage', async () => {
@@ -285,7 +282,7 @@ test('post-result SDK notifications do not leave a completed Claude turn pending
   } });
   await exec.sendMessage(wire, 'origin', 'session', 'inspect');
   expect(listMessagesWithParts('session')[1]?.message).toMatchObject({ status: 'completed' });
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
 });
 
 test('persists and resumes native CLI identity, model and effort over two text turns', async () => {
@@ -302,7 +299,7 @@ test('persists and resumes native CLI identity, model and effort over two text t
   expect(calls[0]?.sessionId).toBeTruthy();
   expect(calls[1]?.resume).toBe(calls[0]?.sessionId);
   expect(calls[0]).toMatchObject({ model: 'claude-sonnet-5', effort: 'medium', persistSession: true });
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
   expect(events.some(event => (event as { type?: string }).type === 'message.updated')).toBe(true);
 });
 
@@ -497,7 +494,7 @@ test('Stop interrupts the tool row and permits a new message in the same native 
     message: { status: 'interrupted' },
     parts: [expect.objectContaining({ type: 'tool', state: expect.objectContaining({ status: 'interrupted' }) })],
   });
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
   await exec.sendMessage(wire, 'origin', 'session', 'new instruction');
   expect(calls).toHaveLength(2);
   expect(calls[1]?.resume).toBe(calls[0]?.sessionId);
@@ -530,11 +527,11 @@ test.each([false, true])('Stop releases an ordinary turn only after stream clean
   await ready;
   await exec.interruptSession('session');
   expect(exec.isSessionActive('session')).toBe(true);
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(1);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(1);
   finish();
   await turn;
   expect(exec.isSessionActive('session')).toBe(false);
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(goal ? 1 : 0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(goal ? 1 : 0);
   if (goal) expect(getSession('session')?.metadata?.claudeGoal).toMatchObject({ status: 'uncertain' });
   const calls: Options[] = [];
   const restarted = createClaudeExecution({ version: () => '2.1.274', start: (prompt, options) => fakeTurn(prompt, options, calls) });
@@ -559,7 +556,7 @@ test('failed turns retain partial text without replaying it', async () => {
     message: { status: 'error' }, parts: [{ type: 'text', text: 'Partial' }],
   });
   expect(events.filter(event => (event as { type?: string }).type === 'part.created')).toHaveLength(2);
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
 });
 
 test('a terminal failure (usage limit) keeps the session usable without replaying the failed prompt', async () => {
@@ -583,7 +580,7 @@ test('a terminal failure (usage limit) keeps the session usable without replayin
     message: { status: 'error', error: "Claude CLI turn failed: You've hit your limit · resets 5pm" },
     parts: [{ type: 'text', text: 'reply' }],
   });
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
   await exec.sendMessage(wire, 'origin', 'session', 'second');
   expect(calls).toHaveLength(2);
   expect(calls[1].resume).toBe(calls[0].sessionId);
@@ -609,7 +606,7 @@ test('a turn that ends without a terminal result stays locked', async () => {
   expect(calls).toHaveLength(1);
   expect(events.some(event => typeof (event as { message?: unknown }).message === 'string'
     && (event as { message: string }).message.includes('reconciliation'))).toBe(true);
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(1);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(1);
 });
 test.each([false, true])('Agent child and nested tool transcripts persist when child fails: %s', async (failed) => {
   const { wire, events } = wireFixture();
@@ -687,7 +684,7 @@ test('child keeps working after parent result and finishes on native task notifi
   const childId = (agent.state as { childSessionId: string }).childSessionId;
   expect(getSession(childId)).toMatchObject({ subagentStatus: 'completed' });
   expect(listMessagesWithParts(childId)[0]?.parts).toContainEqual(expect.objectContaining({ text: 'child worked after result' }));
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
 });
 
 test('validated image sends an SDK image block and persists a reloadable image part', async () => {
@@ -716,7 +713,7 @@ test('validated image sends an SDK image block and persists a reloadable image p
   expect(listMessagesWithParts('session')[0]?.parts).toEqual(expect.arrayContaining([
     expect.objectContaining({ type: 'image', mimeType: 'image/png' }),
   ]));
-  expect(getDatabase().query<{ pending: number }, []>('SELECT pending FROM claude_session_bindings').get()?.pending).toBe(0);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
 });
 
 test('invalid image is rejected before creating a native binding or sending a prompt', async () => {
@@ -729,7 +726,7 @@ test('invalid image is rejected before creating a native binding or sending a pr
   await exec.sendMessage(wire, 'origin', 'session', 'describe', [{ id: 'missing', kind: 'image' }]);
   expect(calls).toBe(0);
   expect(listMessagesWithParts('session')).toEqual([]);
-  expect(getDatabase().query('SELECT 1 FROM claude_session_bindings').get()).toBeNull();
+  expect((legacyRows('claude_session_bindings')[0] ?? null)).toBeNull();
   expect(events).toEqual([expect.objectContaining({ type: 'error' })]);
 });
 
@@ -1241,9 +1238,8 @@ test('Claude mounts host MCP tools for the workspace and closes execution access
 
 function bindClaude(cliVersion: string, pending: 0 | 1, root = realpathSync(process.cwd())): string {
   const nativeId = crypto.randomUUID();
-  getDatabase().run(`INSERT INTO claude_session_bindings
-    (session_id, native_session_id, workspace_root, cli_version, pending) VALUES (?, ?, ?, ?, ?)`,
-  ['session', nativeId, root, cliVersion, pending]);
+  insertLegacyRow('claude_session_bindings', { session_id: 'session', native_session_id: nativeId,
+    workspace_root: root, cli_version: cliVersion, pending });
   return nativeId;
 }
 
@@ -1255,8 +1251,7 @@ test('an upgraded Claude CLI resumes an idle session and records the new version
   await exec.sendMessage(wire, 'origin', 'session', 'after upgrade');
   expect(events.filter(event => (event as { type: string }).type === 'error')).toEqual([]);
   expect(calls.map(options => options.resume)).toEqual([nativeId]);
-  expect(getDatabase().query<{ cli_version: string; pending: number }, []>(
-    'SELECT cli_version, pending FROM claude_session_bindings').get()).toEqual({ cli_version: '2.1.274', pending: 0 });
+  expect(pick(legacyRows('claude_session_bindings')[0], ['cli_version', 'pending'])).toEqual({ cli_version: '2.1.274', pending: 0 });
 });
 
 test.each([
@@ -1269,7 +1264,7 @@ test.each([
   await exec.sendMessage(wire, 'origin', 'session', 'after upgrade');
   expect(events).toContainEqual(expect.objectContaining({ type: 'error',
     message: 'Claude turn requires reconciliation or its workspace changed; edit the first message to start over' }));
-  expect(getDatabase().query<{ cli_version: string }, []>('SELECT cli_version FROM claude_session_bindings').get()?.cli_version).toBe('2.1.270');
+  expect(legacyRows('claude_session_bindings')[0]?.cli_version).toBe('2.1.270');
 });
 
 function transcriptOf(sessionId: string): string[] {

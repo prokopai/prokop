@@ -3,6 +3,11 @@ import type { MessageWithParts } from '@prokopai/sdk';
 import type { RevertExecutionResult } from '@/application/ports/execution';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { deleteMessage, listMessagesWithParts, updatePart } from '@/infrastructure/sqlite/message-store';
+import {
+  deleteClaudeBinding, deleteClaudeInheritedUserId, deleteClaudeRollbackIntent, getClaudeBinding,
+  getClaudeInheritedUserId, getClaudeRollbackIntent, rebindClaudeSession, setClaudeInheritedUserId,
+  setClaudeRollbackPhase,
+} from './native-state';
 
 export interface ClaudeRollbackDependencies {
   readHistory?: typeof getSessionMessages;
@@ -159,9 +164,10 @@ export function matchClaudeHistoryPrefix(local: LocalTurn[], native: SessionMess
 
 /** A local turn matches its native turn by user identity, prompt text, and reply (or the lack of one). */
 function verifyLocalTurns(local: LocalTurn[], turns: NativeTurn[]): void {
-  const inherited = getDatabase().query<{ native_user_id: string }, [string]>(
-    'SELECT native_user_id FROM claude_inherited_user_ids WHERE message_id = ?',
-  );
+  const inherited = { get: (messageId: string) => {
+    const nativeUserId = getClaudeInheritedUserId(messageId);
+    return nativeUserId ? { native_user_id: nativeUserId } : null;
+  } };
   for (const [index, nativeTurn] of turns.entries()) {
     const { user, reply } = local[index]!;
     const userText = user.parts.filter(part => part.type === 'text');
@@ -194,13 +200,8 @@ export function applyClaudeRollback(input: {
   inheritedUsers: Array<{ messageId: string; nativeId: string }>;
 }): RevertExecutionResult {
   return getDatabase().transaction(() => {
-    const db = getDatabase();
-    const intent = db.query<{ phase: string; target_message_id: string }, [string]>(
-      'SELECT phase, target_message_id FROM claude_rollback_intents WHERE session_id = ?',
-    ).get(input.sessionId);
-    const binding = db.query<{ native_session_id: string; pending: number }, [string]>(
-      'SELECT native_session_id, pending FROM claude_session_bindings WHERE session_id = ?',
-    ).get(input.sessionId);
+    const intent = getClaudeRollbackIntent(input.sessionId);
+    const binding = getClaudeBinding(input.sessionId);
     // Resetting to the first message discards the native conversation, even a pending one.
     const reset = input.firstRemoved === 0;
     if (intent?.phase !== 'fork' || intent.target_message_id !== input.targetId
@@ -233,25 +234,22 @@ export function applyClaudeRollback(input: {
       if (!deleteMessage(id)) throw new Error('Claude rollback deletion failed');
     }
     if (input.newNativeId) {
-      const updated = db.run('UPDATE claude_session_bindings SET native_session_id = ? WHERE session_id = ? AND native_session_id = ? AND pending = 0',
-        [input.newNativeId, input.sessionId, input.originalNativeId]);
-      if (updated.changes !== 1) throw new Error('Claude rollback binding changed');
+      if (!rebindClaudeSession(input.sessionId, input.originalNativeId, input.newNativeId)) {
+        throw new Error('Claude rollback binding changed');
+      }
     } else if (!reset) {
       throw new Error('Claude rollback binding changed');
     } else if (input.originalNativeId) {
-      db.run('DELETE FROM claude_session_bindings WHERE session_id = ? AND native_session_id = ?',
-        [input.sessionId, input.originalNativeId]);
+      deleteClaudeBinding(input.sessionId, input.originalNativeId);
     }
     for (const item of input.inheritedUsers) {
-      db.run(`INSERT INTO claude_inherited_user_ids (message_id, native_user_id) VALUES (?, ?)
-        ON CONFLICT(message_id) DO UPDATE SET native_user_id = excluded.native_user_id`,
-      [item.messageId, item.nativeId]);
+      setClaudeInheritedUserId(input.sessionId, item.messageId, item.nativeId);
     }
     if (input.operation === 'edit') {
-      db.run('DELETE FROM claude_inherited_user_ids WHERE message_id = ?', [target.message.id]);
-      db.run("UPDATE claude_rollback_intents SET phase = 'ready' WHERE session_id = ?", [input.sessionId]);
+      deleteClaudeInheritedUserId(target.message.id);
+      setClaudeRollbackPhase(input.sessionId, 'ready');
     } else {
-      db.run('DELETE FROM claude_rollback_intents WHERE session_id = ?', [input.sessionId]);
+      deleteClaudeRollbackIntent(input.sessionId);
     }
     return result;
   })();

@@ -4,6 +4,7 @@ import { createTestSession } from '#tests/factories';
 import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, selectEmptySessionHarnessModel, updateSession } from '@/infrastructure/sqlite/session-store';
 import { getDatabase } from '@/infrastructure/sqlite/database';
+import { insertLegacyRow, legacyRow, pick } from '#tests/helpers/legacy-native';
 
 beforeEach(() => {
   setupTestDatabase();
@@ -27,11 +28,11 @@ test('switches a root session both ways, clearing the other harness selection', 
   const selected = selectEmptySessionHarnessModel('root', 'prokop', initial.updatedAt, codex);
   expect(selected).toMatchObject({ harness: 'codex-cli', selectedModel: codex.modelId,
     preconfigId: initial.preconfigId, agentId: initial.agentId });
-  expect(getDatabase().query('SELECT model, effort FROM codex_session_models WHERE session_id = ?').get('root'))
+  expect(pick(legacyRow('codex_session_models', 'root'), ['model', 'effort']))
     .toEqual({ model: codex.modelId, effort: codex.effort });
   const returned = selectEmptySessionHarnessModel('root', 'codex-cli', selected!.updatedAt, prokop);
   expect(returned).toMatchObject({ harness: 'prokop', selectedProvider: 'provider', selectedModel: 'prokop-model' });
-  expect(getDatabase().query('SELECT model FROM codex_session_models WHERE session_id = ?').get('root')).toBeNull();
+  expect(pick(legacyRow('codex_session_models', 'root'), ['model'])).toBeNull();
 });
 
 test('selects Claude model and effort only on an empty root, then clears them on switch', () => {
@@ -39,11 +40,11 @@ test('selects Claude model and effort only on an empty root, then clears them on
   const choice = { harness: 'claude-cli', modelId: 'sonnet', effort: 'medium' } as const;
   const selected = selectEmptySessionHarnessModel(initial.id, 'prokop', initial.updatedAt, choice);
   expect(selected).toMatchObject({ harness: 'claude-cli', selectedModel: 'sonnet' });
-  expect(getDatabase().query('SELECT model, effort FROM claude_session_models WHERE session_id = ?').get(initial.id))
+  expect(pick(legacyRow('claude_session_models', initial.id), ['model', 'effort']))
     .toEqual({ model: 'sonnet', effort: 'medium' });
   const returned = selectEmptySessionHarnessModel(initial.id, 'claude-cli', selected!.updatedAt, prokop);
   expect(returned?.harness).toBe('prokop');
-  expect(getDatabase().query('SELECT model FROM claude_session_models WHERE session_id = ?').get(initial.id)).toBeNull();
+  expect(pick(legacyRow('claude_session_models', initial.id), ['model'])).toBeNull();
 });
 
 test('rejects stale selections, messages, queued work, and native Codex bindings', () => {
@@ -61,8 +62,8 @@ test('rejects stale selections, messages, queued work, and native Codex bindings
   expect(selectEmptySessionHarnessModel(queued.id, 'prokop', queued.updatedAt, codex)).toBeNull();
 
   const bound = makeSession('bound', 'codex-cli');
-  getDatabase().run(`INSERT INTO codex_session_bindings (session_id, thread_id, cli_version, workspace_root, created_at)
-    VALUES (?, 'thread', '0.156.1', '/tmp', 'now')`, [bound.id]);
+  insertLegacyRow('codex_session_bindings', { session_id: bound.id, thread_id: 'thread', cli_version: '0.156.1',
+    workspace_root: '/tmp', created_at: 'now' });
   expect(selectEmptySessionHarnessModel(bound.id, 'codex-cli', bound.updatedAt, prokop)).toBeNull();
   expect(getSession(bound.id)?.harness).toBe('codex-cli');
 });

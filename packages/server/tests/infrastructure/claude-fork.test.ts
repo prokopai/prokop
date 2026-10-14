@@ -12,6 +12,7 @@ import { createSession } from '@/infrastructure/sqlite/session-store';
 import { createPart, listMessagesWithParts, updateMessage } from '@/infrastructure/sqlite/message-store';
 import { getClaudeModelSelection, saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
+import { deleteLegacyRow, insertLegacyRow, legacyRow, legacyRows, pick } from '#tests/helpers/legacy-native';
 
 const root = realpathSync(process.cwd());
 
@@ -77,10 +78,10 @@ function fixture() {
       return { sessionId: newId };
     },
   });
-  const binding = (sessionId: string) => getDatabase().query<{ native_session_id: string; pending: number }, [string]>(
-    'SELECT native_session_id, pending FROM claude_session_bindings WHERE session_id = ?').get(sessionId);
-  const forkIntent = () => getDatabase().query<{ target_message_id: string }, [string]>(
-    'SELECT target_message_id FROM claude_fork_intents WHERE source_session_id = ?').get('session');
+  const binding = (sessionId: string) => pick(legacyRow('claude_session_bindings', sessionId),
+    ['native_session_id', 'pending']) as { native_session_id: string; pending: number } | null;
+  const forkIntent = () => pick(legacyRow('claude_fork_intents', 'session'),
+    ['target_message_id']) as { target_message_id: string } | null;
   return { exec, wire, events, histories, forkCalls, binding, forkIntent,
     failFork: () => { forkError = true; }, badFork: () => { badCopy = true; } };
 }
@@ -103,8 +104,7 @@ test('fork keeps the selected reply in a bound native fork and resumes it on the
   const forkBinding = f.binding(forkId)!;
   expect(forkBinding.pending).toBe(0);
   expect(forkBinding.native_session_id).not.toBe(oldBinding.native_session_id);
-  expect(getDatabase().query<{ workspace_root: string; cli_version: string }, [string]>(
-    'SELECT workspace_root, cli_version FROM claude_session_bindings WHERE session_id = ?').get(forkId))
+  expect(pick(legacyRow('claude_session_bindings', forkId), ['workspace_root', 'cli_version']))
     .toEqual({ workspace_root: root, cli_version: '2.1.274' });
   expect(getClaudeModelSelection(forkId)).toEqual({ model: 'claude-sonnet-5', effort: 'medium' });
   const copy = listMessagesWithParts(forkId);
@@ -112,7 +112,7 @@ test('fork keeps the selected reply in a bound native fork and resumes it on the
   expect(copy[0]!.message.id).not.toBe(local[0]!.message.id);
   expect(copy[0]!.parts[0]).toMatchObject({ type: 'text', text: 'first' });
   expect(copy[1]!.parts[0]).toMatchObject({ type: 'text', text: 'reply' });
-  expect(getDatabase().query('SELECT message_id, native_user_id FROM claude_inherited_user_ids').all())
+  expect(legacyRows('claude_inherited_user_ids'))
     .toEqual([{ message_id: copy[0]!.message.id,
       native_user_id: f.histories.get(forkBinding.native_session_id)![0]!.uuid }]);
   expect(listMessagesWithParts('session')).toHaveLength(4);
@@ -170,8 +170,7 @@ test('fork at a user message keeps a user-only cutoff that resumes on the next m
   expect(copy).toHaveLength(3);
   expect(copy[2]?.message.role).toBe('user');
   const forkNative = f.histories.get(f.binding(forkId)!.native_session_id)!;
-  const inherited = getDatabase().query('SELECT native_user_id FROM claude_inherited_user_ids')
-    .all() as Array<{ native_user_id: string }>;
+  const inherited = legacyRows('claude_inherited_user_ids') as Array<{ native_user_id: string }>;
   expect(new Set(inherited.map(row => row.native_user_id)))
     .toEqual(new Set([forkNative[0]!.uuid, forkNative[2]!.uuid]));
   await f.exec.sendMessage(f.wire, 'origin', forkId, 'third');
@@ -205,11 +204,10 @@ test('goal, compact, rollback-locked, image, and errored-reply targets refuse fo
   await expect(f.exec.fork({ sessionId: 'session', targetMessageId: local[1]!.message.id }))
     .rejects.toThrow('cannot be forked');
   updateSession('session', { metadata: {} });
-  getDatabase().run(`INSERT INTO claude_rollback_intents
-    (session_id, operation, target_message_id, phase) VALUES ('session', 'edit', 'x', 'fork')`);
+  insertLegacyRow('claude_rollback_intents', { session_id: 'session', operation: 'edit', target_message_id: 'x', phase: 'fork' });
   await expect(f.exec.fork({ sessionId: 'session', targetMessageId: local[1]!.message.id }))
     .rejects.toThrow('recovery before fork');
-  getDatabase().run('DELETE FROM claude_rollback_intents WHERE session_id = ?', ['session']);
+  deleteLegacyRow('claude_rollback_intents', 'session');
   createPart({ id: crypto.randomUUID(), messageId: local[0]!.message.id, type: 'image',
     url: '/image', mimeType: 'image/png', createdAt: Date.now() }, 'session');
   await expect(f.exec.fork({ sessionId: 'session', targetMessageId: local[1]!.message.id }))

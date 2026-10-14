@@ -5,6 +5,7 @@
  */
 
 import { getDatabase } from './database';
+import { clearSessionHarnessState, putHarnessState } from './harness-state';
 import { notifyLearningActivity } from '@/application/learning/activity';
 import type { Session, SessionStatus, SessionHarness, HarnessModelChoice, Workspace, SessionListFilter, SessionCategoryCounts } from '@prokopai/sdk';
 import { getWorkspace, getWorkspaceLastConversationAt } from './workspaces';
@@ -100,21 +101,19 @@ export function selectEmptySessionHarnessModel(
       selected_variant = NULL, updated_at = ?
       WHERE id = ? AND harness = ? AND updated_at = ? AND status = 'active' AND parent_id IS NULL
         AND running_at IS NULL AND compacting = 0
-        AND NOT EXISTS (SELECT 1 FROM codex_session_bindings WHERE session_id = ?)
-        AND NOT EXISTS (SELECT 1 FROM claude_session_bindings WHERE session_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM harness_state WHERE session_id = ? AND kind = 'binding')
         AND NOT EXISTS (SELECT 1 FROM messages WHERE session_id = ?)
         AND NOT EXISTS (SELECT 1 FROM queued_messages WHERE session_id = ?)`, [
       choice.harness, choice.modelId, choice.harness === 'prokop' ? choice.providerId : null,
       new Date().toISOString(), sessionId, expectedHarness,
-      expectedUpdatedAt, sessionId, sessionId, sessionId, sessionId,
+      expectedUpdatedAt, sessionId, sessionId, sessionId,
     ]);
     if (result.changes !== 1) return null;
     // An empty Codex session can have a preference, but cannot have a completed native thread.
-    db.run('DELETE FROM codex_session_models WHERE session_id = ?', [sessionId]);
-    db.run('DELETE FROM claude_session_models WHERE session_id = ?', [sessionId]);
+    clearSessionHarnessState(sessionId, ['model']);
     if (choice.harness === 'codex-cli' || choice.harness === 'claude-cli') {
-      db.run(`INSERT INTO ${choice.harness === 'codex-cli' ? 'codex' : 'claude'}_session_models
-        (session_id, model, effort) VALUES (?, ?, ?)`, [sessionId, choice.modelId, choice.effort]);
+      putHarnessState({ harness: choice.harness, kind: 'model', key: sessionId, sessionId, blocksSwitch: false,
+        value: { model: choice.modelId, effort: choice.effort } });
     }
     return getSession(sessionId);
   })();

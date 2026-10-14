@@ -28,6 +28,7 @@ import { installHarnessNotificationPort } from '@/application/ports/harness-noti
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
+import { updateLegacyRow } from '#tests/helpers/legacy-native';
 
 beforeEach(() => { setupTestDatabase(); seedWorkspace({ id: 'ws', path: process.cwd() }); });
 afterEach(() => resetTestDatabase());
@@ -2147,7 +2148,7 @@ test('Codex rollback refuses incomplete history and active turns without mutatin
   expect(fake.sent.some(entry => entry.method === 'thread/revert')).toBe(false);
   expect(getRollbackIntent('s')).toBeNull();
   expect(listMessagesWithParts('s')).toHaveLength(4);
-  getDatabase().run('UPDATE codex_session_bindings SET pending_turn = 1 WHERE session_id = ?', ['s']);
+  updateLegacyRow('codex_session_bindings', 's', { pending_turn: 1 });
   await expect(execution.revert({ sessionId: 's', targetMessageId: users[0]! })).rejects.toThrow('reconciliation');
   expect(launches).toBe(1);
 });

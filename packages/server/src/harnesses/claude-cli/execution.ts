@@ -4,6 +4,11 @@ import { forkSession, getSessionMessages, type SDKMessage, type SDKUserMessage, 
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type QueuedCliExecution, type QueuedTurnInput } from '@/harnesses/shared/message-queue';
 import { getDatabase } from '@/infrastructure/sqlite/database';
+import {
+  deleteClaudeRollbackIntent, getClaudeBinding, getClaudeRollbackIntent, hasClaudeForkIntent, insertClaudeBinding,
+  isClaudeNativeSessionBound, markClaudeBindingPending, releaseClaudeBinding, setClaudeRollbackPhase,
+  startClaudeRollbackIntent,
+} from './native-state';
 import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
@@ -36,12 +41,6 @@ import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@/domain
 import type { WorkspaceMcpToolsPort } from '@/application/ports/mcp-tools';
 import { createClaudeWorkspaceMcp } from './mcp-tools';
 
-interface Binding {
-  native_session_id: string;
-  workspace_root: string;
-  cli_version: string;
-  pending: number;
-}
 
 export interface ClaudeExecutionDependencies extends ClaudeRollbackDependencies {
   start?: (prompt: string | AsyncIterable<SDKUserMessage>, options: Options) => AsyncIterable<SDKMessage>;
@@ -94,10 +93,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
   }
   const rollingBack = new Set<string>();
   const resubmitting = new Map<string, string>();
-  const intent = (id: string): { phase: string; target_message_id: string } | null => getDatabase()
-    .query<{ phase: string; target_message_id: string }, [string]>(
-      'SELECT phase, target_message_id FROM claude_rollback_intents WHERE session_id = ?',
-    ).get(id) ?? null;
+  const intent = (id: string): { phase: string; target_message_id: string } | null => getClaudeRollbackIntent(id);
 
   const recoveryHint = (pending: { phase: string }): string => pending.phase === 'ready'
     ? 'Claude edit was not sent; edit that message again to resend it'
@@ -135,7 +131,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
     }
     // Apply is one transaction that also advances the intent. A fork-phase intent
     // therefore means the transcript and binding are untouched: drop it and start over.
-    getDatabase().run("DELETE FROM claude_rollback_intents WHERE session_id = ? AND phase = 'fork'", [sessionId]);
+    deleteClaudeRollbackIntent(sessionId, 'fork');
     rollingBack.add(sessionId);
     try {
       const workspace = getWorkspace(session.workspaceId);
@@ -145,8 +141,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       if (session.workspaceRootId && (!worktree || worktree.workspaceId !== session.workspaceId
         || worktree.state !== 'available')) throw new Error('Claude workspace is unavailable');
       const root = realpathSync(worktree?.path ?? workspace.path);
-      const binding = getDatabase().query<Binding, [string]>(`SELECT native_session_id, workspace_root, cli_version, pending
-        FROM claude_session_bindings WHERE session_id = ?`).get(sessionId);
+      const binding = getClaudeBinding(sessionId);
       const local = listMessagesWithParts(sessionId);
       let localTurns;
       try { localTurns = groupLocalTurns(local); }
@@ -182,11 +177,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       }
       const cutoff = cutoffTurn?.assistantId ?? null;
       // The intent survives a lost fork response. Do not issue this fork a second time.
-      getDatabase().run(`INSERT INTO claude_rollback_intents
-        (session_id, operation, target_message_id, phase) VALUES (?, ?, ?, 'fork')
-        ON CONFLICT(session_id) DO UPDATE SET operation = excluded.operation,
-          target_message_id = excluded.target_message_id, phase = 'fork'`,
-      [sessionId, operation, targetId]);
+      startClaudeRollbackIntent(sessionId, operation, targetId);
       let forkedId: string | null = null;
       let inheritedUsers: Array<{ messageId: string; nativeId: string }> = [];
       if (cutoff && binding) {
@@ -194,8 +185,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           { dir: root, upToMessageId: cutoff });
         forkedId = forked.sessionId;
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(forkedId)
-          || forkedId === binding.native_session_id || getDatabase().query(
-            'SELECT 1 FROM claude_session_bindings WHERE native_session_id = ?').get(forkedId)) {
+          || forkedId === binding.native_session_id || isClaudeNativeSessionBound(forkedId)) {
           throw new Error('Claude fork identity is invalid');
         }
         const forkedHistory = await (deps.readHistory ?? getSessionMessages)(forkedId, { dir: root });
@@ -215,7 +205,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         originalNativeId: binding?.native_session_id ?? null, newNativeId: forkedId, firstRemoved, inheritedUsers });
     } catch (error) {
       // Apply never committed, so nothing changed: an orphan native fork file is harmless.
-      getDatabase().run("DELETE FROM claude_rollback_intents WHERE session_id = ? AND phase = 'fork'", [sessionId]);
+      deleteClaudeRollbackIntent(sessionId, 'fork');
       throw error;
     } finally { rollingBack.delete(sessionId); }
   }
@@ -255,7 +245,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       const resubmit = resubmitting.get(sessionId);
       if (rollingBack.has(sessionId) || active.has(sessionId)) return reject('Claude CLI turn already running');
       // No rollback is running, so a fork-phase intent is left from a crash before Apply: nothing changed.
-      getDatabase().run("DELETE FROM claude_rollback_intents WHERE session_id = ? AND phase = 'fork'", [sessionId]);
+      deleteClaudeRollbackIntent(sessionId, 'fork');
       const pendingEdit = intent(sessionId);
       if (pendingEdit && (pendingEdit.phase !== 'ready' || pendingEdit.target_message_id !== resubmit)
         || resubmit && !pendingEdit) {
@@ -358,8 +348,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
         }
         const db = getDatabase();
-        const binding = db.query<Binding, [string]>(`SELECT native_session_id, workspace_root, cli_version, pending
-          FROM claude_session_bindings WHERE session_id = ?`).get(sessionId);
+        const binding = getClaudeBinding(sessionId);
         // A CLI upgrade does not block: the CLI resumes its own older sessions.
         if (binding && (binding.workspace_root !== root || binding.pending)) {
           logHarness('claude-cli', 'native binding blocks turn', { sessionId,
@@ -379,11 +368,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         children = new ClaudeChildTimelines(session, nativeId, wire.delivery);
         // Lock the native identity before writing to the process. A lost result never triggers replay.
         db.transaction(() => {
-          if (binding) db.run('UPDATE claude_session_bindings SET pending = 1, cli_version = ? WHERE session_id = ?', [version, sessionId]);
-          else db.run(`INSERT INTO claude_session_bindings
-            (session_id, native_session_id, workspace_root, cli_version, pending) VALUES (?, ?, ?, ?, 1)`,
-          [sessionId, nativeId, root, version]);
-          if (resubmit) db.run("UPDATE claude_rollback_intents SET phase = 'sent' WHERE session_id = ? AND phase = 'ready'", [sessionId]);
+          if (binding) markClaudeBindingPending(sessionId, version);
+          else insertClaudeBinding(sessionId, nativeId, root, version, true);
+          if (resubmit) setClaudeRollbackPhase(sessionId, 'sent', 'ready');
         })();
         ownedNativeId = nativeId;
         if (goalCondition !== undefined) {
@@ -641,8 +628,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
         }
         db.transaction(() => {
-          db.run('UPDATE claude_session_bindings SET pending = 0 WHERE session_id = ?', [sessionId]);
-          if (resubmit) db.run('DELETE FROM claude_rollback_intents WHERE session_id = ?', [sessionId]);
+          releaseClaudeBinding(sessionId);
+          if (resubmit) deleteClaudeRollbackIntent(sessionId);
         })();
         notifyHarnessTurnFinished(completed);
         drainable = true;
@@ -685,9 +672,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         if ((controller.signal.aborted || terminalResult) && ownedNativeId && goalCondition === undefined) {
           const db = getDatabase();
           db.transaction(() => {
-            db.run(`UPDATE claude_session_bindings SET pending = 0
-              WHERE session_id = ? AND native_session_id = ? AND pending = 1`, [sessionId, ownedNativeId]);
-            if (resubmit) db.run("DELETE FROM claude_rollback_intents WHERE session_id = ? AND phase = 'sent'", [sessionId]);
+            releaseClaudeBinding(sessionId, ownedNativeId!);
+            if (resubmit) deleteClaudeRollbackIntent(sessionId, 'sent');
           })();
           if (controller.signal.aborted) drainable = true;
         }
@@ -730,7 +716,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           busy: id => active.has(id) || rollingBack.has(id),
           readHistory: deps.readHistory, forkHistory: deps.forkHistory });
       } catch (error) {
-        if (getDatabase().query('SELECT 1 FROM claude_fork_intents WHERE source_session_id = ?').get(input.sessionId)) {
+        if (hasClaudeForkIntent(input.sessionId)) {
           throw new Error('Claude fork outcome is uncertain; do not retry in this session', { cause: error });
         }
         const safe = new Set(['Claude session is unavailable or busy', 'Claude workspace is unavailable',
@@ -784,8 +770,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           || worktree.state !== 'available')) throw new Error('Selected worktree unavailable');
         const root = realpathSync(worktree?.path ?? workspace.path);
         const selection = getClaudeModelSelection(sessionId);
-        const binding = getDatabase().query<Binding, [string]>(`SELECT native_session_id, workspace_root, cli_version, pending
-          FROM claude_session_bindings WHERE session_id = ?`).get(sessionId);
+        const binding = getClaudeBinding(sessionId);
         if (!binding || binding.pending || binding.workspace_root !== root
           || !selection) return { ok: false, skipped: true, error: 'Claude turn requires reconciliation before compaction' };
         if (!deps.start && !Bun.which('claude')) {

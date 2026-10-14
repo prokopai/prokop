@@ -8,12 +8,12 @@ import type { SessionWirePorts } from '@/application/ports/delivery';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { Paths } from '@/infrastructure/runtime/paths';
-import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { saveClaudeModelSelection } from '@/harnesses/claude-cli/models';
 import { createClaudeExecution } from '@/harnesses/claude-cli/execution';
 import { claudeDeveloperInstructions, defaultClaudePreconfigId } from '@/harnesses/claude-cli/instructions';
+import { legacyRows, pick } from '#tests/helpers/legacy-native';
 
 const agent = { id: 'agent', mode: 'primary', systemPrompt: 'Work carefully.' } as Preconfig;
 const plainWorkspace = { additionalPaths: ['/projects/related'], settings: {} } as Workspace;
@@ -127,8 +127,7 @@ function execFixture(sources?: import('@/harnesses/claude-cli/instructions').Cla
       }
       return messages();
     } });
-  const binding = () => getDatabase().query<{ native_session_id: string }, []>(
-    'SELECT native_session_id FROM claude_session_bindings').get();
+  const binding = () => pick(legacyRows('claude_session_bindings')[0], ['native_session_id']) as { native_session_id: string } | null;
   return { exec, wire, events, options: () => seen, binding };
 }
 

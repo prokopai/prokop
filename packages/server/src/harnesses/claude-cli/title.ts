@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { getDatabase } from '@/infrastructure/sqlite/database';
+import { getClaudeBinding } from './native-state';
 import { claudeTranscriptPath } from './transcript';
 
 const MAX_TRANSCRIPT_BYTES = 64 * 1024 * 1024;
@@ -36,8 +36,6 @@ export async function readClaudeAiTitle(input: { root: string; nativeId: string 
 
 /** Claude Code's own title for a Prokop session bound to a native Claude session. */
 export async function readClaudeSessionTitle(sessionId: string): Promise<string | null> {
-  const binding = getDatabase().query<{ native_session_id: string; workspace_root: string }, [string]>(
-    'SELECT native_session_id, workspace_root FROM claude_session_bindings WHERE session_id = ?',
-  ).get(sessionId);
+  const binding = getClaudeBinding(sessionId);
   return binding ? readClaudeAiTitle({ root: binding.workspace_root, nativeId: binding.native_session_id }) : null;
 }

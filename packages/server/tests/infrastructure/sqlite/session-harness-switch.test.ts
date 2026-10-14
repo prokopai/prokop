@@ -9,6 +9,7 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { buildEffectiveContextHistory, createMessage, createPart } from '@/infrastructure/sqlite/message-store';
 import { getHandoffSegment, switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
+import { insertLegacyRow, legacyRow, pick } from '#tests/helpers/legacy-native';
 
 beforeEach(() => {
   setupTestDatabase();
@@ -40,9 +41,9 @@ function turn(sessionId: string, prompt: string, reply: string) {
 }
 
 function bindClaude(sessionId: string, pending = 0) {
-  getDatabase().run(`INSERT INTO claude_session_bindings (session_id, native_session_id, workspace_root, cli_version, pending)
-    VALUES (?, ?, '/root', '1.0', ?)`, [sessionId, `native-${sessionId}`, pending]);
-  getDatabase().run('INSERT INTO claude_session_models (session_id, model, effort) VALUES (?, ?, ?)', [sessionId, 'sonnet', 'high']);
+  insertLegacyRow('claude_session_bindings', { session_id: sessionId, native_session_id: `native-${sessionId}`,
+    workspace_root: '/root', cli_version: '1.0', pending });
+  insertLegacyRow('claude_session_models', { session_id: sessionId, model: 'sonnet', effort: 'high' });
 }
 
 test('switches a used Claude session to Codex, detaching the native thread and storing a brief', () => {
@@ -61,10 +62,9 @@ test('switches a used Claude session to Codex, detaching the native thread and s
     afterMessageId: assistant.id, createdAt: expect.any(String) }]);
   expect(session.harnessState?.fork).toEqual({ mode: 'restricted', reason: HARNESS_SWITCH_FORK_REASON });
 
-  const db = getDatabase();
-  expect(db.query('SELECT 1 FROM claude_session_bindings WHERE session_id = ?').get('s')).toBeNull();
-  expect(db.query('SELECT 1 FROM claude_session_models WHERE session_id = ?').get('s')).toBeNull();
-  expect(db.query('SELECT model, effort FROM codex_session_models WHERE session_id = ?').get('s'))
+  expect(legacyRow('claude_session_bindings', 's')).toBeNull();
+  expect(legacyRow('claude_session_models', 's')).toBeNull();
+  expect(pick(legacyRow('codex_session_models', 's'), ['model', 'effort']))
     .toEqual({ model: 'gpt-5', effort: 'high' });
   const segment = getHandoffSegment('s')!;
   expect(segment.afterMessageId).toBe(assistant.id);
@@ -116,8 +116,8 @@ test('rejects stale, busy, queued, pending, recovering, and goal sessions', () =
   reject('ask', id => getDatabase().run(`INSERT INTO pending_asks (id, session_id, tool_call_id, tool_name, ask_json, created_at)
     VALUES ('a', ?, 'c', 'bash', '{}', 1)`, [id]), 'approvals');
   reject('pending', id => bindClaude(id, 1), 'recovery');
-  reject('intent', id => getDatabase().run(`INSERT INTO claude_rollback_intents (session_id, operation, target_message_id, phase)
-    VALUES (?, 'revert', 'x', 'ready')`, [id]), 'recovery');
+  reject('intent', id => insertLegacyRow('claude_rollback_intents', { session_id: id, operation: 'revert',
+    target_message_id: 'x', phase: 'ready' }), 'recovery');
   reject('goal', id => updateSession(id, { metadata: { claudeGoal: { status: 'active', condition: 'x' } } }), 'Goal');
   reject('streaming', id => createMessage(createTestAssistantMessage(id, { status: 'streaming', createdAt: clock++ })), 'idle');
 });

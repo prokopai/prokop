@@ -17,6 +17,7 @@ import { getAttachment, MAX_ATTACHMENT_SIZE, validateImageMime, type Attachment 
 import { getAttachmentDir } from '@/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
 import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
+import { hasCodexForkIntent } from './native-state';
 import { getCodexModelSelection } from './models';
 import { codexDeveloperInstructions, defaultCodexPreconfigId, type CodexInstructionSources } from './instructions';
 import { codexApprovals } from './approvals';
@@ -1399,8 +1400,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         return await forkCodexSession(input, { connect: deps.connect, version: deps.version,
           root: id => workspaceRoot(getSession(id)!), busy: id => active.has(id), });
       } catch (error: unknown) {
-        if (getDatabase().query('SELECT 1 FROM codex_fork_intents WHERE source_session_id = ?')
-          .get(input.sessionId)) throw new Error('Codex fork outcome is uncertain; do not retry in this session', { cause: error });
+        if (hasCodexForkIntent(input.sessionId)) throw new Error('Codex fork outcome is uncertain; do not retry in this session', { cause: error });
         const safe = error instanceof Error && SAFE_FORK_ERRORS.has(error.message)
           ? error.message : 'Codex fork could not be started';
         throw new Error(safe, { cause: error });

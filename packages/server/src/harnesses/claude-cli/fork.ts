@@ -5,14 +5,11 @@ import { createMessage, createPart, listMessagesWithParts } from '@/infrastructu
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { HARNESS_SWITCH_FORK_REASON } from '@/domains/sessions/harness-state';
 import { getClaudeModelSelection, saveClaudeModelSelection } from './models';
+import {
+  deleteClaudeForkIntent, getClaudeBinding, getClaudeRollbackIntent, hasClaudeForkIntent, insertClaudeBinding,
+  insertClaudeForkIntent, isClaudeNativeSessionBound, setClaudeInheritedUserId,
+} from './native-state';
 import { groupClaudeTurns, groupLocalTurns, localTurnEnd, matchClaudeHistory, type LocalTurn } from './rollback';
-
-interface Binding {
-  native_session_id: string;
-  workspace_root: string;
-  cli_version: string;
-  pending: number;
-}
 
 export interface ClaudeForkDependencies {
   root: string;
@@ -29,8 +26,7 @@ export async function forkClaudeSession(
   const session = getSession(input.sessionId);
   if (!session || session.harness !== 'claude-cli' || session.parentId || session.status !== 'active'
     || deps.busy(session.id)) throw new Error('Claude session is unavailable or busy');
-  const binding = getDatabase().query<Binding, [string]>(`SELECT native_session_id, workspace_root, cli_version, pending
-    FROM claude_session_bindings WHERE session_id = ?`).get(session.id);
+  const binding = getClaudeBinding(session.id);
   if (!binding || binding.pending || binding.workspace_root !== deps.root) {
     throw new Error('Claude native history is unavailable');
   }
@@ -38,10 +34,10 @@ export async function forkClaudeSession(
     throw new Error('Claude Goal or Compact history cannot be forked');
   }
   if (session.harnessSwitches?.length) throw new Error(HARNESS_SWITCH_FORK_REASON);
-  if (getDatabase().query('SELECT 1 FROM claude_rollback_intents WHERE session_id = ?').get(session.id)) {
+  if (getClaudeRollbackIntent(session.id)) {
     throw new Error('Claude history requires recovery before fork');
   }
-  if (getDatabase().query('SELECT 1 FROM claude_fork_intents WHERE source_session_id = ?').get(session.id)) {
+  if (hasClaudeForkIntent(session.id)) {
     throw new Error('A Claude fork has an uncertain outcome; do not retry it');
   }
   const local = listMessagesWithParts(session.id);
@@ -72,8 +68,7 @@ export async function forkClaudeSession(
     throw new Error('Claude conversation history is not available for fork');
   }
   const cutoff: string = userTarget ? turns[fullTurns]!.userId : turns[fullTurns - 1]!.assistantId!;
-  getDatabase().run(`INSERT INTO claude_fork_intents (source_session_id, target_message_id, created_at)
-    VALUES (?, ?, ?)`, [session.id, input.targetMessageId, new Date().toISOString()]);
+  insertClaudeForkIntent(session.id, input.targetMessageId);
   // An uncertain native fork cannot be issued a second time: the intent
   // survives a lost response, an unverifiable copy, or a persistence failure.
   const forked = await (deps.forkHistory ?? forkSession)(binding.native_session_id,
@@ -81,7 +76,7 @@ export async function forkClaudeSession(
   const forkedId = forked.sessionId;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(forkedId)
     || forkedId === binding.native_session_id
-    || getDatabase().query('SELECT 1 FROM claude_session_bindings WHERE native_session_id = ?').get(forkedId)) {
+    || isClaudeNativeSessionBound(forkedId)) {
     throw new Error('Claude fork identity is invalid');
   }
   const forkedHistory = await (deps.readHistory ?? getSessionMessages)(forkedId, { dir: deps.root });
@@ -106,9 +101,7 @@ export async function forkClaudeSession(
       agentId: session.agentId, selectedModel: session.selectedModel,
       selectedProvider: session.selectedProvider, permissionMode: session.permissionMode,
     });
-    getDatabase().run(`INSERT INTO claude_session_bindings
-      (session_id, native_session_id, workspace_root, cli_version, pending) VALUES (?, ?, ?, ?, 0)`,
-      [forkedSession.id, forkedId, deps.root, deps.version()]);
+    insertClaudeBinding(forkedSession.id, forkedId, deps.root, deps.version(), false);
     const selection = getClaudeModelSelection(session.id);
     if (selection) saveClaudeModelSelection(forkedSession.id, selection);
     const ids = new Map(retained.map(entry => [entry.message.id, crypto.randomUUID()]));
@@ -121,12 +114,11 @@ export async function forkClaudeSession(
       if (entry.message.role === 'user') {
         // The fork's native user messages carry fresh uuids; remember them so
         // later Undo or Edit in the fork still matches its native history.
-        getDatabase().run('INSERT INTO claude_inherited_user_ids (message_id, native_user_id) VALUES (?, ?)',
-          [id, forkedTurns[userTurn++]!.userId]);
+        setClaudeInheritedUserId(forkedSession.id, id, forkedTurns[userTurn++]!.userId);
       }
       for (const part of entry.parts) createPart({ ...part, id: crypto.randomUUID(), messageId: id }, forkedSession.id);
     }
-    getDatabase().run('DELETE FROM claude_fork_intents WHERE source_session_id = ?', [session.id]);
+    deleteClaudeForkIntent(session.id);
     return { forkedSession, messages: listMessagesWithParts(forkedSession.id) };
   })();
 }

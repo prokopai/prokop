@@ -4,15 +4,15 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { CodexAppServer, codexObject, type CodexConnection } from './app-server';
-import { bindCodexThread, getCodexBinding } from './bindings';
+import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
+import {
+  codexInheritedUserId, deleteCodexForkIntent, hasCodexForkIntent, insertCodexForkIntent, insertCodexInheritedUserId,
+} from './native-state';
 import { getCodexModelSelection, saveCodexModelSelection } from './models';
 import { getRollbackIntent, readRollbackHistory, sameTurns } from './rollback';
 
 export function upstreamUserId(messageId: string): string {
-  const row = getDatabase().query<{ upstream_client_id: string }, [string]>(
-    'SELECT upstream_client_id FROM codex_inherited_user_ids WHERE message_id = ?',
-  ).get(messageId);
-  return row?.upstream_client_id ?? messageId;
+  return codexInheritedUserId(messageId) ?? messageId;
 }
 
 export async function forkCodexSession(
@@ -33,7 +33,7 @@ export async function forkCodexSession(
   const metadata = codexObject(session.metadata);
   if (binding.pendingTurn || binding.goalRequested || metadata?.codexGoal || metadata?.codexGoalPending
     || getRollbackIntent(session.id)) throw new Error('Codex history requires recovery before fork');
-  if (getDatabase().query('SELECT 1 FROM codex_fork_intents WHERE source_session_id = ?').get(session.id)) {
+  if (hasCodexForkIntent(session.id)) {
     throw new Error('A Codex fork has an uncertain outcome; do not retry it');
   }
   const client = new CodexAppServer(deps.connect(), () => {});
@@ -67,9 +67,7 @@ export async function forkCodexSession(
       throw new Error('Codex fork of image history is not supported');
     }
     const cutoff = kept.at(-1)!.id;
-    getDatabase().run(`INSERT INTO codex_fork_intents
-      (source_session_id, target_message_id, before_turn_id, created_at) VALUES (?, ?, ?, ?)`,
-    [session.id, input.targetMessageId, cutoff, new Date().toISOString()]);
+    insertCodexForkIntent(session.id, input.targetMessageId, cutoff);
     // An uncertain RPC cannot be issued a second time. The intent remains on
     // disconnect, malformed response, or failure to persist the local fork.
     const forked = codexObject(await client.request('thread/fork', {
@@ -79,7 +77,7 @@ export async function forkCodexSession(
     const thread = codexObject(forked?.thread);
     const newThreadId = thread?.id;
     if (typeof newThreadId !== 'string' || !newThreadId || newThreadId === binding.threadId
-      || getDatabase().query('SELECT 1 FROM codex_session_bindings WHERE thread_id = ?').get(newThreadId)) {
+      || findCodexBindingByThread(newThreadId)) {
       throw new Error('Codex fork returned an invalid thread');
     }
     const forkResume = codexObject(await client.request('thread/resume', {
@@ -134,12 +132,11 @@ export async function forkCodexSession(
           ...(message.role === 'assistant' && message.parentId
             ? { parentId: ids.get(message.parentId) } : {}) });
         if (message.role === 'user') {
-          getDatabase().run(`INSERT INTO codex_inherited_user_ids (message_id, upstream_client_id)
-            VALUES (?, ?)`, [id, upstreamUserId(message.id)]);
+          insertCodexInheritedUserId(forkedSession.id, id, upstreamUserId(message.id));
         }
         for (const part of entry.parts) createPart({ ...part, id: crypto.randomUUID(), messageId: id }, forkedSession.id);
       }
-      getDatabase().run('DELETE FROM codex_fork_intents WHERE source_session_id = ?', [session.id]);
+      deleteCodexForkIntent(session.id);
       return { forkedSession, messages: listMessagesWithParts(forkedSession.id) };
     })();
   } finally {

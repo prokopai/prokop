@@ -1,5 +1,5 @@
 import type { CodexModel, CodexModelSelection } from '@prokopai/sdk';
-import { getDatabase } from '@/infrastructure/sqlite/database';
+import { readCodexModelSelection, writeCodexModelSelection } from './native-state';
 import { CodexAppServer, codexObject, spawnCodexAppServer, type CodexConnection } from './app-server';
 import { codexCliVersion } from './version';
 
@@ -11,10 +11,7 @@ export interface CodexModelDependencies {
 const defaultDependencies: CodexModelDependencies = { connect: spawnCodexAppServer, version: codexCliVersion };
 
 export function getCodexModelSelection(sessionId: string): CodexModelSelection | null {
-  const row = getDatabase().query<{ model: string; effort: string }, [string]>(
-    'SELECT model, effort FROM codex_session_models WHERE session_id = ?',
-  ).get(sessionId);
-  return row ? { model: row.model, effort: row.effort } : null;
+  return readCodexModelSelection(sessionId);
 }
 
 /** Fetch only the host CLI catalog. Never fall back to Prokop provider models. */
@@ -65,11 +62,7 @@ export async function listCodexModels(deps: CodexModelDependencies = defaultDepe
 }
 
 export function saveCodexModelSelection(sessionId: string, selection: CodexModelSelection): void {
-  const result = getDatabase().run(`INSERT INTO codex_session_models (session_id, model, effort)
-    SELECT id, ?, ? FROM sessions WHERE id = ? AND harness = 'codex-cli'
-    ON CONFLICT(session_id) DO UPDATE SET model = excluded.model, effort = excluded.effort`,
-  [selection.model, selection.effort, sessionId]);
-  if (result.changes !== 1) throw new Error('Codex session unavailable');
+  writeCodexModelSelection(sessionId, selection);
 }
 
 /** Listing spawns a Codex app-server process; callers share one catalog per TTL window. */

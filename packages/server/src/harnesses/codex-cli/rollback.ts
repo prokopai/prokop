@@ -4,6 +4,10 @@ import { deleteMessage, listMessagesWithParts, updatePart } from '@/infrastructu
 import type { RevertExecutionResult } from '@/application/ports/execution';
 import { CodexAppServer, codexObject } from './app-server';
 import type { CodexBinding } from './bindings';
+import {
+  codexInheritedUserId, deleteCodexInheritedUserId, deleteCodexRollbackIntent, insertCodexRollbackIntent,
+  patchCodexRollbackIntent, readCodexRollbackIntent,
+} from './native-state';
 
 export interface RollbackIntent {
   sessionId: string;
@@ -16,26 +20,21 @@ export interface RollbackIntent {
 }
 
 export function getRollbackIntent(sessionId: string): RollbackIntent | null {
-  const row = getDatabase().query<{
-    session_id: string; operation: 'edit' | 'revert'; target_message_id: string;
-    content: string | null; before_turn_id: string; turn_ids: string; phase: RollbackIntent['phase'];
-  }, [string]>('SELECT * FROM codex_rollback_intents WHERE session_id = ?').get(sessionId);
-  if (!row) return null;
-  const turns: unknown = JSON.parse(row.turn_ids);
+  const value = readCodexRollbackIntent(sessionId);
+  if (!value) return null;
+  const turns: unknown = value.turnIds;
   if (!Array.isArray(turns) || turns.some(id => typeof id !== 'string')) throw new Error('Invalid Codex rollback intent');
-  return { sessionId: row.session_id, operation: row.operation, targetMessageId: row.target_message_id,
-    content: row.content, beforeTurnId: row.before_turn_id, turnIds: turns, phase: row.phase };
+  return { sessionId, operation: value.operation, targetMessageId: value.targetMessageId,
+    content: value.content, beforeTurnId: value.beforeTurnId, turnIds: turns, phase: value.phase };
 }
 
 export function saveRollbackIntent(intent: RollbackIntent): void {
-  getDatabase().run(`INSERT INTO codex_rollback_intents
-    (session_id, operation, target_message_id, content, before_turn_id, turn_ids, phase)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`, [intent.sessionId, intent.operation, intent.targetMessageId,
-    intent.content, intent.beforeTurnId, JSON.stringify(intent.turnIds), intent.phase]);
+  const { sessionId, ...value } = intent;
+  insertCodexRollbackIntent(sessionId, value);
 }
 
 export function setRollbackPhase(sessionId: string, phase: RollbackIntent['phase']): void {
-  getDatabase().run('UPDATE codex_rollback_intents SET phase = ? WHERE session_id = ?', [phase, sessionId]);
+  patchCodexRollbackIntent(sessionId, { phase });
 }
 
 /** The thread is already rolled back and the edit was never resent, so its local text may still change. */
@@ -48,12 +47,12 @@ export function retargetReadyEdit(intent: RollbackIntent, content: string): void
       || target?.message.id !== intent.targetMessageId || !text || !updatePart(text.id, { text: content })) {
       throw new Error('Codex edit text is unavailable');
     }
-    getDatabase().run('UPDATE codex_rollback_intents SET content = ? WHERE session_id = ?', [content, intent.sessionId]);
+    patchCodexRollbackIntent(intent.sessionId, { content });
   })();
 }
 
 export function clearRollbackIntent(sessionId: string): void {
-  getDatabase().run('DELETE FROM codex_rollback_intents WHERE session_id = ?', [sessionId]);
+  deleteCodexRollbackIntent(sessionId);
 }
 
 /** One Codex turn and the local messages it owns, inclusive. */
@@ -74,9 +73,10 @@ export async function readRollbackHistory(client: CodexAppServer, binding: Codex
   if (thread?.id !== binding.threadId || codexObject(thread.status)?.type !== 'idle'
     || !Array.isArray(thread.turns)) throw new Error('Codex thread history is unavailable');
   const local = listMessagesWithParts(binding.sessionId);
-  const inherited = getDatabase().query<{ upstream_client_id: string }, [string]>(
-    'SELECT upstream_client_id FROM codex_inherited_user_ids WHERE message_id = ?',
-  );
+  const inherited = { get: (messageId: string) => {
+    const upstream = codexInheritedUserId(messageId);
+    return upstream ? { upstream_client_id: upstream } : null;
+  } };
   const turnUsers = thread.turns.map((raw: unknown) => {
     const items = codexObject(raw)?.items;
     return Array.isArray(items) ? items.map(codexObject).filter(item => item?.type === 'userMessage') : [];
@@ -148,7 +148,7 @@ export function applyRollback(intent: RollbackIntent): RevertExecutionResult {
         throw new Error('Codex edit text is unavailable');
       }
       // Resubmission creates a new Codex user item with this local ID.
-      getDatabase().run('DELETE FROM codex_inherited_user_ids WHERE message_id = ?', [local[index]!.message.id]);
+      deleteCodexInheritedUserId(local[index]!.message.id);
     }
     for (const messageId of result.removed.messageIds) {
       if (!deleteMessage(messageId)) throw new Error('Codex transcript deletion failed');

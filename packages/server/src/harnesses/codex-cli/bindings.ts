@@ -1,4 +1,7 @@
 import { getDatabase } from '@/infrastructure/sqlite/database';
+import {
+  findHarnessState, getHarnessState, insertHarnessState, updateHarnessState, type HarnessStateRecord,
+} from '@/infrastructure/sqlite/harness-state';
 
 export interface CodexBinding {
   sessionId: string;
@@ -13,78 +16,93 @@ export interface CodexBinding {
   goalRequested: boolean;
 }
 
+type BindingValue = Omit<CodexBinding, 'sessionId'> & { createdAt: string };
+
+const bindingKey = (sessionId: string) => ({ harness: 'codex-cli' as const, kind: 'binding', key: sessionId });
+
+function toBinding(record: HarnessStateRecord<BindingValue> | null): CodexBinding | null {
+  if (!record) return null;
+  const { createdAt: _createdAt, ...value } = record.value;
+  return { sessionId: record.key, ...value };
+}
+
+function bindingRecord(sessionId: string, value: BindingValue): HarnessStateRecord<BindingValue> {
+  return { ...bindingKey(sessionId), sessionId, lookup: value.threadId, blocksSwitch: value.pendingTurn, value };
+}
+
+/** Applies `change` when `allowed` holds for the current binding; false otherwise. */
+function updateBinding(sessionId: string, allowed: (binding: BindingValue) => boolean,
+  change: (binding: BindingValue) => Partial<BindingValue>): boolean {
+  return updateHarnessState<BindingValue>(bindingKey(sessionId), (current) => {
+    if (!current || !allowed(current.value)) return undefined;
+    return bindingRecord(sessionId, { ...current.value, ...change(current.value) });
+  });
+}
+
 export function getCodexBinding(sessionId: string): CodexBinding | null {
-  const row = getDatabase().query<{
-    session_id: string; thread_id: string; cli_version: string; workspace_root: string; pending_turn: number;
-    pending_user_id: string | null; pending_assistant_id: string | null;
-    pending_turn_id: string | null; goal_root_turn_id: string | null; goal_requested: number;
-  }, [string]>(`SELECT session_id, thread_id, cli_version, workspace_root, pending_turn, pending_user_id, pending_assistant_id,
-      pending_turn_id, goal_root_turn_id, goal_requested
-    FROM codex_session_bindings WHERE session_id = ?`).get(sessionId);
-  return row ? {
-    sessionId: row.session_id, threadId: row.thread_id,
-    cliVersion: row.cli_version, workspaceRoot: row.workspace_root, pendingTurn: row.pending_turn !== 0,
-    pendingUserId: row.pending_user_id, pendingAssistantId: row.pending_assistant_id,
-    pendingTurnId: row.pending_turn_id, goalRootTurnId: row.goal_root_turn_id,
-    goalRequested: row.goal_requested !== 0,
-  } : null;
+  return toBinding(getHarnessState<BindingValue>(bindingKey(sessionId)));
+}
+
+/** The Prokop session bound to a Codex thread, if any. */
+export function findCodexBindingByThread(threadId: string): CodexBinding | null {
+  return toBinding(findHarnessState<BindingValue>('codex-cli', 'binding', threadId));
 }
 
 export function bindCodexThread(binding: Pick<CodexBinding, 'sessionId' | 'threadId' | 'cliVersion' | 'workspaceRoot'>): void {
-  // Never rebind an existing Prokop session or silently switch a Codex thread.
-  getDatabase().run(`INSERT INTO codex_session_bindings
-    (session_id, thread_id, cli_version, workspace_root, created_at)
-    SELECT id, ?, ?, ?, ? FROM sessions WHERE id = ? AND harness = 'codex-cli'`, [
-    binding.threadId, binding.cliVersion, binding.workspaceRoot,
-    new Date().toISOString(), binding.sessionId,
-  ]);
-  if (!getCodexBinding(binding.sessionId)) throw new Error('Codex session no longer exists');
+  // Never rebind an existing Prokop session or silently switch a Codex thread:
+  // the key and the thread lookup are both unique, so a second bind throws.
+  if (!getDatabase().query("SELECT 1 FROM sessions WHERE id = ? AND harness = 'codex-cli'").get(binding.sessionId)) {
+    throw new Error('Codex session no longer exists');
+  }
+  insertHarnessState(bindingRecord(binding.sessionId, {
+    threadId: binding.threadId, cliVersion: binding.cliVersion, workspaceRoot: binding.workspaceRoot,
+    createdAt: new Date().toISOString(), pendingTurn: false, pendingUserId: null, pendingAssistantId: null,
+    pendingTurnId: null, goalRootTurnId: null, goalRequested: false,
+  }));
 }
 
 /** Records the CLI that last resumed the thread. Upgrades never strand a session. */
 export function recordCodexCliVersion(sessionId: string, version: string): void {
-  getDatabase().run('UPDATE codex_session_bindings SET cli_version = ? WHERE session_id = ?', [version, sessionId]);
+  updateBinding(sessionId, () => true, () => ({ cliVersion: version }));
 }
 
 export function markCodexTurnPending(sessionId: string, userId: string, assistantId: string): void {
-  const result = getDatabase().run(`UPDATE codex_session_bindings
-    SET pending_turn = 1, pending_user_id = ?, pending_assistant_id = ?, pending_turn_id = NULL,
-      goal_root_turn_id = NULL, goal_requested = 0
-    WHERE session_id = ? AND pending_turn = 0`, [userId, assistantId, sessionId]);
-  if (result.changes !== 1) throw new Error('Codex turn requires reconciliation before another send');
+  if (!updateBinding(sessionId, binding => !binding.pendingTurn, () => ({
+    pendingTurn: true, pendingUserId: userId, pendingAssistantId: assistantId, pendingTurnId: null,
+    goalRootTurnId: null, goalRequested: false,
+  }))) throw new Error('Codex turn requires reconciliation before another send');
 }
 
 export function markCodexTurnStarted(sessionId: string, turnId: string, assistantId: string,
   continuation: boolean): void {
-  const result = getDatabase().run(`UPDATE codex_session_bindings
-    SET pending_turn_id = ?, pending_assistant_id = ?, goal_root_turn_id = CASE WHEN ? = 1
-      THEN goal_root_turn_id ELSE ? END
-    WHERE session_id = ? AND pending_turn = 1 AND pending_user_id IS NOT NULL
-      AND (pending_turn_id IS NULL OR ? = 1 AND goal_root_turn_id IS NOT NULL)`, [
-    turnId, assistantId, continuation ? 1 : 0, turnId, sessionId, continuation ? 1 : 0,
-  ]);
-  if (result.changes !== 1) throw new Error('Codex continuation identity is unavailable');
+  if (!updateBinding(sessionId,
+    binding => binding.pendingTurn && binding.pendingUserId !== null
+      && (binding.pendingTurnId === null || continuation && binding.goalRootTurnId !== null),
+    binding => ({
+      pendingTurnId: turnId, pendingAssistantId: assistantId,
+      goalRootTurnId: continuation ? binding.goalRootTurnId : turnId,
+    }))) throw new Error('Codex continuation identity is unavailable');
 }
 
 /** A steered message starts a new reply in the same pending turn; recovery fills that reply. */
 export function markCodexSteerReply(sessionId: string, assistantId: string): void {
-  const result = getDatabase().run(`UPDATE codex_session_bindings SET pending_assistant_id = ?
-    WHERE session_id = ? AND pending_turn = 1`, [assistantId, sessionId]);
-  if (result.changes !== 1) throw new Error('Codex steer has no pending turn');
+  if (!updateBinding(sessionId, binding => binding.pendingTurn, () => ({ pendingAssistantId: assistantId }))) {
+    throw new Error('Codex steer has no pending turn');
+  }
 }
 
 export function markCodexGoalRequested(sessionId: string): void {
-  const result = getDatabase().run(`UPDATE codex_session_bindings SET goal_requested = 1
-    WHERE session_id = ? AND pending_turn = 1 AND pending_turn_id IS NOT NULL`, [sessionId]);
-  if (result.changes !== 1) throw new Error('Codex goal activation has no turn identity');
+  if (!updateBinding(sessionId, binding => binding.pendingTurn && binding.pendingTurnId !== null,
+    () => ({ goalRequested: true }))) throw new Error('Codex goal activation has no turn identity');
 }
 
 export function markCodexGoalUncertain(sessionId: string): void {
-  getDatabase().run('UPDATE codex_session_bindings SET goal_requested = 1 WHERE session_id = ?', [sessionId]);
+  updateBinding(sessionId, () => true, () => ({ goalRequested: true }));
 }
 
 export function markCodexTurnCompleted(sessionId: string): void {
-  getDatabase().run(`UPDATE codex_session_bindings
-    SET pending_turn = 0, pending_user_id = NULL, pending_assistant_id = NULL,
-      pending_turn_id = NULL, goal_root_turn_id = NULL, goal_requested = 0 WHERE session_id = ?`, [sessionId]);
+  updateBinding(sessionId, () => true, () => ({
+    pendingTurn: false, pendingUserId: null, pendingAssistantId: null,
+    pendingTurnId: null, goalRootTurnId: null, goalRequested: false,
+  }));
 }

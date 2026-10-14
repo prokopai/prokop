@@ -11,6 +11,7 @@ import { forkCodexSession, upstreamUserId } from '@/harnesses/codex-cli/fork';
 import { createCodexExecution } from '@/harnesses/codex-cli/execution';
 import { applyRollback, readRollbackHistory, saveRollbackIntent } from '@/harnesses/codex-cli/rollback';
 import { CodexAppServer, type CodexConnection } from '@/harnesses/codex-cli/app-server';
+import { legacyRow, legacyRows, updateLegacyRow } from '#tests/helpers/legacy-native';
 
 const root = realpathSync(process.cwd());
 const version = 'codex-cli 0.156.1';
@@ -113,7 +114,7 @@ test('native fork keeps selected assistant turn, binding, model and inherited us
   try { await client.initialize();
     expect((await readRollbackHistory(client, getCodexBinding(forkId)!)).map(span => span.id)).toEqual(['turn-0', 'turn-1']);
   } finally { await client.close(); }
-  expect(getDatabase().query('SELECT * FROM codex_fork_intents WHERE source_session_id = ?').get('s')).toBeNull();
+  expect(legacyRow('codex_fork_intents', 's')).toBeNull();
 });
 
 test('new message in a fork resumes native forked history instead of starting an empty thread', async () => {
@@ -184,10 +185,10 @@ test('fork rejects user cutoff, images, pending turn, goals and incomplete histo
   const image = fake(history);
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(image.connection)))
     .rejects.toThrow('image history');
-  getDatabase().run('UPDATE codex_session_bindings SET pending_turn = 1 WHERE session_id = ?', ['s']);
+  updateLegacyRow('codex_session_bindings', 's', { pending_turn: 1 });
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! },
     { ...deps(image.connection), connect: () => { throw new Error('spawned'); } })).rejects.toThrow('requires recovery');
-  getDatabase().run('UPDATE codex_session_bindings SET pending_turn = 0 WHERE session_id = ?', ['s']);
+  updateLegacyRow('codex_session_bindings', 's', { pending_turn: 0 });
   const goal = fake(history, { goal: { status: 'active' } });
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(goal.connection)))
     .rejects.toThrow('goal history');
@@ -205,8 +206,8 @@ test('failed local copy rolls back the new binding and retains the uncertain nat
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(upstream.connection)))
     .rejects.toThrow('copy failed');
   expect(getDatabase().query('SELECT id FROM sessions WHERE id != ?').all('s')).toEqual([]);
-  expect(getDatabase().query('SELECT thread_id FROM codex_session_bindings').all()).toHaveLength(1);
-  expect(getDatabase().query('SELECT * FROM codex_fork_intents WHERE source_session_id = ?').get('s')).not.toBeNull();
+  expect(legacyRows('codex_session_bindings')).toHaveLength(1);
+  expect(legacyRow('codex_fork_intents', 's')).not.toBeNull();
 });
 
 test('execution reports an uncertain native fork without exposing upstream errors', async () => {
@@ -220,7 +221,7 @@ test('execution reports an uncertain native fork without exposing upstream error
   });
   await expect(execution.fork({ sessionId: 's', targetMessageId: assistants[0]! }))
     .rejects.toThrow('Codex fork outcome is uncertain; do not retry in this session');
-  expect(getDatabase().query('SELECT * FROM codex_fork_intents WHERE source_session_id = ?').get('s')).not.toBeNull();
+  expect(legacyRow('codex_fork_intents', 's')).not.toBeNull();
 });
 
 test('uncertain or invalid native fork never publishes a local session or retries the RPC', async () => {
@@ -229,7 +230,7 @@ test('uncertain or invalid native fork never publishes a local session or retrie
   const upstream = fake(history, { malformedFork: true });
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(upstream.connection)))
     .rejects.toThrow('history does not match');
-  expect(getDatabase().query('SELECT * FROM codex_fork_intents WHERE source_session_id = ?').get('s')).not.toBeNull();
+  expect(legacyRow('codex_fork_intents', 's')).not.toBeNull();
   expect(getCodexBinding('s')?.threadId).toBe('source');
   const retry = fake(history);
   await expect(forkCodexSession({ sessionId: 's', targetMessageId: assistants[0]! }, deps(retry.connection)))
