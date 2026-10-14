@@ -1,7 +1,7 @@
 import type { AgentSide, Audience, HostEndpoint, NotificationHandlers } from '@prokopai/agent-protocol';
 import type { ServerMessage, SessionHarness } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
-import type { AgentExecutor } from './agent-turns';
+import type { AgentExecutor, AgentHeadlessRun } from './agent-turns';
 
 interface RequestContext {
   wire: SessionWirePorts<unknown>;
@@ -21,6 +21,8 @@ type DeliverParams = { audience: Audience; message: ServerMessage; origin?: stri
  */
 export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliver: (params: DeliverParams) => void): {
   executorFor(harness: SessionHarness, agentExecutor: AgentExecutor): AgentExecutor;
+  /** A headless run over `turn.headless`; its child session counts as active meanwhile. */
+  headlessRun(): AgentHeadlessRun;
   notifications: Pick<NotificationHandlers<AgentSide>, 'deliver' | 'origin.attach' | 'session.activity'>;
 } {
   const contexts = new Map<string, RequestContext>();
@@ -92,6 +94,8 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
       }
       return executor;
     },
+    headlessRun: () => input => run(input.childSessionId, true, undefined, undefined,
+      () => host.request('turn.headless', input as Parameters<typeof host.request<'turn.headless'>>[1])),
     notifications: {
       deliver: (params) => {
         const context = params.origin ? contexts.get(params.origin) : undefined;

@@ -90,6 +90,7 @@ import { broadcastEvent, broadcastSessionUpdated, sendToConnectionEvent } from '
 import { addWorkspaceFilesChangedObserver } from '@/application/workspaces/files-changed';
 import { setMcpChangeListener } from '@/infrastructure/mcp';
 import { harnessMcpTools } from '@/application/ports/mcp-tools';
+import { harnessProbes } from '@/application/ports/harness-probes';
 import { browserService } from '@/infrastructure/browser/service';
 import { installBrowserRequestsPort } from '@/application/ports/browser';
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
@@ -112,17 +113,15 @@ import {
   codexCliVersion,
   createCodexCliHarness,
   createCodexExecution,
-  listCachedCodexModels,
-  readCachedCodexUsageLimits,
 } from '@/harnesses/codex-cli';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution, type HarnessRegistration } from '@/application/sessions/harness-execution';
-import { bindHarnessExecutors } from '@/bootstrap/agent-ports';
+import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
+import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
-import { claudeCliAvailable, claudeCliVersion, createClaudeCliHarness, createClaudeExecution,
-  listCachedClaudeModels, readCachedClaudeUsageLimits, readClaudeSessionTitle } from '@/harnesses/claude-cli';
+import { claudeCliAvailable, claudeCliVersion, createClaudeCliHarness, createClaudeExecution } from '@/harnesses/claude-cli';
 import { fallbackSessionTitle } from '@/infrastructure/session-title';
 import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
@@ -214,11 +213,14 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   // own session title, so Claude sessions get one without a Prokop model.
   const sessionTitles = { repository, titles: { ...prokopTitleBindings, fallbackSessionTitle } };
   const codexTitleRegeneration = createSessionTitleRegeneration(sessionTitles);
-  const claudeTitleRegeneration = createSessionTitleRegeneration({ ...sessionTitles, harnessTitle: readClaudeSessionTitle });
+  const claudeTitleRegeneration = createSessionTitleRegeneration({ ...sessionTitles,
+    harnessTitle: sessionId => harnessProbes().nativeTitle(sessionId) });
   let refreshWorktreeAttachments: ((worktreeId: string) => void) | null = null;
   const worktreeAttachments = {
     changed: (worktreeId: string): void => refreshWorktreeAttachments?.(worktreeId),
   };
+  // The Prokop harness reports worktree session changes as an event (host.notify across the agent protocol).
+  onHarnessWorktreeChanged(worktreeAttachments.changed);
   // The prokop composition owns the ask waiters; wire-side resolution must
   // land in the same composed permission runtime execution enters.
   installAskResolutionPort(prokopAskResolution);
@@ -253,7 +255,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     prokop: createProkopHarness({
       onSessionChanged: (changedSession) => {
         if (changedSession.workspaceRootId) {
-          worktreeAttachments.changed(changedSession.workspaceRootId);
+          getHarnessNotificationPort()?.notifyWorktreeChanged?.(changedSession.workspaceRootId);
         }
       },
     }),
@@ -269,14 +271,14 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   // creation through supportedHarnesses().
   installHeadlessExecutionPort({
     run(input) {
-      const headless = harnessRegistrations[input.harness]?.headless;
+      const headless = boundRegistrations[input.harness]?.headless;
       return headless
         ? headless(input)
         : Promise.resolve({ error: `Scheduled jobs are not supported for ${input.harness} sessions` });
     },
     supportedHarnesses() {
       return (Object.keys(harnessRegistrations) as Array<import('@prokopai/sdk').SessionHarness>)
-        .filter(harness => harnessRegistrations[harness].headless !== undefined);
+        .filter(harness => boundRegistrations[harness].headless !== undefined);
     },
   });
   const askAuthority = createProkopAskAuthorityPort();
@@ -322,8 +324,8 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     codexWorkspaceAvailable,
     claudeAvailable: claudeCliAvailable,
     claudeWorkspaceAvailable: codexWorkspaceAvailable,
-    claudeModels: listCachedClaudeModels,
-    codexModels: listCachedCodexModels,
+    claudeModels: () => harnessProbes().models('claude-cli'),
+    codexModels: () => harnessProbes().models('codex-cli'),
     saveHarnessModelSelection: (sessionId, selection) => {
       if (selection.harness === 'codex-cli') saveCodexModelSelection(sessionId, selection);
       else saveClaudeModelSelection(sessionId, selection);
@@ -346,14 +348,15 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     worktreeAttachments,
     codexCliAvailable,
     codexWorkspaceAvailable,
-    { list: listCachedCodexModels, get: getCodexModelSelection, save: saveCodexModelSelection,
+    { list: () => harnessProbes().models('codex-cli'), get: getCodexModelSelection, save: saveCodexModelSelection,
       isActive: boundRegistrations['codex-cli'].execution.isSessionActive },
     claudeCliAvailable,
-    { list: listCachedClaudeModels, get: getClaudeModelSelection, save: saveClaudeModelSelection,
+    { list: () => harnessProbes().models('claude-cli'), get: getClaudeModelSelection, save: saveClaudeModelSelection,
       isActive: boundRegistrations['claude-cli'].execution.isSessionActive },
     codexWorkspaceAvailable,
     { settings: harnessSettings, codexVersion: codexCliVersion, claudeVersion: claudeCliVersion,
-      usage: { 'codex-cli': readCachedCodexUsageLimits, 'claude-cli': readCachedClaudeUsageLimits } },
+      usage: { 'codex-cli': () => harnessProbes().usageLimits('codex-cli'),
+        'claude-cli': () => harnessProbes().usageLimits('claude-cli') } },
     {
       created: (session) => broadcastEvent({ type: 'session.created', session }),
       updated: broadcastSessionUpdated,
@@ -501,7 +504,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     // a missing CLI or model yields null and the cycle skips silently.
     harnessModelEffort: async (harness, model, variant) => {
       try {
-        const models = harness === 'codex-cli' ? await listCachedCodexModels() : await listCachedClaudeModels();
+        const models = await harnessProbes().models(harness);
         const entry = models.find(candidate => candidate.model === model);
         if (!entry) return null;
         return entry.supportedEfforts.includes(variant ?? '') ? variant! : entry.defaultEffort;

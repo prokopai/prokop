@@ -2787,6 +2787,23 @@
             "kind",
             "sessionId"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "worktree.changed"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "worktreeId"
+          ],
+          "description": "A session using this managed worktree changed; the host refreshes its attachments."
         }
       ]
     },

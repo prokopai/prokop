@@ -9,6 +9,8 @@ import type { AssistantMessage } from '@prokopai/sdk';
 export interface HarnessNotificationPort {
   notifyTerminalMessage(message: AssistantMessage, sessionId: string): void;
   notifyPermissionRequired(requestId: string, rootSessionId: string): void;
+  /** A session on this managed worktree changed (the host refreshes worktree attachments). */
+  notifyWorktreeChanged?(worktreeId: string): void;
 }
 
 let current: HarnessNotificationPort | null = null;

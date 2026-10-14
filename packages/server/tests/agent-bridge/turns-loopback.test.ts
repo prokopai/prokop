@@ -5,7 +5,9 @@ import { createTurnHandlers, type AgentExecutor } from '@/agent-bridge/agent-tur
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createAgentLoopback } from '@/agent-bridge/loopback';
 import type { SessionWirePorts } from '@/application/ports/delivery';
-import { bindHarnessExecutors } from '@/bootstrap/agent-ports';
+import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
+import { harnessProbes } from '@/application/ports/harness-probes';
+import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { prokopCompatibilityBindings } from '@/harnesses/prokop/composition/bindings';
 import { prokopStorageBundle } from '@/harnesses/prokop/host/storage';
 import { configureRuntimeHost } from '@/infrastructure/runtime/host';
@@ -154,5 +156,53 @@ describe('bootstrap binds harness executors to the agent loopback', () => {
       'codex-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
       'claude-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) } };
     expect(bindHarnessExecutors(registrations)).toBe(registrations);
+  });
+});
+
+describe('headless runs, probes and harness events over the agent loopback', () => {
+  afterEach(() => {
+    delete process.env.PROKOPAI_AGENT_LOOPBACK;
+    configureStorage(prokopStorageBundle);
+    configureRuntimeHost(prokopCompatibilityBindings);
+    resetTestDatabase();
+  });
+
+  test('a headless run crosses as turn.headless and its child session counts as active', async () => {
+    process.env.PROKOPAI_AGENT_LOOPBACK = '1';
+    setupTestDatabase();
+    let release!: () => void;
+    const runs: string[] = [];
+    const bound = bindHarnessExecutors({
+      prokop: { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }),
+        headless: async (input) => {
+          runs.push(input.childSessionId);
+          await new Promise<void>(resolve => { release = resolve; });
+          return { error: 'done' };
+        } },
+      'codex-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
+      'claude-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
+    });
+    expect((bound['codex-cli'] as { headless?: unknown }).headless).toBeUndefined();
+    const run = bound.prokop.headless!({ harness: 'prokop', parentSessionId: 'p', childSessionId: 'child',
+      preconfig: { id: 'agent', name: 'Agent' } as never, prompt: 'go', workspacePath: undefined, workspaceId: 'ws',
+      modelId: 'm', providerId: 'p', resumeFromHistory: false });
+    for (let attempt = 0; attempt < 50 && !runs.length; attempt++) await Bun.sleep(1);
+    expect(runs).toEqual(['child']);
+    expect(bound.prokop.execution.isSessionActive('child')).toBe(true);
+    release();
+    expect(await run).toEqual({ error: 'done' });
+    expect(bound.prokop.execution.isSessionActive('child')).toBe(false);
+  });
+
+  test('probes are agent requests and a worktree change reaches the host listener as an event', async () => {
+    process.env.PROKOPAI_AGENT_LOOPBACK = '1';
+    setupTestDatabase();
+    // No Claude binding: the agent reads no native title.
+    expect(await harnessProbes().nativeTitle('missing')).toBeNull();
+    const changed: string[] = [];
+    onHarnessWorktreeChanged(id => changed.push(id));
+    getHarnessNotificationPort()?.notifyWorktreeChanged?.('wt-1');
+    await Bun.sleep(1);
+    expect(changed).toEqual(['wt-1']);
   });
 });

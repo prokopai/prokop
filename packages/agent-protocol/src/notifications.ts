@@ -45,6 +45,8 @@ export const agentToHostNotifications = notifications({
       z.object({ kind: z.literal('turn.finished'), sessionId: z.string(), message: MessageEntity }),
       z.object({ kind: z.literal('permission.required'), requestId: z.string(), rootSessionId: z.string() }),
       z.object({ kind: z.literal('files.changed'), sessionId: z.string() }),
+      z.object({ kind: z.literal('worktree.changed'), worktreeId: z.string() })
+        .describe('A session using this managed worktree changed; the host refreshes its attachments.'),
     ]),
   },
   '$/cancel': { description: 'Cancel an in-flight agent-to-host request (tool.call).', params: Cancel },

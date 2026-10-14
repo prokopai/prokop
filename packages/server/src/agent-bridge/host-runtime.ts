@@ -21,6 +21,7 @@ export interface RuntimeHostServices {
   /** Push for a finished top-level reply (Prokop's `terminal` runtime event). */
   notifyTurnFinished(message: AssistantMessage, sessionId: string): void;
   notifyFilesChanged?(sessionId: string): void;
+  notifyWorktreeChanged?(worktreeId: string): void;
 }
 
 /**
@@ -90,6 +91,9 @@ export function createRuntimeHostHandlers(services: RuntimeHostServices): {
             break;
           case 'files.changed':
             services.notifyFilesChanged?.(event.sessionId);
+            break;
+          case 'worktree.changed':
+            services.notifyWorktreeChanged?.(event.worktreeId);
             break;
         }
       },

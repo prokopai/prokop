@@ -2,8 +2,11 @@ import { join } from 'node:path';
 import type { AgentHandlers, Audience } from '@prokopai/agent-protocol';
 import type { SessionHarness } from '@prokopai/sdk';
 import { installHarnessNotificationPort, type HarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { createTurnHandlers, type AgentExecutor } from '@/agent-bridge/agent-turns';
+import { createTurnHandlers, type AgentExecutor, type AgentHeadlessRun } from '@/agent-bridge/agent-turns';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
+import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
+import { configureHarnessProbes } from '@/application/ports/harness-probes';
+import { localHarnessProbes, probeHandlers } from './agent-probes';
 import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
 import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
 import {
@@ -59,7 +62,7 @@ export function terminalPortFromManager(manager: () => ReturnType<typeof getTerm
   };
 }
 
-let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor }>>(registrations: R) => R =
+let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor; headless?: AgentHeadlessRun }>>(registrations: R) => R =
   registrations => registrations;
 
 /**
@@ -67,12 +70,20 @@ let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor 
  * agent loopback each one forwards over `turn.*` to the same executor
  * running agent-side; otherwise they are returned unchanged.
  */
-export function bindHarnessExecutors<R extends Record<SessionHarness, { execution: AgentExecutor }>>(registrations: R): R {
+export function bindHarnessExecutors<R extends Record<SessionHarness, { execution: AgentExecutor; headless?: AgentHeadlessRun }>>(registrations: R): R {
   return bindExecutors(registrations);
 }
 
+let worktreeListener: ((worktreeId: string) => void) | null = null;
+
+/** The host's reaction to `worktree.changed`, wherever the harness runs. */
+export function onHarnessWorktreeChanged(listener: (worktreeId: string) => void): void {
+  worktreeListener = listener;
+}
+
 /** In-process harness push notifications. */
-const localHarnessNotifications = {
+const localHarnessNotifications: HarnessNotificationPort = {
+  notifyWorktreeChanged: worktreeId => worktreeListener?.(worktreeId),
   notifyTerminalMessage: (message: Parameters<HarnessNotificationPort['notifyTerminalMessage']>[0], sessionId: string) =>
     getProkopNotificationsApplication().notifyTerminalMessage(message, sessionId),
   notifyPermissionRequired: (requestId: string, rootSessionId: string) =>
@@ -96,6 +107,7 @@ export function configureAgentPorts(): void {
   if (!agentLoopbackEnabled()) {
     installAgentAskPort(createAgentAskPort(directAskDelivery));
     installHarnessNotificationPort(localHarnessNotifications);
+    configureHarnessProbes(localHarnessProbes);
     bindExecutors = registrations => registrations;
     return;
   }
@@ -118,6 +130,7 @@ export function configureAgentPorts(): void {
       sendToController: sendToControllerEvent,
       sendToAskTargets: sendToAskTargetsEvent,
     },
+    notifyWorktreeChanged: worktreeId => worktreeListener?.(worktreeId),
     notifyTurnFinished: (message, sessionId) =>
       getProkopNotificationsApplication().notifyTerminalMessage(message, sessionId),
   });
@@ -131,24 +144,30 @@ export function configureAgentPorts(): void {
   });
   const turns = createTurnForwarding(() => host, params => runtime.notifications.deliver?.(params as never));
   // Filled when the application registers its harnesses (bindHarnessExecutors).
-  const agentHandlers: AgentHandlers = { ...askResolveHandlers };
+  const agentHandlers: AgentHandlers = { ...askResolveHandlers, ...probeHandlers };
   const { agent, host } = createAgentLoopback({
     handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
       ...createHarnessAskHandlers(localHarnessAsks) },
     notifications: { ...runtime.notifications, ...turns.notifications },
   }, agentHandlers);
+  configureHarnessProbes(createProtocolHarnessProbes(() => host));
   installHarnessNotificationPort({
     notifyTerminalMessage: (message, sessionId) =>
       agent.notify('host.notify', { kind: 'turn.finished', sessionId, message }),
     notifyPermissionRequired: (requestId, rootSessionId) =>
       agent.notify('host.notify', { kind: 'permission.required', requestId, rootSessionId }),
+    notifyWorktreeChanged: worktreeId => agent.notify('host.notify', { kind: 'worktree.changed', worktreeId }),
   });
   bindExecutors = (registrations) => {
     const executors = Object.fromEntries(Object.entries(registrations)
       .map(([harness, registration]) => [harness, registration.execution])) as Record<SessionHarness, AgentExecutor>;
-    Object.assign(agentHandlers, createTurnHandlers(agent, executors));
+    const headless = Object.fromEntries(Object.entries(registrations).flatMap(([harness, registration]) =>
+      registration.headless ? [[harness, registration.headless]] : [])) as Partial<Record<SessionHarness, AgentHeadlessRun>>;
+    Object.assign(agentHandlers, createTurnHandlers(agent, executors, headless));
     return Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => [harness, {
-      ...registration, execution: turns.executorFor(harness as SessionHarness, registration.execution),
+      ...registration,
+      execution: turns.executorFor(harness as SessionHarness, registration.execution),
+      ...(registration.headless ? { headless: turns.headlessRun() } : {}),
     }])) as typeof registrations;
   };
   installAgentAskPort(createAgentAskPort(async answer => (await host.request('ask.resolve', answer)).resolved));

@@ -2,12 +2,16 @@ import type { AgentEndpoint, AgentHandlers, Audience } from '@prokopai/agent-pro
 import type { ServerMessage, SessionHarness } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@/application/ports/delivery';
 import type { SessionExecutionPort } from '@/application/ports/execution';
+import type { HeadlessSessionRunInput, HeadlessSessionRunResult } from '@/application/ports/headless-execution';
 import { nextDeliverSeq } from './deliver-seq';
 
 /** One harness's execution as the agent runs it; the host registers the same shape. */
 export type AgentExecutor = Pick<SessionExecutionPort, 'sendMessage' | 'interruptSession' | 'isSessionActive'>
   & Partial<Pick<SessionExecutionPort, 'editMessage' | 'regenerateTitle' | 'compact' | 'revert' | 'fork'
     | 'drainQueue' | 'steerQueue'>>;
+
+/** A harness's headless child run (scheduled jobs, learning reviews). */
+export type AgentHeadlessRun = (input: HeadlessSessionRunInput) => Promise<HeadlessSessionRunResult>;
 
 /** The origin of a host request: a token the host maps back to its connection context. */
 type OriginToken = string | null;
@@ -34,6 +38,7 @@ function sessionsOf(audience: Audience, message: ServerMessage): string[] {
 export function createTurnHandlers(
   endpoint: AgentEndpoint,
   executors: Partial<Record<SessionHarness, AgentExecutor>>,
+  headless: Partial<Record<SessionHarness, AgentHeadlessRun>> = {},
 ): AgentHandlers {
   const reported = new Map<string, boolean>();
   const executorOf = (harness: SessionHarness): AgentExecutor => {
@@ -102,6 +107,11 @@ export function createTurnHandlers(
     'turn.drain': ({ harness, origin, sessionId }) => settled(sessionId, async () => {
       await executorOf(harness).drainQueue?.(wireFor(origin), origin, sessionId);
       return {};
+    }),
+    'turn.headless': input => settled(input.childSessionId, () => {
+      const run = headless[input.harness];
+      if (!run) unsupported(input.harness, 'headless runs');
+      return run!(input as HeadlessSessionRunInput);
     }),
     'turn.interrupt': ({ harness, sessionId, reason }) =>
       settled(sessionId, () => executorOf(harness).interruptSession(sessionId, reason)),
