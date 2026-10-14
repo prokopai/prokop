@@ -3,7 +3,7 @@
  * Uses the generalized OAuth manager for PKCE + authorization code flow.
  */
 import type { ProviderStatus } from '@prokopai/sdk';
-import { createOpenAiResponsesModel } from '@prokopai/core/infrastructure/providers/ai-sdk';
+import { CODEX_OAUTH_DUMMY_KEY, codexProviderDescriptor } from '@prokopai/core/infrastructure/providers/codex-access';
 import { registerProvider } from '@prokopai/core/infrastructure/providers/registry';
 import type { ConnectableProvider, TokenResponse } from '@prokopai/core/infrastructure/providers/types';
 import { codexAccounts } from './codex-accounts';
@@ -14,7 +14,6 @@ import {
   refreshTokens,
   getDefaultRedirectUri,
 } from '@/infrastructure/oauth/oauth-manager';
-import { CODEX_OAUTH_DUMMY_KEY } from '@/domains/provider-accounts';
 const OAUTH_DUMMY_KEY = CODEX_OAUTH_DUMMY_KEY;
 
 // Register Codex OAuth config with the generalized manager
@@ -36,14 +35,7 @@ export const codexAccountRuntime = new CodexAccountRuntime(codexAccounts, token 
 export { OAUTH_DUMMY_KEY, getDefaultRedirectUri as CODEX_REDIRECT_URI };
 
 const codexProvider: ConnectableProvider = {
-  descriptor: {
-    id: 'codex',
-    displayName: 'ChatGPT (Codex)',
-    description: 'Use ChatGPT subscription models via OAuth',
-    authType: 'oauth',
-    connectable: true,
-    providerOptionsKey: 'openai',
-  },
+  descriptor: codexProviderDescriptor,
 
   getStatus(): ProviderStatus {
     return codexAccounts.status();
@@ -67,14 +59,11 @@ const codexProvider: ConnectableProvider = {
     codexAccounts.add(tokens);
   },
 
+  // In process only: the model (and the AI SDK) loads on first use; the agent process runs its own.
   async createModel(options) {
-    const codexFetch = await codexAccountRuntime.createFetch();
-    return createOpenAiResponsesModel({
-      modelId: options.modelId,
-      apiKey: OAUTH_DUMMY_KEY,
-      fetch: codexFetch,
-      systemPrompt: options.systemPrompt,
-      sessionId: options.sessionId,
+    const { createCodexModel } = await import('@prokopai/core/infrastructure/providers/codex-model');
+    return createCodexModel(options, {
+      credentials: (accountId, rejected) => codexAccountRuntime.credentialsFor(accountId, rejected),
     });
   },
 };

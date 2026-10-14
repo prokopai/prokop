@@ -24,8 +24,11 @@ import {
   createToolOutputArtifact,
   getToolOutputArtifactPage,
 } from '@/infrastructure/sqlite/tool-output-artifacts';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
+
+// Drives harness code in this process (see pinInProcessHarnesses).
+pinInProcessHarnesses();
 
 interface ModelControl {
   modelFactoryError?: unknown;

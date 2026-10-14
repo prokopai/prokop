@@ -28,6 +28,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./host": "./src/host.ts",
+    "./tools": "./src/tools.ts",
     "./internal/*": "./src/*.ts"
   },
   "imports": {

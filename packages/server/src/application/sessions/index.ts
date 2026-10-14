@@ -21,7 +21,7 @@ import {
   type SessionQueueApplication,
 } from './queue';
 import { createSessionHttpApplication, type SessionHttpApplication } from './http';
-import { createSessionTitleRegeneration } from './title';
+import { createSessionTitleRegeneration } from '@prokopai/core/application/sessions/title';
 
 export interface SessionApplicationDeps<Origin> {
   repository: SessionRepositoryPort;

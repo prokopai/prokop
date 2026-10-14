@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { MessageWithParts, ServerMessage, Session } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
-import type { TitleGenerationPort } from '@/application/ports/titles';
-import { createSessionTitleRegeneration } from '@/application/sessions/title';
+import type { TitleGenerationPort } from '@prokopai/core/application/ports/titles';
+import { createSessionTitleRegeneration } from '@prokopai/core/application/sessions/title';
 
 type Origin = string;
 const origin: Origin = 'conn-1';

@@ -683,6 +683,15 @@
             "$ref": "#/$defs/ToolResult"
           }
         },
+        "provider.codexCredentials": {
+          "description": "Current Codex subscription credentials (the host owns accounts, OAuth and refresh). rejectedRevision: the revision a 401 just rejected, so the host refreshes.",
+          "params": {
+            "$ref": "#/$defs/provider.codexCredentials.params"
+          },
+          "result": {
+            "$ref": "#/$defs/provider.codexCredentials.result"
+          }
+        },
         "sandbox.call": {
           "description": "Sandbox mode: a model call the agent made, answered by the host sandbox controller (rules or a sandbox client). Cancel with $/cancel when the call is aborted.",
           "params": {
@@ -3474,6 +3483,43 @@
       "required": [
         "origin",
         "sessionId"
+      ]
+    },
+    "provider.codexCredentials.params": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string"
+        },
+        "rejectedRevision": {
+          "type": "string"
+        }
+      }
+    },
+    "provider.codexCredentials.result": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "connectionId": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "access": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "connectionId",
+        "revision",
+        "access"
       ]
     },
     "queue.add.params": {

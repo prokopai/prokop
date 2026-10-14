@@ -9,8 +9,11 @@ import { formatCodexAgentSkills, listCodexAgentSkills } from '@prokopai/agent/in
 import { codexDeveloperInstructions } from '@prokopai/agent/internal/harnesses/codex-cli/instructions';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { setupTestDatabase, resetTestDatabase } from '#tests/db';
+import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
+
+// Drives harness code in this process (see pinInProcessHarnesses).
+pinInProcessHarnesses();
 
 const root = mkdtempSync(join(tmpdir(), 'codex-skills-'));
 const agentDir = join(root, 'agent');

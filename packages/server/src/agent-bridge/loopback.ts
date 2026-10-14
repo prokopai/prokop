@@ -4,7 +4,6 @@ import {
 } from '@prokopai/agent-protocol';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
-import { createProtocolStorageBundle } from '@prokopai/agent';
 import { createStorageHostHandlers } from './host-storage';
 
 /**
@@ -52,5 +51,7 @@ export function createAgentLoopback(host: {
 /** Wraps a host bundle so every storage call crosses the protocol as JSON. */
 export function createLoopbackStorage(hostBundle: StorageBundle): { storage: StorageBundle; close(): void } {
   const { agent, close } = createAgentLoopback({ handlers: createStorageHostHandlers(hostBundle) });
+  // Loaded on use: the host's own modules never load agent code (Phase 2.6).
+  const { createProtocolStorageBundle } = require('@prokopai/agent') as typeof import('@prokopai/agent');
   return { storage: createProtocolStorageBundle(agent), close };
 }

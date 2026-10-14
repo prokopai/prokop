@@ -1,10 +1,11 @@
-import { createCapabilityTool, type CapabilityTool } from '@prokopai/core/infrastructure/providers/ai-sdk';
-import { CallToolResultSchema, type Tool as MCPToolDef } from '@modelcontextprotocol/sdk/types.js';
+import type { CapabilityTool } from '@prokopai/core/infrastructure/providers/ai-sdk';
+import type { Tool as MCPToolDef } from '@modelcontextprotocol/sdk/types.js';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { getWorkspaceTools } from './manager';
-import { capabilityToolFromMcp } from '@prokopai/core/infrastructure/mcp/capability-tool';
 
 export async function getTools(path: string, sessionId: string, authorized?: () => Promise<boolean>): Promise<Record<string, CapabilityTool>> {
+  // AI SDK tools are for the in-process Prokop runtime; they (and the MCP SDK) load with the first conversion.
+  const { capabilityToolFromMcp } = await import('@prokopai/core/infrastructure/mcp/capability-tool');
   return Object.fromEntries((await getWorkspaceTools(path, sessionId)).map(tool => [tool.name, capabilityToolFromMcp(tool, {
     authorized,
     call: (input, signal) => tool.execute(input, signal, authorized),
@@ -38,6 +39,8 @@ export async function convertMcpTool(
     additionalProperties: false,
   };
 
+  const { createCapabilityTool } = await import('@prokopai/core/infrastructure/providers/ai-sdk');
+  const { CallToolResultSchema } = await import('@modelcontextprotocol/sdk/types.js');
   return createCapabilityTool({
     description: mcpTool.description ?? `MCP tool from ${serverName}`,
     inputSchema: schema,

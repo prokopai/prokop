@@ -6,6 +6,10 @@ import { MEMORY_CHAR_LIMIT, USER_CHAR_LIMIT } from '@prokopai/agent/internal/har
 import { executeSkillManageTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
 import { executeSkillTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-tool';
 import { scanSkills } from '@prokopai/agent/internal/harnesses/shared/skills/registry';
+import { pinInProcessHarnesses } from '#tests/db';
+
+// Drives harness code in this process (see pinInProcessHarnesses).
+pinInProcessHarnesses();
 
 const root = join(process.cwd(), '.tmp-capek-memory-skills');
 

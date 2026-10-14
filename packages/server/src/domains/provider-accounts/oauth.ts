@@ -18,7 +18,6 @@ import type {
 
 export const OAUTH_FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 export const OAUTH_DEFAULT_TOKEN_LIFETIME_SECONDS = 3600;
-export const CODEX_OAUTH_DUMMY_KEY = 'codex-oauth-dummy-key';
 
 const RANDOM_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
 

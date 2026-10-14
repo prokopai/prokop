@@ -1,4 +1,4 @@
-import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent';
+import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/host';
 import type { Session, Workspace } from '@prokopai/sdk';
 import type { SessionSearchQueryPort } from '@/application/ports/session-search';
 

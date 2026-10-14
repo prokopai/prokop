@@ -14,7 +14,7 @@ import type { LoadedTool } from '@prokopai/sdk/tool';
 import { getBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { prokopPreconfigSource } from '@prokopai/agent';
+import { getDefaultPreconfig, getPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
 import { createMcpAccess, createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
@@ -30,9 +30,9 @@ function exposedBuiltinTools(): readonly LoadedTool[] {
 const mcpAccessDeps = {
   session: getSession,
   workspacePath: (id: string) => getWorkspace(id)?.path ?? null,
-  preconfig: async (id: string | null) => id
-    ? await prokopPreconfigSource.getForAgent?.(id) ?? await prokopPreconfigSource.get(id)
-    : prokopPreconfigSource.getDefault(),
+  // Preconfigs straight from the config store: MCP access needs only their MCP settings,
+  // so the host does not load the Prokop runtime's preconfig source.
+  preconfig: async (id: string | null) => id ? await getPreconfig(id) : getDefaultPreconfig(),
 };
 
 export const prokopWorkspaceToolDiscovery = createProkopMcpDiscovery({ ...mcpAccessDeps, tools: getTools });

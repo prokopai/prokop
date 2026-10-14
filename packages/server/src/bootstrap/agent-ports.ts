@@ -8,9 +8,13 @@ import serverPackage from '@/../package.json' with { type: 'json' };
 import { recoverAfterAgentExit } from './agent-recovery';
 import type { SessionHarness } from '@prokopai/sdk';
 import { installHarnessNotificationPort, type HarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
-import {
-  localHarnessProbes, composeAgentSide, configureAgentTerminals, configureKnowledgeWrites, executeMemoryTool, getSessionSearchHost, executeSkillManageTool, directAgentAsks, type AgentExecutor, type AgentHeadlessRun,
-} from '@prokopai/agent';
+import type { AgentExecutor, AgentHeadlessRun } from '@prokopai/agent';
+import { executeMemoryTool, executeSkillManageTool, getSessionSearchHost, harnessCapabilities } from '@prokopai/agent/host';
+import { agentRuntime } from './agent-runtime';
+import { codexAccountRuntime } from '@/infrastructure/providers/codex';
+import { prokopInteractionBindings } from '@/adapters/prokop/runtime-host/interaction';
+import { prokopWorkspaceBindings } from '@/adapters/prokop/runtime-host/workspace';
+import type { HarnessExecutor, HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
 import { configureHarnessProbes } from '@prokopai/core/application/ports/harness-probes';
@@ -108,9 +112,9 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
   agentExited(): void;
 } {
   const hostStorage = getStorage();
-  const hostRuntime = getRuntimeHost();
+  // Host services directly: process mode installs no in-process runtime host.
   const hostSessionSearch = getSessionSearchHost();
-  const resolveSessionWorkspace = hostRuntime.workspace.resolveSessionWorkspace;
+  const resolveSessionWorkspace = prokopWorkspaceBindings.resolveSessionWorkspace;
   if (!resolveSessionWorkspace) throw new Error('Agent protocol needs a host session workspace resolver');
   let endpoint: (() => HostEndpoint) | null = null;
   const host = (): HostEndpoint => {
@@ -119,7 +123,7 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
   };
 
   const runtime = createRuntimeHostHandlers({
-    interaction: hostRuntime.interaction,
+    interaction: prokopInteractionBindings,
     resolveSessionWorkspace,
     knowledgeRoot: storedWorkspaceKnowledgeRoot,
     addWorkspaceRoot: addWorkspaceAdditionalPath,
@@ -162,6 +166,8 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
         return created;
       },
       'learning.tool': async ({ sessionId, name, arguments: input }) => ({ ...await learningReviewTools.call(sessionId, name, input) }),
+      'provider.codexCredentials': ({ accountId, rejectedRevision }) =>
+        codexAccountRuntime.credentialsFor(accountId, rejectedRevision),
       'sandbox.call': async ({ context }, { signal }) =>
         ({ ...await sandboxController.waitForResponse(context as unknown as LlmCallContext, signal) }),
     },
@@ -208,19 +214,21 @@ export function createAgentHostSide(options: { onBusyChange?: () => void } = {})
  * is composed.
  */
 export function configureAgentPorts(): void {
-  configureAgentTerminals(terminalPortFromManager(getTerminalManager));
-  configureKnowledgeWrites(null);
   configureHarnessAsks(localHarnessAsks);
   configureHarnessMcpTools({ tools: getWorkspaceTools });
   if (agentProcessEnabled()) {
     configureAgentProcess();
     return;
   }
+  // The harnesses run in this process: their own ports point at the host directly.
+  const runtime = agentRuntime();
+  runtime.configureAgentTerminals(terminalPortFromManager(getTerminalManager));
+  runtime.configureKnowledgeWrites(null);
   if (!agentLoopbackEnabled()) {
-    installAgentAskPort(directAgentAsks);
+    installAgentAskPort(runtime.directAgentAsks);
     installLearningReviewToolPort(learningReviewTools);
     installHarnessNotificationPort(localHarnessNotifications);
-    configureHarnessProbes(localHarnessProbes);
+    configureHarnessProbes(runtime.localHarnessProbes);
     bindExecutors = registrations => registrations;
     return;
   }
@@ -231,12 +239,30 @@ export function configureAgentPorts(): void {
   const { agent, host } = createAgentLoopback({ handlers: hostSide.handlers, notifications: hostSide.notifications },
     agentHandlers);
   hostSide.connect(() => host);
-  const agentSide = composeAgentSide(agent, agentHandlers, local, { isSandboxActive, getPermissionTimeoutMs });
+  const agentSide = runtime.composeAgentSide(agent, agentHandlers, local, { isSandboxActive, getPermissionTimeoutMs });
   bindExecutors = (registrations) => {
     agentSide.registerExecutors(registrations);
     return hostSide.bind(registrations);
   };
   console.info('[agent-bridge] harness storage, asks, runtime host and host tools run through the agent protocol loopback');
+}
+
+/**
+ * The registrations the host routes to an agent process: each harness's shape
+ * from `harnessCapabilities`. No harness is built in the host; every call is
+ * forwarded (`bindHarnessExecutors`), so these placeholders never run.
+ */
+export function agentProcessRegistrations(): Record<SessionHarness, HarnessRegistration> {
+  const inAgent = (operation: string) => (): never => {
+    throw new Error(`${operation} runs in the agent process`);
+  };
+  return Object.fromEntries(Object.entries(harnessCapabilities).map(([harness, capabilities]) => {
+    const execution: HarnessExecutor = {
+      sendMessage: inAgent('sendMessage'), interruptSession: inAgent('interruptSession'), isSessionActive: () => false,
+    };
+    for (const operation of capabilities.operations) (execution as Record<string, unknown>)[operation] = inAgent(operation);
+    return [harness, { execution, ...(capabilities.headless ? { headless: inAgent('headless') } : {}) }];
+  })) as Record<SessionHarness, HarnessRegistration>;
 }
 
 let supervisor: AgentSupervisor | null = null;

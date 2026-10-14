@@ -17,6 +17,16 @@ export function validateCodexCliVersion(version: string): string {
 
 const cachedCodexCliVersion = memoizeCliProbe('codex', probeCodexCliVersion);
 
+/** Whether a supported Codex CLI is installed (a light probe the host may call). */
+export function codexCliAvailable(): boolean {
+  try {
+    codexCliVersion();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Exact host CLI version, re-probed only when the `codex` binary changes. */
 export function codexCliVersion(): string {
   return cachedCodexCliVersion();

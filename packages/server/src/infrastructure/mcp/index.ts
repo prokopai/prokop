@@ -17,5 +17,4 @@ export {
 } from './manager';
 export { convertMcpTool, sanitizeToolName, getTools } from './converter';
 export type { McpAuthTokens, McpClientInfo, McpAuthEntry } from './auth';
-export { McpOAuthProvider } from './oauth-provider';
 export type { McpOAuthCallbacks } from './oauth-provider';

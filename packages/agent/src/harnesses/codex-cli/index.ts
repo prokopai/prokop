@@ -2,7 +2,8 @@ import type { HarnessRegistration } from '@prokopai/core/application/sessions/ha
 import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { runHeadlessTurn } from '@prokopai/core/application/ports/headless-execution';
 
-export { codexCliAvailable, codexCliVersion, createCodexExecution } from './execution';
+export { createCodexExecution } from './execution';
+export { codexCliAvailable, codexCliVersion } from './version';
 export { getCodexModelSelection, listCodexModels, listCachedCodexModels } from './models';
 export { readCachedCodexUsageLimits } from './usage-limits';
 

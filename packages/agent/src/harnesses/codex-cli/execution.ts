@@ -38,7 +38,6 @@ import { createCodexAgentSkillTools } from './agent-skill-tools';
 import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
 import { applyRollback, clearRollbackIntent, getRollbackIntent, readRollbackHistory, readTurnIds, retargetReadyEdit, sameTurns, saveRollbackIntent, setRollbackPhase } from './rollback';
 import { forkCodexSession } from './fork';
-import { codexCliVersion } from './version';
 import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import { isWithinRoot } from '@prokopai/core/domains/permissions';
 import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
@@ -97,14 +96,6 @@ export interface CodexExecutionDependencies {
   mcp?: WorkspaceMcpToolsPort;
 }
 
-export function codexCliAvailable(): boolean {
-  try {
-    codexCliVersion();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function id(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;

@@ -24,10 +24,13 @@ import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/a
 import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { configureWorkspaceKnowledgeRoot } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 import { activateSandbox } from '@prokopai/core/infrastructure/sandbox';
+import { createCodexModelProvider } from '@prokopai/core/infrastructure/providers/codex-model';
+import { registerProvider } from '@prokopai/core/infrastructure/providers/registry';
 import { installSandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import { ForwardingSandboxController } from '#agent/protocol/sandbox';
 import { composeAgentSide } from './agent-side';
 import { createHarnessRegistrations } from './harness-registrations';
+import { createAgentTitleRegeneration } from './titles';
 
 const hostOnly = (operation: string) => (): never => {
   throw new Error(`${operation} runs in the host, not in the agent process`);
@@ -76,6 +79,10 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
     handlers,
     onProtocolError: error => console.warn('[agent] protocol error:', error.message),
   });
+  // Codex subscription models run here; the host owns the accounts and hands out credentials.
+  registerProvider(createCodexModelProvider({
+    credentials: (accountId, rejectedRevision) => agent.request('provider.codexCredentials', { accountId, rejectedRevision }),
+  }));
   // Sandboxed model calls are answered by the host's controller (installed before the scope captures it).
   installSandboxController(new ForwardingSandboxController(agent));
   const side = composeAgentSide(agent, handlers, prokopAgentBindings, {
@@ -84,7 +91,8 @@ export function startAgentProcess(channel: MessageChannel, options: AgentProcess
   });
   const registrations = createHarnessRegistrations({
     agents,
-    titles: { 'codex-cli': hostOnly('Codex title regeneration'), 'claude-cli': hostOnly('Claude title regeneration') },
+    // The host forwards CLI title regeneration here in process mode (`title.generate`).
+    titles: createAgentTitleRegeneration(),
   });
   side.registerExecutors(registrations);
   // CLI memory and skill tools resolve worktree knowledge from the roots the host resolved.

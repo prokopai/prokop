@@ -1,8 +1,7 @@
 import type { OAuthTokenSet } from '@/domains/provider-accounts/oauth';
 import { applyCodexRefresh, OAuthTokenRefreshError } from '@/domains/provider-accounts/oauth';
 import type { CodexAccount, CodexAccountStore } from './codex-accounts';
-
-const CODEX_API_ENDPOINT = 'https://chatgpt.com/backend-api/codex/responses';
+import { createCodexFetch, type CodexCredentials } from '@prokopai/core/infrastructure/providers/codex-access';
 
 /** Pins credentials to a local account, including refresh and 401 retries. */
 export class CodexAccountRuntime {
@@ -53,42 +52,23 @@ export class CodexAccountRuntime {
     return saved;
   }
 
-  async createFetch(accountId?: string): Promise<typeof globalThis.fetch> {
+  /**
+   * Credentials of the account (`undefined`: the selected one), refreshed when
+   * expired or when `rejectedRevision` was rejected. Served to the agent
+   * process as `provider.codexCredentials`; the host keeps the tokens.
+   */
+  async credentialsFor(accountId?: string, rejectedRevision?: string): Promise<CodexCredentials> {
     const selected = this.store.get(accountId);
     if (!selected) throw new Error('Codex not connected. Select an account in Settings > LLM providers.');
-    await this.credentials(selected.id);
-    const codexFetch = async (input: Parameters<typeof globalThis.fetch>[0], init?: Parameters<typeof globalThis.fetch>[1]) => {
-      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
-      signal?.throwIfAborted();
-      const current = await this.credentials(selected.id);
-      signal?.throwIfAborted();
-      if (current.connectionId !== selected.connectionId) throw new Error('Codex account reconnected. Retry the request.');
-      const request = input instanceof Request ? input : undefined;
-      const parsed = new URL(request ? request.url : String(input));
-      const isCodexEndpoint = parsed.pathname.includes('/v1/responses') || parsed.pathname.includes('/chat/completions');
-      const url = isCodexEndpoint ? new URL(CODEX_API_ENDPOINT) : parsed;
-      const requestInit = request ? {
-        method: request.method,
-        body: request.body ? await request.clone().arrayBuffer() : undefined,
-        signal: request.signal,
-        redirect: request.redirect,
-      } : {};
-      const send = (account: CodexAccount) => {
-        const headers = new Headers(init?.headers ?? request?.headers);
-        headers.set('authorization', `Bearer ${account.config.access}`);
-        headers.delete('ChatGPT-Account-Id');
-        if (account.config.accountId) headers.set('ChatGPT-Account-Id', account.config.accountId);
-        headers.set('originator', 'jean2');
-        return this.fetch(url, { ...requestInit, ...init, headers });
-      };
-      const response = await send(current);
-      if (response.status !== 401 || signal?.aborted) return response;
-      await response.body?.cancel();
-      const refreshed = await this.credentials(selected.id, current.revision);
-      signal?.throwIfAborted();
-      if (refreshed.connectionId !== selected.connectionId) throw new Error('Codex account reconnected. Retry the request.');
-      return send(refreshed);
+    const account = await this.credentials(selected.id, rejectedRevision);
+    return {
+      id: account.id, connectionId: account.connectionId, revision: account.revision, access: account.config.access,
+      ...(account.config.accountId ? { accountId: account.config.accountId } : {}),
     };
-    return Object.assign(codexFetch, { preconnect: this.fetch.preconnect });
   }
+
+  async createFetch(accountId?: string): Promise<typeof globalThis.fetch> {
+    return createCodexFetch({ credentials: (id, rejected) => this.credentialsFor(id, rejected) }, accountId, this.fetch);
+  }
+
 }

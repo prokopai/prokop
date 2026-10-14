@@ -1,6 +1,5 @@
 import { registerProvider } from '../providers/registry';
 import { sandboxController } from './controller';
-import { SandboxProvider } from './provider';
 import type { AutoResponderRule, SandboxControlEvent } from './types';
 
 const defaultAutoResponderRules: AutoResponderRule[] = [
@@ -24,6 +23,9 @@ export function activateSandbox(
   }
 
   active = true;
+  // The scripted model loads with the sandbox (it brings the AI SDK), so a host
+  // that runs no models does not load it at startup.
+  const { SandboxProvider } = require('./provider') as typeof import('./provider');
   registerProvider(new SandboxProvider());
   sandboxController.setAutoResponderRules(defaultAutoResponderRules);
   sandboxController.clearHistory();

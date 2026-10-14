@@ -1,5 +1,4 @@
 import { contextMessagePlainText, type MessageWithParts } from '@prokopai/sdk';
-import { runTextModel } from './providers/ai-sdk';
 import { getModelsConfig, findModel } from '../config';
 
 const DEFAULT_SESSION_TITLES = new Set(['new session', 'new']);
@@ -73,6 +72,8 @@ export async function generateSessionTitle(messages: MessageWithParts[]): Promis
 
   const config = getModelsConfig();
   const providerId = config.defaultProvider || findModel(config.defaultModel)?.providerId;
+  // The model (and the AI SDK) loads with the first generation; title rules and fallbacks need none.
+  const { runTextModel } = await import('./providers/ai-sdk');
   const text = await runTextModel({
     modelId: config.defaultModel,
     providerId,

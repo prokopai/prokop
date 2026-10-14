@@ -1,10 +1,21 @@
-import type { MessageWithParts, ServerMessage } from '@prokopai/sdk';
-import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
-import type { SessionRepositoryPort } from '@prokopai/core/application/ports/session';
-import type { TitleGenerationPort } from '@/application/ports/titles';
+import type { MessageWithParts, ServerMessage, Session } from '@prokopai/sdk';
+import type { SessionWirePorts } from '../ports/delivery';
+import type { TitleGenerationPort } from '../ports/titles';
+
+/**
+ * What title regeneration reads and writes. The host's store answers
+ * synchronously, the agent's storage port asynchronously; both fit.
+ */
+export interface TitleRepository {
+  getSession(id: string): Session | null | Promise<Session | null>;
+  updateSession(id: string, updates: { title?: string; metadata?: Record<string, unknown> | null }):
+    Session | null | Promise<Session | null>;
+  listLatestMessagesWithPartsPage(sessionId: string, limit?: number):
+    { messages: MessageWithParts[] } | Promise<{ messages: MessageWithParts[] }>;
+}
 
 export interface SessionTitleDeps {
-  repository: Pick<SessionRepositoryPort, 'getSession' | 'updateSession' | 'listLatestMessagesWithPartsPage'>;
+  repository: TitleRepository;
   titles: TitleGenerationPort;
   /**
    * The harness CLI's own title for the session, used when no Prokop model
@@ -76,7 +87,7 @@ export function createSessionTitleRegeneration<Origin>(deps: SessionTitleDeps) {
     options?: { force?: boolean },
   ): Promise<void> {
     const force = options?.force === true;
-    const session = deps.repository.getSession(sessionId);
+    const session = await deps.repository.getSession(sessionId);
     if (!session) {
       console.warn('[session-title] Skipping title generation: session not found', sessionId);
       return;
@@ -99,7 +110,7 @@ export function createSessionTitleRegeneration<Origin>(deps: SessionTitleDeps) {
     };
 
     try {
-      const page = deps.repository.listLatestMessagesWithPartsPage(sessionId, transcriptLimit);
+      const page = await deps.repository.listLatestMessagesWithPartsPage(sessionId, transcriptLimit);
       console.info('[session-title] Generating session title', {
         sessionId,
         force,
@@ -113,12 +124,12 @@ export function createSessionTitleRegeneration<Origin>(deps: SessionTitleDeps) {
       }
       // Generation awaits a model or a file; re-read so a rename or metadata
       // change made meanwhile is neither overwritten nor lost.
-      const current = deps.repository.getSession(sessionId);
+      const current = await deps.repository.getSession(sessionId);
       if (!current || (!force && deps.titles.hasManualSessionTitle(current.metadata))) return;
       const fallback = generated.source === 'fallback';
       const markChanged = (current.metadata?.[FALLBACK_TITLE_KEY] === true) !== fallback;
       if (current.title === generated.title && !markChanged) return;
-      const updated = deps.repository.updateSession(sessionId, {
+      const updated = await deps.repository.updateSession(sessionId, {
         title: generated.title,
         ...(markChanged ? { metadata: withFallbackMark(current.metadata, fallback) } : {}),
       });

@@ -24,7 +24,7 @@ import {
   listQueuedMessages,
 } from '@/infrastructure/sqlite/queued-messages';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
 import { seedWorkspaceWithSession } from '#tests/seed';
@@ -177,36 +177,6 @@ describe.serial('Phase 2 orchestration behavior', () => {
     expect(other.eligible(message.id)).toBe(false);
   });
 
-  test('persists and broadcasts interrupted orchestrator status after abort failure', async () => {
-    const abortController = new AbortController();
-    const updatedStatuses: Array<string | null | undefined> = [];
-    const run = runOrchestratorSession({
-      parentSessionId: sessionId,
-      title: 'Cancelled orchestrator',
-      agentName: 'orchestrator',
-      systemPrompt: 'Work',
-      userPrompt: 'Work',
-      abortSignal: abortController.signal,
-      broadcast: () => {},
-      broadcastSessionCreated: () => {},
-      broadcastSessionUpdated: (session) => updatedStatuses.push(session.subagentStatus),
-    });
-
-    await waitForPendingCall();
-    abortController.abort();
-    let thrown: unknown;
-    try {
-      await run;
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect(thrown).toBeInstanceOf(Error);
-    const child = getChildSessions(sessionId)[0];
-    expect(child?.subagentStatus).toBe('interrupted');
-    expect(updatedStatuses).toEqual(['interrupted']);
-  });
-
   test('drains queued messages in FIFO order and passes queued attachments into the next turn', async () => {
     const attachment = await createAttachment({
       sessionId,
@@ -338,64 +308,99 @@ describe.serial('Phase 2 orchestration behavior', () => {
     expect(failedCompactions).toHaveLength(2);
   });
 
-  test('intercepts executeChildSession through the sandbox model path', async () => {
-    const child = createSession({
-      id: 'sandbox-child',
-      workspaceId,
-      preconfigId: testPreconfig.id,
-      title: 'Sandbox Child',
-      status: 'active',
-      metadata: null,
-      parentId: sessionId,
-      agentName: 'phase2-test',
-      subagentStatus: 'running',
-      selectedModel: 'gpt-4o',
-      selectedProvider: 'sandbox',
-    });
-    setTextResponses(1, 'child sandbox answer');
+  describe('engine paths driven in this process', () => {
+    // These call harness internals directly, so they need in-process harnesses whatever mode the run uses.
+    pinInProcessHarnesses();
 
-    const result = await executeChildSession({
-      parentSessionId: sessionId,
-      childSessionId: child.id,
-      preconfig: testPreconfig,
-      prompt: 'child work',
-      broadcast: () => {},
-      broadcastToSession: () => {},
+    test('persists and broadcasts interrupted orchestrator status after abort failure', async () => {
+      const abortController = new AbortController();
+      const updatedStatuses: Array<string | null | undefined> = [];
+      const run = runOrchestratorSession({
+        parentSessionId: sessionId,
+        title: 'Cancelled orchestrator',
+        agentName: 'orchestrator',
+        systemPrompt: 'Work',
+        userPrompt: 'Work',
+        abortSignal: abortController.signal,
+        broadcast: () => {},
+        broadcastSessionCreated: () => {},
+        broadcastSessionUpdated: (session) => updatedStatuses.push(session.subagentStatus),
+      });
+
+      await waitForPendingCall();
+      abortController.abort();
+      let thrown: unknown;
+      try {
+        await run;
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      const child = getChildSessions(sessionId)[0];
+      expect(child?.subagentStatus).toBe('interrupted');
+      expect(updatedStatuses).toEqual(['interrupted']);
     });
 
-    expect(result.error).toBeUndefined();
-    expect(result.parts.find((part) => part.type === 'text')).toMatchObject({
-      type: 'text',
-      text: 'child sandbox answer',
-    });
-    expect(sandboxController.getHistory()[0]?.context).toMatchObject({
-      sessionId: child.id,
-      depth: 1,
-      mode: 'stream',
-      providerId: 'sandbox',
-    });
-  });
+    test('intercepts executeChildSession through the sandbox model path', async () => {
+      const child = createSession({
+        id: 'sandbox-child',
+        workspaceId,
+        preconfigId: testPreconfig.id,
+        title: 'Sandbox Child',
+        status: 'active',
+        metadata: null,
+        parentId: sessionId,
+        agentName: 'phase2-test',
+        subagentStatus: 'running',
+        selectedModel: 'gpt-4o',
+        selectedProvider: 'sandbox',
+      });
+      setTextResponses(1, 'child sandbox answer');
 
-  test('intercepts executeCompaction through the sandbox model path', async () => {
-    seedConversation(sessionId);
-    setTextResponses(1, '## Summary\n\nSandbox compacted summary.');
+      const result = await executeChildSession({
+        parentSessionId: sessionId,
+        childSessionId: child.id,
+        preconfig: testPreconfig,
+        prompt: 'child work',
+        broadcast: () => {},
+        broadcastToSession: () => {},
+      });
 
-    const result = await executeCompaction(sessionId, 'manual', () => {}, () => {});
+      expect(result.error).toBeUndefined();
+      expect(result.parts.find((part) => part.type === 'text')).toMatchObject({
+        type: 'text',
+        text: 'child sandbox answer',
+      });
+      expect(sandboxController.getHistory()[0]?.context).toMatchObject({
+        sessionId: child.id,
+        depth: 1,
+        mode: 'stream',
+        providerId: 'sandbox',
+      });
+    });
 
-    expect(result.ok).toBe(true);
-    expect(sandboxController.getHistory()[0]?.context).toMatchObject({
-      sessionId,
-      depth: 0,
-      mode: 'stream',
-      providerId: 'sandbox',
+    test('intercepts executeCompaction through the sandbox model path', async () => {
+      seedConversation(sessionId);
+      setTextResponses(1, '## Summary\n\nSandbox compacted summary.');
+
+      const result = await executeCompaction(sessionId, 'manual', () => {}, () => {});
+
+      expect(result.ok).toBe(true);
+      expect(sandboxController.getHistory()[0]?.context).toMatchObject({
+        sessionId,
+        depth: 0,
+        mode: 'stream',
+        providerId: 'sandbox',
+      });
+      const summary = listMessagesWithParts(sessionId).find(
+        ({ message }) => message.role === 'assistant' && message.summary === true,
+      );
+      expect(summary?.message.role === 'assistant' ? summary.message.mode : undefined).toBe('compaction');
+      expect(summary?.parts.find((part) => part.type === 'text')).toMatchObject({
+        text: '## Summary\n\nSandbox compacted summary.',
+      });
+      expect(getSession(sessionId)).toMatchObject({ compacting: false, promptTokens: 10, completionTokens: 20 });
     });
-    const summary = listMessagesWithParts(sessionId).find(
-      ({ message }) => message.role === 'assistant' && message.summary === true,
-    );
-    expect(summary?.message.role === 'assistant' ? summary.message.mode : undefined).toBe('compaction');
-    expect(summary?.parts.find((part) => part.type === 'text')).toMatchObject({
-      text: '## Summary\n\nSandbox compacted summary.',
-    });
-    expect(getSession(sessionId)).toMatchObject({ compacting: false, promptTokens: 10, completionTokens: 20 });
   });
 });

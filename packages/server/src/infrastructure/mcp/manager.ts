@@ -1,24 +1,54 @@
 import { createHash } from 'node:crypto';
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { auth, UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import { CallToolResultSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServerConfig, McpRemoteServerConfig, McpStatus, McpToolInfo } from '@prokopai/sdk';
 import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
 import type { McpLifecyclePort } from '@/application/ports/mcp';
 import { BadRequestError, NotFoundError } from '@/application/http-errors';
 import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { VERSION } from '@/version';
-import { StdioTransport } from './stdio-transport';
-import { McpOAuthProvider } from './oauth-provider';
+import type { McpOAuthProvider } from './oauth-provider';
 import { getMcpServers, updateMcpConfig } from './config';
 import { removeAuth } from './auth';
 import { BUILTIN_MCP_NAMES } from '@prokopai/sdk';
 import { builtinMcps, isBuiltinMcpName } from './builtins';
 
 const TIMEOUT = 30_000;
+
+/*
+ * The MCP SDK loads with the first connection, call or sign-in, not at host
+ * startup: its schemas alone cost about 14 MB, and many hosts run no MCP
+ * server most of the time. It loads with `import()`, the ESM build every
+ * other module uses: `require()` would get the CommonJS build, with its own
+ * error classes, and `instanceof UnauthorizedError` would stop matching.
+ */
+type McpSdk = typeof import('@modelcontextprotocol/sdk/client/index.js')
+  & typeof import('@modelcontextprotocol/sdk/client/auth.js')
+  & typeof import('@modelcontextprotocol/sdk/types.js')
+  & typeof import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+  & typeof import('@modelcontextprotocol/sdk/client/sse.js');
+let sdk: McpSdk | null = null;
+let loadingSdk: Promise<McpSdk> | null = null;
+async function loadSdk(): Promise<McpSdk> {
+  return sdk ?? (loadingSdk ??= Promise.all([
+    import('@modelcontextprotocol/sdk/client/index.js'), import('@modelcontextprotocol/sdk/client/auth.js'),
+    import('@modelcontextprotocol/sdk/types.js'), import('@modelcontextprotocol/sdk/client/streamableHttp.js'),
+    import('@modelcontextprotocol/sdk/client/sse.js'),
+  ]).then(modules => (sdk = Object.assign({}, ...modules) as McpSdk)));
+}
+/** The SDK after `loadSdk()` resolved (every entry point that needs it awaits that first). */
+function mcp(): McpSdk {
+  if (!sdk) throw new Error('MCP SDK used before loading');
+  return sdk;
+}
+const lazy = <T>(load: () => T): (() => T) => {
+  let value: T | undefined;
+  return () => (value ??= load());
+};
+// Local modules: they import the SDK statically, so they too load on first use.
+const stdio = lazy(() => require('./stdio-transport') as typeof import('./stdio-transport'));
+const oauth = lazy(() => require('./oauth-provider') as typeof import('./oauth-provider'));
 interface State { client: Client | null; status: McpStatus; config: McpServerConfig }
 interface PendingAuth {
   path: string | null; name: string; config: McpRemoteServerConfig;
@@ -69,11 +99,12 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
   function provider(path: string | null, name: string, config: McpRemoteServerConfig,
     redirectUrl = 'http://127.0.0.1/api/mcp/oauth/callback', state = crypto.randomUUID(),
     onRedirect?: (url: URL) => void): McpOAuthProvider {
-    return new McpOAuthProvider(credentialKey(path, name, config.url), config.url,
+    return new (oauth().McpOAuthProvider)(credentialKey(path, name, config.url), config.url,
       typeof config.oauth === 'object' ? config.oauth : {}, { redirectUrl, state, interactive: !!onRedirect,
-        onRedirect: onRedirect ?? (() => { throw new UnauthorizedError('MCP sign-in required'); }) });
+        onRedirect: onRedirect ?? (() => { throw new (mcp().UnauthorizedError)('MCP sign-in required'); }) });
   }
   async function connect(path: string | null, name: string, config: McpServerConfig): Promise<McpStatus> {
+    await loadSdk();
     await disconnect(path, name);
     let clients = workspaces.get(path);
     if (!clients) { clients = new Map(); workspaces.set(path, clients); }
@@ -86,18 +117,18 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     }
     const timeout = config.timeout ?? TIMEOUT;
     const transports = config.type === 'local'
-      ? [(_signal: AbortSignal) => new StdioTransport({ command: config.command[0]!, args: config.command.slice(1),
+      ? [(_signal: AbortSignal) => new (stdio().StdioTransport)({ command: config.command[0]!, args: config.command.slice(1),
         env: config.env, cwd: path ?? getDataDir(), stderr: 'ignore' })]
       : [
-        (signal: AbortSignal) => new StreamableHTTPClientTransport(new URL(config.url), {
+        (signal: AbortSignal) => new (mcp().StreamableHTTPClientTransport)(new URL(config.url), {
           fetch: (url, init) => fetchMcp(url, { ...init, signal: AbortSignal.any([signal, ...(init?.signal ? [init.signal] : [])]) }),
           requestInit: { headers: config.headers }, authProvider: config.oauth === false ? undefined : provider(path, name, config) }),
-        (signal: AbortSignal) => new SSEClientTransport(new URL(config.url), {
+        (signal: AbortSignal) => new (mcp().SSEClientTransport)(new URL(config.url), {
           fetch: (url, init) => fetchMcp(url, { ...init, signal: AbortSignal.any([signal, ...(init?.signal ? [init.signal] : [])]) }),
           requestInit: { headers: config.headers }, authProvider: config.oauth === false ? undefined : provider(path, name, config) }),
       ];
     for (const createTransport of transports) {
-      const client = new Client({ name: 'prokop', version: VERSION }, { capabilities: {} });
+      const client = new (mcp().Client)({ name: 'prokop', version: VERSION }, { capabilities: {} });
       const controller = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -118,7 +149,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
         break;
       } catch (error: unknown) {
         await client.close().catch(() => {});
-        if (error instanceof UnauthorizedError) { state.status = { status: 'needs_auth' }; break; }
+        if (error instanceof mcp().UnauthorizedError) { state.status = { status: 'needs_auth' }; break; }
         // Provider/server error bodies can contain credentials. Keep public errors bounded and generic.
         state.status = { status: 'failed', error: 'Unable to connect. Check the address, command and credentials.' };
       } finally {
@@ -260,7 +291,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
             if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid MCP arguments');
             if (authorized && !await authorized()) throw new Error('MCP tool unavailable');
             signal?.throwIfAborted();
-            return CallToolResultSchema.parse(await client.callTool({ name: definition.name, arguments: input }, CallToolResultSchema,
+            return mcp().CallToolResultSchema.parse(await client.callTool({ name: definition.name, arguments: input }, mcp().CallToolResultSchema,
               { timeout: current.timeout ?? TIMEOUT, signal }));
           } });
       }
@@ -308,6 +339,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
   }
   async function startAuth(path: string | null, name: string, redirectUrl: string): Promise<{ authorizationUrl: string }> {
     return serialized(path, async () => {
+      await loadSdk();
       const config = (await getMcpServers(path))[name];
       if (!config || config.type !== 'remote' || config.oauth === false || config.enabled === false) {
         throw new BadRequestError('Enable a remote OAuth server before signing in');
@@ -322,7 +354,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
       const oauth = provider(path, name, config, redirectUrl, state, url => { authorizationUrl = url.toString(); });
       await oauth.invalidateCredentials('tokens');
       try {
-        await auth(oauth, { serverUrl: config.url, scope: typeof config.oauth === 'object' ? config.oauth.scope : undefined,
+        await mcp().auth(oauth, { serverUrl: config.url, scope: typeof config.oauth === 'object' ? config.oauth.scope : undefined,
           fetchFn: (url, init) => fetchMcp(url, { ...init, signal: AbortSignal.timeout(TIMEOUT) }) });
       } catch { throw new BadRequestError('Unable to start OAuth. Check whether this server requires a registered client ID.'); }
       if (!authorizationUrl) throw new BadRequestError('The server did not provide an authorization URL');
@@ -338,13 +370,14 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     pendingAuth.delete(state);
     if (!pending || pending.expiresAt < Date.now() || !code) throw new BadRequestError('OAuth request expired or is invalid. Start sign-in again.');
     return serialized(pending.path, async () => {
+      await loadSdk();
       const { path, name, config, provider: oauth } = pending;
       const current = (await getMcpServers(path))[name];
       if (!current || current.enabled === false || transportIdentity(current) !== transportIdentity(config)) {
         throw new BadRequestError('MCP configuration changed. Start sign-in again.');
       }
       try {
-        const result = await auth(oauth, { serverUrl: config.url, authorizationCode: code,
+        const result = await mcp().auth(oauth, { serverUrl: config.url, authorizationCode: code,
           fetchFn: (url, init) => fetchMcp(url, { ...init, signal: AbortSignal.timeout(TIMEOUT) }) });
         if (result !== 'AUTHORIZED') throw new Error('Authorization incomplete');
       } catch { throw new BadRequestError('OAuth token exchange failed. Start sign-in again.'); }

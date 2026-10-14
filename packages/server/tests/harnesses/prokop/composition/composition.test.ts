@@ -48,10 +48,13 @@ import { createWiredApplication } from '@/bootstrap/application';
 import { createRuntime } from '@/bootstrap/create-runtime';
 import { createProkopRuntimeComposition } from '@prokopai/agent/internal/harnesses/prokop/composition/composition';
 import { createMessage, createPart } from '@/infrastructure/sqlite/message-store';
-import { resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { createTestTextPart, createTestUserMessage } from '#tests/factories';
 import { seedSession, seedWorkspace } from '#tests/seed';
 import { parseImports } from '#tests/helpers/import-scan';
+
+// Drives harness code in this process (see pinInProcessHarnesses).
+pinInProcessHarnesses();
 
 const repositoryRoot = resolve(import.meta.dir, '../../../../../../');
 const serverSourceRoot = resolve(repositoryRoot, 'packages/server/src');
@@ -62,14 +65,11 @@ const expectedCompositionSteps = [
   'configureProkopStorage',
   // Managed worktrees share their workspace's knowledge (host store lookup).
   'configureWorkspaceKnowledgeRoot',
-  'configureProkopRuntimeConfiguration',
-  'configureProkopWorkspacePolicy',
-  'configureProkopPreconfigSource',
-  'configureProkopAgentSource',
-  'configureProkopInstructionSource',
+  // The Prokop runtime's own configuration (runtime config, workspace policy, preconfig/agent/instruction
+  // sources, in-process bindings) runs only when the harnesses run in this process (`if (runtime)`, Phase 2.6);
+  // 'createRuntime installs the full adapter set' checks it.
   'configureProkopSessionSearchHost',
   'configureProkopWorkspaceToolDiscovery',
-  'configureProkopBindings',
   // Agent-facing host ports; protocol-backed only with PROKOPAI_AGENT_LOOPBACK=1.
   'configureAgentPorts',
   'installExecutionLifecyclePort',
@@ -129,12 +129,12 @@ describe('Čapek composition root', () => {
 
     expect(imports.length).toBeGreaterThan(0);
     const allowedSpecifiers = [
-      '@/adapters/prokop/runtime-host',
       '@/adapters/prokop/runtime-host/storage',
       '@/adapters/prokop/runtime-host/session-search',
-      '@/adapters/prokop/runtime-host/bindings',
-      // Harness code only through the public agent entry (Phase 2.5).
-      '@prokopai/agent',
+      '@/adapters/prokop/runtime-host/tool-source',
+      // The agent runtime loads lazily, only in in-process mode (Phase 2.6).
+      './agent-runtime',
+      '@/agent-bridge/loopback',
       '@/application/ports/execution-lifecycle',
       '@/bootstrap/application',
       '@prokopai/core/application/agents',

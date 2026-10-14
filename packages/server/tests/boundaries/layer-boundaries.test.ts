@@ -803,7 +803,7 @@ describe('server layer boundaries', () => {
     const imports = parseImports(file!.sourceText, file!.path);
 
     const allowedSpecifiers = [
-      '@prokopai/agent',
+      '@prokopai/agent/host',
       '@prokopai/sdk',
       '@/application/ports/session-search',
     ];
@@ -964,7 +964,7 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect([...new Set(imports.map((imp) => imp.specifier))].sort()).toEqual([
-      '@prokopai/agent', '@prokopai/core/infrastructure/runtime/events',
+      '@prokopai/agent/host', '@prokopai/core/infrastructure/runtime/events',
       '@prokopai/core/application/ports/session',
       '@/transport/websocket/broadcast',
       '@/infrastructure/sqlite/message-store',
@@ -1878,8 +1878,10 @@ describe('server layer boundaries', () => {
       const relativePath = relative(serverSourceRoot, file.path);
       if (relativePath.startsWith(`harnesses${sep}`) || relativePath.startsWith(`agent${sep}`)) continue;
       for (const imp of parseImports(file.sourceText, file.path)) {
+        // Public subpaths: `/host` (light, every mode) and `/tools` (the built-in tool catalog, loaded on use).
+        const publicEntry = ['@prokopai/agent/host', '@prokopai/agent/tools'].includes(imp.specifier);
         const deep = imp.specifier.startsWith('@/harnesses') || imp.specifier.startsWith('@/agent/')
-          || imp.specifier.startsWith('@prokopai/agent/');
+          || (imp.specifier.startsWith('@prokopai/agent/') && !publicEntry);
         if (deep && !(file.path.endsWith('.test.ts') && testHelpers.has(imp.specifier))) {
           offenders.push(`${relativePath} imports ${imp.specifier} [rule: agent-public-entry]`);
         }
@@ -1950,8 +1952,8 @@ describe('server layer boundaries', () => {
     const compositionRoot = scanDirectory(serverSourceRoot).find((file) => file.path === compositionRootPath);
     expect(compositionRoot).toBeDefined();
     const rootSpecifiers = parseImports(compositionRoot!.sourceText, compositionRoot!.path).map((imp) => imp.specifier);
-    // Through the public agent entry (Phase 2.5).
-    expect(rootSpecifiers).toContain('@prokopai/agent');
+    // The agent runtime loads lazily, only in in-process mode (Phase 2.6, bootstrap/agent-runtime.ts).
+    expect(rootSpecifiers).toContain('./agent-runtime');
     expect(rootSpecifiers).toContain('@/application/ports/execution-lifecycle');
   });
 

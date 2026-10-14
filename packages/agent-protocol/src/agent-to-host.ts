@@ -245,6 +245,13 @@ export const agentToHostRequests = requests({
     }),
     result: ToolResult,
   },
+  'provider.codexCredentials': {
+    description: 'Current Codex subscription credentials (the host owns accounts, OAuth and refresh). rejectedRevision: the revision a 401 just rejected, so the host refreshes.',
+    params: z.object({ accountId: z.string().optional(), rejectedRevision: z.string().optional() }),
+    result: z.object({
+      id: z.string(), connectionId: z.string(), revision: z.string(), access: z.string(), accountId: z.string().optional(),
+    }),
+  },
   'sandbox.call': {
     description: 'Sandbox mode: a model call the agent made, answered by the host sandbox controller (rules or a sandbox client). Cancel with $/cancel when the call is aborted.',
     params: z.object({ context: z.record(z.string(), z.unknown()) }),
