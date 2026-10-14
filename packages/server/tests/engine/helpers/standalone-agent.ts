@@ -18,6 +18,7 @@ import { SandboxProvider } from '@/infrastructure/sandbox/provider';
 import type { AutoResponderRule, SandboxControlEvent } from '@/infrastructure/sandbox/types';
 import { createInMemoryStorageBundle } from '@/infrastructure/storage/memory';
 import type { StorageBundle } from '@/infrastructure/storage/contracts';
+import type { RuntimeHost } from '@/infrastructure/runtime/host';
 import { streamChatWithRetry } from '@/harnesses/prokop/retry/stream-chat';
 import { rejectAsk, resolveAsk } from '@/harnesses/prokop/permission/ask-user-api';
 import type { Preconfig } from '@prokopai/sdk/types';
@@ -32,6 +33,8 @@ export interface StandaloneAgentOptions {
   prompt?: string;
   interaction?: false | ((request: AskRequestMessage) => unknown | Promise<unknown>);
   sandbox?: boolean | { rules?: AutoResponderRule[]; onEvent?: (event: SandboxControlEvent) => void };
+  /** Wraps the standalone runtime host, e.g. to route it through the agent protocol. */
+  host?: (base: RuntimeHost) => RuntimeHost;
 }
 
 export interface StandaloneRunResult {
@@ -83,11 +86,11 @@ export class StandaloneAgent {
       return createComposition(processScope, {
         storage,
         configuration: createSingleModelConfiguration(selection),
-        host: createStandaloneHost({
+        host: (options.host ?? (base => base))(createStandaloneHost({
           workspace: options.workspace,
           sandboxActive: Boolean(options.sandbox),
           tempRoot,
-        }),
+        })),
         contextSources: {},
         workspaceToolDiscovery: {},
         sandboxController,

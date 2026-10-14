@@ -10,13 +10,43 @@ import {
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import type { RuntimeHost as ProkopCompatibilityBindings } from '@/infrastructure/runtime/host';
+import type { WorkspaceCapabilityHost } from '@/infrastructure/filesystem/workspace-policy/contracts';
 import { ensureSessionTempDir } from '@/infrastructure/filesystem/session-temp';
 
 const managedWorktrees = createManagedWorktreeRepository(getDatabase);
 
-function agentDirectoryRoots(sessionId: string): string[] {
-  const agentId = getSession(sessionId)?.agentId;
-  return agentId ? [agentDirectoryPath(getDataDir(), agentId)] : [];
+type ToolWorkspaceOptions = Parameters<ProkopCompatibilityBindings['workspace']['createToolWorkspaceHost']>[0];
+
+/** Host lookups the tool workspace needs; SQLite in-process, protocol-backed in the agent. */
+export interface ProkopToolWorkspaceDeps {
+  agentIdOf(sessionId: string): string | null | undefined;
+  addRoot(workspaceId: string, path: string): boolean | Promise<boolean>;
+  removeRoot(workspaceId: string, path: string): boolean | Promise<boolean>;
+}
+
+/**
+ * The workspace a Prokop tool sees. Read-only roots: uploads and the session
+ * agent's own directory (skills, home, memory files), matching
+ * harnesses/shared/permission-roots.ts.
+ */
+export function createProkopToolWorkspaceHost(
+  { workspaceId, workspacePath, additionalPaths, sessionId }: ToolWorkspaceOptions,
+  deps: ProkopToolWorkspaceDeps,
+): WorkspaceCapabilityHost {
+  const agentId = deps.agentIdOf(sessionId);
+  return {
+    root: workspacePath,
+    additionalRoots: additionalPaths,
+    allowedRoots: [getUploadDir(), ...(agentId ? [agentDirectoryPath(getDataDir(), agentId)] : [])],
+    tempDir: ensureSessionTempDir(sessionId),
+    getEnvironmentValue: getProkopEnvValue,
+    addAdditionalRoot: workspaceId
+      ? (path: string) => deps.addRoot(workspaceId, path)
+      : undefined,
+    removeAdditionalRoot: workspaceId
+      ? (path: string) => deps.removeRoot(workspaceId, path)
+      : undefined,
+  };
 }
 
 export const prokopWorkspaceBindings: ProkopCompatibilityBindings['workspace'] = {
@@ -42,19 +72,9 @@ export const prokopWorkspaceBindings: ProkopCompatibilityBindings['workspace'] =
       additionalPaths: [],
     };
   },
-  createToolWorkspaceHost: ({ workspaceId, workspacePath, additionalPaths, sessionId }) => ({
-    root: workspacePath,
-    additionalRoots: additionalPaths,
-    // Read-only roots: uploads and the session agent's own directory (skills,
-    // home, memory files), matching harnesses/shared/permission-roots.ts.
-    allowedRoots: [getUploadDir(), ...agentDirectoryRoots(sessionId)],
-    tempDir: ensureSessionTempDir(sessionId),
-    getEnvironmentValue: getProkopEnvValue,
-    addAdditionalRoot: workspaceId
-      ? (path: string) => addWorkspaceAdditionalPath(workspaceId, path)
-      : undefined,
-    removeAdditionalRoot: workspaceId
-      ? (path: string) => removeWorkspaceAdditionalPath(workspaceId, path)
-      : undefined,
+  createToolWorkspaceHost: options => createProkopToolWorkspaceHost(options, {
+    agentIdOf: sessionId => getSession(sessionId)?.agentId,
+    addRoot: addWorkspaceAdditionalPath,
+    removeRoot: removeWorkspaceAdditionalPath,
   }),
 };

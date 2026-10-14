@@ -467,13 +467,22 @@
             "$ref": "#/$defs/workspace.get.result"
           }
         },
+        "workspace.resolveRoot": {
+          "description": "Resolve the session root: a selected managed worktree replaces the workspace path. Fails when the worktree is unavailable or missing.",
+          "params": {
+            "$ref": "#/$defs/workspace.resolveRoot.params"
+          },
+          "result": {
+            "$ref": "#/$defs/workspace.resolveRoot.result"
+          }
+        },
         "workspace.addRoot": {
           "description": "Persist an extra workspace root granted during a turn.",
           "params": {
             "$ref": "#/$defs/WorkspaceRootParams"
           },
           "result": {
-            "$ref": "#/$defs/Ack"
+            "$ref": "#/$defs/Changed"
           }
         },
         "workspace.removeRoot": {
@@ -482,7 +491,7 @@
             "$ref": "#/$defs/WorkspaceRootParams"
           },
           "result": {
-            "$ref": "#/$defs/Ack"
+            "$ref": "#/$defs/Changed"
           }
         },
         "interaction.createPendingAsk": {
@@ -935,6 +944,17 @@
       },
       "required": [
         "id"
+      ]
+    },
+    "Changed": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "changed"
       ]
     },
     "CommitCheck": {
@@ -4143,6 +4163,46 @@
           "type": "null"
         }
       ]
+    },
+    "workspace.resolveRoot.params": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        },
+        "workspaceRootId": {
+          "type": "string"
+        },
+        "workspacePath": {
+          "type": "string"
+        },
+        "additionalPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    },
+    "workspace.resolveRoot.result": {
+      "type": "object",
+      "properties": {
+        "workspacePath": {
+          "type": "string"
+        },
+        "additionalPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

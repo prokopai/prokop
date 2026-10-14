@@ -120,7 +120,7 @@ export function mapCapekEventToServerMessage(event: RuntimeEvent): ServerMessage
  * Čapek sends auto-title renames to the session's participants. Session
  * lists on every client show titles, so renames go to everyone.
  */
-function audienceOf<Origin>(delivery: RuntimeDelivery<Origin>): RuntimeDelivery<Origin>['audience'] {
+export function audienceOf<Origin>(delivery: RuntimeDelivery<Origin>): RuntimeDelivery<Origin>['audience'] {
   return delivery.event.kind === 'session' && delivery.event.action === 'renamed'
     && delivery.audience.scope === 'session'
     ? { scope: 'global' }

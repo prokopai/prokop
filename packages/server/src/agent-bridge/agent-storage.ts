@@ -9,14 +9,28 @@ import type { StorageBundle } from '@/infrastructure/storage/contracts';
  * `workspaces.getAutoApproveSeverity` is deliberately absent, as in the
  * production SQLite bundle; consumers treat it as inherited.
  */
-export function createProtocolStorageBundle(endpoint: AgentEndpoint): StorageBundle {
+export function createProtocolStorageBundle(
+  endpoint: AgentEndpoint,
+  options: {
+    /** Sees every session the agent reads or writes; feeds agent-local caches for sync lookups. */
+    observeSession?(session: Session): void;
+  } = {},
+): StorageBundle {
   const request = endpoint.request.bind(endpoint);
+  const seen = <T extends Session | null>(session: T): T => {
+    if (session) options.observeSession?.(session);
+    return session;
+  };
   return {
     conversation: {
-      createSession: session => request('store.session.create', { session: session as Session }),
-      getSession: id => request('store.session.get', { id }),
-      updateSession: (id, updates) => request('store.session.update', { id, updates }),
-      getChildSessions: parentId => request('store.session.children', { parentId }),
+      createSession: async session => seen(await request('store.session.create', { session: session as Session })),
+      getSession: async id => seen(await request('store.session.get', { id })),
+      updateSession: async (id, updates) => seen(await request('store.session.update', { id, updates })),
+      getChildSessions: async (parentId) => {
+        const children = await request('store.session.children', { parentId });
+        children.forEach(seen);
+        return children;
+      },
 
       createMessage: message => request('store.message.create', { message }),
       getMessage: id => request('store.message.get', { id }),

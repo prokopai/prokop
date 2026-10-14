@@ -24,6 +24,7 @@ const MaybeQueued = named('MaybeQueued', QueuedMessageEntity.nullable());
 const Parts = named('Parts', z.array(PartEntity));
 const RootSessionParams = named('RootSessionParams', z.object({ rootSessionId: z.string() }));
 const WorkspaceRootParams = named('WorkspaceRootParams', z.object({ workspaceId: z.string(), path: z.string() }));
+const Changed = named('Changed', z.object({ changed: z.boolean() }));
 
 const GrantTarget = {
   workspaceId: z.string(),
@@ -146,8 +147,16 @@ export const agentToHostRequests = requests({
     result: AttachmentRecord,
   },
   'workspace.get': { description: 'Read a workspace (child sessions, tools).', params: Id, result: WorkspaceEntity.nullable() },
-  'workspace.addRoot': { description: 'Persist an extra workspace root granted during a turn.', params: WorkspaceRootParams, result: Ack },
-  'workspace.removeRoot': { description: 'Remove an extra workspace root.', params: WorkspaceRootParams, result: Ack },
+  'workspace.resolveRoot': {
+    description: 'Resolve the session root: a selected managed worktree replaces the workspace path. Fails when the worktree is unavailable or missing.',
+    params: z.object({
+      sessionId: z.string(), workspaceId: z.string().optional(), workspaceRootId: z.string().optional(),
+      workspacePath: z.string().optional(), additionalPaths: z.array(z.string()).optional(),
+    }),
+    result: z.object({ workspacePath: z.string().optional(), additionalPaths: z.array(z.string()).optional() }),
+  },
+  'workspace.addRoot': { description: 'Persist an extra workspace root granted during a turn.', params: WorkspaceRootParams, result: Changed },
+  'workspace.removeRoot': { description: 'Remove an extra workspace root.', params: WorkspaceRootParams, result: Changed },
 
   // Interaction storage (decision 6 A: waiters and validation stay in the agent)
   'interaction.createPendingAsk': { description: 'Store a pending ask row.', params: z.object({ record: PendingAskRecord.omit({ id: true }) }), result: z.object({ id: z.string() }) },

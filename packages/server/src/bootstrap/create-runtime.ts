@@ -21,7 +21,7 @@ import { createProkopSessionRepository } from '@/adapters/prokop/session-reposit
 import { createSessionSearchQueryRepository } from '@/infrastructure/sqlite/session-search-query-repository';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { configureAgentLoopbackStorage } from '@/agent-bridge/loopback';
+import { configureAgentLoopback } from '@/bootstrap/agent-loopback';
 
 /** S5 session-search host dependencies. The query port is the SQLite
  * infrastructure repository with an injected store accessor; session and
@@ -63,7 +63,6 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   installBuiltinToolsPort({ tools: () => builtinTools });
 
   configureProkopStorage();
-  configureAgentLoopbackStorage();
   configureProkopRuntimeConfiguration();
   configureProkopWorkspacePolicy();
   configureProkopPreconfigSource(agents);
@@ -73,6 +72,7 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   configureProkopWorkspaceToolDiscovery();
   void warmInstalledToolsCache();
   configureProkopBindings();
+  configureAgentLoopback();
   // S11.4: the harness-owned composed-scope lifecycle installs here; the
   // startup root consumes the application port helpers and imports no
   // harness internals. The initialize result (the composition) is owned by

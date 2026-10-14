@@ -60,8 +60,6 @@ const compositionRootPath = resolve(serverSourceRoot, 'bootstrap/create-runtime.
 const expectedCompositionSteps = [
   'installBuiltinToolsPort',
   'configureProkopStorage',
-  // Host/agent split experiment: no-op unless PROKOPAI_AGENT_LOOPBACK=1.
-  'configureAgentLoopbackStorage',
   'configureProkopRuntimeConfiguration',
   'configureProkopWorkspacePolicy',
   'configureProkopPreconfigSource',
@@ -70,6 +68,8 @@ const expectedCompositionSteps = [
   'configureProkopSessionSearchHost',
   'configureProkopWorkspaceToolDiscovery',
   'configureProkopBindings',
+  // Host/agent split experiment: no-op unless PROKOPAI_AGENT_LOOPBACK=1.
+  'configureAgentLoopback',
   'installExecutionLifecyclePort',
 ];
 
@@ -143,7 +143,7 @@ describe('Čapek composition root', () => {
       '@/infrastructure/sqlite/database',
       '@/infrastructure/sqlite/message-store',
       '@/infrastructure/sqlite/workspaces',
-      '@/agent-bridge/loopback',
+      '@/bootstrap/agent-loopback',
     ];
     for (const imp of imports) {
       expect(allowedSpecifiers).toContain(imp.specifier);
