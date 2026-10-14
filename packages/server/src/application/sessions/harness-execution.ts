@@ -15,6 +15,9 @@ export interface HarnessRegistration {
    * scheduled jobs and creation rejects it. */
   headless?: (input: HeadlessSessionRunInput, options?: HeadlessRunOptions) => Promise<{ error?: string }>;
   unsupportedMessages?: Partial<Record<HarnessOperation, string>>;
+  /** Operations the composition root builds from host services (CLI title
+   * regeneration reads the host store). They never cross to the agent. */
+  hostOperations?: HarnessOperation[];
 }
 
 /** Resolve execution from the persisted owner, never from the selected model or provider. */

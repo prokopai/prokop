@@ -683,6 +683,15 @@
             "$ref": "#/$defs/ToolResult"
           }
         },
+        "sandbox.call": {
+          "description": "Sandbox mode: a model call the agent made, answered by the host sandbox controller (rules or a sandbox client). Cancel with $/cancel when the call is aborted.",
+          "params": {
+            "$ref": "#/$defs/sandbox.call.params"
+          },
+          "result": {
+            "$ref": "#/$defs/sandbox.call.result"
+          }
+        },
         "learning.tool": {
           "description": "A learning review tool call (memory, skills, session_search, home_files). The host runs it against the review it opened for the session and rechecks the run's authorization.",
           "params": {
@@ -893,6 +902,12 @@
           "description": "OriginRegistryPort.attachOriginToSession: the origin connection now participates in the session.",
           "params": {
             "$ref": "#/$defs/origin.attach.params"
+          }
+        },
+        "sandbox.completed": {
+          "description": "A sandboxed model call finished streaming (the host controller records it and tells sandbox clients).",
+          "params": {
+            "$ref": "#/$defs/sandbox.completed.params"
           }
         },
         "session.activity": {
@@ -3574,6 +3589,39 @@
       "required": [
         "revertedTo",
         "removed"
+      ]
+    },
+    "sandbox.call.params": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "context"
+      ]
+    },
+    "sandbox.call.result": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "sandbox.completed.params": {
+      "type": "object",
+      "properties": {
+        "callId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "callId"
       ]
     },
     "search.agentSessions.params": {

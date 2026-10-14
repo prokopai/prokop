@@ -245,6 +245,11 @@ export const agentToHostRequests = requests({
     }),
     result: ToolResult,
   },
+  'sandbox.call': {
+    description: 'Sandbox mode: a model call the agent made, answered by the host sandbox controller (rules or a sandbox client). Cancel with $/cancel when the call is aborted.',
+    params: z.object({ context: z.record(z.string(), z.unknown()) }),
+    result: z.record(z.string(), z.unknown()),
+  },
   'learning.tool': {
     description: 'A learning review tool call (memory, skills, session_search, home_files). The host runs it against the review it opened for the session and rechecks the run\'s authorization.',
     params: z.object({ sessionId: z.string(), name: z.string(), arguments: z.unknown() }),

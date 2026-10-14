@@ -17,7 +17,13 @@ import type { ClientEntry, RouterContext } from '@/transport/websocket/router-co
 const sockets: unknown[] = [];
 let sessionId = '';
 
+// The asks here are created by Prokop waiters in this process, so the ports must be in-process too:
+// with PROKOPAI_AGENT_PROCESS=1 the answer would go to an agent process that never saw them.
+let agentProcess: string | undefined;
+
 beforeEach(() => {
+  agentProcess = process.env.PROKOPAI_AGENT_PROCESS;
+  delete process.env.PROKOPAI_AGENT_PROCESS;
   setupTestDataDir();
   setupTestDatabase();
   sessionId = seedWorkspaceWithSession().sessionId;
@@ -30,6 +36,7 @@ afterEach(() => {
   removeSessionControl(sessionId);
   resetTestDatabase();
   resetTestDataDir();
+  if (agentProcess !== undefined) process.env.PROKOPAI_AGENT_PROCESS = agentProcess;
 });
 
 function registerClient(clientId: string, capabilities: string[] = []): ConnectionId {

@@ -2182,8 +2182,10 @@ describe('server layer boundaries', () => {
       'claude-cli/command.ts', 'claude-cli/runner.ts', 'claude-cli/stream.ts',
       'claude-cli/execution.ts', 'claude-cli/index.ts', 'claude-cli/models.ts',
     ]) expect(paths).toContain(path);
-    const bootstrap = files.find(file => file.path === resolve(bootstrapDir, 'application.ts'))!;
-    const imports = parseImports(bootstrap.sourceText, bootstrap.path).map(imp => imp.specifier);
+    // The composition root builds the harnesses in one module, shared by the host and the agent process.
+    const roots = ['application.ts', 'harness-registrations.ts']
+      .map(name => files.find(file => file.path === resolve(bootstrapDir, name))!);
+    const imports = roots.flatMap(root => parseImports(root.sourceText, root.path).map(imp => imp.specifier));
     expect(imports).toContain('@/harnesses/prokop');
     expect(imports).toContain('@/harnesses/codex-cli');
     expect(imports).toContain('@/harnesses/claude-cli');

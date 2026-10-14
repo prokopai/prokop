@@ -32,6 +32,7 @@ export {
   type Endpoint, type MessageChannel, type NotificationHandlers, type ProtocolSide, type RequestContext, type RequestHandlers,
 } from './endpoint';
 export { createLoopback } from './loopback';
+export { createStreamChannel, type LineWriter, type StreamChannelOptions } from './stream';
 export {
   createAgentEndpoint, createHostEndpoint,
   type AgentEndpoint, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type HostSide,

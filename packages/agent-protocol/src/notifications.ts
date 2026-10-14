@@ -35,6 +35,10 @@ export const agentToHostNotifications = notifications({
     description: 'OriginRegistryPort.attachOriginToSession: the origin connection now participates in the session.',
     params: z.object({ origin: z.string(), sessionId: z.string() }),
   },
+  'sandbox.completed': {
+    description: 'A sandboxed model call finished streaming (the host controller records it and tells sandbox clients).',
+    params: z.object({ callId: z.string() }),
+  },
   'session.activity': {
     description: 'The agent\'s isSessionActive changed outside a host request (e.g. Codex child turns). The host combines it with its in-flight requests.',
     params: z.object({ sessionId: z.string(), active: z.boolean() }),

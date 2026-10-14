@@ -550,6 +550,25 @@ export async function handleChat<Origin>(
     return;
   }
 
+  const endTurn = interruptManager.beginTurn(sessionId);
+  try {
+    await runChat(ctx, origin, sessionId, session, content, attachments, responseFormatId, goalCondition, goalMaxTurns);
+  } finally {
+    endTurn();
+  }
+}
+
+async function runChat<Origin>(
+  ctx: RuntimeRequestContext<Origin>,
+  origin: Origin,
+  sessionId: string,
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  content: string,
+  attachments?: Array<{ id: string; kind: string }>,
+  responseFormatId?: string,
+  goalCondition?: string,
+  goalMaxTurns?: number,
+): Promise<void> {
   const workspace = session.workspaceId ? await getWorkspace(session.workspaceId) : null;
   const workspaceContext = await resolveSessionWorkspace({
     sessionId,

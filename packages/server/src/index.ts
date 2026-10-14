@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { createApp } from '@/transport/http/app';
 import { createRuntime } from '@/bootstrap/create-runtime';
 import { createWiredApplication } from '@/bootstrap/application';
+import { getAgentSupervisor } from '@/bootstrap/agent-ports';
 import { installDeliveryPort } from '@/transport/websocket/broadcast';
 import { installWireApplication } from '@/transport/websocket/application';
 import { resolveAskDeliveryTargets, type AskDeliveryInventories } from '@/domains/controllers';
@@ -314,6 +315,12 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
       attempt(() => getTerminalManager().destroyAllSessions());
       try {
         await disposeExecutionLifecycle();
+      } catch (error: unknown) {
+        failures.push(error);
+      }
+      // The agent process stops before the database closes: its last writes go through this host.
+      try {
+        await getAgentSupervisor()?.stop();
       } catch (error: unknown) {
         failures.push(error);
       }

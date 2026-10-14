@@ -60,6 +60,29 @@ describe('InterruptManager', () => {
     expect(result.interruptedTools).toHaveLength(0);
   });
 
+  test('an interrupt while a turn is starting aborts its registration once', async () => {
+    const endTurn = interruptManager.beginTurn(sessionId);
+    // Input persisted, context still building: nothing is registered yet.
+    expect((await interruptManager.interruptSession(sessionId)).success).toBe(true);
+    const first = interruptManager.registerSession(sessionId);
+    expect(first.signal.aborted).toBe(true);
+    interruptManager.unregisterSession(sessionId);
+    // A queued follow-up in the same turn loop starts fresh.
+    const next = interruptManager.registerSession(sessionId);
+    expect(next.signal.aborted).toBe(false);
+    interruptManager.unregisterSession(sessionId);
+    endTurn();
+  });
+
+  test('without a starting turn an early interrupt does not affect a later one', async () => {
+    await interruptManager.interruptSession(sessionId);
+    const endTurn = interruptManager.beginTurn(sessionId);
+    const controller = interruptManager.registerSession(sessionId);
+    expect(controller.signal.aborted).toBe(false);
+    interruptManager.unregisterSession(sessionId);
+    endTurn();
+  });
+
   test('registerToolExecution returns AbortController linked to session', async () => {
     const sessionController = interruptManager.registerSession(sessionId);
     const toolController = interruptManager.registerToolExecution(sessionId, 'tool-1');

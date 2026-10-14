@@ -1,0 +1,11 @@
+{
+  "name": "@prokopai/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent process for the host/agent split (experiment, see docs/plans/host-agent-split.md): runs the harnesses, talks to the host over stdio",
+  "scripts": {
+    "start": "bun src/main.ts --stdio",
+    "typecheck": "tsc --noEmit"
+  }
+}

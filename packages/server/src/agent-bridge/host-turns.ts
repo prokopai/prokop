@@ -24,8 +24,17 @@ type DeliverParams = { audience: Audience; message: ServerMessage; origin?: stri
  * ends while the agent reports its session active, the token stays mapped
  * until the agent reports the session idle.
  */
-export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliver: (params: DeliverParams) => void): {
+export function createTurnForwarding(
+  endpoint: () => HostEndpoint,
+  fallbackDeliver: (params: DeliverParams) => void,
+  /** Called whenever `busy()` may have changed (agent process idle exit). */
+  onBusyChange: () => void = () => {},
+): {
   executorFor(harness: SessionHarness, agentExecutor: AgentExecutor): AgentExecutor;
+  /** An operation is in flight or the agent reports a session active. */
+  busy(): boolean;
+  /** The agent process died: its activity and kept wires are gone with it. */
+  agentExited(): void;
   /** A headless run over `turn.headless`; its child session counts as active meanwhile. */
   headlessRun(): AgentHeadlessRun;
   notifications: Pick<NotificationHandlers<AgentSide>, 'deliver' | 'origin.attach' | 'session.activity'>;
@@ -46,6 +55,7 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
     const token = wire ? crypto.randomUUID() : null;
     if (token && wire) contexts.set(token, { wire, origin });
     if (counts) inFlight.set(sessionId, (inFlight.get(sessionId) ?? 0) + 1);
+    onBusyChange();
     try {
       return await send(token);
     } finally {
@@ -61,12 +71,19 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
         if (remaining > 0) inFlight.set(sessionId, remaining);
         else inFlight.delete(sessionId);
       }
+      onBusyChange();
     }
   };
   const originOf = (token: string | undefined): unknown => token ? contexts.get(token)?.origin : undefined;
   const host = { request: ((...args: Parameters<HostEndpoint['request']>) => endpoint().request(...args)) as HostEndpoint['request'] };
 
   return {
+    busy: () => inFlight.size > 0 || agentActive.size > 0,
+    agentExited() {
+      for (const sessionId of [...lingering.keys()]) release(sessionId);
+      agentActive.clear();
+      onBusyChange();
+    },
     executorFor(harness, agentExecutor) {
       const executor: AgentExecutor = {
         sendMessage: (wire, origin, sessionId, content, attachments, responseFormatId, goalCondition, goalMaxTurns,
@@ -145,6 +162,7 @@ export function createTurnForwarding(endpoint: () => HostEndpoint, fallbackDeliv
           agentActive.delete(sessionId);
           release(sessionId);
         }
+        onBusyChange();
       },
     },
   };

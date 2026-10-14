@@ -16,6 +16,16 @@ export function agentLoopbackEnabled(): boolean {
   return readEnv('AGENT_LOOPBACK') === '1';
 }
 
+/**
+ * Phase 2 flag: with PROKOPAI_AGENT_PROCESS=1 the harnesses run in a
+ * separate agent process (packages/agent) that the host supervises.
+ * PROKOPAI_AGENT_LOOPBACK=1 keeps them in process.
+ */
+export function agentProcessEnabled(): boolean {
+  // An explicit loopback is the narrower choice and wins when both are set.
+  return readEnv('AGENT_PROCESS') === '1' && !agentLoopbackEnabled();
+}
+
 function reportProtocolError(error: Error): void {
   console.warn('[agent-bridge] protocol error:', error.message);
 }

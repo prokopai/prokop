@@ -189,7 +189,10 @@ describe('bootstrap binds harness executors to the agent loopback', () => {
   });
 
   test('without the flag the registrations are returned unchanged', () => {
+    const process_ = process.env.PROKOPAI_AGENT_PROCESS;
+    delete process.env.PROKOPAI_AGENT_PROCESS;
     setupTestDatabase();
+    if (process_ !== undefined) process.env.PROKOPAI_AGENT_PROCESS = process_;
     const registrations = { prokop: { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
       'codex-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) },
       'claude-cli': { execution: scriptedExecutor({ activeAfter: new Set(), running: new Set() }) } };

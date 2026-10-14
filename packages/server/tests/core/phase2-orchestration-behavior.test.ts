@@ -4,6 +4,8 @@ import type { ServerWebSocket } from 'bun';
 import { runOrchestratorSession } from '@/harnesses/prokop/workflow/orchestrator-session';
 import { executeChildSession } from '@/harnesses/prokop/subagent/child-session';
 import { handleChat, handleSessionEditMessage } from '@/transport/websocket/chat-handler';
+import { handleInterruptSession } from '@/transport/websocket/handlers/session-lifecycle';
+import type { ConnectionId } from '@/transport/websocket/connection-id';
 import type { RouterContext } from '@/transport/websocket/router-context';
 import { executeCompaction } from '@/harnesses/prokop/compaction/executor';
 import { interruptManager } from '@/harnesses/prokop/execution/interrupt';
@@ -28,8 +30,6 @@ import { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-e
 import { seedWorkspaceWithSession } from '#tests/seed';
 import { resetTestDataDir, setupTestDataDir } from '#tests/test-dir';
 import { installTestWireApplication } from '#tests/wire-application';
-
-installTestWireApplication();
 
 const testPreconfig: Omit<Preconfig, 'id'> & { id: string } = {
   id: 'phase2-test',
@@ -89,10 +89,11 @@ function seedConversation(sessionId: string): void {
 }
 
 async function waitForPendingCall(): Promise<ReturnType<typeof sandboxController.getPendingCalls>[number]> {
-  for (let attempt = 0; attempt < 100; attempt++) {
+  // Generous: with PROKOPAI_AGENT_PROCESS=1 the first call also waits for the agent process to start.
+  for (let attempt = 0; attempt < 1000; attempt++) {
     const pending = sandboxController.getPendingCalls()[0];
     if (pending) return pending;
-    await Bun.sleep(1);
+    await Bun.sleep(5);
   }
   throw new Error('Sandbox call did not become pending');
 }
@@ -140,6 +141,8 @@ describe.serial('Phase 2 orchestration behavior', () => {
   beforeEach(async () => {
     setupTestDataDir();
     setupTestDatabase();
+    // Wired after the runtime is configured, so execution binds to this run's ports (direct, loopback or agent process).
+    installTestWireApplication();
     ({ sessionId, workspaceId } = seedWorkspaceWithSession());
     await createPreconfig(testPreconfig);
     activateSandbox();
@@ -252,7 +255,9 @@ describe.serial('Phase 2 orchestration behavior', () => {
 
     await waitForPendingCall();
     setTextResponses(2);
-    await interruptManager.interruptSession(sessionId, 'user_request');
+    // The Stop button's path, so it reaches the turn wherever it runs.
+    await handleInterruptSession(router.ctx as unknown as RouterContext<ConnectionId>, router.ws as unknown as ConnectionId,
+      { type: 'session.interrupt', sessionId, reason: 'user_request' });
     await run;
 
     const userEntries = listMessagesWithParts(sessionId).filter(({ message }) => message.role === 'user');

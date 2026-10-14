@@ -1,51 +1,52 @@
-import { join } from 'node:path';
-import type { AgentHandlers, Audience } from '@prokopai/agent-protocol';
+import { fileURLToPath } from 'node:url';
+import {
+  PROTOCOL_VERSION, type AgentHandlers, type AgentSide, type HostEndpoint, type HostHandlers, type NotificationHandlers,
+} from '@prokopai/agent-protocol';
+import { createAgentSupervisor, type AgentSupervisor } from '@/agent-bridge/agent-supervisor';
+import { readEnv } from '@/infrastructure/runtime/env-compat';
+import serverPackage from '@/../package.json' with { type: 'json' };
+import { recoverAfterAgentExit } from './agent-recovery';
 import type { SessionHarness } from '@prokopai/sdk';
 import { installHarnessNotificationPort, type HarnessNotificationPort } from '@/application/ports/harness-notifications';
-import { createTurnHandlers, type AgentExecutor, type AgentHeadlessRun } from '@/agent-bridge/agent-turns';
+import type { AgentExecutor, AgentHeadlessRun } from '@/agent-bridge/agent-turns';
 import { createTurnForwarding } from '@/agent-bridge/host-turns';
 import { createProtocolHarnessProbes } from '@/agent-bridge/host-probes';
 import { configureHarnessProbes } from '@/application/ports/harness-probes';
-import { localHarnessProbes, probeHandlers } from './agent-probes';
+import type { HarnessOperation } from '@/application/sessions/harness-execution';
+import { localHarnessProbes } from './agent-probes';
+import { composeAgentSide } from './agent-side';
 import { isKnowledgeDirectory } from './knowledge-directories';
-import { createProtocolRuntimeHost } from '@/agent-bridge/agent-runtime-host';
-import { createProtocolStorageBundle } from '@/agent-bridge/agent-storage';
-import {
-  createProtocolKnowledgeWrite, createProtocolMcpTools, createProtocolSessionSearchHost, createProtocolTerminals, createProtocolToolDiscovery,
-} from '@/agent-bridge/agent-tools';
 import { createRuntimeHostHandlers } from '@/agent-bridge/host-runtime';
 import { createStorageHostHandlers } from '@/agent-bridge/host-storage';
 import { createToolHostHandlers, type SessionSearchService, type TerminalAccess } from '@/agent-bridge/host-tools';
-import { agentLoopbackEnabled, createAgentLoopback } from '@/agent-bridge/loopback';
+import { agentLoopbackEnabled, agentProcessEnabled, createAgentLoopback } from '@/agent-bridge/loopback';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
-import { severityFromMode } from '@/domains/permissions';
-import { audienceOf, mapCapekEventToServerMessage } from '@/harnesses/prokop/host/events';
 import { prokopMcpAccess } from '@/harnesses/prokop/host/tool-source';
-import { createProkopToolWorkspaceHost } from '@/harnesses/prokop/host/workspace';
 import { configureAgentTerminals } from '@/harnesses/prokop/tools/terminal/port';
 import { configureKnowledgeWrites } from '@/harnesses/shared/knowledge-writes';
 import { executeMemoryTool } from '@/harnesses/shared/memory/memory-tool';
-import { configureSessionSearchHost, getSessionSearchHost, type SessionSearchHost } from '@/harnesses/shared/session-search/host';
+import { getSessionSearchHost } from '@/harnesses/shared/session-search/host';
 import { executeSkillManageTool } from '@/harnesses/shared/skills/skill-manage-tool';
 import { getWorkspaceTools } from '@/infrastructure/mcp/manager';
 import { getPermissionTimeoutMs } from '@/infrastructure/runtime/environment';
-import { configureRuntimeHost, getRuntimeHost } from '@/infrastructure/runtime/host';
-import { resolveWorkspaceDir, workspaceKnowledgeRoot } from '@/infrastructure/runtime/workspace-dirs';
+import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getDataDir } from '@/infrastructure/runtime/paths';
+import { workspaceKnowledgeRoot } from '@/infrastructure/runtime/workspace-dirs';
 import { isSandboxActive } from '@/infrastructure/sandbox';
+import { sandboxController } from '@/infrastructure/sandbox/controller';
+import type { LlmCallContext } from '@/infrastructure/sandbox/types';
 import { addWorkspaceAdditionalPath, removeWorkspaceAdditionalPath } from '@/infrastructure/sqlite/workspaces';
-import { configureStorage, getStorage } from '@/infrastructure/storage/runtime';
-import { configureWorkspaceToolDiscovery } from '@/infrastructure/tools/tool-source';
+import { getStorage } from '@/infrastructure/storage/runtime';
 import { getTerminalManager } from '@/transport/terminal';
 import {
   broadcastEvent, broadcastToSessionEvent, sendToAskTargetsEvent, sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
 import { configureHarnessAsks } from '@/infrastructure/runtime/harness-asks';
-import { createProtocolHarnessAsks } from '@/agent-bridge/agent-asks';
 import { createHarnessAskHandlers } from '@/agent-bridge/host-asks';
 import { localHarnessAsks } from './harness-asks';
 import { installAgentAskPort } from '@/application/ports/agent-asks';
 import { configureHarnessMcpTools } from '@/application/ports/mcp-tools';
-import { askHandlers, directAgentAsks, protocolAgentAsks } from './agent-asks';
+import { directAgentAsks, protocolAgentAsks } from './agent-asks';
 import { installLearningReviewToolPort } from '@/application/ports/learning-review-tools';
 import { learningReviewTools } from '@/application/learning/review-tools';
 
@@ -65,7 +66,10 @@ export function terminalPortFromManager(manager: () => ReturnType<typeof getTerm
   };
 }
 
-let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor; headless?: AgentHeadlessRun }>>(registrations: R) => R =
+/** A registration as the host routes it; `hostOperations` stay host-side. */
+type HostRegistration = { execution: AgentExecutor; headless?: AgentHeadlessRun; hostOperations?: HarnessOperation[] };
+
+let bindExecutors: <R extends Record<SessionHarness, HostRegistration>>(registrations: R) => R =
   registrations => registrations;
 
 /**
@@ -73,7 +77,7 @@ let bindExecutors: <R extends Record<SessionHarness, { execution: AgentExecutor;
  * agent loopback each one forwards over `turn.*` to the same executor
  * running agent-side; otherwise they are returned unchanged.
  */
-export function bindHarnessExecutors<R extends Record<SessionHarness, { execution: AgentExecutor; headless?: AgentHeadlessRun }>>(registrations: R): R {
+export function bindHarnessExecutors<R extends Record<SessionHarness, HostRegistration>>(registrations: R): R {
   return bindExecutors(registrations);
 }
 
@@ -94,33 +98,31 @@ const localHarnessNotifications: HarnessNotificationPort = {
 };
 
 /**
- * Installs the agent-facing host ports. In-process by default. With
- * PROKOPAI_AGENT_LOOPBACK=1 (host/agent split experiment,
- * docs/plans/host-agent-split.md), the configured in-process ports become
- * the host side of one protocol connection and the engine gets
- * protocol-backed replacements. Call after `configureProkopBindings()`,
- * before the execution scope is composed.
+ * Host half of the agent protocol: what the host serves (storage, runtime
+ * host, host tools, harness asks, learning tools), the notifications it
+ * handles, and the registrations it routes to, forwarded over `turn.*`.
+ * `connect` supplies the endpoint once the channel exists (a loopback or an
+ * agent process).
  */
-export function configureAgentPorts(): void {
-  const terminals = terminalPortFromManager(getTerminalManager);
-  configureAgentTerminals(terminals);
-  configureKnowledgeWrites(null);
-  configureHarnessAsks(localHarnessAsks);
-  configureHarnessMcpTools({ tools: getWorkspaceTools });
-  if (!agentLoopbackEnabled()) {
-    installAgentAskPort(directAgentAsks);
-    installLearningReviewToolPort(learningReviewTools);
-    installHarnessNotificationPort(localHarnessNotifications);
-    configureHarnessProbes(localHarnessProbes);
-    bindExecutors = registrations => registrations;
-    return;
-  }
-
+export function createAgentHostSide(options: { onBusyChange?: () => void } = {}): {
+  handlers: HostHandlers;
+  notifications: NotificationHandlers<AgentSide>;
+  connect(endpoint: () => HostEndpoint): void;
+  bind<R extends Record<SessionHarness, HostRegistration>>(registrations: R): R;
+  /** Agent work the host knows of: operations in flight, sessions reported active. */
+  busy(): boolean;
+  agentExited(): void;
+} {
   const hostStorage = getStorage();
   const hostRuntime = getRuntimeHost();
   const hostSessionSearch = getSessionSearchHost();
   const resolveSessionWorkspace = hostRuntime.workspace.resolveSessionWorkspace;
-  if (!resolveSessionWorkspace) throw new Error('Agent loopback needs a host session workspace resolver');
+  if (!resolveSessionWorkspace) throw new Error('Agent protocol needs a host session workspace resolver');
+  let endpoint: (() => HostEndpoint) | null = null;
+  const host = (): HostEndpoint => {
+    if (!endpoint) throw new Error('No agent connected');
+    return endpoint();
+  };
 
   const runtime = createRuntimeHostHandlers({
     interaction: hostRuntime.interaction,
@@ -147,90 +149,134 @@ export function configureAgentPorts(): void {
         ? { ...await executeMemoryTool(input, directory, 'none', undefined, { local: true }) }
         : { ...await executeSkillManageTool(input, directory, 'none', undefined, { local: true }) };
     },
-    terminals,
+    terminals: terminalPortFromManager(getTerminalManager),
   });
-  const turns = createTurnForwarding(() => host, params => runtime.notifications.deliver?.(params as never));
-  // Filled when the application registers its harnesses (bindHarnessExecutors).
-  const agentHandlers: AgentHandlers = { ...askHandlers, ...probeHandlers };
-  const { agent, host } = createAgentLoopback({
-    handlers: { ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
+  const turns = createTurnForwarding(host, params => runtime.notifications.deliver?.(params as never),
+    () => options.onBusyChange?.());
+
+  return {
+    handlers: {
+      ...createStorageHostHandlers(hostStorage), ...runtime.handlers, ...tools,
       ...createHarnessAskHandlers(localHarnessAsks),
-      'learning.tool': async ({ sessionId, name, arguments: input }) => ({ ...await learningReviewTools.call(sessionId, name, input) }) },
-    notifications: { ...runtime.notifications, ...turns.notifications },
-  }, agentHandlers);
-  configureHarnessProbes(createProtocolHarnessProbes(() => host));
-  installHarnessNotificationPort({
-    notifyTerminalMessage: (message, sessionId) =>
-      agent.notify('host.notify', { kind: 'turn.finished', sessionId, message }),
-    notifyPermissionRequired: (requestId, rootSessionId) =>
-      agent.notify('host.notify', { kind: 'permission.required', requestId, rootSessionId }),
-    notifyWorktreeChanged: worktreeId => agent.notify('host.notify', { kind: 'worktree.changed', worktreeId }),
-  });
-  bindExecutors = (registrations) => {
-    const executors = Object.fromEntries(Object.entries(registrations)
-      .map(([harness, registration]) => [harness, registration.execution])) as Record<SessionHarness, AgentExecutor>;
-    const headless = Object.fromEntries(Object.entries(registrations).flatMap(([harness, registration]) =>
-      registration.headless ? [[harness, registration.headless]] : [])) as Partial<Record<SessionHarness, AgentHeadlessRun>>;
-    Object.assign(agentHandlers, createTurnHandlers(agent, executors, headless));
-    return Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => [harness, {
-      ...registration,
-      execution: turns.executorFor(harness as SessionHarness, registration.execution),
-      ...(registration.headless ? { headless: turns.headlessRun() } : {}),
-    }])) as typeof registrations;
+      'learning.tool': async ({ sessionId, name, arguments: input }) => ({ ...await learningReviewTools.call(sessionId, name, input) }),
+      'sandbox.call': async ({ context }, { signal }) =>
+        ({ ...await sandboxController.waitForResponse(context as unknown as LlmCallContext, signal) }),
+    },
+    notifications: {
+      ...runtime.notifications, ...turns.notifications,
+      'sandbox.completed': ({ callId }) => sandboxController.complete(callId),
+    },
+    busy: turns.busy,
+    agentExited: turns.agentExited,
+    connect(next) {
+      endpoint = next;
+      configureHarnessProbes(createProtocolHarnessProbes(host));
+      installAgentAskPort(protocolAgentAsks({
+        lookup: (toolCallId, requestId) => host().request('ask.lookup', { toolCallId, requestId }),
+        resolve: async answer => (await host().request('ask.resolve', answer)).resolved,
+      }));
+    },
+    bind: registrations => Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => {
+      const forwarded = turns.executorFor(harness as SessionHarness, registration.execution);
+      // Operations the composition root built from host services never cross.
+      for (const operation of registration.hostOperations ?? []) {
+        (forwarded as Record<string, unknown>)[operation] = registration.execution[operation];
+      }
+      return [harness, {
+        ...registration,
+        execution: forwarded,
+        ...(registration.headless ? { headless: turns.headlessRun() } : {}),
+      }];
+    })) as typeof registrations,
   };
-  installLearningReviewToolPort({
-    call: (sessionId, name, input) => agent.request('learning.tool', { sessionId, name, arguments: input }),
-  });
-  installAgentAskPort(protocolAgentAsks({
-    lookup: (toolCallId, requestId) => host.request('ask.lookup', { toolCallId, requestId }),
-    resolve: async answer => (await host.request('ask.resolve', answer)).resolved,
-  }));
+}
 
-  // Sync lookups the agent cannot ask the host for, filled from host answers.
-  // Agent IDs: every session the agent reads or writes (a miss grants fewer
-  // read roots). Knowledge roots: every resolved session root (a miss treats
-  // the path as its own workspace).
-  const agentIds = new Map<string, string | null>();
-  const knowledgeRoots = new Map<string, string>();
-  const knowledgeRootOf = (workspacePath: string): string => knowledgeRoots.get(workspacePath) ?? workspacePath;
-  const storage = createProtocolStorageBundle(agent, {
-    observeSession: session => agentIds.set(session.id, session.agentId ?? null),
-  });
+/**
+ * Installs the agent-facing host ports. In-process by default. With
+ * PROKOPAI_AGENT_LOOPBACK=1 (host/agent split experiment,
+ * docs/plans/host-agent-split.md), both halves of the agent protocol run in
+ * this process over a loopback: the host half serves the configured
+ * in-process ports and the agent half replaces them with protocol-backed
+ * ones. Call after `configureProkopBindings()`, before the execution scope
+ * is composed.
+ */
+export function configureAgentPorts(): void {
+  configureAgentTerminals(terminalPortFromManager(getTerminalManager));
+  configureKnowledgeWrites(null);
+  configureHarnessAsks(localHarnessAsks);
+  configureHarnessMcpTools({ tools: getWorkspaceTools });
+  if (agentProcessEnabled()) {
+    configureAgentProcess();
+    return;
+  }
+  if (!agentLoopbackEnabled()) {
+    installAgentAskPort(directAgentAsks);
+    installLearningReviewToolPort(learningReviewTools);
+    installHarnessNotificationPort(localHarnessNotifications);
+    configureHarnessProbes(localHarnessProbes);
+    bindExecutors = registrations => registrations;
+    return;
+  }
 
-  configureStorage(storage);
-  configureWorkspaceToolDiscovery(createProtocolToolDiscovery(agent));
-  configureSessionSearchHost(createProtocolSessionSearchHost(agent) as unknown as SessionSearchHost);
-  configureKnowledgeWrites(createProtocolKnowledgeWrite(agent));
-  configureAgentTerminals(createProtocolTerminals(agent));
-  configureHarnessAsks(createProtocolHarnessAsks(agent));
-  configureHarnessMcpTools(createProtocolMcpTools(agent));
-  configureRuntimeHost(createProtocolRuntimeHost(agent, {
-    titles: hostRuntime.titles,
-    toolPolicy: hostRuntime.toolPolicy,
-    layout: hostRuntime.layout && {
-      ...hostRuntime.layout,
-      workspaceMemoryDir: workspacePath => resolveWorkspaceDir(knowledgeRootOf(workspacePath)),
-      workspaceSkillsDir: workspacePath => join(knowledgeRootOf(workspacePath), '.agents', 'skills'),
-    },
-    guidance: hostRuntime.guidance,
-    isSandboxActive,
-    getPermissionTimeoutMs,
-    autoApproveSeverity: async (sessionId) => {
-      const session = await storage.conversation.getSession(sessionId);
-      return session ? severityFromMode(session.permissionMode ?? 'standard') : undefined;
-    },
-    createToolWorkspaceHost: (options, roots) => createProkopToolWorkspaceHost(options, {
-      agentIdOf: sessionId => agentIds.get(sessionId),
-      addRoot: roots.add,
-      removeRoot: roots.remove,
-    }),
-    onResolvedRoot: (workspacePath, knowledgeRoot) => knowledgeRoots.set(workspacePath, knowledgeRoot),
-    toWire: (delivery) => {
-      const message = mapCapekEventToServerMessage(delivery.event);
-      const audience = audienceOf(delivery);
-      if (!message || audience.scope === 'host' || audience.scope === 'origin') return null;
-      return { audience: audience as Audience, message };
-    },
-  }));
+  const hostSide = createAgentHostSide();
+  const local = getRuntimeHost();
+  const agentHandlers: AgentHandlers = {};
+  const { agent, host } = createAgentLoopback({ handlers: hostSide.handlers, notifications: hostSide.notifications },
+    agentHandlers);
+  hostSide.connect(() => host);
+  const agentSide = composeAgentSide(agent, agentHandlers, local, { isSandboxActive, getPermissionTimeoutMs });
+  bindExecutors = (registrations) => {
+    agentSide.registerExecutors(registrations);
+    return hostSide.bind(registrations);
+  };
   console.info('[agent-bridge] harness storage, asks, runtime host and host tools run through the agent protocol loopback');
+}
+
+let supervisor: AgentSupervisor | null = null;
+
+/** The supervised agent process, when PROKOPAI_AGENT_PROCESS=1. */
+export function getAgentSupervisor(): AgentSupervisor | null {
+  return supervisor;
+}
+
+/** `bun packages/agent/src/main.ts --stdio`. */
+function agentProcessCommand(): string[] {
+  return [process.execPath, fileURLToPath(new URL('../../../agent/src/main.ts', import.meta.url)), '--stdio'];
+}
+
+/**
+ * PROKOPAI_AGENT_PROCESS=1 (Phase 2): the host half serves a supervised
+ * agent process. This process keeps its in-process ports for host work;
+ * every harness operation goes to the agent.
+ */
+function configureAgentProcess(): void {
+  // Reconfiguring (each createRuntime) must not leave the previous agent process running.
+  // Executors bound to it stay usable: their next request starts a process with the current settings.
+  void supervisor?.stop();
+  installLearningReviewToolPort(learningReviewTools);
+  installHarnessNotificationPort(localHarnessNotifications);
+  const hostSide = createAgentHostSide({ onBusyChange: () => supervisor?.activityChanged() });
+  const idleMs = Number(readEnv('AGENT_IDLE_MS') ?? 5 * 60_000);
+  supervisor = createAgentSupervisor({
+    command: agentProcessCommand(),
+    // The agent reads configuration from the host's data dir, which may come from `--data-dir` rather than the env.
+    env: () => ({ ...process.env, PROKOPAI_DATA_DIR: getDataDir() }),
+    handlers: hostSide.handlers,
+    notifications: hostSide.notifications,
+    initialize: () => ({
+      protocolVersion: PROTOCOL_VERSION,
+      host: { version: serverPackage.version },
+      settings: { sandboxActive: isSandboxActive(), permissionTimeoutMs: getPermissionTimeoutMs() },
+    }),
+    isBusy: hostSide.busy,
+    idleMs: Number.isFinite(idleMs) && idleMs > 0 ? idleMs : 5 * 60_000,
+    onExit: async ({ expected }) => {
+      hostSide.agentExited();
+      if (!expected) await recoverAfterAgentExit();
+    },
+  });
+  const current = supervisor;
+  hostSide.connect(() => current.endpoint);
+  bindExecutors = registrations => hostSide.bind(registrations);
+  console.info('[agent-bridge] harnesses run in a supervised agent process');
 }

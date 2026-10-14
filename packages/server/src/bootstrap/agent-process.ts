@@ -1,0 +1,137 @@
+import { formatWithOptions } from 'node:util';
+import {
+  createAgentEndpoint, createStreamChannel, PROTOCOL_VERSION, RpcErrorCode, RpcRequestError,
+  type AgentEndpoint, type AgentHandlers, type MessageChannel,
+} from '@prokopai/agent-protocol';
+import type { SessionHarness } from '@prokopai/sdk';
+import { createAgentsApplication } from '@/application/agents';
+import type { AgentWorkspacePort } from '@/application/ports/agents';
+import { installBuiltinToolsPort } from '@/application/ports/builtin-tools';
+import { createProkopAgentPreconfigPort } from '@/adapters/prokop/agent-workspace';
+import {
+  configureProkopAgentSource,
+  configureProkopInstructionSource,
+  configureProkopPreconfigSource,
+  configureProkopRuntimeConfiguration,
+  configureProkopWorkspacePolicy,
+} from '@/harnesses/prokop/host';
+import { configureProkopBindings } from '@/harnesses/prokop/composition/bindings';
+import { disposeProkopExecutionScope, initializeProkopExecutionScope } from '@/harnesses/prokop/composition/execution-scope';
+import { warmInstalledToolsCache } from '@/harnesses/prokop/host/tool-resolver';
+import { builtinTools } from '@/harnesses/prokop/tools';
+import { createAgentDirectoryPort } from '@/infrastructure/agents/agent-directory-filesystem';
+import { getRuntimeHost } from '@/infrastructure/runtime/host';
+import { getDataDir } from '@/infrastructure/runtime/paths';
+import { activateSandbox } from '@/infrastructure/sandbox';
+import { installSandboxController } from '@/infrastructure/sandbox/controller';
+import { ForwardingSandboxController } from '@/agent-bridge/agent-sandbox';
+import { forbidDatabase } from '@/infrastructure/sqlite/database';
+import { composeAgentSide } from './agent-side';
+import { createHarnessRegistrations } from './harness-registrations';
+
+const hostOnly = (operation: string) => (): never => {
+  throw new Error(`${operation} runs in the host, not in the agent process`);
+};
+
+/** Agent homes are host workspaces; the agent process reads agents and preconfigs only. */
+const hostOnlyWorkspaces: AgentWorkspacePort = {
+  create: hostOnly('Agent workspace creation'),
+  get: hostOnly('Agent workspace lookup'),
+  applySettings: hostOnly('Agent workspace settings'),
+  delete: hostOnly('Agent workspace deletion'),
+};
+
+export interface AgentProcessOptions {
+  version: string;
+}
+
+/**
+ * The agent process (host/agent split, Phase 2): the Prokop runtime and the
+ * Claude Code and Codex drivers, reaching the host only through `channel`.
+ * It never opens the host database. It reads configuration files from the
+ * data directory (models, preconfigs, agent directories) like the host does.
+ */
+export function startAgentProcess(channel: MessageChannel, options: AgentProcessOptions): AgentEndpoint {
+  forbidDatabase('the agent process reaches host state through the agent protocol');
+  const agents = createAgentsApplication({
+    dataDir: () => getDataDir(),
+    directory: createAgentDirectoryPort(),
+    workspaces: hostOnlyWorkspaces,
+    preconfigs: createProkopAgentPreconfigPort(),
+  });
+  installBuiltinToolsPort({ tools: () => builtinTools });
+  configureProkopRuntimeConfiguration();
+  configureProkopWorkspacePolicy();
+  configureProkopPreconfigSource(agents);
+  configureProkopAgentSource(agents);
+  configureProkopInstructionSource();
+  void warmInstalledToolsCache();
+  configureProkopBindings();
+  const local = getRuntimeHost();
+
+  const settings = { sandboxActive: false, permissionTimeoutMs: 30 * 60 * 1000 };
+  const handlers: AgentHandlers = {};
+  const agent = createAgentEndpoint({
+    channel,
+    handlers,
+    onProtocolError: error => console.warn('[agent] protocol error:', error.message),
+  });
+  // Sandboxed model calls are answered by the host's controller (installed before the scope captures it).
+  installSandboxController(new ForwardingSandboxController(agent));
+  const side = composeAgentSide(agent, handlers, local, {
+    isSandboxActive: () => settings.sandboxActive,
+    getPermissionTimeoutMs: () => settings.permissionTimeoutMs,
+  });
+  const registrations = createHarnessRegistrations({
+    agents,
+    titles: { 'codex-cli': hostOnly('Codex title regeneration'), 'claude-cli': hostOnly('Claude title regeneration') },
+  });
+  side.registerExecutors(registrations);
+
+  handlers.initialize = async (params) => {
+    if (params.protocolVersion !== PROTOCOL_VERSION) {
+      throw new RpcRequestError(RpcErrorCode.InvalidParams,
+        `Protocol version ${params.protocolVersion} is not supported (agent speaks ${PROTOCOL_VERSION})`);
+    }
+    settings.sandboxActive = params.settings.sandboxActive;
+    settings.permissionTimeoutMs = params.settings.permissionTimeoutMs;
+    if (settings.sandboxActive) activateSandbox();
+    await initializeProkopExecutionScope();
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      agent: { version: options.version },
+      harnesses: Object.keys(registrations) as SessionHarness[],
+    };
+  };
+  handlers.shutdown = async () => {
+    await disposeProkopExecutionScope();
+    return {};
+  };
+  return agent;
+}
+
+/**
+ * The agent process over its own stdio: one JSON message per line on
+ * stdin/stdout. stdout carries protocol lines only, so every console method
+ * writes to stderr. Exits when the host closes stdin.
+ */
+export function runAgentProcessOverStdio(options: AgentProcessOptions): void {
+  const toStderr = (...args: unknown[]): void => {
+    process.stderr.write(`${formatWithOptions({ colors: false }, ...args)}\n`);
+  };
+  console.log = toStderr;
+  console.info = toStderr;
+  console.debug = toStderr;
+  console.warn = toStderr;
+  const stdout = Bun.stdout.writer();
+  const channel = createStreamChannel({
+    readable: Bun.stdin.stream(),
+    writer: { write: text => stdout.write(text), flush: () => stdout.flush() },
+    onInvalidLine: line => toStderr('[agent] dropped a non-JSON line from the host:', line.slice(0, 200)),
+  });
+  const agent = startAgentProcess(channel, options);
+  void agent.closed.then((reason) => {
+    toStderr('[agent] host connection closed:', reason.message);
+    process.exit(0);
+  });
+}

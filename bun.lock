@@ -19,6 +19,10 @@
         "vite-plugin-pwa": "^1.3.0",
       },
     },
+    "packages/agent": {
+      "name": "@prokopai/agent",
+      "version": "0.1.0",
+    },
     "packages/agent-protocol": {
       "name": "@prokopai/agent-protocol",
       "version": "0.1.0",
@@ -637,6 +641,8 @@
     "@pierre/trees": ["@pierre/trees@1.0.0-beta.6", "", { "dependencies": { "@pierre/theming": "1.0.0", "preact": "11.0.0-beta.0", "preact-render-to-string": "6.6.5" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" } }, "sha512-zxeuSFM9TveM7b5XofweJALCtm/tGYV9HZzdbf7Uf+kBxIlUyz24/EHaGRjB0dsmmfDQl2ETz7AWwJ15lhSnpw=="],
 
     "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
+
+    "@prokopai/agent": ["@prokopai/agent@workspace:packages/agent"],
 
     "@prokopai/agent-protocol": ["@prokopai/agent-protocol@workspace:packages/agent-protocol"],
 

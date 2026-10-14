@@ -21,6 +21,22 @@ interface SessionAbortContext {
 export class InterruptManager {
   private sessionContexts = new Map<string, SessionAbortContext>();
   private pendingParentLinks = new Map<string, Promise<void>>();
+  /** Turns accepted but not registered yet; `interrupted` is set by an interrupt in that window. */
+  private startingTurns = new Map<string, { interrupted: boolean }>();
+
+  /**
+   * A turn for the session was accepted and will register once its model
+   * call starts (after persisting input and building context). An interrupt
+   * in between used to find nothing to abort; now the next registration
+   * starts aborted. Call the returned function when the turn ends.
+   */
+  beginTurn(sessionId: string): () => void {
+    const marker = { interrupted: false };
+    this.startingTurns.set(sessionId, marker);
+    return () => {
+      if (this.startingTurns.get(sessionId) === marker) this.startingTurns.delete(sessionId);
+    };
+  }
 
   registerSession(sessionId: string, parentId?: string): AbortController {
     if (this.sessionContexts.has(sessionId)) {
@@ -36,6 +52,12 @@ export class InterruptManager {
     };
 
     this.sessionContexts.set(sessionId, context);
+    const starting = this.startingTurns.get(sessionId);
+    if (starting?.interrupted) {
+      // Consumed here: a queued follow-up after the interrupt starts fresh.
+      starting.interrupted = false;
+      controller.abort();
+    }
 
     const linkToParent = (resolvedParentId: string): void => {
       const parentContext = this.sessionContexts.get(resolvedParentId);
@@ -92,6 +114,10 @@ export class InterruptManager {
     const rejectedAsks: string[] = [];
     await Promise.all(this.pendingParentLinks.values());
 
+    if (!context) {
+      const starting = this.startingTurns.get(sessionId);
+      if (starting) starting.interrupted = true;
+    }
     if (context) {
       for (const [toolCallId, { controller: toolController }] of context.toolControllers) {
         if (!toolController.signal.aborted) {

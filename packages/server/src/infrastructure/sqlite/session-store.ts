@@ -230,9 +230,10 @@ export function listSessionPageGrouped(
  * process may have died mid-execution (crash, SIGKILL) leaving running_at
  * set with no live execution to clear it. The client treats running_at as
  * streaming, so such sessions could never accept a new prompt again.
- * Returns the number of sessions reconciled.
+ * The same applies after the agent process dies (`onReconciled` lets the
+ * host tell connected clients). Returns the number of sessions reconciled.
  */
-export function reconcileStuckRunningSessions(): number {
+export function reconcileStuckRunningSessions(onReconciled?: (session: Session) => void): number {
   const sessions = listSessions();
   let reconciled = 0;
   for (const session of sessions) {
@@ -243,8 +244,10 @@ export function reconcileStuckRunningSessions(): number {
     if (session.subagentStatus === 'running') {
       updates.subagentStatus = 'interrupted';
     }
-    if (repo().updateSession(session.id, updates)) {
+    const updated = repo().updateSession(session.id, updates);
+    if (updated) {
       reconciled++;
+      onReconciled?.(updated);
     }
   }
   return reconciled;

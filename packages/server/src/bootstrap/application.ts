@@ -47,10 +47,6 @@ import {
 } from '@/harnesses/prokop/host';
 import { createProkopProviderRegistryPort } from '@/adapters/providers/runtime-registry';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { listPreconfigs } from '@/infrastructure/config/preconfig';
-import { spawnCodexAppServer } from '@/harnesses/codex-cli/app-server';
-import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '@/harnesses/shared/domain-tools';
-import { createPretoolChannel } from '@/harnesses/codex-cli/pretool-hook';
 import { switchSessionHarnessModel } from '@/infrastructure/sqlite/session-harness-switch';
 import { getModelsConfigWithStatus } from '@/config/models';
 import { findModelVariantKeys } from '@/config';
@@ -89,7 +85,6 @@ import { getTerminalManager, installTerminalSessionStore } from '@/transport/ter
 import { broadcastEvent, broadcastSessionUpdated, sendToConnectionEvent } from '@/transport/websocket/broadcast';
 import { addWorkspaceFilesChangedObserver } from '@/application/workspaces/files-changed';
 import { setMcpChangeListener } from '@/infrastructure/mcp';
-import { harnessMcpTools } from '@/application/ports/mcp-tools';
 import { harnessProbes } from '@/application/ports/harness-probes';
 import { browserService } from '@/infrastructure/browser/service';
 import { installBrowserRequestsPort } from '@/application/ports/browser';
@@ -104,22 +99,19 @@ import { codexAccountRuntime } from '@/infrastructure/providers/codex';
 import { createCodexAccountUsagePort } from '@/infrastructure/providers/codex-usage';
 import { createProviderUsagePort } from '@/infrastructure/providers/usage';
 import { getLLMApiKeys } from '@/infrastructure/runtime/environment';
-import { createProkopHarness } from '@/harnesses/prokop';
 import { createProkopLearningRuntime } from '@/harnesses/prokop/learning';
 import {
   codexCliAvailable,
   codexCliVersion,
-  createCodexCliHarness,
-  createCodexExecution,
 } from '@/harnesses/codex-cli';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
-import { createHarnessExecution, type HarnessRegistration } from '@/application/sessions/harness-execution';
+import { createHarnessExecution } from '@/application/sessions/harness-execution';
+import { createHarnessRegistrations } from './harness-registrations';
 import { bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
-import { getHarnessNotificationPort } from '@/application/ports/harness-notifications';
 import { installHeadlessExecutionPort } from '@/application/ports/headless-execution';
-import { claudeCliAvailable, claudeCliVersion, createClaudeCliHarness, createClaudeExecution } from '@/harnesses/claude-cli';
+import { claudeCliAvailable, claudeCliVersion } from '@/harnesses/claude-cli';
 import { fallbackSessionTitle } from '@/infrastructure/session-title';
 import { cliWorkspaceAvailable } from '@/harnesses/shared/cli-workspace';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
@@ -219,44 +211,8 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   };
   // The Prokop harness reports worktree session changes as an event (host.notify across the agent protocol).
   onHarnessWorktreeChanged(worktreeAttachments.changed);
-  const codexExecution = createCodexExecution({
-    mcp: { tools: (path, sessionId) => harnessMcpTools().tools(path, sessionId) },
-    connect: spawnCodexAppServer,
-    version: codexCliVersion,
-    prepareHook: createPretoolChannel,
-    memoryTools: memoryDomainTools,
-    sessionSearch: sessionSearchDomainTools,
-    agentSkills: agentSkillsDomainTools,
-    instructions: {
-      listPreconfigs,
-      getPreconfig: id => agents.getPreconfigOrAgent(id),
-      getAgentDirectory: id => agents.getAgentDirectory(id),
-      readAgentMemoryFile: (id, filename) => agents.readAgentMemoryFile(id, filename),
-    },
-  });
-  const claudeExecution = createClaudeExecution({
-    mcp: { tools: (path, sessionId) => harnessMcpTools().tools(path, sessionId) },
-    instructions: {
-      listPreconfigs,
-      getPreconfig: id => agents.getPreconfigOrAgent(id),
-      getAgentDirectory: id => agents.getAgentDirectory(id),
-      readAgentMemoryFile: (id, filename) => agents.readAgentMemoryFile(id, filename),
-    },
-    memoryTools: memoryDomainTools,
-    sessionSearch: sessionSearchDomainTools,
-    agentSkills: agentSkillsDomainTools,
-  });
-  const harnessRegistrations: Record<import('@prokopai/sdk').SessionHarness, HarnessRegistration> = {
-    prokop: createProkopHarness({
-      onSessionChanged: (changedSession) => {
-        if (changedSession.workspaceRootId) {
-          getHarnessNotificationPort()?.notifyWorktreeChanged?.(changedSession.workspaceRootId);
-        }
-      },
-    }),
-    'codex-cli': createCodexCliHarness(codexExecution, codexTitleRegeneration),
-    'claude-cli': createClaudeCliHarness(claudeExecution, claudeTitleRegeneration),
-  };
+  const harnessRegistrations = createHarnessRegistrations({ agents,
+    titles: { 'codex-cli': codexTitleRegeneration, 'claude-cli': claudeTitleRegeneration } });
   // With the agent loopback the registrations forward over the agent protocol.
   const boundRegistrations = bindHarnessExecutors(harnessRegistrations);
   const execution = createHarnessExecution(repository, boundRegistrations);
