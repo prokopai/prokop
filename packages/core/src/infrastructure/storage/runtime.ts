@@ -82,9 +82,11 @@ export async function updatePart(
   options?: { syncFts?: boolean },
 ) {
   const current = activeStorage();
-  const previous = await current.conversation.getPart(id);
+  const syncFts = options?.syncFts !== false;
+  // Streaming updates skip indexing; only an indexed update needs the type before the write.
+  const previous = syncFts ? await current.conversation.getPart(id) : null;
   const result = await current.conversation.updatePart(id, updates);
-  if (result && options?.syncFts !== false
+  if (result && syncFts
     && (previous?.type === 'text' || previous?.type === 'tool' || result.type === 'text' || result.type === 'tool')) {
     await current.index.syncMessage(result.messageId);
   }

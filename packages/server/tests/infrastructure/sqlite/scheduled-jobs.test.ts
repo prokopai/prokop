@@ -4,19 +4,9 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { initializeSchema } from '@/infrastructure/sqlite/database';
 import { seedWorkspace } from '#tests/seed';
-import {
-  createScheduledJob,
-  getScheduledJob,
-  listScheduledJobs,
-  updateScheduledJob,
-  deleteScheduledJob,
-  deleteScheduledJobsByWorkspace,
-  getDueScheduledJobs,
-  markScheduledJobRun,
-  markScheduledJobError,
-  advanceScheduledJob,
-  markScheduledJobCompleted,
-} from '@/infrastructure/sqlite/scheduled-job-store';
+import { getScheduledJobRepository } from '@/infrastructure/sqlite/scheduled-job-store';
+
+const scheduledJobs = getScheduledJobRepository;
 
 describe('scheduled-jobs store', () => {
   beforeEach(() => {
@@ -88,7 +78,7 @@ describe('scheduled-jobs store', () => {
     test('creates a job with all fields and reads it back', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Daily reflection',
         prompt: 'Review recent work and extract lessons',
         scheduleKind: 'daily',
@@ -129,7 +119,7 @@ describe('scheduled-jobs store', () => {
     test('creates a job with defaults (nulls and booleans)', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Simple job',
         prompt: 'Do something',
         scheduleKind: 'interval',
@@ -148,7 +138,7 @@ describe('scheduled-jobs store', () => {
     test('creates a job with notificationsEnabled true', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Notify job',
         prompt: 'Do something',
         scheduleKind: 'interval',
@@ -162,7 +152,7 @@ describe('scheduled-jobs store', () => {
     test('computes nextRunAt for interval schedule', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Every 2h',
         prompt: 'Run',
         scheduleKind: 'interval',
@@ -177,7 +167,7 @@ describe('scheduled-jobs store', () => {
     test('computes nextRunAt for weekly schedule', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Weekdays',
         prompt: 'Run',
         scheduleKind: 'weekly',
@@ -191,7 +181,7 @@ describe('scheduled-jobs store', () => {
 
   describe('getScheduledJob', () => {
     test('returns null for non-existent job', () => {
-      expect(getScheduledJob('does-not-exist')).toBeNull();
+      expect(scheduledJobs().get('does-not-exist')).toBeNull();
     });
   });
 
@@ -199,20 +189,20 @@ describe('scheduled-jobs store', () => {
     test('returns all jobs for a workspace', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job1 = createScheduledJob('ws1', {
+      const job1 = scheduledJobs().create('ws1', {
         name: 'First',
         prompt: 'A',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
-      const job2 = createScheduledJob('ws1', {
+      const job2 = scheduledJobs().create('ws1', {
         name: 'Second',
         prompt: 'B',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      const jobs = listScheduledJobs('ws1');
+      const jobs = scheduledJobs().list('ws1');
       expect(jobs).toHaveLength(2);
       expect(jobs.some(j => j.id === job1.id)).toBe(true);
       expect(jobs.some(j => j.id === job2.id)).toBe(true);
@@ -222,35 +212,35 @@ describe('scheduled-jobs store', () => {
       seedWorkspace({ id: 'ws1', name: 'A', path: '/a' });
       seedWorkspace({ id: 'ws2', name: 'B', path: '/b' });
 
-      createScheduledJob('ws1', {
+      scheduledJobs().create('ws1', {
         name: 'Job A',
         prompt: 'A',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
-      createScheduledJob('ws2', {
+      scheduledJobs().create('ws2', {
         name: 'Job B',
         prompt: 'B',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      expect(listScheduledJobs('ws1')).toHaveLength(1);
-      expect(listScheduledJobs('ws2')).toHaveLength(1);
+      expect(scheduledJobs().list('ws1')).toHaveLength(1);
+      expect(scheduledJobs().list('ws2')).toHaveLength(1);
     });
   });
 
   describe('updateScheduledJob', () => {
     test('updates name and prompt', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Old',
         prompt: 'Old prompt',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      const updated = updateScheduledJob(job.id, {
+      const updated = scheduledJobs().update(job.id, {
         name: 'New name',
         prompt: 'New prompt',
       });
@@ -261,7 +251,7 @@ describe('scheduled-jobs store', () => {
 
     test('updates schedule and recomputes nextRunAt', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Job',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -269,7 +259,7 @@ describe('scheduled-jobs store', () => {
       });
       const originalNextRun = job.nextRunAt;
 
-      const updated = updateScheduledJob(job.id, {
+      const updated = scheduledJobs().update(job.id, {
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 30 },
       });
@@ -282,29 +272,29 @@ describe('scheduled-jobs store', () => {
 
     test('pausing sets nextRunAt to null, resuming recomputes it', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Job',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      const paused = updateScheduledJob(job.id, { state: 'paused' });
+      const paused = scheduledJobs().update(job.id, { state: 'paused' });
       expect(paused!.state).toBe('paused');
       expect(paused!.nextRunAt).toBeNull();
 
-      const resumed = updateScheduledJob(job.id, { state: 'active' });
+      const resumed = scheduledJobs().update(job.id, { state: 'active' });
       expect(resumed!.state).toBe('active');
       expect(resumed!.nextRunAt).not.toBeNull();
     });
 
     test('returns null for non-existent job', () => {
-      expect(updateScheduledJob('nope', { name: 'x' })).toBeNull();
+      expect(scheduledJobs().update('nope', { name: 'x' })).toBeNull();
     });
 
     test('toggles notificationsEnabled in both directions', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -312,16 +302,16 @@ describe('scheduled-jobs store', () => {
       });
       expect(job.notificationsEnabled).toBe(false);
 
-      const enabled = updateScheduledJob(job.id, { notificationsEnabled: true });
+      const enabled = scheduledJobs().update(job.id, { notificationsEnabled: true });
       expect(enabled!.notificationsEnabled).toBe(true);
 
-      const disabled = updateScheduledJob(job.id, { notificationsEnabled: false });
+      const disabled = scheduledJobs().update(job.id, { notificationsEnabled: false });
       expect(disabled!.notificationsEnabled).toBe(false);
     });
 
     test('unrelated update preserves notificationsEnabled', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -329,7 +319,7 @@ describe('scheduled-jobs store', () => {
         notificationsEnabled: true,
       });
 
-      const updated = updateScheduledJob(job.id, { name: 'Renamed' });
+      const updated = scheduledJobs().update(job.id, { name: 'Renamed' });
       expect(updated!.notificationsEnabled).toBe(true);
     });
   });
@@ -337,19 +327,19 @@ describe('scheduled-jobs store', () => {
   describe('deleteScheduledJob', () => {
     test('deletes a job and returns true', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      expect(deleteScheduledJob(job.id)).toBe(true);
-      expect(getScheduledJob(job.id)).toBeNull();
+      expect(scheduledJobs().delete(job.id)).toBe(true);
+      expect(scheduledJobs().get(job.id)).toBeNull();
     });
 
     test('returns false for non-existent job', () => {
-      expect(deleteScheduledJob('nope')).toBe(false);
+      expect(scheduledJobs().delete('nope')).toBe(false);
     });
   });
 
@@ -358,13 +348,13 @@ describe('scheduled-jobs store', () => {
       seedWorkspace({ id: 'ws1', name: 'A', path: '/a' });
       seedWorkspace({ id: 'ws2', name: 'B', path: '/b' });
 
-      createScheduledJob('ws1', { name: 'J1', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
-      createScheduledJob('ws1', { name: 'J2', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
-      createScheduledJob('ws2', { name: 'J3', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
+      scheduledJobs().create('ws1', { name: 'J1', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
+      scheduledJobs().create('ws1', { name: 'J2', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
+      scheduledJobs().create('ws2', { name: 'J3', prompt: 'P', scheduleKind: 'interval', scheduleConfig: { type: 'interval', intervalMinutes: 60 } });
 
-      expect(deleteScheduledJobsByWorkspace('ws1')).toBe(2);
-      expect(listScheduledJobs('ws1')).toHaveLength(0);
-      expect(listScheduledJobs('ws2')).toHaveLength(1);
+      expect(scheduledJobs().deleteByWorkspace('ws1')).toBe(2);
+      expect(scheduledJobs().list('ws1')).toHaveLength(0);
+      expect(scheduledJobs().list('ws2')).toHaveLength(1);
     });
   });
 
@@ -372,14 +362,14 @@ describe('scheduled-jobs store', () => {
     test('returns active jobs with nextRunAt <= now', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Due',
         prompt: 'P',
         scheduleKind: 'once',
         scheduleConfig: { type: 'once', runAt: new Date(Date.now() - 1000).toISOString() },
       });
 
-      const due = getDueScheduledJobs(Date.now());
+      const due = scheduledJobs().getDue(Date.now());
       expect(due).toHaveLength(1);
       expect(due[0].id).toBe(job.id);
     });
@@ -387,7 +377,7 @@ describe('scheduled-jobs store', () => {
     test('excludes paused and completed jobs', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
 
-      createScheduledJob('ws1', {
+      scheduledJobs().create('ws1', {
         name: 'Due',
         prompt: 'P',
         scheduleKind: 'once',
@@ -395,26 +385,26 @@ describe('scheduled-jobs store', () => {
       });
 
       // Pause it
-      const jobs = listScheduledJobs('ws1');
-      updateScheduledJob(jobs[0].id, { state: 'paused' });
+      const jobs = scheduledJobs().list('ws1');
+      scheduledJobs().update(jobs[0].id, { state: 'paused' });
 
-      expect(getDueScheduledJobs(Date.now())).toHaveLength(0);
+      expect(scheduledJobs().getDue(Date.now())).toHaveLength(0);
     });
   });
 
   describe('markScheduledJobRun', () => {
     test('increments runCount and sets lastRunAt/sessionId', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      markScheduledJobRun(job.id, 'session-run-1');
+      scheduledJobs().markRun(job.id, 'session-run-1');
 
-      const updated = getScheduledJob(job.id)!;
+      const updated = scheduledJobs().get(job.id)!;
       expect(updated.runCount).toBe(1);
       expect(updated.lastRunAt).not.toBeNull();
       expect(updated.lastRunSessionId).toBe('session-run-1');
@@ -425,16 +415,16 @@ describe('scheduled-jobs store', () => {
   describe('markScheduledJobError', () => {
     test('sets lastError without changing runCount', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      markScheduledJobError(job.id, 'Something went wrong');
+      scheduledJobs().markError(job.id, 'Something went wrong');
 
-      const updated = getScheduledJob(job.id)!;
+      const updated = scheduledJobs().get(job.id)!;
       expect(updated.runCount).toBe(0);
       expect(updated.lastError).toBe('Something went wrong');
     });
@@ -443,24 +433,24 @@ describe('scheduled-jobs store', () => {
   describe('advanceScheduledJob', () => {
     test('completes a one-shot job after first run', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Once',
         prompt: 'P',
         scheduleKind: 'once',
         scheduleConfig: { type: 'once', runAt: new Date(Date.now() - 1000).toISOString() },
       });
 
-      markScheduledJobRun(job.id, 's1');
-      advanceScheduledJob(job.id);
+      scheduledJobs().markRun(job.id, 's1');
+      scheduledJobs().advance(job.id);
 
-      const updated = getScheduledJob(job.id)!;
+      const updated = scheduledJobs().get(job.id)!;
       expect(updated.state).toBe('completed');
       expect(updated.nextRunAt).toBeNull();
     });
 
     test('completes a recurring job when repeatLimit reached', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Limited',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -469,30 +459,30 @@ describe('scheduled-jobs store', () => {
       });
 
       // Run 1: runCount becomes 1, advance checks 1+1=2 >= 3? No → stays active
-      markScheduledJobRun(job.id, 's1');
-      advanceScheduledJob(job.id);
-      expect(getScheduledJob(job.id)!.state).toBe('active');
+      scheduledJobs().markRun(job.id, 's1');
+      scheduledJobs().advance(job.id);
+      expect(scheduledJobs().get(job.id)!.state).toBe('active');
 
       // Run 2: runCount becomes 2, advance checks 2+1=3 >= 3? Yes → completes
-      markScheduledJobRun(job.id, 's2');
-      advanceScheduledJob(job.id);
-      expect(getScheduledJob(job.id)!.state).toBe('completed');
-      expect(getScheduledJob(job.id)!.nextRunAt).toBeNull();
+      scheduledJobs().markRun(job.id, 's2');
+      scheduledJobs().advance(job.id);
+      expect(scheduledJobs().get(job.id)!.state).toBe('completed');
+      expect(scheduledJobs().get(job.id)!.nextRunAt).toBeNull();
     });
 
     test('schedules next run for recurring job under repeatLimit', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Recurring',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      markScheduledJobRun(job.id, 's1');
-      advanceScheduledJob(job.id);
+      scheduledJobs().markRun(job.id, 's1');
+      scheduledJobs().advance(job.id);
 
-      const updated = getScheduledJob(job.id)!;
+      const updated = scheduledJobs().get(job.id)!;
       expect(updated.state).toBe('active');
       expect(updated.nextRunAt).not.toBeNull();
     });
@@ -501,16 +491,16 @@ describe('scheduled-jobs store', () => {
   describe('markScheduledJobCompleted', () => {
     test('sets state to completed and clears nextRunAt', () => {
       seedWorkspace({ id: 'ws1', name: 'Test', path: '/test' });
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'J',
         prompt: 'P',
         scheduleKind: 'interval',
         scheduleConfig: { type: 'interval', intervalMinutes: 60 },
       });
 
-      markScheduledJobCompleted(job.id);
+      scheduledJobs().markCompleted(job.id);
 
-      const updated = getScheduledJob(job.id)!;
+      const updated = scheduledJobs().get(job.id)!;
       expect(updated.state).toBe('completed');
       expect(updated.nextRunAt).toBeNull();
     });

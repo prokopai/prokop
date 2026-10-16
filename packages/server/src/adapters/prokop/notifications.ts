@@ -1,6 +1,6 @@
 import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { getSession } from '@/infrastructure/sqlite/session-store';
-import { getScheduledJob } from '@/infrastructure/sqlite/scheduled-job-store';
+import { getScheduledJobRepository } from '@/infrastructure/sqlite/scheduled-job-store';
 import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createNotificationRepository } from '@/infrastructure/sqlite/notification-repository';
 import { createWebPushSender } from '@/infrastructure/web-push/sender';
@@ -34,7 +34,7 @@ export function getProkopNotificationsApplication(): NotificationsApplication {
     store,
     sender,
     getSession,
-    canNotifyForSession: (session) => scheduledSessionCanNotify(session, (id) => getScheduledJob(id)),
+    canNotifyForSession: (session) => scheduledSessionCanNotify(session, (id) => getScheduledJobRepository().get(id)),
     getPendingAsk: getPermissionRequestByRequestId,
     permissionTimeoutMs: getPermissionTimeoutMs,
     getControllerClientId: (sessionId) => getControlState(sessionId).controllerClientId,

@@ -4,7 +4,7 @@ import { getDefaultPreconfig, getPreconfig } from '@prokopai/core/infrastructure
 import { createScheduledJobRunner } from '@/infrastructure/scheduling/scheduled-job-runner';
 import { createSession, getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace, getWorkspacePermissionMode } from '@/infrastructure/sqlite/workspaces';
-import { markScheduledJobError, markScheduledJobRun } from '@/infrastructure/sqlite/scheduled-job-store';
+import { getScheduledJobRepository } from '@/infrastructure/sqlite/scheduled-job-store';
 import type { ScheduledJobExecutionPort, ScheduledJobRepositoryPort } from '@/application/ports/scheduling';
 
 export interface ProkopScheduledJobExecutionOptions {
@@ -23,7 +23,10 @@ export interface ProkopScheduledJobExecutionOptions {
 export function createProkopScheduledJobExecution(
   {
     announceSession = () => {},
-    runs = { markRun: markScheduledJobRun, markError: markScheduledJobError },
+    runs = {
+      markRun: (id, sessionId) => getScheduledJobRepository().markRun(id, sessionId),
+      markError: (id, error) => getScheduledJobRepository().markError(id, error),
+    },
   }: ProkopScheduledJobExecutionOptions = {},
   runner: Pick<ScheduledJobExecutionPort, 'run'> = createScheduledJobRunner({
     repository: runs,

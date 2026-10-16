@@ -7,9 +7,11 @@ import {
   reserveDelivery,
   deleteStaleSubscription,
 } from '@/infrastructure/sqlite/web-push';
-import { createScheduledJob, deleteScheduledJob } from '@/infrastructure/sqlite/scheduled-job-store';
+import { getScheduledJobRepository } from '@/infrastructure/sqlite/scheduled-job-store';
 import { createPendingAsk } from '@/infrastructure/sqlite/pending-asks';
 import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
+
+const scheduledJobs = getScheduledJobRepository;
 
 const validKeys = { p256dh: 'p256dh-value', auth: 'auth-value' };
 const validEndpoint = 'https://fcm.googleapis.com/fcm/send/abc';
@@ -230,7 +232,7 @@ describe('web-push dispatch service', () => {
         preferences: { completion: true, permission: true },
       }));
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Job',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -271,7 +273,7 @@ describe('web-push dispatch service', () => {
         preferences: { completion: true, permission: true },
       }));
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Job',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -312,7 +314,7 @@ describe('web-push dispatch service', () => {
         preferences: { completion: true, permission: true },
       }));
 
-      const jobOff = createScheduledJob('ws1', {
+      const jobOff = scheduledJobs().create('ws1', {
         name: 'Failure off',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -323,7 +325,7 @@ describe('web-push dispatch service', () => {
         metadata: { scheduledJobId: jobOff.id },
       });
 
-      const jobOn = createScheduledJob('ws1', {
+      const jobOn = scheduledJobs().create('ws1', {
         name: 'Failure on',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -376,7 +378,7 @@ describe('web-push dispatch service', () => {
         preferences: { completion: true, permission: true },
       }));
 
-      const job = createScheduledJob('ws1', {
+      const job = scheduledJobs().create('ws1', {
         name: 'Job',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -390,7 +392,7 @@ describe('web-push dispatch service', () => {
       });
 
       // Delete the job so the session references a missing record
-      deleteScheduledJob(job.id);
+      scheduledJobs().delete(job.id);
 
       const app = getProkopNotificationsApplication();
 
@@ -421,7 +423,7 @@ describe('web-push dispatch service', () => {
         preferences: { completion: true, permission: true },
       }));
 
-      const jobOff = createScheduledJob('ws1', {
+      const jobOff = scheduledJobs().create('ws1', {
         name: 'Off',
         prompt: 'P',
         scheduleKind: 'interval',
@@ -459,7 +461,7 @@ describe('web-push dispatch service', () => {
       expect(offDelivery).toBe(true); // Still available → nothing reserved it
 
       // Now enable notifications and test the on case
-      const jobOn = createScheduledJob('ws1', {
+      const jobOn = scheduledJobs().create('ws1', {
         name: 'On',
         prompt: 'P',
         scheduleKind: 'interval',

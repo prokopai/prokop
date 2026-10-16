@@ -220,7 +220,6 @@ const layerInfrastructureExceptions: Record<string, string[]> = {
   'packages/server/src/infrastructure/sqlite/database.ts': ['@prokopai/core/config', '@/utils/perf'],
   'packages/server/src/infrastructure/sqlite/session-repository.ts': ['@prokopai/core/config'],
   'packages/server/src/infrastructure/mcp/manager.ts': ['@/version'],
-  'packages/server/src/infrastructure/daemon/index.ts': ['@prokopai/core/config'],
   'packages/server/src/infrastructure/session-title.ts': ['@prokopai/core/config'],
   'packages/server/src/infrastructure/providers/provider-credential-files.ts': [
     '@/config/errors', '@/config/files',
@@ -924,7 +923,6 @@ describe('server layer boundaries', () => {
 
     const imports = parseImports(file!.sourceText, file!.path);
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
-      '@prokopai/sdk',
       '@/application/ports/scheduling',
       './database',
       './scheduled-job-repository',
@@ -1614,22 +1612,6 @@ describe('server layer boundaries', () => {
     expect(
       imports.some((imp) => imp.specifier === 'bun-pty' && imp.names.includes('spawn')),
     ).toBe(true);
-  });
-
-  test('S9 gate: terminal session store wiring is owned by SQLite infrastructure', () => {
-    const storePath = resolve(infrastructureSqliteDir, 'terminal-session-store.ts');
-    const file = scanDirectory(serverSourceRoot).find((candidate) => candidate.path === storePath);
-    expect(file).toBeDefined();
-
-    const imports = parseImports(file!.sourceText, file!.path);
-    expect(imports.map((imp) => imp.specifier).sort()).toEqual([
-      '@/application/ports/terminal',
-      './database',
-      './terminal-session-repository',
-    ].sort());
-    expect(file!.sourceText).not.toContain('@/store');
-    expect(file!.sourceText).not.toContain('SELECT * FROM');
-    expect(file!.sourceText).not.toContain('INSERT INTO');
   });
 
   test('S5 gate: the infrastructure terminal repository imports only the inward port and SQLite types', () => {

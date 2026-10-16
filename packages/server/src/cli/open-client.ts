@@ -1,4 +1,9 @@
-import { readEnv, readEnvInt } from '@prokopai/core/infrastructure/runtime/env-compat';
+import {
+  getLocalHost,
+  getLocalHttpEnabled,
+  getPort,
+  getTlsEnabled,
+} from '@prokopai/core/infrastructure/runtime/environment';
 
 export interface OpenClientResult {
   opened: boolean;
@@ -6,15 +11,11 @@ export interface OpenClientResult {
 }
 
 export function getClientUrl(): string {
-  const port = readEnvInt('PORT', 8742);
-  const tlsEnabled = readEnv('TLS_ENABLED') === 'true';
-  const localEnabled = tlsEnabled && readEnv('LOCAL_HTTP') !== 'false';
-
-  if (localEnabled) {
-    return `http://${readEnv('LOCAL_HOST') || '127.0.0.1'}:${port}`;
+  const port = getPort();
+  if (getLocalHttpEnabled()) {
+    return `http://${getLocalHost()}:${port}`;
   }
-
-  return `${tlsEnabled ? 'https' : 'http'}://localhost:${port}`;
+  return `${getTlsEnabled() ? 'https' : 'http'}://localhost:${port}`;
 }
 
 export async function waitForClient(url: string, timeoutMs = 10_000): Promise<boolean> {

@@ -26,7 +26,7 @@ import { closeDatabase, getDatabase } from '@/infrastructure/sqlite/database';
 import { backfillFts } from '@/infrastructure/session-search/fts';
 import type { ServerMessage, AskAuthority } from '@prokopai/sdk';
 import { getTerminalManager, getTerminalEventManager } from '@/transport/terminal';
-import { cleanupRunningSessionsOnStartup } from '@/infrastructure/sqlite/terminal-session-store';
+import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
 import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
@@ -34,7 +34,6 @@ import { disposeExecutionLifecycle, initializeExecutionLifecycle } from '@/appli
 import { reconcileAllOrphanedToolCalls } from '@/infrastructure/sqlite/message-store';
 import { cleanupAllPendingAsks } from '@/infrastructure/sqlite/pending-asks';
 import { cleanupOrphanedData } from '@/infrastructure/sqlite/cleanup';
-import { getPort } from '@prokopai/core/config';
 import { validateToken, isAuthDisabled } from '@/transport/http/middleware/token';
 import { createRequestHandler } from '@/transport/request-handler';
 import { createListenerSet, type ListenerEndpoint, type ListenerSet } from '@/transport/listeners';
@@ -48,6 +47,7 @@ import { ensurePromptsDir } from '@/config/prompts-registry';
 // before any provider lookup (P2 requirement).
 import '@/infrastructure/providers';
 import {
+  getPort,
   getLLMOpenRouterApiKey,
   getLLMMinimaxApiKey,
   getLLMZhipuCodingApiKey,
@@ -131,7 +131,7 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
   } catch (error: unknown) {
     console.warn('[startup] Agent learning migration failed:', error);
   }
-  cleanupRunningSessionsOnStartup();
+  createProkopTerminalSessionPort().cleanupRunningSessionsOnStartup();
   const stuckRunningSessions = reconcileStuckRunningSessions();
   if (stuckRunningSessions > 0) {
     console.log(`[startup] Reconciled ${stuckRunningSessions} session(s) stuck in running state`);

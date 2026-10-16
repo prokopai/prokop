@@ -24,7 +24,7 @@ import {
   pinMessage,
   unpinMessage,
 } from '@/infrastructure/sqlite/pinned-messages';
-import { deleteScheduledJobsByWorkspace } from '@/infrastructure/sqlite/scheduled-job-store';
+import { getScheduledJobRepository } from '@/infrastructure/sqlite/scheduled-job-store';
 import { getTerminalManager } from '@/transport/terminal';
 import { shutdownWorkspace } from '@/infrastructure/mcp';
 import { getWorkspacesDir } from '@prokopai/core/infrastructure/runtime/paths';
@@ -108,7 +108,7 @@ export function createProkopWorkspaceTerminalPort(): WorkspaceTerminalPort {
 export function createProkopWorkspaceCleanupPort(): WorkspaceCleanupPort {
   return {
     mcpShutdown: shutdownWorkspace,
-    deleteScheduledJobs: deleteScheduledJobsByWorkspace,
+    deleteScheduledJobs: (workspaceId) => getScheduledJobRepository().deleteByWorkspace(workspaceId),
   };
 }
 

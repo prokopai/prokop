@@ -39,7 +39,6 @@ import {
   getAttachmentsForSession,
   MAX_ATTACHMENT_SIZE,
   validateImageMime,
-  type Attachment,
 } from '@/infrastructure/sqlite/attachments';
 import { getWorkspacePermissionMode } from '@/infrastructure/sqlite/workspaces';
 import { getDatabase } from '@/infrastructure/sqlite/database';
@@ -60,62 +59,16 @@ import type {
   SessionRecordCreateInput,
   SessionRepositoryPort,
   SessionUpdateInput,
+  ToolOutputArtifactPage as SessionToolOutputArtifactPage,
   TranscriptPage,
 } from '@prokopai/core/application/ports/session';
 import type {
-  MessageWithParts,
   QueuedMessage,
   Session,
   SessionStatus,
   ToolPart,
 } from '@prokopai/sdk';
 import type { Preconfig } from '@prokopai/sdk';
-import type { SessionPageInfo, ToolOutputArtifactPage as SessionToolOutputArtifactPage } from '@prokopai/core/application/ports/session';
-
-function toTranscriptPage(result: {
-  messages: MessageWithParts[];
-  pagination: {
-    hasOlder: boolean;
-    oldestSequence: number | null;
-    newestSequence: number | null;
-    limit: number;
-  };
-}): TranscriptPage {
-  return {
-    messages: result.messages,
-    pagination: {
-      hasOlder: result.pagination.hasOlder,
-      oldestSequence: result.pagination.oldestSequence,
-      newestSequence: result.pagination.newestSequence,
-      limit: result.pagination.limit,
-    },
-  };
-}
-
-function toGroupedSessionPage(result: {
-  sessions: Record<string, Session[]>;
-  pagination: Record<string, SessionPageInfo>;
-}): GroupedSessionPage {
-  return {
-    sessions: result.sessions,
-    pagination: result.pagination,
-  };
-}
-
-function toAttachmentRecord(attachment: Attachment): AttachmentRecord {
-  return {
-    id: attachment.id,
-    sessionId: attachment.sessionId,
-    workspaceId: attachment.workspaceId,
-    kind: attachment.kind,
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
-    sizeBytes: attachment.sizeBytes,
-    absolutePath: attachment.absolutePath,
-    createdAt: attachment.createdAt,
-    accessKey: attachment.accessKey,
-  };
-}
 
 function toCreateInput(input: SessionRecordCreateInput) {
   return {
@@ -207,7 +160,7 @@ export function createProkopSessionRepository(
     },
 
     listSessionPageGrouped(workspaceIds, options): GroupedSessionPage {
-      const page = toGroupedSessionPage(listSessionPageGrouped(workspaceIds, options));
+      const page = listSessionPageGrouped(workspaceIds, options);
       return {
         ...page,
         sessions: Object.fromEntries(
@@ -228,7 +181,7 @@ export function createProkopSessionRepository(
     },
 
     listLatestMessagesWithPartsPage(sessionId: string, limit: number): TranscriptPage {
-      return toTranscriptPage(listLatestMessagesWithPartsPage(sessionId, limit));
+      return listLatestMessagesWithPartsPage(sessionId, limit);
     },
 
     listMessagesWithPartsBeforeSequence(
@@ -236,7 +189,7 @@ export function createProkopSessionRepository(
       beforeSequence: number,
       limit: number,
     ): TranscriptPage {
-      return toTranscriptPage(listMessagesWithPartsBeforeSequence(sessionId, beforeSequence, limit));
+      return listMessagesWithPartsBeforeSequence(sessionId, beforeSequence, limit);
     },
 
     getToolPart(sessionId: string, partId: string): ToolPart | null {
@@ -320,14 +273,13 @@ export function createProkopSessionRepository(
         return validateImageMime(mimeType);
       },
       getByKey(attachmentId: string, accessKey: string): AttachmentRecord | null {
-        const attachment = getAttachmentByKey(attachmentId, accessKey);
-        return attachment ? toAttachmentRecord(attachment) : null;
+        return getAttachmentByKey(attachmentId, accessKey);
       },
       listForSession(sessionId: string): AttachmentRecord[] {
-        return getAttachmentsForSession(sessionId).map(toAttachmentRecord);
+        return getAttachmentsForSession(sessionId);
       },
       async create(input): Promise<AttachmentRecord> {
-        return toAttachmentRecord(await createAttachment(input));
+        return createAttachment(input);
       },
       async openFile(record: AttachmentRecord): Promise<Blob | null> {
         const file = Bun.file(record.absolutePath);

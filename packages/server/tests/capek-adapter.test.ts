@@ -5,10 +5,8 @@ import { join } from 'path';
 import { getRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { getRuntimeHost as getProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
-import {
-  prokopRuntimeConfiguration,
-  prokopStorageBundle,
-} from '@/adapters/prokop/runtime-host';
+import { prokopRuntimeConfiguration } from '@prokopai/agent';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { createRuntime } from '@/bootstrap/create-runtime';
 
 const expectedGroupOperations: Record<keyof typeof prokopCompatibilityBindings, string[]> = {

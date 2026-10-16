@@ -3,16 +3,14 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import {
   getDatabasePath as getEnvDatabasePath,
   getToolsPath as getEnvToolsPath,
-  getPort as getEnvPort,
-  getHost as getEnvHost,
   getLLMMaxTokens,
   getModelsPath,
 } from '../infrastructure/runtime/environment';
 import {
   getDataDir,
-  getConfigPath as getConfigFilePath,
-  getModelsConfigPath as getModelsConfigFilePath,
-  getDefaultDatabasePath as getDefaultDatabasePathFromPaths,
+  getConfigPath,
+  getModelsConfigPath,
+  getDefaultDatabasePath,
   getToolsDir,
 } from '../infrastructure/runtime/paths';
 import { validateModelsDocument } from './schema';
@@ -53,11 +51,6 @@ export class ModelsConfigInvalidError extends Error {
 let configCache: { databasePath: string; toolsPath: string; port: number; host: string } | null = null;
 
 let modelsCache: ModelsConfig | null = null;
-
-// Get the models config file path (~/.jean2/models.json)
-export function getModelsConfigPath(): string {
-  return getModelsConfigFilePath();
-}
 
 /**
  * Resolve the models config path using the following priority:
@@ -108,7 +101,7 @@ function loadConfig(): { databasePath: string; toolsPath: string; port: number; 
     return configCache;
   }
 
-  const configPath = getConfigFilePath();
+  const configPath = getConfigPath();
 
   if (!existsSync(configPath)) {
     throw new NotInitializedError();
@@ -118,7 +111,7 @@ function loadConfig(): { databasePath: string; toolsPath: string; port: number; 
     const content = readFileSync(configPath, 'utf-8');
     const config = JSON.parse(content);
     configCache = {
-      databasePath: config.databasePath || getDefaultDatabasePathFromPaths(),
+      databasePath: config.databasePath || getDefaultDatabasePath(),
       toolsPath: config.toolsPath || getToolsDir(),
       port: config.port || 8742,
       host: config.host || '127.0.0.1',
@@ -156,16 +149,6 @@ export function resolveDatabasePath(): string {
  */
 export function resolveToolsPath(): string {
   return getEnvToolsPath() || loadConfig().toolsPath;
-}
-
-// Get port from config (or env override)
-export function getPort(): number {
-  return getEnvPort();
-}
-
-// Get host from config (or env override)
-export function getHost(): string {
-  return getEnvHost();
 }
 
 // Maximum output tokens cap (like opencode's OUTPUT_TOKEN_MAX)
@@ -302,26 +285,6 @@ export function getMaxOutputTokens(modelId?: string): number {
   return Math.min(model.maxOutputTokens, OUTPUT_TOKEN_MAX);
 }
 
-// Get the config directory path (~/.jean2)
-export function getConfigDir(): string {
-  return getDataDir();
-}
-
-// Get the config file path (~/.jean2/config.json)
-export function getConfigPath(): string {
-  return getConfigFilePath();
-}
-
-// Get the default database path (~/.jean2/data/agent.db)
-export function getDefaultDatabasePath(): string {
-  return getDefaultDatabasePathFromPaths();
-}
-
-// Get the default tools path (~/.jean2/tools)
-export function getDefaultToolsPath(): string {
-  return getToolsDir();
-}
-
 // Config interface for init
 export interface ProkopConfig {
   databasePath: string;
@@ -333,9 +296,8 @@ export interface ProkopConfig {
 
 // Save the config (creates directory if needed)
 export function saveConfig(config: ProkopConfig): void {
-  const configDir = getConfigDir();
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(getConfigFilePath(), JSON.stringify(config, null, 2));
+  mkdirSync(getDataDir(), { recursive: true });
+  writeFileSync(getConfigPath(), JSON.stringify(config, null, 2));
 }
 
 // Clear the config cache (needed when re-initializing)

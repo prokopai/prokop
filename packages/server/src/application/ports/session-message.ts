@@ -24,6 +24,13 @@ import type {
   SystemMessage,
   AssistantMessage,
 } from '@prokopai/sdk';
+import type {
+  SessionPageInfo,
+  StreamingPartSnapshot,
+  TranscriptPage,
+} from '@prokopai/core/application/ports/session';
+
+export type { SessionPageInfo, StreamingPartSnapshot, TranscriptPage };
 
 export interface SessionMessageRepositoryHooks {
   events: SessionMessageEventPublisher;
@@ -38,12 +45,6 @@ export interface SessionCursorPayload {
   version: 1;
   updatedAt: string;
   id: string;
-}
-
-export interface SessionPageInfo {
-  nextCursor: string | null;
-  hasMore: boolean;
-  limit: number;
 }
 
 export interface SessionPage {
@@ -125,25 +126,6 @@ export interface SessionStorePort {
 
 export type ToolInterruptReason = 'user_request' | 'timeout' | 'error' | 'cascade';
 
-export interface StreamingPartSnapshot {
-  id: string;
-  messageId: string;
-  sessionId: string;
-  type: 'text' | 'reasoning';
-  createdAt: number;
-  text: string;
-}
-
-export interface TranscriptPageResult {
-  messages: MessageWithParts[];
-  pagination: {
-    hasOlder: boolean;
-    oldestSequence: number | null;
-    newestSequence: number | null;
-    limit: number;
-  };
-}
-
 export interface CompactionBoundary {
   triggerId: string;
   triggerSequence: number;
@@ -209,12 +191,12 @@ export interface MessageStorePort {
     handoffBrief: string | null;
   };
   countMessagesInSession(sessionId: string): number;
-  listLatestMessagesWithPartsPage(sessionId: string, limit?: number): TranscriptPageResult;
+  listLatestMessagesWithPartsPage(sessionId: string, limit?: number): TranscriptPage;
   listMessagesWithPartsBeforeSequence(
     sessionId: string,
     beforeSequence: number,
     limit?: number,
-  ): TranscriptPageResult;
+  ): TranscriptPage;
 
   syncMessageFts(messageId: string): void;
   persistStreamingPartSnapshot(snapshot: StreamingPartSnapshot): boolean;

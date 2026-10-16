@@ -2,6 +2,7 @@ import { getDatabase } from './database';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { AttachmentKind } from '@prokopai/sdk';
+import type { AttachmentRecord } from '@prokopai/core/application/ports/session';
 import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 
 import { determineKind, MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
@@ -19,18 +20,7 @@ export interface AttachmentRow {
   access_key: string;
 }
 
-export interface Attachment {
-  id: string;
-  sessionId: string;
-  workspaceId: string;
-  kind: AttachmentKind;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  absolutePath: string;
-  createdAt: string;
-  accessKey: string;
-}
+export type Attachment = AttachmentRecord;
 
 export { MAX_ATTACHMENT_SIZE };
 

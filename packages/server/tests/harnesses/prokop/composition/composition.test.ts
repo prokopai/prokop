@@ -40,7 +40,16 @@ import {
   type AgentScopeHandle,
   type ProcessScopeHandle,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
-import * as focused from '@/adapters/prokop/runtime-host';
+import {
+  prokopAgentSource,
+  prokopInstructionSource,
+  prokopPreconfigSource,
+  prokopRuntimeConfiguration,
+  prokopWorkspacePolicyOptions,
+} from '@prokopai/agent';
+import { prokopSessionSearchHost } from '@/adapters/prokop/runtime-host/session-search';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
+import { prokopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
 import { configureProkopSessionSearchHost } from '@/adapters/prokop/runtime-host/session-search';
 import { JEAN2_AGENT_PLUGIN_IDS, JEAN2_PROCESS_PLUGIN_IDS } from '@prokopai/agent/internal/harnesses/prokop/composition/profile';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
@@ -159,15 +168,15 @@ describe('Čapek composition root', () => {
     const configured = getProkopCompatibilityBindings();
 
     expect(configured).toBe(prokopCompatibilityBindings);
-    expect(getRuntimeConfiguration()).toBe(focused.prokopRuntimeConfiguration);
-    expect(getStorage()).toBe(focused.prokopStorageBundle);
-    expect(getSessionSearchHost()).toBe(focused.prokopSessionSearchHost);
-    expect(getWorkspaceToolDiscovery()).toBe(focused.prokopWorkspaceToolDiscovery);
-    expect(focused.prokopWorkspacePolicyOptions.blockedPaths).toEqual([
+    expect(getRuntimeConfiguration()).toBe(prokopRuntimeConfiguration);
+    expect(getStorage()).toBe(prokopStorageBundle);
+    expect(getSessionSearchHost()).toBe(prokopSessionSearchHost);
+    expect(getWorkspaceToolDiscovery()).toBe(prokopWorkspaceToolDiscovery);
+    expect(prokopWorkspacePolicyOptions.blockedPaths).toEqual([
       '/etc/', '/usr/', '/bin/', '/sbin/', '/boot/', '/dev/', '/proc/', '/sys/', '/root/',
     ]);
-    expect(focused.prokopWorkspacePolicyOptions.sensitivePatterns).toContain('.env');
-    expect(focused.prokopWorkspacePolicyOptions.sensitivePatterns).not.toContain('credentials');
+    expect(prokopWorkspacePolicyOptions.sensitivePatterns).toContain('.env');
+    expect(prokopWorkspacePolicyOptions.sensitivePatterns).not.toContain('credentials');
 
     const processCapability = createWorkspaceCapability({
       root: '/workspace',
@@ -203,7 +212,7 @@ describe('S5 session-search host wiring', () => {
 
   test('the installed host delegates search to the infrastructure sqlite repository', async () => {
     const host = getSessionSearchHost();
-    expect(host).toBe(focused.prokopSessionSearchHost);
+    expect(host).toBe(prokopSessionSearchHost);
 
     seedWorkspace({ id: 'ws-composed' });
     const session = seedSession('ws-composed');
@@ -243,10 +252,10 @@ describe('C2 kernel composition of Jean2 dependencies', () => {
     processScope = composition.processScope;
     agentScope = composition.agentScope;
 
-    expect(agentScope.require(capekStorageKey)).toBe(focused.prokopStorageBundle);
-    expect(agentScope.require(capekRuntimeConfigurationKey)).toBe(focused.prokopRuntimeConfiguration);
+    expect(agentScope.require(capekStorageKey)).toBe(prokopStorageBundle);
+    expect(agentScope.require(capekRuntimeConfigurationKey)).toBe(prokopRuntimeConfiguration);
     expect(agentScope.require(capekRuntimeHostKey)).toBe(prokopCompatibilityBindings);
-    expect(agentScope.require(capekWorkspaceToolDiscoveryKey)).toBe(focused.prokopWorkspaceToolDiscovery);
+    expect(agentScope.require(capekWorkspaceToolDiscoveryKey)).toBe(prokopWorkspaceToolDiscovery);
     expect(agentScope.require(capekSandboxControllerKey)).toBe(sandboxController);
     expect(agentScope.require(capekProviderOverridesKey)).toBeInstanceOf(Map);
     expect([...agentScope.require(capekProviderOverridesKey)]).toEqual([]);
@@ -261,19 +270,19 @@ describe('C2 kernel composition of Jean2 dependencies', () => {
     expect(scopedCapability.isSensitivePath('/workspace/.env')).toBe(true);
 
     const sources = agentScope.require(capekContextSourcesKey);
-    expect(sources.preconfigs).toBe(focused.prokopPreconfigSource);
-    expect(sources.agents).toBe(focused.prokopAgentSource);
-    expect(sources.instructions).toBe(focused.prokopInstructionSource);
+    expect(sources.preconfigs).toBe(prokopPreconfigSource);
+    expect(sources.agents).toBe(prokopAgentSource);
+    expect(sources.instructions).toBe(prokopInstructionSource);
 
-    expect(processScope.require(capekSessionSearchHostKey)).toBe(focused.prokopSessionSearchHost);
+    expect(processScope.require(capekSessionSearchHostKey)).toBe(prokopSessionSearchHost);
     expect(typeof processScope.require(capekProviderRegistryKey).getProvider).toBe('function');
 
     // The accessors return the same focused adapter objects after composition.
     expect(getProkopCompatibilityBindings()).toBe(prokopCompatibilityBindings);
-    expect(getRuntimeConfiguration()).toBe(focused.prokopRuntimeConfiguration);
-    expect(getStorage()).toBe(focused.prokopStorageBundle);
-    expect(getSessionSearchHost()).toBe(focused.prokopSessionSearchHost);
-    expect(getWorkspaceToolDiscovery()).toBe(focused.prokopWorkspaceToolDiscovery);
+    expect(getRuntimeConfiguration()).toBe(prokopRuntimeConfiguration);
+    expect(getStorage()).toBe(prokopStorageBundle);
+    expect(getSessionSearchHost()).toBe(prokopSessionSearchHost);
+    expect(getWorkspaceToolDiscovery()).toBe(prokopWorkspaceToolDiscovery);
   });
 
   test('composition keeps the Jean2 plugin inventory pinned', async () => {

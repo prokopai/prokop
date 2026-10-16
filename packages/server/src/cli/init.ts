@@ -4,16 +4,16 @@ import {
   getPromptsDir,
   getEnvFilePath,
   getGlobalAgentsPath,
+  getConfigPath,
+  getDefaultDatabasePath,
+  getToolsDir,
+  getModelsConfigPath,
 } from '@prokopai/core/infrastructure/runtime/paths';
 
 import {
-  getConfigPath,
-  getDefaultDatabasePath,
-  getDefaultToolsPath,
   saveConfig,
   isInitialized,
   clearConfigCache,
-  getModelsConfigPath,
   clearModelsCache,
 } from '@prokopai/core/config';
 import { runMigrations } from '@/infrastructure/sqlite/database';
@@ -47,7 +47,7 @@ async function initProkopInternal(options: InitOptions = {}): Promise<InitResult
       error: 'Prokopai is already initialized. Use --force to re-initialize.',
       configPath: getConfigPath(),
       databasePath: databasePath || getDefaultDatabasePath(),
-      toolsPath: toolsPath || getDefaultToolsPath(),
+      toolsPath: toolsPath || getToolsDir(),
       modelsPath: getModelsConfigPath(),
       preconfigsInstalled: false,
     };
@@ -61,7 +61,7 @@ async function initProkopInternal(options: InitOptions = {}): Promise<InitResult
   const shouldRunMigrations = runMigrationsOption ?? true;
   const shouldInstallPreconfigs = installPreconfigsOption ?? true;
   const finalDbPath = databasePath || getDefaultDatabasePath();
-  const finalToolsPath = toolsPath || getDefaultToolsPath();
+  const finalToolsPath = toolsPath || getToolsDir();
 
   // Create directories
   mkdirSync(dirname(finalDbPath), { recursive: true });

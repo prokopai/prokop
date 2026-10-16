@@ -17,7 +17,7 @@ import type {
   SessionUpdates,
   StorageBundle,
   StreamingPartSnapshot,
-  TranscriptPageResult,
+  TranscriptPage,
   WorkspaceStore,
 } from './contracts';
 
@@ -126,7 +126,7 @@ export function createInMemoryConversationStore(): ConversationStore {
       return true;
     },
     async listMessagesWithParts(sessionId) { return listMessagesWithParts(sessionId); },
-    async listLatestMessagesWithPartsPage(sessionId, limit = 50): Promise<TranscriptPageResult> {
+    async listLatestMessagesWithPartsPage(sessionId, limit = 50): Promise<TranscriptPage> {
       const effectiveLimit = Math.min(Math.max(limit, 1), 100);
       const ordered = orderedMessages(sessionId);
       const selected = ordered.slice(-effectiveLimit);

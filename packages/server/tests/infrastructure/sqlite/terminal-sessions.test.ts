@@ -2,18 +2,10 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
-import {
-  createTerminalSession,
-  updateTerminalSessionTitle,
-  updateTerminalSessionActivity,
-  markTerminalSessionExited,
-  markTerminalSessionDestroyed,
-  getTerminalSession,
-  listTerminalSessions,
-  listActiveTerminalSessions,
-  cleanupStaleTerminalSessions,
-  cleanupRunningSessionsOnStartup,
-} from '@/infrastructure/sqlite/terminal-session-store';
+import { getDatabase } from '@/infrastructure/sqlite/database';
+import { createTerminalSessionRepository } from '@/infrastructure/sqlite/terminal-session-repository';
+
+const repository = createTerminalSessionRepository(() => getDatabase());
 
 describe('terminal-sessions store', () => {
   beforeEach(() => {
@@ -28,7 +20,7 @@ describe('terminal-sessions store', () => {
     id?: string;
     workspaceId?: string;
   } = {}) {
-    createTerminalSession({
+    repository.createTerminalSession({
       id: overrides.id ?? 'term-1',
       workspaceId: overrides.workspaceId ?? 'ws1',
       cwd: '/test',
@@ -45,7 +37,7 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      const term = getTerminalSession('term-1');
+      const term = repository.getTerminalSession('term-1');
       expect(term).not.toBeNull();
       expect(term!.workspace_id).toBe('ws1');
       expect(term!.cwd).toBe('/test');
@@ -58,7 +50,7 @@ describe('terminal-sessions store', () => {
 
   describe('getTerminalSession', () => {
     test('returns null for non-existent', () => {
-      expect(getTerminalSession('nonexistent')).toBeNull();
+      expect(repository.getTerminalSession('nonexistent')).toBeNull();
     });
   });
 
@@ -67,8 +59,8 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      updateTerminalSessionTitle('term-1', 'custom title');
-      const term = getTerminalSession('term-1');
+      repository.updateTerminalSessionTitle('term-1', 'custom title');
+      const term = repository.getTerminalSession('term-1');
       expect(term!.title).toBe('custom title');
     });
   });
@@ -78,10 +70,10 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      const beforeActivity = getTerminalSession('term-1')!.last_activity_at;
-      updateTerminalSessionActivity('term-1');
+      const beforeActivity = repository.getTerminalSession('term-1')!.last_activity_at;
+      repository.updateTerminalSessionActivity('term-1');
 
-      const afterActivity = getTerminalSession('term-1')!.last_activity_at;
+      const afterActivity = repository.getTerminalSession('term-1')!.last_activity_at;
       expect(afterActivity).toBeGreaterThanOrEqual(beforeActivity);
     });
   });
@@ -91,8 +83,8 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      markTerminalSessionExited('term-1', 0);
-      const term = getTerminalSession('term-1');
+      repository.markTerminalSessionExited('term-1', 0);
+      const term = repository.getTerminalSession('term-1');
       expect(term!.status).toBe('exited');
       expect(term!.exit_code).toBe(0);
     });
@@ -101,8 +93,8 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      markTerminalSessionExited('term-1', 1);
-      const term = getTerminalSession('term-1');
+      repository.markTerminalSessionExited('term-1', 1);
+      const term = repository.getTerminalSession('term-1');
       expect(term!.status).toBe('exited');
       expect(term!.exit_code).toBe(1);
     });
@@ -113,8 +105,8 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal();
 
-      markTerminalSessionDestroyed('term-1');
-      const term = getTerminalSession('term-1');
+      repository.markTerminalSessionDestroyed('term-1');
+      const term = repository.getTerminalSession('term-1');
       expect(term!.status).toBe('destroyed');
       expect(term!.destroyed_at).toBeDefined();
     });
@@ -126,13 +118,13 @@ describe('terminal-sessions store', () => {
       createTestTerminal({ id: 'term-1' });
       createTestTerminal({ id: 'term-2' });
 
-      const sessions = listTerminalSessions('ws1');
+      const sessions = repository.listTerminalSessions('ws1');
       expect(sessions).toHaveLength(2);
     });
 
     test('returns empty for workspace with no terminals', () => {
       seedWorkspace({ id: 'ws1' });
-      expect(listTerminalSessions('ws1')).toHaveLength(0);
+      expect(repository.listTerminalSessions('ws1')).toHaveLength(0);
     });
   });
 
@@ -141,9 +133,9 @@ describe('terminal-sessions store', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal({ id: 'term-1' });
       createTestTerminal({ id: 'term-2' });
-      markTerminalSessionDestroyed('term-2');
+      repository.markTerminalSessionDestroyed('term-2');
 
-      const active = listActiveTerminalSessions('ws1');
+      const active = repository.listActiveTerminalSessions('ws1');
       expect(active).toHaveLength(1);
       expect(active[0].id).toBe('term-1');
     });
@@ -153,10 +145,10 @@ describe('terminal-sessions store', () => {
     test('removes destroyed sessions older than 1 hour', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal({ id: 'term-1' });
-      markTerminalSessionDestroyed('term-1');
+      repository.markTerminalSessionDestroyed('term-1');
 
       // The destroyed_at was set to Date.now(), so it shouldn't be cleaned up yet
-      expect(cleanupStaleTerminalSessions()).toBe(0);
+      expect(repository.cleanupStaleTerminalSessions()).toBe(0);
     });
   });
 
@@ -166,22 +158,22 @@ describe('terminal-sessions store', () => {
       createTestTerminal({ id: 'term-1' });
       createTestTerminal({ id: 'term-2' });
 
-      const count = cleanupRunningSessionsOnStartup();
+      const count = repository.cleanupRunningSessionsOnStartup();
       expect(count).toBe(2);
 
-      expect(getTerminalSession('term-1')!.status).toBe('destroyed');
-      expect(getTerminalSession('term-2')!.status).toBe('destroyed');
+      expect(repository.getTerminalSession('term-1')!.status).toBe('destroyed');
+      expect(repository.getTerminalSession('term-2')!.status).toBe('destroyed');
     });
 
     test('does not affect already exited sessions', () => {
       seedWorkspace({ id: 'ws1' });
       createTestTerminal({ id: 'term-1' });
-      markTerminalSessionExited('term-1', 0);
+      repository.markTerminalSessionExited('term-1', 0);
 
-      const count = cleanupRunningSessionsOnStartup();
+      const count = repository.cleanupRunningSessionsOnStartup();
       expect(count).toBe(0);
 
-      const term = getTerminalSession('term-1');
+      const term = repository.getTerminalSession('term-1');
       expect(term!.status).toBe('exited');
     });
   });

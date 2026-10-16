@@ -23,13 +23,13 @@ import type {
   SessionMessageRepositoryHooks,
   StreamingPartSnapshot,
   ToolInterruptReason,
-  TranscriptPageResult,
+  TranscriptPage,
 } from '@/application/ports/session-message';
 
 export type {
   StreamingPartSnapshot,
   ToolInterruptReason,
-  TranscriptPageResult,
+  TranscriptPage,
 } from '@/application/ports/session-message';
 
 function buildHooks(): SessionMessageRepositoryHooks {
@@ -279,7 +279,7 @@ export function countMessagesInSession(sessionId: string): number {
 export function listLatestMessagesWithPartsPage(
   sessionId: string,
   limit?: number,
-): TranscriptPageResult {
+): TranscriptPage {
   return repo().listLatestMessagesWithPartsPage(sessionId, limit);
 }
 
@@ -287,7 +287,7 @@ export function listMessagesWithPartsBeforeSequence(
   sessionId: string,
   beforeSequence: number,
   limit?: number,
-): TranscriptPageResult {
+): TranscriptPage {
   return repo().listMessagesWithPartsBeforeSequence(sessionId, beforeSequence, limit);
 }
 

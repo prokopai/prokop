@@ -13,8 +13,8 @@ import type {
   ToolPart,
 } from '@prokopai/sdk';
 
-/** Structural copies of storage result shapes. The Jean2 repository
- * adapter maps store and Capek storage results onto these contracts. */
+/** Storage result shapes, shared by the storage contracts
+ * (`infrastructure/storage/contracts.ts`) and the server ports. */
 export interface SessionPageInfo {
   nextCursor: string | null;
   hasMore: boolean;
@@ -99,6 +99,15 @@ export interface TranscriptPage {
     newestSequence: number | null;
     limit: number;
   };
+}
+
+export interface StreamingPartSnapshot {
+  id: string;
+  messageId: string;
+  sessionId: string;
+  type: 'text' | 'reasoning';
+  createdAt: number;
+  text: string;
 }
 
 export interface GroupedSessionPage {

@@ -11,10 +11,9 @@ import {
   watchFile,
   writeFileSync,
 } from 'fs';
-import { getPidFilePath as getPidFilePathFromPaths, getLogFilePath as getLogFilePathFromPaths, getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { getPidFilePath, getLogFilePath, getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 
-import { getPort, getHost } from '@prokopai/core/config';
-import { getToolEnv, getTlsEnabled, getTlsCertFile, getTlsKeyFile, getClientEnabled, getLocalHttpEnabled, getLocalHost, resolveTlsPort } from '@prokopai/core/infrastructure/runtime/environment';
+import { getPort, getHost, getToolEnv, getTlsEnabled, getTlsCertFile, getTlsKeyFile, getClientEnabled, getLocalHttpEnabled, getLocalHost, resolveTlsPort } from '@prokopai/core/infrastructure/runtime/environment';
 import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 
 export interface DaemonStatus {
@@ -43,20 +42,8 @@ interface PidFileData {
   startedAt: string;
 }
 
-function getConfigDir(): string {
-  return getDataDir();
-}
-
-export function getPidFilePath(): string {
-  return getPidFilePathFromPaths();
-}
-
-export function getLogFilePath(): string {
-  return getLogFilePathFromPaths();
-}
-
 function ensureConfigDir(): void {
-  const configDir = getConfigDir();
+  const configDir = getDataDir();
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
   }

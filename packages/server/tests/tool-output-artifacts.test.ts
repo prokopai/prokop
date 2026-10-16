@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createApp } from '@/transport/http/app';
-import { prokopStorageBundle } from '@/adapters/prokop/runtime-host';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { createToolOutputArtifact } from '@/infrastructure/sqlite/tool-output-artifacts';
 import { deleteSession } from '@/infrastructure/sqlite/session-store';
 import { deleteWorkspace } from '@/infrastructure/sqlite/workspaces';

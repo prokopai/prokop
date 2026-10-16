@@ -22,7 +22,7 @@ import type {
   SessionMessageRepositoryHooks,
   StreamingPartSnapshot,
   ToolInterruptReason,
-  TranscriptPageResult,
+  TranscriptPage,
 } from '@/application/ports/session-message';
 
 export type MessageDatabaseAccessor = () => Database;
@@ -886,13 +886,12 @@ export function createMessageRepository(
    */
   function selectMessageIdsForLatestPage(sessionId: string, limit: number): { id: string; sequence: number | null }[] {
     const db = getDb();
-    const effectiveLimit = Math.min(Math.max(limit, 1), MAX_TRANSCRIPT_LIMIT);
     const rows = db.query(
       `SELECT id, sequence FROM messages
        WHERE session_id = ?
        ORDER BY sequence IS NULL, sequence DESC, created_at DESC, rowid DESC
        LIMIT ?`,
-    ).all(sessionId, effectiveLimit) as { id: string; sequence: number | null }[];
+    ).all(sessionId, limit) as { id: string; sequence: number | null }[];
     return rows.reverse();
   }
 
@@ -905,13 +904,12 @@ export function createMessageRepository(
     limit: number,
   ): { id: string; sequence: number | null }[] {
     const db = getDb();
-    const effectiveLimit = Math.min(Math.max(limit, 1), MAX_TRANSCRIPT_LIMIT);
     const rows = db.query(
       `SELECT id, sequence FROM messages
        WHERE session_id = ? AND sequence IS NOT NULL AND sequence < ?
        ORDER BY sequence DESC, created_at DESC, rowid DESC
        LIMIT ?`,
-    ).all(sessionId, beforeSequence, effectiveLimit) as { id: string; sequence: number | null }[];
+    ).all(sessionId, beforeSequence, limit) as { id: string; sequence: number | null }[];
     return rows.reverse();
   }
 
@@ -953,51 +951,44 @@ export function createMessageRepository(
   }
 
   /**
+   * One transcript page from the selected message IDs (oldest first).
+   */
+  function buildTranscriptPage(
+    sessionId: string,
+    idRows: { id: string; sequence: number | null }[],
+    limit: number,
+  ): TranscriptPage {
+    if (idRows.length === 0) {
+      return {
+        messages: [],
+        pagination: { hasOlder: false, oldestSequence: null, newestSequence: null, limit },
+      };
+    }
+
+    const messages = fetchMessagesWithPartsByIds(sessionId, idRows.map((r) => r.id));
+    const oldestSequence = idRows[0]?.sequence ?? null;
+    const newestSequence = idRows[idRows.length - 1]?.sequence ?? null;
+
+    let hasOlder = false;
+    if (oldestSequence) {
+      const row = getDb().query(
+        'SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND sequence IS NOT NULL AND sequence < ?',
+      ).get(sessionId, oldestSequence) as { count: number };
+      hasOlder = row.count > 0;
+    }
+
+    return { messages, pagination: { hasOlder, oldestSequence, newestSequence, limit } };
+  }
+
+  /**
    * Load the newest page of messages with parts for a session.
    */
   function listLatestMessagesWithPartsPage(
     sessionId: string,
     limit: number = DEFAULT_TRANSCRIPT_LIMIT,
-  ): TranscriptPageResult {
+  ): TranscriptPage {
     const effectiveLimit = Math.min(Math.max(limit, 1), MAX_TRANSCRIPT_LIMIT);
-    const idRows = selectMessageIdsForLatestPage(sessionId, effectiveLimit);
-    const messageIds = idRows.map((r) => r.id);
-
-    if (messageIds.length === 0) {
-      return {
-        messages: [],
-        pagination: {
-          hasOlder: false,
-          oldestSequence: null,
-          newestSequence: null,
-          limit: effectiveLimit,
-        },
-      };
-    }
-
-    const messages = fetchMessagesWithPartsByIds(sessionId, messageIds);
-
-    const oldestSequence = idRows[0]?.sequence ?? null;
-    const newestSequence = idRows[idRows.length - 1]?.sequence ?? null;
-
-    const hasOlder = (() => {
-      if (!oldestSequence) return false;
-      const db = getDb();
-      const row = db.query(
-        'SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND sequence IS NOT NULL AND sequence < ?',
-      ).get(sessionId, oldestSequence) as { count: number };
-      return row.count > 0;
-    })();
-
-    return {
-      messages,
-      pagination: {
-        hasOlder,
-        oldestSequence,
-        newestSequence,
-        limit: effectiveLimit,
-      },
-    };
+    return buildTranscriptPage(sessionId, selectMessageIdsForLatestPage(sessionId, effectiveLimit), effectiveLimit);
   }
 
   /**
@@ -1007,46 +998,13 @@ export function createMessageRepository(
     sessionId: string,
     beforeSequence: number,
     limit: number = DEFAULT_TRANSCRIPT_LIMIT,
-  ): TranscriptPageResult {
+  ): TranscriptPage {
     const effectiveLimit = Math.min(Math.max(limit, 1), MAX_TRANSCRIPT_LIMIT);
-    const idRows = selectMessageIdsBeforeSequence(sessionId, beforeSequence, effectiveLimit);
-    const messageIds = idRows.map((r) => r.id);
-
-    if (messageIds.length === 0) {
-      return {
-        messages: [],
-        pagination: {
-          hasOlder: false,
-          oldestSequence: null,
-          newestSequence: null,
-          limit: effectiveLimit,
-        },
-      };
-    }
-
-    const messages = fetchMessagesWithPartsByIds(sessionId, messageIds);
-
-    const oldestSequence = idRows[0]?.sequence ?? null;
-    const newestSequence = idRows[idRows.length - 1]?.sequence ?? null;
-
-    const hasOlder = (() => {
-      if (!oldestSequence) return false;
-      const db = getDb();
-      const row = db.query(
-        'SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND sequence IS NOT NULL AND sequence < ?',
-      ).get(sessionId, oldestSequence) as { count: number };
-      return row.count > 0;
-    })();
-
-    return {
-      messages,
-      pagination: {
-        hasOlder,
-        oldestSequence,
-        newestSequence,
-        limit: effectiveLimit,
-      },
-    };
+    return buildTranscriptPage(
+      sessionId,
+      selectMessageIdsBeforeSequence(sessionId, beforeSequence, effectiveLimit),
+      effectiveLimit,
+    );
   }
 
   function syncMessageFts(messageId: string): void {

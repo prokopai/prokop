@@ -1,27 +1,12 @@
 import type { AutoApproveSeverity, Message, MessageWithParts, Part, QueuedMessage, ResponseFormat, Session, ToolPart, Workspace } from '@prokopai/sdk/types';
-import type { AttachmentKind } from '@prokopai/sdk/types';
+import type {
+  AttachmentRecord,
+  StreamingPartSnapshot,
+  ToolOutputArtifactPage,
+  TranscriptPage,
+} from '../../application/ports/session';
 
-export interface StreamingPartSnapshot {
-  id: string;
-  messageId: string;
-  sessionId: string;
-  type: 'text' | 'reasoning';
-  createdAt: number;
-  text: string;
-}
-
-export interface AttachmentRecord {
-  id: string;
-  sessionId: string;
-  workspaceId: string;
-  kind: AttachmentKind;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  absolutePath: string;
-  createdAt: string;
-  accessKey: string;
-}
+export type { AttachmentRecord, StreamingPartSnapshot, ToolOutputArtifactPage, TranscriptPage };
 
 export interface EffectiveContextHistory {
   messages: MessageWithParts[];
@@ -29,16 +14,6 @@ export interface EffectiveContextHistory {
   hasCompaction: boolean;
   /** Frozen brief for the current segment after a harness switch. */
   handoffBrief?: string | null;
-}
-
-export interface TranscriptPageResult {
-  messages: MessageWithParts[];
-  pagination: {
-    hasOlder: boolean;
-    oldestSequence: number | null;
-    newestSequence: number | null;
-    limit: number;
-  };
 }
 
 export type SessionUpdates = Partial<Pick<Session,
@@ -78,7 +53,7 @@ export interface ConversationStore {
   updateMessage(id: string, updates: Partial<Message>): Promise<Message | null>;
   deleteMessage(messageId: string): Promise<boolean>;
   listMessagesWithParts(sessionId: string): Promise<MessageWithParts[]>;
-  listLatestMessagesWithPartsPage(sessionId: string, limit?: number): Promise<TranscriptPageResult>;
+  listLatestMessagesWithPartsPage(sessionId: string, limit?: number): Promise<TranscriptPage>;
   buildEffectiveContextHistory(sessionId: string): Promise<EffectiveContextHistory>;
   createPart(part: Part, sessionId: string): Promise<Part>;
   getPart(id: string): Promise<Part | null>;
@@ -166,18 +141,6 @@ export interface ToolOutputArtifact {
 
 export type CreateToolOutputArtifact = Omit<ToolOutputArtifact, 'id' | 'size' | 'createdAt'>;
 
-export interface ToolOutputArtifactPage {
-  artifactId: string;
-  toolCallId: string;
-  toolName: string;
-  format: ToolOutputArtifactFormat;
-  content: string;
-  offset: number;
-  limit: number;
-  totalChars: number;
-  nextOffset: number | null;
-  complete: boolean;
-}
 
 export interface ToolOutputArtifactStore {
   create(input: CreateToolOutputArtifact): Promise<ToolOutputArtifact>;

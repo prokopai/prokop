@@ -9,7 +9,7 @@ import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime'
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
-import { prokopStorageBundle } from '@/adapters/prokop/runtime-host';
+import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { buildAiSdkTools, type BuildToolsOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import { clearCache, scanTools } from '@prokopai/core/infrastructure/tools/registry';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk';

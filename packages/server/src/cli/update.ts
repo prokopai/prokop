@@ -3,8 +3,9 @@ import { tmpdir } from 'os';
 import { existsSync, statSync, openSync, renameSync } from 'fs';
 
 import { VERSION } from '@/version';
-import { getStatus, stopDaemon, getLogFilePath } from '@/infrastructure/daemon';
+import { getStatus, stopDaemon } from '@/infrastructure/daemon';
 import { getToolEnv } from '@prokopai/core/infrastructure/runtime/environment';
+import { getLogFilePath } from '@prokopai/core/infrastructure/runtime/paths';
 import { isInitialized } from '@prokopai/core/config';
 
 export interface UpdateOptions {
