@@ -16,8 +16,7 @@ function withRenderVisualization(tool: McpToolIdentity, result: WorkspaceMcpResu
 
 /**
  * Wraps an MCP tool as a capability tool: argument check, then `call`, then
- * the same output and model-output conversion. In-process `call` runs the
- * tool; across the agent protocol it is a `tool.call` request.
+ * the same output and model-output conversion. `call` runs the tool.
  */
 export function capabilityToolFromMcp(tool: McpToolIdentity, options: {
   authorized?: () => Promise<boolean>;

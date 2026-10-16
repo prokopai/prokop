@@ -4,10 +4,9 @@ export type CliHarness = 'codex-cli' | 'claude-cli';
 
 /**
  * Reads the agent answers for the native CLI harnesses: cached model
- * catalogs, plan usage limits and the title Claude Code wrote itself. Across
- * the agent protocol these are `models.list`, `usage.limits` and
- * `title.native`. CLI availability and version stay host probes: the host
- * needs them while no agent runs (harness list, session creation).
+ * catalogs, plan usage limits and the title Claude Code wrote itself. CLI
+ * availability and version stay host probes: the host needs them before any
+ * harness loads (harness list, session creation).
  */
 export interface HarnessProbePort {
   models(harness: CliHarness): Promise<CodexModel[]>;

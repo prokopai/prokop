@@ -59,7 +59,7 @@ const codexProvider: ConnectableProvider = {
     codexAccounts.add(tokens);
   },
 
-  // In process only: the model (and the AI SDK) loads on first use; the agent process runs its own.
+  // The model (and the AI SDK) loads on first use.
   async createModel(options) {
     const { createCodexModel } = await import('@prokopai/core/infrastructure/providers/codex-model');
     return createCodexModel(options, {

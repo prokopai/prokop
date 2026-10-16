@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { configureSessionSearchHost, getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import {
   configureProkopSessionSearchHost,
-  createProkopSessionSearchHost,
   prokopSessionSearchHost,
   type ProkopSessionSearchHostDeps,
 } from '@/adapters/prokop/runtime-host/session-search';
@@ -182,10 +181,11 @@ describe('Čapek session search adapter', () => {
     });
   });
 
-  describe('factory host contract', () => {
+  describe('configured host contract', () => {
     test('delegates every host method exactly once to the matching dep without reshaping', async () => {
       const { deps, calls, values } = makeFakeDeps();
-      const host = createProkopSessionSearchHost(deps);
+      configureProkopSessionSearchHost(deps);
+      const host = prokopSessionSearchHost;
 
       expect(await host.getWorkspace('ws-fake')).toBe(values.workspace);
       expect(await host.getSession('session-fake')).toBe(values.session);

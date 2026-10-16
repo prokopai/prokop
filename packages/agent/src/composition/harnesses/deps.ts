@@ -1,4 +1,3 @@
-import type { SessionHarness } from '@prokopai/sdk';
 import type { AgentsApplication } from '@prokopai/core/application/agents';
 import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
@@ -7,8 +6,6 @@ import { listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 export interface HarnessRegistrationDeps {
   agents: Pick<AgentsApplication, 'getPreconfigOrAgent' | 'getAgentDirectory' | 'readAgentMemoryFile'>;
   titles: Record<'codex-cli' | 'claude-cli', SessionExecutionPort['regenerateTitle']>;
-  /** Runs once, right before a harness's runtime loads (the agent process installs Prokop's process defaults). */
-  prepare?: Partial<Record<SessionHarness, () => void>>;
 }
 
 /** Preconfig and agent instructions the Claude Code and Codex drivers read. */

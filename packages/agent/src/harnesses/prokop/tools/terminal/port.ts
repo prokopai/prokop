@@ -19,9 +19,8 @@ export interface AgentTerminalCreateOptions {
 }
 
 /**
- * The host terminals the terminal tool drives. The host owns the PTYs, so
- * across the agent protocol every call is a `terminal.*` request; in-process
- * it wraps the terminal manager. Bootstrap installs one.
+ * The host terminals the terminal tool drives. The host owns the PTYs; the
+ * port wraps the terminal manager. Bootstrap installs one.
  */
 export interface AgentTerminalPort {
   create(options: AgentTerminalCreateOptions): Promise<string | null>;

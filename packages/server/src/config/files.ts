@@ -33,10 +33,6 @@ export async function readFileSafe(filePath: string): Promise<string | null> {
   }
 }
 
-export function fileExistsSync(filePath: string): boolean {
-  return existsSync(filePath);
-}
-
 export async function ensureDir(dirPath: string): Promise<void> {
   if (!existsSync(dirPath)) {
     await mkdir(dirPath, { recursive: true });

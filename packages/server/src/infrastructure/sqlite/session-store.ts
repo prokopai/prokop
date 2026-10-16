@@ -144,13 +144,6 @@ export function updateSession(
   return result;
 }
 
-export function cleanupWorkspaceSessionsOutputDirs(workspaceId: string): void {
-  const sessions = listSessionsByWorkspace(workspaceId);
-  for (const session of sessions) {
-    cleanupSessionOutputDir(session.id);
-  }
-}
-
 export function cleanupSessionsOutputDirs(sessionIds: string[]): void {
   for (const sessionId of sessionIds) {
     cleanupSessionOutputDir(sessionId);
@@ -230,8 +223,8 @@ export function listSessionPageGrouped(
  * process may have died mid-execution (crash, SIGKILL) leaving running_at
  * set with no live execution to clear it. The client treats running_at as
  * streaming, so such sessions could never accept a new prompt again.
- * The same applies after the agent process dies (`onReconciled` lets the
- * host tell connected clients). Returns the number of sessions reconciled.
+ * `onReconciled` lets the caller tell connected clients. Returns the number
+ * of sessions reconciled.
  */
 export function reconcileStuckRunningSessions(onReconciled?: (session: Session) => void): number {
   const sessions = listSessions();

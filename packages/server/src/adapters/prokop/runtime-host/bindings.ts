@@ -9,8 +9,7 @@ export type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/
 /**
  * The in-process runtime host: the Prokop runtime's own bindings plus the
  * host services (SQLite asks and grants, WebSocket delivery, worktree
- * resolution). The agent process builds the same shape over the agent
- * protocol instead (`bootstrap/agent-side.ts`).
+ * resolution).
  */
 export const prokopCompatibilityBindings = {
   interaction: prokopInteractionBindings,

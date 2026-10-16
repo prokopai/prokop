@@ -1,9 +1,8 @@
 import type { ProviderDescriptor } from '@prokopai/sdk/types';
 
 /**
- * Codex subscription access (ChatGPT account via OAuth), the part both sides
- * share. The host owns accounts, OAuth and token refresh; whoever runs the
- * model (the host in process, or the agent process) sends requests with
+ * Codex subscription access (ChatGPT account via OAuth). The host owns
+ * accounts, OAuth and token refresh; the model sends requests with
  * credentials from a `CodexCredentialSource`. No AI SDK here.
  */
 

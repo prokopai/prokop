@@ -5,9 +5,8 @@ import { getStorage } from './runtime';
  * Optimistic transactions over `StorageBundle.commit` (plan F3). `build`
  * reads through the bundle, then queues checks and writes; the bundle applies
  * them atomically. When a retryable check fails (someone changed what was
- * read), `build` runs again from fresh reads. This replaces the harnesses'
- * in-process SQLite transactions with something that can cross the agent
- * protocol as one `store.commit`.
+ * read), `build` runs again from fresh reads. Harnesses use this instead of
+ * SQLite transactions, so they depend only on the storage bundle.
  */
 
 export interface StoreRef<T> {

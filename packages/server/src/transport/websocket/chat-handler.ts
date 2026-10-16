@@ -3,7 +3,7 @@ import type { ConnectionId } from './connection-id';
 import { createWirePorts, requireWireApplication } from './application';
 
 /**
- * Chat, edit, and title regeneration wire handlers (S3).
+ * Chat and edit wire handlers (S3).
  *
  * These handlers own wire presentation only: they derive the per-message
  * wire ports from the router context and delegate orchestration to the
@@ -52,20 +52,5 @@ export async function handleSessionEditMessage<Origin>(
     wire,
     ws as unknown as ConnectionId,
     msg,
-  );
-}
-
-export async function regenerateSessionTitle<Origin>(
-  ctx: RouterContext<Origin>,
-  ws: Origin,
-  sessionId: string,
-  options?: { force?: boolean },
-): Promise<void> {
-  const wire = createWirePorts(ctx as unknown as RouterContext<ConnectionId>);
-  requireWireApplication().session.chat.generateTitle(
-    wire,
-    ws as unknown as ConnectionId,
-    sessionId,
-    options?.force === true,
   );
 }

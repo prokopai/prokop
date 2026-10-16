@@ -5,8 +5,7 @@ import type { CreateGrantParams, MatchGrantParams, PendingAskRecord } from './ho
  * Ask and grant storage for the native CLI harnesses (Claude Code, Codex).
  * Waiters, response validation and grant construction stay in the harness
  * (host/agent split, decision 6 A); this port only stores pending-ask rows
- * and grants and says who controls a session. Across the agent protocol it
- * maps onto the `interaction.*` requests Prokop's `InteractionHost` uses.
+ * and grants and says who controls a session.
  */
 export interface HarnessAskStore {
   createPendingAsk(record: Omit<PendingAskRecord, 'id'>): Promise<string>;

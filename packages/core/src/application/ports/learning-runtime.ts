@@ -16,8 +16,8 @@ export interface LearningKnowledgeResult {
  * What host-side learning needs from the reviewing harness besides the
  * review run itself, which goes through the headless port with a
  * `learning` spec. The host runs the harness's memory and skill tool logic
- * against an isolated staging directory, as it does for `knowledge.apply`;
- * staging, journaling and activation stay host-owned.
+ * against an isolated staging directory; staging, journaling and activation
+ * stay host-owned.
  */
 export interface LearningRuntimePort {
   /** Harness identity stamped on learning-created sessions. */

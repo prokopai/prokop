@@ -194,15 +194,9 @@ export class SandboxController {
 
 export const sandboxController = new SandboxController();
 const scopedSandboxController = new AsyncLocalStorage<SandboxController>();
-let processController: SandboxController = sandboxController;
 
 export function getSandboxController(): SandboxController {
-  return scopedSandboxController.getStore() ?? processController;
-}
-
-/** Replaces the process default (the agent process installs one that asks the host). */
-export function installSandboxController(controller: SandboxController): void {
-  processController = controller;
+  return scopedSandboxController.getStore() ?? sandboxController;
 }
 
 export function withSandboxController<T>(controller: SandboxController, callback: () => T): T {

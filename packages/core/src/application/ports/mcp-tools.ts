@@ -19,7 +19,7 @@ export interface WorkspaceMcpToolsPort {
 
 let harnessMcp: WorkspaceMcpToolsPort | null = null;
 
-/** The MCP tools Claude Code and Codex turns see: in process, or `tool.list`/`tool.call` across the agent protocol. */
+/** The MCP tools Claude Code and Codex turns see. */
 export function configureHarnessMcpTools(port: WorkspaceMcpToolsPort): void {
   harnessMcp = port;
 }

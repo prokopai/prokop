@@ -19,10 +19,6 @@ export function installExecutionLifecyclePort(port: ExecutionLifecyclePort | nul
   current = port;
 }
 
-export function getExecutionLifecyclePort(): ExecutionLifecyclePort | null {
-  return current;
-}
-
 export async function initializeExecutionLifecycle(): Promise<void> {
   await current?.initialize();
 }

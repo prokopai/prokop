@@ -1,5 +1,4 @@
 import { getDatabase } from './database';
-import { mkdirSync, writeFileSync } from 'fs';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { AttachmentKind } from '@prokopai/sdk';
@@ -103,17 +102,6 @@ export async function createAttachment(params: CreateAttachmentParams): Promise<
   const { id, directory, absolutePath } = attachmentLocation(params);
   await mkdir(directory, { recursive: true });
   await writeFile(absolutePath, new Uint8Array(params.data));
-  return recordAttachment(params, id, absolutePath);
-}
-
-/**
- * For a tool result handled inside a synchronous event handler, where the
- * row must exist before the next event. Keep it to a few megabytes.
- */
-export function createAttachmentSync(params: CreateAttachmentParams): Attachment {
-  const { id, directory, absolutePath } = attachmentLocation(params);
-  mkdirSync(directory, { recursive: true });
-  writeFileSync(absolutePath, new Uint8Array(params.data));
   return recordAttachment(params, id, absolutePath);
 }
 

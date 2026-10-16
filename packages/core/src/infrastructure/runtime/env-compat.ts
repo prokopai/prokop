@@ -62,8 +62,3 @@ export function readEnvFloat(suffix: string, defaultValue: number): number {
   const parsed = parseFloat(raw ?? '');
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
-
-/** Whether the legacy variable is set at all (used by clear paths that must strip both prefixes). */
-export function legacyEnvKey(suffix: string): string {
-  return `${JEAN2_ENV_PREFIX}${suffix}`;
-}

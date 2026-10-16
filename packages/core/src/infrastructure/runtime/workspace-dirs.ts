@@ -64,8 +64,7 @@ let knowledgeRootOf: (workingPath: string) => string = workingPath => workingPat
 
 /**
  * Who answers `workspaceKnowledgeRoot`: the host looks managed worktrees up in
- * its store; the agent process uses the roots the host resolved for it. Unset,
- * a path is its own root.
+ * its store. Unset, a path is its own root.
  */
 export function configureWorkspaceKnowledgeRoot(resolver: (workingPath: string) => string): void {
   knowledgeRootOf = resolver;

@@ -7,7 +7,7 @@ import { getDatabase } from './database';
  * Codex bindings, rollback and fork intents, inherited user IDs and model
  * selections, one generic table. The host reads only `blocks_switch`, the
  * `binding` and `model` kinds and the cascades; `value` is harness-private
- * JSON. Writes are compare-and-set so they map onto `store.commit` checks.
+ * JSON. Writes are compare-and-set so `StorageBundle.commit` checks can guard them.
  */
 
 export type { NativeHarness } from '@prokopai/core/infrastructure/storage/contracts';
@@ -236,26 +236,6 @@ export function putHarnessState(record: HarnessStateRecord): void {
 export function deleteHarnessState(target: HarnessStateKey): boolean {
   return getDatabase().run('DELETE FROM harness_state WHERE harness = ? AND kind = ? AND key = ?',
     [target.harness, target.kind, target.key]).changes > 0;
-}
-
-/**
- * Reads, lets `change` decide, and writes in one transaction. `change`
- * returns the next record, `null` to delete, or `undefined` to leave it
- * (then the result is false). Across the agent protocol this becomes a
- * `store.commit` whose check is the value read here.
- */
-export function updateHarnessState<V>(
-  target: HarnessStateKey,
-  change: (current: HarnessStateRecord<V> | null) => HarnessStateRecord<V> | null | undefined,
-): boolean {
-  return getDatabase().transaction(() => {
-    const current = getHarnessState<V>(target);
-    const next = change(current);
-    if (next === undefined) return false;
-    if (next === null) return current ? deleteHarnessState(target) : false;
-    putHarnessState(next);
-    return true;
-  })();
 }
 
 /** A blocking record (pending turn, rollback or fork intent) exists for the session. */

@@ -15,7 +15,7 @@ import { getBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-to
 import { getSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
 import { getDefaultPreconfig, getPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
-import { createMcpAccess, createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
+import { createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import { browserTools } from '@prokopai/core/infrastructure/browser/catalog';
 const browserNames = new Set(browserTools.map(tool => tool.definition.name));
 
@@ -36,9 +36,6 @@ const mcpAccessDeps = {
 };
 
 export const prokopWorkspaceToolDiscovery = createProkopMcpDiscovery({ ...mcpAccessDeps, tools: getTools });
-
-/** The same MCP access rule, for hosts that serve tool calls across the agent protocol. */
-export const prokopMcpAccess = createMcpAccess(mcpAccessDeps);
 
 /** Capek tool catalog seam for the tools route (S4): the Jean2 tools
  * adapter consumes this so no non-Capek adapter imports the compat

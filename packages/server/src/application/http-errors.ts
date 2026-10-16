@@ -54,9 +54,3 @@ export class PayloadTooLargeError extends HttpError {
     super(413, message, 'payload_too_large');
   }
 }
-
-export class UnprocessableEntityError extends HttpError {
-  constructor(message: string) {
-    super(422, message, 'unprocessable_entity');
-  }
-}

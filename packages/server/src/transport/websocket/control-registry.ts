@@ -74,17 +74,6 @@ export function isController(sessionId: string, clientId: string): boolean {
   return record?.controllerClientId === clientId && record?.status === 'controlled';
 }
 
-export function isControllingClient(sessionId: string, clientId: string): boolean {
-  const record = controlBySessionId.get(sessionId);
-  return record?.controllerClientId === clientId;
-}
-
-export function isControllerConnection(sessionId: string, connectionId: ConnectionId): boolean {
-  const clientId = getClientIdForConnection(connectionId);
-  if (!clientId) return false;
-  return isController(sessionId, clientId);
-}
-
 // Participant management
 
 export function addParticipant(sessionId: string, connectionId: ConnectionId, clientId: string): void {
@@ -117,12 +106,6 @@ export function removeParticipant(sessionId: string, connectionId: ConnectionId,
   if (participants.size === 0) {
     participantsBySessionId.delete(sessionId);
   }
-}
-
-export function getSessionParticipants(sessionId: string): SessionParticipantEntry[] {
-  const participants = participantsBySessionId.get(sessionId);
-  if (!participants) return [];
-  return Array.from(participants.values());
 }
 
 export function getParticipantClientIds(sessionId: string): string[] {
@@ -264,10 +247,6 @@ export function buildControlUpdatedMessage(
 }
 
 // Debug / introspection
-
-export function getControlRecordCount(): number {
-  return controlBySessionId.size;
-}
 
 export function getAllControlRecords(): ReadonlyMap<string, SessionControlRecord> {
   return controlBySessionId;

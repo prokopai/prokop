@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import { getEnvFilePath, getToolsDir, getPreconfigsDir } from './paths';
+import { getEnvFilePath, getToolsDir } from './paths';
 import { readEnv, readEnvFloat, readEnvInt, JEAN2_ENV_PREFIX, PROKOPAI_ENV_PREFIX } from './env-compat';
 
 const envOverlay = new Map<string, string>();
@@ -87,10 +87,6 @@ export function getToolsPath(): string {
   return readEnv('TOOLS_PATH') || getToolsDir();
 }
 
-export function getPreconfigsPath(): string {
-  return readEnv('PRECONFIGS_PATH') || getPreconfigsDir();
-}
-
 export function getModelsPath(): string | undefined {
   return readEnv('MODELS_PATH');
 }
@@ -148,11 +144,6 @@ export function getLLMApiKeys(): Record<string, string | undefined> {
     'zhipu-coding': getLLMZhipuCodingApiKey(),
     'deepseek': getLLMDeepseekApiKey(),
   };
-}
-
-export function hasAnyLLMApiKey(): boolean {
-  const keys = getLLMApiKeys();
-  return Object.values(keys).some(key => key !== undefined);
 }
 
 export function getCompactionModel(): string | undefined {
@@ -344,10 +335,6 @@ export function resolveTlsPort(host: string, port: number, localHttpEnabled: boo
     return port;
   }
   return listenersOverlap(host, getLocalHost()) ? port + 1 : port;
-}
-
-export function getBaseUrl(): string | undefined {
-  return readEnv('BASE_URL');
 }
 
 export function getPermissionTimeoutMs(): number {

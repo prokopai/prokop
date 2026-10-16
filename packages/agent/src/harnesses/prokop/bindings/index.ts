@@ -1,8 +1,7 @@
 /**
  * The Prokop runtime's own bindings: configuration sources, title and tool
- * policy, workspace policy, event mapping. They run wherever the runtime runs
- * (server process or agent process). Host services live in
- * `adapters/prokop/runtime-host`.
+ * policy, workspace policy, event mapping. Host services live in the
+ * server's `adapters/prokop/runtime-host`.
  */
 export {
   configureProkopAgentSource,
@@ -32,4 +31,3 @@ export {
 export { createProkopAskAuthorityPort } from '#agent/harnesses/prokop/bindings/ask-authority';
 export { prokopAgentBindings, type ProkopAgentBindings } from '#agent/harnesses/prokop/bindings/agent';
 export { configureProkopRuntimeDefaults } from '#agent/harnesses/prokop/bindings/runtime-defaults';
-export { configureSharedDomainToolDefaults } from '#agent/harnesses/prokop/bindings/shared-defaults';

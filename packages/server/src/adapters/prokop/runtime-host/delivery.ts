@@ -12,9 +12,7 @@ import { audienceOf, mapCapekEventToServerMessage } from '@prokopai/agent/host';
 
 /**
  * Host side of runtime events: terminal events become push notifications,
- * the rest go to the WebSocket router by audience. The in-process runtime
- * host's delivery; in the agent process the same events arrive as `deliver`
- * and `host.notify`.
+ * the rest go to the WebSocket router by audience.
  */
 export function deliverCapekEvent(
   delivery: RuntimeDelivery,

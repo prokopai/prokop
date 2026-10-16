@@ -30,10 +30,7 @@ export function createHarnessRegistration(harness: SessionHarness, deps: Harness
 function lazyRegistration(harness: SessionHarness, deps: HarnessRegistrationDeps): HarnessRegistration {
   let loaded: HarnessRegistration | null = null;
   const load = (): HarnessRegistration => {
-    if (!loaded) {
-      deps.prepare?.[harness]?.();
-      loaded = createHarnessRegistration(harness, deps);
-    }
+    if (!loaded) loaded = createHarnessRegistration(harness, deps);
     return loaded;
   };
   const forward = (operation: string) => (...args: unknown[]): unknown =>

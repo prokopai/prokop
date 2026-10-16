@@ -1,21 +1,6 @@
 import { z } from 'zod';
 import { learningSettingsSchema } from '@/domains/learning/settings';
 
-// ── Shared primitives ──────────────────────────────────────────
-
-export const uuidParam = z.object({
-  id: z.string().min(1),
-});
-
-export const workspaceIdParam = z.object({
-  workspaceId: z.string().min(1),
-});
-
-export const jobIdParam = z.object({
-  workspaceId: z.string().min(1),
-  jobId: z.string().min(1),
-});
-
 // ── Session schemas ────────────────────────────────────────────
 
 const clientSessionMetadata = z.record(z.string(), z.unknown()).refine(

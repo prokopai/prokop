@@ -9,7 +9,7 @@ export { createProkopLearningRuntime } from './runtime';
 /**
  * A learning review as a headless run: an isolated agent scope with only the
  * review tools, each of which calls back to the host
- * (`LearningReviewToolPort`, `learning.tool` over the agent protocol).
+ * (`LearningReviewToolPort`).
  */
 export function runLearningReview(
   input: HeadlessSessionRunInput & { learning: LearningReviewSpec },

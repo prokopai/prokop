@@ -10,8 +10,7 @@ import { setDefaultContextAssembler } from '#agent/harnesses/prokop/context/asse
  * Process defaults of the Prokop runtime: the legacy fixed-builder context
  * assembler for unscoped calls (composed scopes seed their own) and the
  * domain tool fallbacks. The runtime host itself comes from the host side.
- * The task and workflow fallbacks load the AI SDK; the agent process runs
- * this when the Prokop harness first loads (`shared-defaults.ts` at start).
+ * The task and workflow fallbacks load the AI SDK.
  */
 export function configureProkopRuntimeDefaults(): void {
   setDefaultContextAssembler(fixedBuilderContextAssembler);
