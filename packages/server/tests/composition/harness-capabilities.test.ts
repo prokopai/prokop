@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test';
 import type { SessionHarness } from '@prokopai/sdk';
 import { createHarnessRegistration, createHarnessRegistrations } from '@prokopai/agent';
 import { harnessCapabilities } from '@prokopai/agent/host';
-import { agentProcessRegistrations } from '@/bootstrap/agent-ports';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
 
 const optional = ['editMessage', 'regenerateTitle', 'compact', 'revert', 'fork', 'drainQueue', 'steerQueue'] as const;
@@ -15,10 +14,7 @@ function shape(registrations: Record<string, { execution: object; headless?: unk
   }]));
 }
 
-const hostOperations = (registrations: Record<string, { hostOperations?: readonly string[] }>) =>
-  Object.fromEntries(Object.entries(registrations).map(([harness, registration]) => [harness, registration.hostOperations ?? []]));
-
-test('the host capability table matches the real harness registrations', () => {
+test('the capability table matches the real harness registrations', () => {
   const noTitle = async () => {};
   const deps = { agents: createWiredAgentsApplication(), titles: { 'codex-cli': noTitle, 'claude-cli': noTitle } };
   const real = Object.fromEntries((Object.keys(harnessCapabilities) as SessionHarness[])
@@ -28,9 +24,6 @@ test('the host capability table matches the real harness registrations', () => {
     headless: capabilities.headless as boolean,
   }]));
   expect(table).toEqual(shape(real));
-  // The agent's lazy registrations and the host's routing registrations have the same shape.
-  const lazy = createHarnessRegistrations(deps);
-  expect(shape(lazy)).toEqual(shape(real));
-  expect(hostOperations(lazy)).toEqual(hostOperations(real));
-  expect(shape(agentProcessRegistrations())).toEqual(shape(real));
+  // The lazy registrations have the same shape as the real ones.
+  expect(shape(createHarnessRegistrations(deps))).toEqual(shape(real));
 });

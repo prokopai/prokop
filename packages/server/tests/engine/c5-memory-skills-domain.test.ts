@@ -41,10 +41,6 @@ import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/stora
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { MEMORY_GUIDANCE } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
 import { SKILL_MANAGE_GUIDANCE } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
-import { pinInProcessHarnesses } from '#tests/db';
-
-// Drives harness code in this process (see pinInProcessHarnesses).
-pinInProcessHarnesses();
 
 const roots: string[] = [];
 

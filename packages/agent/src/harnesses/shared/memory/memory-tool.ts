@@ -12,7 +12,6 @@ import {
   type MemoryActionResult,
   type MemoryTarget,
 } from '#agent/harnesses/shared/memory/registry';
-import { knowledgeWriteDelegate } from '#agent/harnesses/shared/knowledge-writes';
 
 export const memoryToolDefinition = {
   name: 'memory',
@@ -45,7 +44,7 @@ ${MEMORY_LINE_NO_SECRETS}`,
   timeout: 10000,
 };
 
-export async function executeMemoryTool(input: Record<string, unknown>, basePath: string, risk: PermissionRiskLevel, askFn?: (ask: PermissionAsk) => Promise<unknown>, options?: { local?: boolean }): Promise<MemoryActionResult> {
+export async function executeMemoryTool(input: Record<string, unknown>, basePath: string, risk: PermissionRiskLevel, askFn?: (ask: PermissionAsk) => Promise<unknown>): Promise<MemoryActionResult> {
   const action = input.action as 'list' | 'add' | 'replace' | 'remove';
   const target = input.target as MemoryTarget;
   const content = input.content as string | undefined;
@@ -67,8 +66,6 @@ export async function executeMemoryTool(input: Record<string, unknown>, basePath
     });
     if (!approved) return { success: false, error: 'USER_REJECTION' };
   }
-  const remote = knowledgeWriteDelegate(options);
-  if (remote) return await remote('memory', basePath, input) as unknown as MemoryActionResult;
   if (action === 'add') return content ? addEntry(basePath, target, content) : { success: false, error: 'Content is required for add action.' };
   if (action === 'replace') {
     if (!oldText) return { success: false, error: 'oldText is required for replace action.' };

@@ -60,10 +60,6 @@ class DatabaseSingleton {
   }
 
   getDatabase(): Database {
-    // The agent process declares its role and reaches host state only through the agent protocol.
-    if (process.env.PROKOPAI_PROCESS_ROLE === 'agent') {
-      throw new Error('No host database in the agent process: host state goes through the agent protocol');
-    }
     if (this.dbOverride) return this.dbOverride;
     if (!this.dbDefault) {
       const dbPath = resolveDatabasePath();

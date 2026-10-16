@@ -4,10 +4,10 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { isWithin, parseImports } from '#tests/helpers/import-scan';
 
 /*
- * 2.6 gate (host/agent split, docs/plans/host-agent-split.md): what the host
- * evaluates at startup. Bun evaluates every static import, so the host's
- * static graph from its entry decides its idle memory. Lazy edges (dynamic
- * import, require) load on use: in-process mode or a first MCP connection.
+ * Lean host gate: what the host evaluates at startup. Bun evaluates every
+ * static import, so the host's static graph from its entry decides its idle
+ * memory. Lazy edges (dynamic import, require) load on use: the agent runtime
+ * (`bootstrap/agent-runtime.ts`) or a first MCP connection.
  */
 
 const repositoryRoot = resolve(import.meta.dir, '../../../..');
@@ -17,7 +17,7 @@ const agentSource = resolve(repositoryRoot, 'packages/agent/src');
 const coreExports = JSON.parse(readFileSync(resolve(repositoryRoot, 'packages/core/package.json'), 'utf8')).exports as
   Record<string, string>;
 
-/** Packages only the agent (or an in-process model call) needs. */
+/** Packages only the agent runtime (or a model call) needs. */
 const heavyPackages = [
   'ai', '@ai-sdk/', '@openrouter/ai-sdk-provider', '@anthropic-ai/claude-agent-sdk', '@modelcontextprotocol/sdk',
   'xlsx', 'pdfjs-dist', 'mammoth', 'turndown', 'adm-zip',
@@ -82,7 +82,7 @@ describe('2.6 gate: lean host', () => {
     const { files, packages } = staticGraph(join(agentSource, 'host.ts'));
     expect(heavyIn(packages)).toEqual([]);
     expect(files.has(join(agentSource, 'index.ts'))).toBe(false);
-    expect([...files].filter(file => file.includes('/harnesses/prokop/execution') || file.includes('/composition/agent-'))).toEqual([]);
+    expect(harnessRuntimes.filter(file => files.has(join(agentSource, file)))).toEqual([]);
   });
 
   test('the host entry evaluates no agent runtime and no heavy package at startup', () => {
@@ -95,8 +95,8 @@ describe('2.6 gate: lean host', () => {
 });
 
 describe('2.6b gate: lazy agent', () => {
-  test('the agent process starts with no harness runtime and no heavy package', () => {
-    const { files, packages } = staticGraph(join(agentSource, 'main.ts'));
+  test('the harness registrations load no harness runtime and no heavy package until first use', () => {
+    const { files, packages } = staticGraph(join(agentSource, 'composition/harness-registrations.ts'));
     expect(heavyIn(packages)).toEqual([]);
     expect(harnessRuntimes.filter(file => files.has(join(agentSource, file)))).toEqual([]);
   });

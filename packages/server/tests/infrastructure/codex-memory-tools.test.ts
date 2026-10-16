@@ -6,11 +6,8 @@ import { memoryDomainTools } from '@prokopai/agent/internal/harnesses/shared/dom
 import { createCodexMemoryTools } from '@prokopai/agent/internal/harnesses/codex-cli/memory-tools';
 import { createSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
-import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
-
-// Drives harness code in this process (see pinInProcessHarnesses).
-pinInProcessHarnesses();
 
 const root = mkdtempSync(join(tmpdir(), 'codex-memory-'));
 const agentDir = join(root, 'agent');

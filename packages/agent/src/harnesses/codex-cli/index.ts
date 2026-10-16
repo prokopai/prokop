@@ -20,7 +20,6 @@ export function createCodexCliHarness(
     },
     // Headless child runs (scheduled jobs, learning reviews) drive a normal
     // turn with no client attached; sendMessage resolves at turn completion.
-    hostOperations: ['regenerateTitle'],
     headless: input => runHeadlessTurn(execution.sendMessage, input),
   };
 }

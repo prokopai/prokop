@@ -10,8 +10,7 @@ import { executeSkillManageTool } from '#agent/harnesses/shared/skills/skill-man
 export function createProkopLearningRuntime(): LearningRuntimePort {
   return {
     harness: 'prokop',
-    // The host calls these on its own staging directories: always a local write.
-    memory: (input, directory) => executeMemoryTool(input, directory, 'none', undefined, { local: true }),
-    skills: (input, directory) => executeSkillManageTool(input, directory, 'none', undefined, { local: true }),
+    memory: (input, directory) => executeMemoryTool(input, directory, 'none'),
+    skills: (input, directory) => executeSkillManageTool(input, directory, 'none'),
   };
 }

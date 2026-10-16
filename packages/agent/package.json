@@ -3,16 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The agent process for the host/agent split (docs/plans/host-agent-split.md): the Prokop runtime and the Claude Code and Codex drivers. Imports @prokopai/core, @prokopai/agent-protocol and @prokopai/sdk, never @prokopai/server.",
+  "description": "The agent layer: the Prokop runtime and the Claude Code and Codex drivers. Imports @prokopai/core and @prokopai/sdk, never @prokopai/server.",
   "scripts": {
-    "start": "bun src/main.ts --stdio",
     "test": "bun test ./src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.278",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@prokopai/agent-protocol": "workspace:*",
     "@prokopai/core": "workspace:*",
     "@prokopai/sdk": "workspace:*",
     "adm-zip": "^0.5.16",

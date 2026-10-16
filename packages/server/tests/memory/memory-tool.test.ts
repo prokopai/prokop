@@ -5,14 +5,11 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 import { executeMemoryTool } from '@prokopai/agent/internal/harnesses/shared/memory/memory-tool';
-import { configureKnowledgeWrites } from '@prokopai/agent/internal/harnesses/shared/knowledge-writes';
 
 describe('memory tool', () => {
   let testDir: string;
 
   beforeEach(() => {
-    // Tool logic on a scratch dir: write locally even if an earlier file left the agent-protocol delegate.
-    configureKnowledgeWrites(null);
     testDir = mkdtempSync(join(tmpdir(), 'jean2-memory-tool-test-'));
   });
 

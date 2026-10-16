@@ -5,10 +5,6 @@ import { join } from 'node:path';
 import { addEntry, removeEntry, replaceEntry } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
 import { executeSkillManageTool } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
 import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
-import { pinInProcessHarnesses } from '#tests/db';
-
-// Drives harness code in this process (see pinInProcessHarnesses).
-pinInProcessHarnesses();
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'capek-knowledge-lock-')); });

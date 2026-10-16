@@ -98,12 +98,11 @@ import {
   claudeCliVersion, cliWorkspaceAvailable,
 } from '@prokopai/agent/host';
 import { agentRuntime } from './agent-runtime';
-import { agentProcessEnabled } from '@/agent-bridge/loopback';
 import {
   getClaudeModelSelection, getCodexModelSelection, saveClaudeModelSelection, saveCodexModelSelection,
 } from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution } from '@prokopai/core/application/sessions/harness-execution';
-import { agentProcessRegistrations, bindHarnessExecutors, onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
+import { onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
@@ -191,29 +190,24 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const worktreeAttachments = {
     changed: (worktreeId: string): void => refreshWorktreeAttachments?.(worktreeId),
   };
-  // The Prokop harness reports worktree session changes as an event (host.notify across the agent protocol).
+  // The Prokop harness reports worktree session changes through the harness notification port.
   onHarnessWorktreeChanged(worktreeAttachments.changed);
-  // With PROKOPAI_AGENT_PROCESS=1 the harnesses run in the agent process; the host builds none.
-  const harnessRegistrations = agentProcessEnabled()
-    ? agentProcessRegistrations()
-    : inProcessHarnessRegistrations(agents, repository);
-  // With the agent loopback the registrations forward over the agent protocol.
-  const boundRegistrations = bindHarnessExecutors(harnessRegistrations);
-  const execution = createHarnessExecution(repository, boundRegistrations);
+  const harnessRegistrations = inProcessHarnessRegistrations(agents, repository);
+  const execution = createHarnessExecution(repository, harnessRegistrations);
   // Headless (scheduled) dispatch routes through the harness registry: the
   // Prokop registration owns the composed-scope child run; harnesses
   // without headless support fail closed per run and are rejected at job
   // creation through supportedHarnesses().
   installHeadlessExecutionPort({
     run(input, options) {
-      const headless = boundRegistrations[input.harness]?.headless;
+      const headless = harnessRegistrations[input.harness]?.headless;
       return headless
         ? headless(input, options)
         : Promise.resolve({ error: `Scheduled jobs are not supported for ${input.harness} sessions` });
     },
     supportedHarnesses() {
       return (Object.keys(harnessRegistrations) as Array<import('@prokopai/sdk').SessionHarness>)
-        .filter(harness => boundRegistrations[harness].headless !== undefined);
+        .filter(harness => harnessRegistrations[harness].headless !== undefined);
     },
   });
   const askAuthority = createProkopAskAuthorityPort();
@@ -284,10 +278,10 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     codexCliAvailable,
     codexWorkspaceAvailable,
     { list: () => harnessProbes().models('codex-cli'), get: getCodexModelSelection, save: saveCodexModelSelection,
-      isActive: boundRegistrations['codex-cli'].execution.isSessionActive },
+      isActive: harnessRegistrations['codex-cli'].execution.isSessionActive },
     claudeCliAvailable,
     { list: () => harnessProbes().models('claude-cli'), get: getClaudeModelSelection, save: saveClaudeModelSelection,
-      isActive: boundRegistrations['claude-cli'].execution.isSessionActive },
+      isActive: harnessRegistrations['claude-cli'].execution.isSessionActive },
     codexWorkspaceAvailable,
     { settings: harnessSettings, codexVersion: codexCliVersion, claudeVersion: claudeCliVersion,
       usage: { 'codex-cli': () => harnessProbes().usageLimits('codex-cli'),
@@ -455,7 +449,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
 }
 
 /**
- * The harnesses, run in this process (default and loopback modes). The Prokop
+ * The harnesses, run in this process. The Prokop
  * runtime and the CLI drivers load here, on demand. CLI titles use the
  * universal server-side regeneration; Claude Code writes its own session
  * title, so Claude sessions get one without a Prokop model.

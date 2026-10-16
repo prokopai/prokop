@@ -120,7 +120,7 @@ export interface NativeStateStore {
 
 type Updates = Record<string, unknown>;
 
-/** One write of an atomic commit; mirrors `CommitWrite` in `@prokopai/agent-protocol`. */
+/** One write of an atomic commit. */
 export type CommitWrite =
   | { op: 'session.create'; session: Parameters<ConversationStore['createSession']>[0] }
   | { op: 'session.update'; id: string; updates: Updates; metadataPatch?: Record<string, unknown> }

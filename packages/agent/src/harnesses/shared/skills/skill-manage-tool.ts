@@ -5,7 +5,6 @@ import type { PermissionAsk } from '@prokopai/sdk/tool';
 import { PermissionRiskLevel } from '@prokopai/sdk/tool';
 import { scanSkillsFromDir } from '#agent/harnesses/shared/skills/registry';
 import { withKnowledgeMutationLock } from '@prokopai/core/infrastructure/filesystem/knowledge-mutation-lock';
-import { knowledgeWriteDelegate } from '#agent/harnesses/shared/knowledge-writes';
 
 type SkillManageAction = 'list' | 'create' | 'update' | 'patch' | 'delete';
 export interface SkillManageResult {
@@ -112,7 +111,7 @@ Skill bodies should be procedural: When to Use, Procedure steps, Pitfalls, Verif
   timeout: 10000,
 };
 
-export async function executeSkillManageTool(input: Record<string, unknown>, root: string, risk: PermissionRiskLevel, askFn?: (ask: PermissionAsk) => Promise<unknown>, options?: { local?: boolean }): Promise<SkillManageResult> {
+export async function executeSkillManageTool(input: Record<string, unknown>, root: string, risk: PermissionRiskLevel, askFn?: (ask: PermissionAsk) => Promise<unknown>): Promise<SkillManageResult> {
   const action = input.action as SkillManageAction;
   const rawName = input.name as string;
   const description = input.description as string | undefined;
@@ -138,8 +137,6 @@ export async function executeSkillManageTool(input: Record<string, unknown>, roo
     const approved = await askFn({ type: 'permission', question: `Allow skill ${action}: ${safeName}?`, description: `Action: ${action}\nSkill: ${safeName}${description ? `\nDescription: ${description.slice(0, 200)}` : ''}${content ? `\nContent: ${content.slice(0, 200)}` : ''}`, risk, resource: 'file', action: 'write', paths: [`${safeName}/SKILL.md`] });
     if (!approved) return { success: false, error: 'USER_REJECTION' };
   }
-  const remote = knowledgeWriteDelegate(options);
-  if (remote) return await remote('skill', root, input) as unknown as SkillManageResult;
 
   return withKnowledgeMutationLock(root, async (): Promise<SkillManageResult> => {
     if (action === 'create') {

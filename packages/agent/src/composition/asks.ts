@@ -1,4 +1,3 @@
-import type { AgentHandlers } from '@prokopai/agent-protocol';
 import type { AskAuthority } from '@prokopai/sdk';
 import { isNativeHarnessAskId, type AgentAskPort } from '@prokopai/core/application/ports/agent-asks';
 import { claudeApprovals } from '#agent/harnesses/claude-cli/approvals';
@@ -40,15 +39,9 @@ const agentAsks: Pick<AgentAskPort, 'lookup' | 'resolve'> = {
   },
 };
 
-/** Agent side of `ask.lookup` and `ask.resolve`. */
-export const askHandlers: AgentHandlers = {
-  'ask.lookup': ({ toolCallId, requestId }) => agentAsks.lookup(toolCallId, requestId),
-  'ask.resolve': async answer => ({ resolved: await agentAsks.resolve(answer) }),
-};
-
 /** Liveness of native harness waiters in this process. */
 const hasLiveRequest = (requestId: string): boolean =>
   claudeApprovals.hasLiveRequest(requestId) || codexApprovals.hasLiveRequest(requestId);
 
-/** In process: the host calls the agent's waiters directly. */
+/** The host calls the agent's waiters directly. */
 export const directAgentAsks: AgentAskPort = { ...agentAsks, hasLiveRequest };

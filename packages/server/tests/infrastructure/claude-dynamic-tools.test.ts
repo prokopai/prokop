@@ -16,7 +16,7 @@ import { claudeMemoryShape, claudeSessionSearchShape, claudeSkillManageShape,
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '@prokopai/agent/internal/harnesses/shared/tool-viz';
 import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude-cli/execution';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
-import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
 import { createSession, getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
@@ -24,9 +24,6 @@ import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime
 import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { mkdirSync } from 'node:fs';
-
-// Drives harness code in this process (see pinInProcessHarnesses).
-pinInProcessHarnesses();
 
 const root = mkdtempSync(join(tmpdir(), 'claude-memory-'));
 const agentDir = join(root, 'agent');

@@ -3,12 +3,10 @@ import type * as AgentTools from '@prokopai/agent/tools';
 import type * as InProcessBindings from '@/adapters/prokop/runtime-host/bindings';
 
 /*
- * Lazy edges into the agent code (Phase 2.6). Bun evaluates every static
- * import at startup, so the host reaches the agent runtime only through these
- * loaders, and only when it runs the harnesses itself (in-process and
- * loopback modes). With PROKOPAI_AGENT_PROCESS=1 none of them is called on
- * the startup path and the host never evaluates agent code. The host's
- * light needs come from `@prokopai/agent/host`.
+ * Lazy edges into the agent code. Bun evaluates every static import at
+ * startup, so the host reaches the agent runtime only through these loaders
+ * and the agent's heavy packages load on first use. The host's light needs
+ * come from `@prokopai/agent/host`.
  */
 
 let runtime: typeof AgentRuntime | null = null;

@@ -24,7 +24,7 @@ import {
   listQueuedMessages,
 } from '@/infrastructure/sqlite/queued-messages';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
-import { pinInProcessHarnesses, resetTestDatabase, setupTestDatabase } from '#tests/db';
+import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
 import { seedWorkspaceWithSession } from '#tests/seed';
@@ -89,7 +89,6 @@ function seedConversation(sessionId: string): void {
 }
 
 async function waitForPendingCall(): Promise<ReturnType<typeof sandboxController.getPendingCalls>[number]> {
-  // Generous: with PROKOPAI_AGENT_PROCESS=1 the first call also waits for the agent process to start.
   for (let attempt = 0; attempt < 1000; attempt++) {
     const pending = sandboxController.getPendingCalls()[0];
     if (pending) return pending;
@@ -141,7 +140,7 @@ describe.serial('Phase 2 orchestration behavior', () => {
   beforeEach(async () => {
     setupTestDataDir();
     setupTestDatabase();
-    // Wired after the runtime is configured, so execution binds to this run's ports (direct, loopback or agent process).
+    // Wired after the runtime is configured, so execution binds to this run's ports.
     installTestWireApplication();
     ({ sessionId, workspaceId } = seedWorkspaceWithSession());
     await createPreconfig(testPreconfig);
@@ -309,9 +308,6 @@ describe.serial('Phase 2 orchestration behavior', () => {
   });
 
   describe('engine paths driven in this process', () => {
-    // These call harness internals directly, so they need in-process harnesses whatever mode the run uses.
-    pinInProcessHarnesses();
-
     test('persists and broadcasts interrupted orchestrator status after abort failure', async () => {
       const abortController = new AbortController();
       const updatedStatuses: Array<string | null | undefined> = [];

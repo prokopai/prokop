@@ -10,10 +10,6 @@ import {
   prokopStorageBundle,
 } from '@/adapters/prokop/runtime-host';
 import { createRuntime } from '@/bootstrap/create-runtime';
-import { pinInProcessHarnesses } from '#tests/db';
-
-// Checks the in-process runtime host wiring (see pinInProcessHarnesses).
-pinInProcessHarnesses();
 
 const expectedGroupOperations: Record<keyof typeof prokopCompatibilityBindings, string[]> = {
   interaction: [

@@ -29,14 +29,11 @@ const prokopBindingsDir = resolve(harnessesDir, 'prokop/bindings');
 const prokopHarnessDir = resolve(harnessesDir, 'prokop');
 const routesDir = resolve(serverSourceRoot, 'transport/http/routes');
 const utilsDir = resolve(serverSourceRoot, 'utils');
-// Host/agent split experiment (docs/plans/host-agent-split.md): protocol
-// handlers and agent-side ports. Bootstrap wires it behind a flag.
-const agentBridgeDir = resolve(serverSourceRoot, 'agent-bridge');
-// The agent's composition and protocol ports; host code reaches it only through its public entry (`@/agent`).
+// The agent's composition; host code reaches it only through its public entry (`@/agent`).
 const agentDir = agentPackageRoot;
 // Runtime core shared by host and agent (packages/core, Phase 2.5c).
 const coreSourceRoot = resolve(serverSourceRoot, '../../core/src');
-const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir, agentBridgeDir, agentDir];
+const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infrastructureDir, adaptersDir, harnessesDir, agentDir];
 const infrastructureSqliteDir = resolve(infrastructureDir, 'sqlite');
 const prokopToolsDir = resolve(prokopHarnessDir, 'tools');
 
@@ -299,12 +296,6 @@ const layerRules: DependencyRule[] = [
     exceptions: layerBootstrapExceptions,
   },
   {
-    name: 'layer-agent-bridge',
-    rationale: 'The agent bridge adapts host ports to the agent protocol. It reaches the host only through infrastructure, application port contracts and @prokopai/agent-protocol, never transport, application services or harness internals.',
-    appliesTo: [agentBridgeDir],
-    allowedResolvedDirs: [agentBridgeDir, infrastructureDir, resolve(applicationDir, 'ports'), agentDir],
-  },
-  {
     name: 'layer-transport',
     rationale: 'Transport may invoke application services. No SQLite, AI SDK, or Capek implementation imports. HTTP route files are governed by the stricter layer-http-routes rule; the app composition file carries pinned composition-root exceptions (version, client flag, wired application fallback).',
     appliesTo: [transportDir],
@@ -429,10 +420,10 @@ describe('server layer boundaries', () => {
     expect(result.staleExceptions).toEqual([]);
   });
 
-  test('2.5d gate: the agent package imports only itself, core, the protocol, the SDK and npm packages', () => {
+  test('2.5d gate: the agent package imports only itself, core, the SDK and npm packages', () => {
     // Replaces layer-harness-host-access: with the harnesses in their own package, no host module
     // (SQLite, transport, adapters, bootstrap, host bridge) is importable at all.
-    const allowedWorkspace = ['@prokopai/core', '@prokopai/agent-protocol', '@prokopai/sdk'];
+    const allowedWorkspace = ['@prokopai/core', '@prokopai/sdk'];
     const todoTool = resolve(harnessesDir, 'prokop/tools/todo/tool.ts');
     const offenders: string[] = [];
     for (const file of scanDirectory(agentPackageRoot)) {

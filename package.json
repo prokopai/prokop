@@ -31,7 +31,7 @@
     "test:client": "cd packages/client && bun vitest run",
     "test:server": "cd packages/server && bun test ./tests ./src --path-ignore-patterns '**/tests/engine/**'",
     "test:server:coverage": "cd packages/server && bun test ./tests ./src --path-ignore-patterns '**/tests/engine/**' --coverage",
-    "test": "bun run test:engine && bun run test:server && bun run test:agent && bun test ./packages/sdk/tests && bun test ./packages/agent-protocol/tests && bun run test:browser && bun run test:client",
+    "test": "bun run test:engine && bun run test:server && bun run test:agent && bun test ./packages/sdk/tests && bun run test:browser && bun run test:client",
     "test:browser": "bun test ./packages/browser/src",
     "sandbox": "bun packages/sandbox-cli/src/cli.ts",
     "screenshots": "bun scripts/screenshots/run.ts",

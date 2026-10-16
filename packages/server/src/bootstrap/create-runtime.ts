@@ -1,7 +1,6 @@
 import { configureProkopSessionSearchHost } from '@/adapters/prokop/runtime-host/session-search';
 import { configureProkopStorage } from '@/adapters/prokop/runtime-host/storage';
 import { configureProkopWorkspaceToolDiscovery } from '@/adapters/prokop/runtime-host/tool-source';
-import { agentProcessEnabled } from '@/agent-bridge/loopback';
 import { agentBuiltinTools, agentRuntime, inProcessBindings } from './agent-runtime';
 import type { ProkopSessionSearchHostDeps } from '@/adapters/prokop/runtime-host/session-search';
 import { createWiredAgentsApplication } from '@/bootstrap/application';
@@ -50,9 +49,7 @@ function createSessionSearchHostDeps(agents: AgentsApplication): ProkopSessionSe
  */
 export function createRuntime(existingAgents?: AgentsApplication): AgentsApplication {
   const agents = existingAgents ?? createWiredAgentsApplication();
-  // The agent runs the harnesses in its own process (PROKOPAI_AGENT_PROCESS=1):
-  // this process then loads no agent code (bootstrap/agent-runtime.ts).
-  const runtime = agentProcessEnabled() ? null : agentRuntime();
+  const runtime = agentRuntime();
 
   // The Prokop harness owns the built-in tools; the host's tool catalog reads
   // them through this port, loading them on the first read.
@@ -61,25 +58,22 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   configureProkopStorage();
   // Managed worktrees share their workspace's knowledge; the host looks them up in its store.
   configureWorkspaceKnowledgeRoot(storedWorkspaceKnowledgeRoot);
-  if (runtime) {
-    runtime.configureProkopRuntimeConfiguration();
-    runtime.configureProkopWorkspacePolicy();
-    runtime.configureProkopPreconfigSource(agents);
-    runtime.configureProkopAgentSource(agents);
-    runtime.configureProkopInstructionSource();
-  }
+  runtime.configureProkopRuntimeConfiguration();
+  runtime.configureProkopWorkspacePolicy();
+  runtime.configureProkopPreconfigSource(agents);
+  runtime.configureProkopAgentSource(agents);
+  runtime.configureProkopInstructionSource();
   configureProkopSessionSearchHost(createSessionSearchHostDeps(agents));
   configureProkopWorkspaceToolDiscovery();
-  if (runtime) {
-    void runtime.warmInstalledToolsCache();
-    inProcessBindings().configureProkopBindings();
-  }
+  void runtime.warmInstalledToolsCache();
+  inProcessBindings().configureProkopBindings();
   configureAgentPorts();
   // S11.4: the harness-owned composed-scope lifecycle installs here; the
   // startup root consumes the application port helpers and imports no
-  // harness internals. In the agent process mode the agent composes its own.
-  installExecutionLifecyclePort(runtime
-    ? { initialize: async () => { await runtime.initializeProkopExecutionScope(); }, dispose: runtime.disposeProkopExecutionScope }
-    : { initialize: async () => {}, dispose: async () => {} });
+  // harness internals.
+  installExecutionLifecyclePort({
+    initialize: async () => { await runtime.initializeProkopExecutionScope(); },
+    dispose: runtime.disposeProkopExecutionScope,
+  });
   return agents;
 }

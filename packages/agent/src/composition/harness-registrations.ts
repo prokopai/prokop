@@ -24,10 +24,8 @@ export function createHarnessRegistration(harness: SessionHarness, deps: Harness
 }
 
 /**
- * A registration whose harness loads on its first call (host/agent split,
- * Phase 2.6b): a Prokop-only user never loads the Claude Agent SDK, and an
- * idle agent process loads none of them. Its shape comes from
- * `harnessCapabilities`, like the host's routing registrations.
+ * A registration whose harness loads on its first call: a Prokop-only user
+ * never loads the Claude Agent SDK. Its shape comes from `harnessCapabilities`.
  */
 function lazyRegistration(harness: SessionHarness, deps: HarnessRegistrationDeps): HarnessRegistration {
   let loaded: HarnessRegistration | null = null;
@@ -51,16 +49,10 @@ function lazyRegistration(harness: SessionHarness, deps: HarnessRegistrationDeps
   return {
     execution: execution as unknown as HarnessExecutor,
     ...(capabilities.headless ? { headless: (...args: Parameters<NonNullable<HarnessRegistration['headless']>>) => load().headless!(...args) } : {}),
-    ...('hostOperations' in capabilities ? { hostOperations: [...capabilities.hostOperations] } : {}),
   };
 }
 
-/**
- * The three harness registrations, built the same way in the host (which
- * routes to them, forwarded under the agent protocol) and in the agent
- * process (which runs them). CLI title regeneration is a host operation
- * (`hostOperations`); the agent process passes a stand-in it never calls.
- */
+/** The three harness registrations, each loading on its first call. */
 export function createHarnessRegistrations(deps: HarnessRegistrationDeps): Record<SessionHarness, HarnessRegistration> {
   return Object.fromEntries(Object.keys(harnessCapabilities)
     .map(harness => [harness, lazyRegistration(harness as SessionHarness, deps)])) as Record<SessionHarness, HarnessRegistration>;
