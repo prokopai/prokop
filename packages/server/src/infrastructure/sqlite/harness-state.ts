@@ -40,16 +40,110 @@ export function initializeHarnessStateSchema(db: Database): void {
     applied_at TEXT NOT NULL
   )`);
   migrateNativeTables(db);
+  for (const table of LEGACY_NATIVE_TABLES) db.run(`DROP TABLE IF EXISTS ${table}`);
+}
+
+/** The per-harness tables `harness_state` replaced; dropped at every start once copied. */
+const LEGACY_NATIVE_TABLES = [
+  'codex_session_bindings', 'codex_rollback_intents', 'codex_inherited_user_ids', 'codex_fork_intents', 'codex_session_models',
+  'claude_session_bindings', 'claude_rollback_intents', 'claude_inherited_user_ids', 'claude_fork_intents', 'claude_session_models',
+] as const;
+
+/**
+ * The legacy tables in their latest shape: creates missing ones and adds the
+ * Codex binding columns older databases lack, so the copy below reads one
+ * shape. Exported for the migration tests.
+ */
+export function createLegacyNativeTables(db: Database): void {
+  db.run(`CREATE TABLE IF NOT EXISTS codex_session_bindings (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    thread_id TEXT NOT NULL UNIQUE,
+    cli_version TEXT NOT NULL,
+    workspace_root TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    pending_turn INTEGER NOT NULL DEFAULT 0,
+    pending_user_id TEXT,
+    pending_assistant_id TEXT,
+    pending_turn_id TEXT,
+    goal_root_turn_id TEXT,
+    goal_requested INTEGER NOT NULL DEFAULT 0
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS codex_rollback_intents (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    operation TEXT NOT NULL CHECK (operation IN ('edit', 'revert')),
+    target_message_id TEXT NOT NULL,
+    content TEXT,
+    before_turn_id TEXT NOT NULL,
+    turn_ids TEXT NOT NULL,
+    phase TEXT NOT NULL DEFAULT 'rollback' CHECK (phase IN ('rollback', 'ready', 'sent'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS codex_inherited_user_ids (
+    message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    upstream_client_id TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS codex_fork_intents (
+    source_session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    target_message_id TEXT NOT NULL,
+    before_turn_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  const bindingColumns = db.query<{ name: string }, []>('PRAGMA table_info(codex_session_bindings)').all();
+  for (const [column, definition] of [
+    ['pending_turn', 'INTEGER NOT NULL DEFAULT 0'],
+    ['pending_user_id', 'TEXT'],
+    ['pending_assistant_id', 'TEXT'],
+    ['pending_turn_id', 'TEXT'],
+    ['goal_root_turn_id', 'TEXT'],
+    ['goal_requested', 'INTEGER NOT NULL DEFAULT 0'],
+  ] as const) {
+    if (!bindingColumns.some(entry => entry.name === column)) {
+      db.run(`ALTER TABLE codex_session_bindings ADD COLUMN ${column} ${definition}`);
+    }
+  }
+
+  db.run(`CREATE TABLE IF NOT EXISTS codex_session_models (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    effort TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS claude_session_models (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    effort TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS claude_session_bindings (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    native_session_id TEXT NOT NULL UNIQUE,
+    workspace_root TEXT NOT NULL,
+    cli_version TEXT NOT NULL,
+    pending INTEGER NOT NULL DEFAULT 0
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS claude_rollback_intents (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    operation TEXT NOT NULL CHECK (operation IN ('edit', 'revert')),
+    target_message_id TEXT NOT NULL,
+    phase TEXT NOT NULL CHECK (phase IN ('fork', 'ready', 'sent'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS claude_inherited_user_ids (
+    message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    native_user_id TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS claude_fork_intents (
+    source_session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    target_message_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
 }
 
 /**
  * One-time copy of the ten legacy `claude_*`/`codex_*` tables. Idempotent:
  * a marker row prevents a second copy (which would resurrect state deleted
- * since). The legacy tables are left untouched as a fallback and are no
- * longer written. Do not run an older server on a database migrated here.
+ * since). The legacy tables are dropped afterwards, so an older server on a
+ * database migrated here starts with no Claude Code or Codex bindings.
  */
 function migrateNativeTables(db: Database): void {
   if (db.query('SELECT 1 FROM harness_state_migrations WHERE id = ?').get(MIGRATION_ID)) return;
+  createLegacyNativeTables(db);
   const bool = (column: string): string => `json(CASE WHEN ${column} THEN 'true' ELSE 'false' END)`;
   // Orphans can only exist if foreign keys were ever off; skip them rather than fail startup.
   const LIVE_SESSION = 'session_id IN (SELECT id FROM sessions)';

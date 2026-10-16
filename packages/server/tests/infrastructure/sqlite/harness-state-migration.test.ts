@@ -2,16 +2,22 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import {
-  deleteHarnessState, getHarnessState, hasBlockingHarnessState, hasNativeBinding, initializeHarnessStateSchema,
+  createLegacyNativeTables, deleteHarnessState, getHarnessState, hasBlockingHarnessState, hasNativeBinding,
+  initializeHarnessStateSchema,
 } from '@/infrastructure/sqlite/harness-state';
 import { createMessage } from '@/infrastructure/sqlite/message-store';
 import { resetTestDatabase, setupTestDatabase } from '#tests/db';
 import { seedSession, seedWorkspace } from '#tests/seed';
 
+const legacyTableCount = (db: Database): number => db.query<{ n: number }, []>(
+  "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND (name GLOB 'claude_*' OR name GLOB 'codex_*')",
+).get()!.n;
+
 /** Restores the pre-migration state: legacy rows present, no harness_state, no marker. */
 function seedLegacyTables(db: Database): void {
   db.run('DELETE FROM harness_state');
   db.run('DELETE FROM harness_state_migrations');
+  createLegacyNativeTables(db);
   seedWorkspace();
   seedSession('ws1', { id: 'codex', harness: 'codex-cli' });
   seedSession('ws1', { id: 'claude', harness: 'claude-cli' });
@@ -37,6 +43,10 @@ describe('harness_state migration from the legacy native tables', () => {
     setupTestDatabase();
   });
   afterEach(() => resetTestDatabase());
+
+  test('a fresh database has no legacy tables', () => {
+    expect(legacyTableCount(getDatabase())).toBe(0);
+  });
 
   test('copies every legacy record with its key, cascades, lookup and switch flag', () => {
     const db = getDatabase();
@@ -76,10 +86,11 @@ describe('harness_state migration from the legacy native tables', () => {
     expect(hasNativeBinding('claude')).toBe(true);
   });
 
-  test('runs once: a second start neither duplicates nor resurrects deleted state', () => {
+  test('runs once and drops the legacy tables: a second start neither duplicates nor resurrects deleted state', () => {
     const db = getDatabase();
     seedLegacyTables(db);
     initializeHarnessStateSchema(db);
+    expect(legacyTableCount(db)).toBe(0);
     const count = (): number => db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM harness_state').get()!.n;
     expect(count()).toBe(8);
 
@@ -87,8 +98,7 @@ describe('harness_state migration from the legacy native tables', () => {
     initializeHarnessStateSchema(db);
     expect(count()).toBe(7);
     expect(getHarnessState({ harness: 'claude-cli', kind: 'fork-intent', key: 'claude' })).toBeNull();
-    // The legacy tables stay untouched as a fallback.
-    expect(db.query('SELECT 1 FROM claude_fork_intents').get()).not.toBeNull();
+    expect(legacyTableCount(db)).toBe(0);
   });
 
   test('orphaned legacy rows (written while foreign keys were off) are skipped, not fatal', () => {

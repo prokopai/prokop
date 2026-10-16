@@ -54,26 +54,26 @@ test('existing session rows acquire the Prokop harness without replacing their d
   }
 });
 
-test('existing Codex bindings acquire recovery columns without losing their thread', () => {
+test('Codex bindings from before the recovery columns migrate with their thread', () => {
   const db = new Database(':memory:');
   try {
     initializeSchema(db);
-    db.run('ALTER TABLE codex_session_bindings DROP COLUMN goal_requested');
-    db.run('ALTER TABLE codex_session_bindings DROP COLUMN goal_root_turn_id');
-    db.run('ALTER TABLE codex_session_bindings DROP COLUMN pending_turn_id');
-    db.run('ALTER TABLE codex_session_bindings DROP COLUMN pending_assistant_id');
-    db.run('ALTER TABLE codex_session_bindings DROP COLUMN pending_user_id');
+    // A database from before harness_state, whose binding table predates the recovery columns.
+    db.run('DELETE FROM harness_state_migrations');
+    db.run(`CREATE TABLE codex_session_bindings (
+      session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+      thread_id TEXT NOT NULL UNIQUE, cli_version TEXT NOT NULL, workspace_root TEXT NOT NULL, created_at TEXT NOT NULL)`);
     db.run("INSERT INTO sessions (id, workspace_id, harness, status, created_at, updated_at) VALUES ('s', 'w', 'codex-cli', 'active', 'now', 'now')");
     db.run("INSERT INTO codex_session_bindings (session_id, thread_id, cli_version, workspace_root, created_at) VALUES ('s', 't', 'codex-cli 0.156.1', '/tmp', 'now')");
     initializeSessionMessageSchema(db, { perfDiagnosticsEnabled: false });
     initializeSessionMessageSchema(db, { perfDiagnosticsEnabled: false });
-    const row = db.query<{ thread_id: string; pending_user_id: string | null; pending_assistant_id: string | null;
-      pending_turn_id: string | null; goal_root_turn_id: string | null; goal_requested: number }, []>(
-      `SELECT thread_id, pending_user_id, pending_assistant_id, pending_turn_id, goal_root_turn_id, goal_requested
-        FROM codex_session_bindings WHERE session_id = 's'`,
+    const row = db.query<{ value: string }, []>(
+      "SELECT value FROM harness_state WHERE harness = 'codex-cli' AND kind = 'binding' AND key = 's'",
     ).get();
-    expect(row).toEqual({ thread_id: 't', pending_user_id: null, pending_assistant_id: null,
-      pending_turn_id: null, goal_root_turn_id: null, goal_requested: 0 });
+    expect(JSON.parse(row!.value)).toEqual({ threadId: 't', cliVersion: 'codex-cli 0.156.1', workspaceRoot: '/tmp',
+      createdAt: 'now', pendingTurn: false, pendingUserId: null, pendingAssistantId: null, pendingTurnId: null,
+      goalRootTurnId: null, goalRequested: false });
+    expect(db.query("SELECT 1 FROM sqlite_master WHERE name = 'codex_session_bindings'").get()).toBeNull();
   } finally {
     db.close();
   }
