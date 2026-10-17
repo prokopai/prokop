@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
-import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { MarkdownRenderer, splitStreamingCodeChunks } from '@/components/shared/MarkdownRenderer';
 import {
   assignRevealDelays,
   revealBatch,
@@ -72,6 +72,24 @@ describe('MarkdownRenderer revealBatches', () => {
     const { container } = render(<MarkdownRenderer revealBatches={[0]}>{'Some **bold** and [link](https://x.dev)'}</MarkdownRenderer>);
     expect(container.querySelector('strong .stream-in')).toHaveTextContent('bold');
     expect(container.querySelector('a .stream-in')).toHaveTextContent('link');
+  });
+
+  test('an open code fence highlights in chunks and leaves finished chunks alone', () => {
+    const lines = (count: number) => Array.from({ length: count }, (_, i) => `const v${i} = ${i};`).join('\n');
+    expect(splitStreamingCodeChunks(lines(41)).map((chunk) => chunk.split('\n').length)).toEqual([40, 1]);
+
+    const { container, rerender } = render(<MarkdownRenderer>{`\`\`\`ts\n${lines(45)}`}</MarkdownRenderer>);
+    const first = container.querySelector('pre .token-line');
+    expect(container.querySelectorAll('pre .token-line')).toHaveLength(45);
+
+    rerender(<MarkdownRenderer>{`\`\`\`ts\n${lines(46)}`}</MarkdownRenderer>);
+    expect(container.querySelector('pre .token-line')).toBe(first);
+    expect(container.querySelectorAll('pre .token-line')).toHaveLength(46);
+
+    // The closed block highlights as one piece, with the same lines.
+    rerender(<MarkdownRenderer>{`\`\`\`ts\n${lines(46)}\n\`\`\``}</MarkdownRenderer>);
+    expect(container.querySelectorAll('pre .token-line')).toHaveLength(46);
+    expect(container.querySelector('pre')).toHaveTextContent('const v45 = 45;');
   });
 
   test('renders without spans when nothing is streaming', () => {

@@ -36,9 +36,45 @@ interface MarkdownCodeBlockProps {
   language: string;
   theme: typeof themes.oneDark;
   inverted?: boolean;
+  /** The closing fence has not arrived: the block is still growing. */
+  streaming?: boolean;
 }
 
-const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, theme, inverted = false }: MarkdownCodeBlockProps) {
+/**
+ * Lines per independently highlighted chunk while a fence is still open.
+ * Finished chunks keep the same text, so they never re-tokenize or touch the
+ * DOM again; each flush re-highlights only the last chunk.
+ */
+const STREAMING_CHUNK_LINES = 40;
+
+export function splitStreamingCodeChunks(code: string): string[] {
+  const lines = code.split('\n');
+  const chunks: string[] = [];
+  for (let start = 0; start < lines.length; start += STREAMING_CHUNK_LINES) {
+    chunks.push(lines.slice(start, start + STREAMING_CHUNK_LINES).join('\n'));
+  }
+  return chunks;
+}
+
+const HighlightedLines = memo(function HighlightedLines({ code, language, theme }: { code: string; language: string; theme: typeof themes.oneDark }) {
+  return (
+    <Highlight theme={theme} code={code} language={language}>
+      {({ tokens, getLineProps, getTokenProps }) => (
+        <>
+          {tokens.map((line, i) => (
+            <div key={i} {...getLineProps({ line })}>
+              {line.map((token, key) => (
+                <span key={key} {...getTokenProps({ token })} />
+              ))}
+            </div>
+          ))}
+        </>
+      )}
+    </Highlight>
+  );
+});
+
+const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, theme, inverted = false, streaming = false }: MarkdownCodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -73,19 +109,30 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
         </button>
       </div>
       <div className="overflow-x-auto rounded-b-lg" style={{ backgroundColor: theme.plain.backgroundColor }}>
-        <Highlight theme={theme} code={code} language={language || 'text'}>
-          {({ className: hlClassName, style, tokens, getLineProps, getTokenProps }) => (
-            <pre className={cn('rounded-none text-sm p-3 m-0', hlClassName)} style={style}>
-              {tokens.map((line, i) => (
-                <div key={i} {...getLineProps({ line })}>
-                  {line.map((token, key) => (
-                    <span key={key} {...getTokenProps({ token })} />
-                  ))}
-                </div>
-              ))}
-            </pre>
-          )}
-        </Highlight>
+        {streaming ? (
+          // Chunk boundaries can split a multi-line token (a long comment or
+          // string) for as long as the block streams; the closed block below
+          // highlights as one piece.
+          <pre className={cn('rounded-none text-sm p-3 m-0', `prism-code language-${language || 'text'}`)} style={theme.plain}>
+            {splitStreamingCodeChunks(code).map((chunk, index) => (
+              <HighlightedLines key={index} code={chunk} language={language || 'text'} theme={theme} />
+            ))}
+          </pre>
+        ) : (
+          <Highlight theme={theme} code={code} language={language || 'text'}>
+            {({ className: hlClassName, style, tokens, getLineProps, getTokenProps }) => (
+              <pre className={cn('rounded-none text-sm p-3 m-0', hlClassName)} style={style}>
+                {tokens.map((line, i) => (
+                  <div key={i} {...getLineProps({ line })}>
+                    {line.map((token, key) => (
+                      <span key={key} {...getTokenProps({ token })} />
+                    ))}
+                  </div>
+                ))}
+              </pre>
+            )}
+          </Highlight>
+        )}
       </div>
     </div>
   );
@@ -249,6 +296,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
             language={language}
             theme={codeTheme}
             inverted={inverted}
+            streaming={Boolean(node?.properties.dataFenceOpen)}
           />
         );
         if (language === 'mermaid' && !inverted && !node?.properties.dataFenceOpen) {
