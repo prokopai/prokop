@@ -152,7 +152,7 @@ describe('S5 session and message SQLite repositories', () => {
 
     // Once the pending part advances, no part is pending anymore, so the
     // newest row wins by (created_at DESC, rowid DESC): the completed part.
-    messages.transitionToolToRunning('p-pending');
+    messages.transitionToolToRunningByCallId(sessionId, 'call-dup');
     const afterTransition = messages.getToolPartByCallId(sessionId, 'call-dup');
     expect(afterTransition?.id).toBe('p-completed');
     expect(afterTransition?.state.status).toBe('completed');
@@ -196,10 +196,6 @@ describe('S5 session and message SQLite repositories', () => {
     messages.createPart(makeTextPart('summary-t', 'summary', 4_000, 'Summary text'), sessionId, { syncFts: false });
     messages.createMessage(makeUserMessage('u2', sessionId, 5_000));
     messages.createPart(makeTextPart('u2t', 'u2', 5_000, 'More'), sessionId, { syncFts: false });
-
-    const boundary = messages.getLatestCompactionBoundary(sessionId);
-    expect(boundary?.triggerId).toBe('trigger');
-    expect(boundary?.summaryId).toBe('summary');
 
     const effective = messages.buildEffectiveContextHistory(sessionId);
     expect(effective.hasCompaction).toBe(true);
@@ -260,14 +256,14 @@ describe('S5 session and message SQLite repositories', () => {
     }, sessionId, { syncFts: false });
 
     // Identity guard: mismatched messageId affects zero rows.
-    expect(messages.persistStreamingPartSnapshot({
+    expect(messages.persistStreamingPartSnapshots([{
       id: 'snap',
       messageId: 'wrong',
       sessionId,
       type: 'text',
       createdAt: 2_100,
       text: 'x',
-    })).toBe(false);
+    }])).toBe(0);
 
     // Batch persists in one transaction and reports the exact count.
     const count = messages.persistStreamingPartSnapshots([
@@ -286,8 +282,8 @@ describe('S5 session and message SQLite repositories', () => {
     messages.createPart(makeToolPart('t1', 'a1', 'call-1', 'pending', 2_100), sessionId, { syncFts: false });
     messages.createPart(makeToolPart('t2', 'a1', 'call-2', 'running', 2_200), sessionId, { syncFts: false });
 
-    expect(messages.findOrphanedToolCalls(sessionId).map((p) => p.id)).toEqual(['t1', 't2']);
     expect(messages.reconcileOrphanedToolCalls(sessionId)).toBe(2);
+    expect((messages.getPart('t2') as ToolPart).state.status).toBe('interrupted');
     expect(messages.getPart('t1')?.type === 'tool'
       ? (messages.getPart('t1') as ToolPart).state.status
       : 'n/a').toBe('interrupted');

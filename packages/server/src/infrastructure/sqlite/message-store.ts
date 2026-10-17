@@ -18,7 +18,6 @@ import {
   type MessageDatabaseAccessor,
 } from './message-repository';
 import type {
-  CompactionBoundary,
   MessageStorePort,
   SessionMessageRepositoryHooks,
   StreamingPartSnapshot,
@@ -105,14 +104,6 @@ export function listMessages(sessionId: string): Message[] {
   return repo().listMessages(sessionId);
 }
 
-export function deleteMessages(sessionId: string): number {
-  const result = repo().deleteMessages(sessionId);
-  if (result > 0) {
-    notifyLearningActivity();
-    publishConversationActivity(sessionId);
-  }
-  return result;
-}
 
 export function deleteMessage(messageId: string): boolean {
   const message = repo().getMessage(messageId);
@@ -172,22 +163,7 @@ export function listMessagesWithParts(sessionId: string): MessageWithParts[] {
   return repo().listMessagesWithParts(sessionId);
 }
 
-export function createToolPartPending(
-  messageId: string,
-  callId: string,
-  toolName: string,
-  input: Record<string, unknown>,
-  sessionId: string,
-): ToolPart {
-  return repo().createToolPartPending(messageId, callId, toolName, input, sessionId);
-}
 
-export function transitionToolToRunning(
-  partId: string,
-  childSessionId?: string,
-): ToolPart | null {
-  return repo().transitionToolToRunning(partId, childSessionId);
-}
 
 export function transitionToolToCompleted(
   partId: string,
@@ -228,9 +204,6 @@ export function transitionToolToInterrupted(
   return result;
 }
 
-export function findOrphanedToolCalls(sessionId: string): ToolPart[] {
-  return repo().findOrphanedToolCalls(sessionId);
-}
 
 export function reconcileOrphanedToolCalls(sessionId: string): number {
   return repo().reconcileOrphanedToolCalls(sessionId);
@@ -244,22 +217,8 @@ export function findOrphanedCompactionTriggers(sessionId: string): Message[] {
   return repo().findOrphanedCompactionTriggers(sessionId);
 }
 
-export function listMessagesForSession(sessionId: string): MessageWithParts[] {
-  return repo().listMessagesForSession(sessionId);
-}
 
-export function getLatestCompactionBoundary(
-  sessionId: string,
-): CompactionBoundary | null {
-  return repo().getLatestCompactionBoundary(sessionId);
-}
 
-export function listMessagesWithPartsFromSequence(
-  sessionId: string,
-  sequence: number,
-): MessageWithParts[] {
-  return repo().listMessagesWithPartsFromSequence(sessionId, sequence);
-}
 
 export function buildEffectiveContextHistory(
   sessionId: string,
@@ -295,9 +254,6 @@ export function syncMessageFts(messageId: string): void {
   repo().syncMessageFts(messageId);
 }
 
-export function persistStreamingPartSnapshot(snapshot: StreamingPartSnapshot): boolean {
-  return repo().persistStreamingPartSnapshot(snapshot);
-}
 
 export function persistStreamingPartSnapshots(snapshots: StreamingPartSnapshot[]): number {
   return repo().persistStreamingPartSnapshots(snapshots);

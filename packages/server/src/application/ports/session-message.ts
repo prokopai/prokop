@@ -142,7 +142,6 @@ export interface MessageStorePort {
     options?: { syncFts?: boolean },
   ): Message | null;
   listMessages(sessionId: string): Message[];
-  deleteMessages(sessionId: string): number;
   deleteMessage(messageId: string): boolean;
 
   createPart(part: Part, sessionId: string, options?: { syncFts?: boolean }): Part;
@@ -159,14 +158,6 @@ export interface MessageStorePort {
   getMessageWithParts(messageId: string): MessageWithParts | null;
   listMessagesWithParts(sessionId: string): MessageWithParts[];
 
-  createToolPartPending(
-    messageId: string,
-    callId: string,
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string,
-  ): ToolPart;
-  transitionToolToRunning(partId: string, childSessionId?: string): ToolPart | null;
   transitionToolToCompleted(partId: string, output: unknown): ToolPart | null;
   transitionToolToError(partId: string, error: string): ToolPart | null;
   getToolPartByCallId(sessionId: string, callId: string): ToolPart | null;
@@ -176,14 +167,10 @@ export interface MessageStorePort {
     childSessionId?: string,
   ): ToolPart | null;
   transitionToolToInterrupted(partId: string, reason: ToolInterruptReason): ToolPart | null;
-  findOrphanedToolCalls(sessionId: string): ToolPart[];
   reconcileOrphanedToolCalls(sessionId: string): number;
   reconcileAllOrphanedToolCalls(): number;
 
   findOrphanedCompactionTriggers(sessionId: string): Message[];
-  listMessagesForSession(sessionId: string): MessageWithParts[];
-  getLatestCompactionBoundary(sessionId: string): CompactionBoundary | null;
-  listMessagesWithPartsFromSequence(sessionId: string, sequence: number): MessageWithParts[];
   buildEffectiveContextHistory(sessionId: string): {
     messages: MessageWithParts[];
     latestCompactionBoundary: string | null;
@@ -199,7 +186,6 @@ export interface MessageStorePort {
   ): TranscriptPage;
 
   syncMessageFts(messageId: string): void;
-  persistStreamingPartSnapshot(snapshot: StreamingPartSnapshot): boolean;
   persistStreamingPartSnapshots(snapshots: StreamingPartSnapshot[]): number;
 }
 

@@ -8,7 +8,6 @@ import {
   updateMessage,
   listMessages,
   deleteMessage,
-  deleteMessages,
   createPart,
   getPart,
   updatePart,
@@ -16,20 +15,15 @@ import {
   getPartsBySession,
   getMessageWithParts,
   listMessagesWithParts,
-  createToolPartPending,
-  transitionToolToRunning,
   transitionToolToCompleted,
   transitionToolToError,
   transitionToolToRunningByCallId,
   transitionToolToInterrupted,
-  findOrphanedToolCalls,
   reconcileOrphanedToolCalls,
   reconcileAllOrphanedToolCalls,
   findOrphanedCompactionTriggers,
   buildEffectiveContextHistory,
-  listMessagesForSession,
   getToolPartByCallId,
-  persistStreamingPartSnapshot,
   persistStreamingPartSnapshots,
   syncMessageFts,
 } from '@/infrastructure/sqlite/message-store';
@@ -39,6 +33,21 @@ import { revertToStep } from '@prokopai/agent/internal/harnesses/prokop/executio
 import { forkSession } from '@prokopai/agent/internal/harnesses/prokop/execution/fork';
 import { createTestSession } from '#tests/factories';
 import type { AssistantMessage, Part, ToolPart } from '@prokopai/sdk';
+
+/** Fixture: a pending tool call part, as a harness writes it when a call starts. */
+function createToolPartPending(
+  messageId: string, callId: string, toolName: string, input: Record<string, unknown>, sessionId: string,
+): ToolPart {
+  return createPart({ id: crypto.randomUUID(), messageId, createdAt: Date.now(), type: 'tool', callId,
+    name: toolName, state: { status: 'pending', input } } as ToolPart, sessionId) as ToolPart;
+}
+
+/** Fixture: start a pending tool through the call-id path the harnesses use. */
+function transitionToolToRunning(partId: string, childSessionId?: string): ToolPart | null {
+  const part = getPart(partId) as ToolPart | null;
+  if (!part) return null;
+  return transitionToolToRunningByCallId(getMessage(part.messageId)!.sessionId, part.callId, childSessionId);
+}
 
 function makeSession(overrides: { id: string; workspaceId: string; title: string; status: 'active' | 'closed' }) {
   const { createdAt: _c, updatedAt: _u, ...defaults } = createTestSession(overrides);
@@ -183,14 +192,6 @@ describe('messages store', () => {
       expect(deleteMessage('nonexistent')).toBe(false);
     });
 
-    test('deleteMessages removes all messages for a session', () => {
-      createUserMsg('msg1', 1000);
-      createAssistantMsg('msg2', {}, 2000);
-
-      const count = deleteMessages(sessionId);
-      expect(count).toBe(2);
-      expect(listMessages(sessionId)).toHaveLength(0);
-    });
   });
 
   // ===========================================================================
@@ -335,17 +336,6 @@ describe('messages store', () => {
   // ===========================================================================
 
   describe('tool state transitions', () => {
-    test('createToolPartPending creates pending tool', () => {
-      createAssistantMsg('msg1', { status: 'streaming' });
-      const tool = createToolPartPending('msg1', 'call-1', 'read-file', { path: '/test' }, sessionId);
-
-      expect(tool.type).toBe('tool');
-      expect(tool.state.status).toBe('pending');
-      expect(tool.name).toBe('read-file');
-      expect(tool.callId).toBe('call-1');
-      expect(tool.state.input).toEqual({ path: '/test' });
-    });
-
     test('transitionToolToRunning updates status to running', () => {
       createAssistantMsg('msg1', { status: 'streaming' });
       const tool = createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
@@ -498,48 +488,39 @@ describe('messages store', () => {
   // ===========================================================================
 
   describe('orphaned tool call recovery', () => {
-    test('findOrphanedToolCalls finds pending tools', () => {
+    test('reconcile interrupts pending tools', () => {
       createAssistantMsg('msg1', { status: 'completed' });
-      createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
+      const tool = createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
 
-      const orphaned = findOrphanedToolCalls(sessionId);
-      expect(orphaned).toHaveLength(1);
-      expect(orphaned[0].name).toBe('read-file');
+      expect(reconcileOrphanedToolCalls(sessionId)).toBe(1);
+      expect((getPart(tool.id) as ToolPart).state.status).toBe('interrupted');
+      expect(reconcileOrphanedToolCalls(sessionId)).toBe(0);
     });
 
-    test('findOrphanedToolCalls finds running tools', () => {
+    test('reconcile interrupts running tools', () => {
       createAssistantMsg('msg1', { status: 'completed' });
       const tool = createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
       transitionToolToRunning(tool.id);
 
-      const orphaned = findOrphanedToolCalls(sessionId);
-      expect(orphaned).toHaveLength(1);
+      expect(reconcileOrphanedToolCalls(sessionId)).toBe(1);
     });
 
-    test('findOrphanedToolCalls excludes completed tools', () => {
+    test('reconcile leaves completed tools alone', () => {
       createAssistantMsg('msg1', { status: 'completed' });
       const tool = createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
       transitionToolToRunning(tool.id);
       transitionToolToCompleted(tool.id, 'done');
 
-      expect(findOrphanedToolCalls(sessionId)).toHaveLength(0);
+      expect(reconcileOrphanedToolCalls(sessionId)).toBe(0);
+      expect((getPart(tool.id) as ToolPart).state.status).toBe('completed');
     });
 
-    test('findOrphanedToolCalls excludes errored tools', () => {
+    test('reconcile leaves errored tools alone', () => {
       createAssistantMsg('msg1', { status: 'completed' });
       const tool = createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
       transitionToolToError(tool.id, 'fail');
 
-      expect(findOrphanedToolCalls(sessionId)).toHaveLength(0);
-    });
-
-    test('reconcileOrphanedToolCalls marks them as interrupted', () => {
-      createAssistantMsg('msg1', { status: 'completed' });
-      createToolPartPending('msg1', 'call-1', 'read-file', {}, sessionId);
-
-      const count = reconcileOrphanedToolCalls(sessionId);
-      expect(count).toBe(1);
-      expect(findOrphanedToolCalls(sessionId)).toHaveLength(0);
+      expect(reconcileOrphanedToolCalls(sessionId)).toBe(0);
     });
 
     test('reconcileAllOrphanedToolCalls reconciles across sessions', () => {
@@ -890,50 +871,6 @@ describe('messages store', () => {
       expect(result).toHaveLength(1);
       expect(result[0].parts).toHaveLength(1);
       expect(result[0].parts[0].id).toBe('p1');
-    });
-  });
-
-  describe('listMessagesForSession optimized (delegates to JOIN)', () => {
-    test('returns same results as listMessagesWithParts', () => {
-      createUserMsg('msg1', 1000);
-      createAssistantMsg('msg2', {}, 2000);
-      createPart({ id: 'p1', messageId: 'msg1', createdAt: 100, type: 'text', text: 'hello' } as Part, sessionId);
-      createPart({ id: 'p2', messageId: 'msg2', createdAt: 200, type: 'text', text: 'world' } as Part, sessionId);
-
-      const viaList = listMessagesWithParts(sessionId);
-      const viaSession = listMessagesForSession(sessionId);
-
-      expect(viaSession).toHaveLength(2);
-      expect(viaSession[0].message.id).toBe('msg1');
-      expect(viaSession[0].parts).toHaveLength(1);
-      expect(viaSession[1].message.id).toBe('msg2');
-      expect(viaSession[1].parts).toHaveLength(1);
-
-      // Both should produce identical message IDs
-      expect(viaList.map((r) => r.message.id)).toEqual(viaSession.map((r) => r.message.id));
-      expect(viaList.map((r) => r.parts.map((p) => p.id)).flat()).toEqual(
-        viaSession.map((r) => r.parts.map((p) => p.id)).flat(),
-      );
-    });
-
-    test('handles empty session', () => {
-      expect(listMessagesForSession(sessionId)).toEqual([]);
-    });
-
-    test('handles messages with mixed parts and no parts', () => {
-      createUserMsg('msg1', 1000);
-      createUserMsg('msg2', 2000);
-      createUserMsg('msg3', 3000);
-      createPart({ id: 'p1', messageId: 'msg1', createdAt: 100, type: 'text', text: 'a' } as Part, sessionId);
-      createPart({ id: 'p2', messageId: 'msg1', createdAt: 200, type: 'text', text: 'b' } as Part, sessionId);
-      // msg2 has no parts
-      createPart({ id: 'p3', messageId: 'msg3', createdAt: 300, type: 'text', text: 'c' } as Part, sessionId);
-
-      const result = listMessagesForSession(sessionId);
-      expect(result).toHaveLength(3);
-      expect(result[0].parts).toHaveLength(2);
-      expect(result[1].parts).toHaveLength(0);
-      expect(result[2].parts).toHaveLength(1);
     });
   });
 
@@ -1340,7 +1277,7 @@ describe('messages store', () => {
   // ===========================================================================
 
   describe('streaming snapshot persistence (Phase 3)', () => {
-    test('persistStreamingPartSnapshot writes text without read-before-write', () => {
+    test('a snapshot writes text without read-before-write', () => {
       createAssistantMsg('msg1', { status: 'streaming' });
       createPart({
         id: 'tp1',
@@ -1350,21 +1287,21 @@ describe('messages store', () => {
         text: 'initial',
       } as Part, sessionId);
 
-      const ok = persistStreamingPartSnapshot({
+      const ok = persistStreamingPartSnapshots([{
         id: 'tp1',
         messageId: 'msg1',
         sessionId,
         type: 'text',
         createdAt: 1000,
         text: 'updated snapshot text',
-      });
+      }]) === 1;
 
       expect(ok).toBe(true);
       const part = getPart('tp1');
       expect((part as unknown as Record<string, unknown>).text).toBe('updated snapshot text');
     });
 
-    test('persistStreamingPartSnapshot returns false for identity mismatch', () => {
+    test('an identity mismatch persists nothing', () => {
       createAssistantMsg('msg1', { status: 'streaming' });
       createPart({
         id: 'tp1',
@@ -1374,14 +1311,14 @@ describe('messages store', () => {
         text: 'initial',
       } as Part, sessionId);
 
-      const ok = persistStreamingPartSnapshot({
+      const ok = persistStreamingPartSnapshots([{
         id: 'tp1',
         messageId: 'wrong-message',
         sessionId,
         type: 'text',
         createdAt: 1000,
         text: 'should not update',
-      });
+      }]) === 1;
 
       expect(ok).toBe(false);
       const part = getPart('tp1');

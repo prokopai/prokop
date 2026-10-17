@@ -332,15 +332,6 @@ export function createMessageRepository(
     return rows.map(rowToMessage);
   }
 
-  function deleteMessages(sessionId: string): number {
-    const db = getDb();
-    const result = db.run('DELETE FROM messages WHERE session_id = ?', [
-      sessionId,
-    ]);
-    hooks.events.publish({ type: 'session.deleted', sessionId });
-    return result.changes;
-  }
-
   function deleteMessage(messageId: string): boolean {
     const db = getDb();
     db.run('DELETE FROM parts WHERE message_id = ?', [messageId]);
@@ -463,30 +454,6 @@ export function createMessageRepository(
     return groupJoinedRows(rows);
   }
 
-  function createToolPartPending(
-    messageId: string,
-    callId: string,
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string,
-  ): ToolPart {
-    const part: ToolPart = {
-      id: crypto.randomUUID(),
-      messageId,
-      createdAt: Date.now(),
-      type: 'tool',
-      callId,
-      name: toolName,
-      state: {
-        status: 'pending',
-        input,
-      },
-    };
-
-    createPart(part, sessionId, { syncFts: false });
-    return part;
-  }
-
   function getSessionIdForMessage(messageId: string): string | null {
     const db = getDb();
     const row = db.query('SELECT session_id FROM messages WHERE id = ?').get(messageId) as { session_id: string } | undefined;
@@ -515,29 +482,6 @@ export function createMessageRepository(
     }
 
     return part;
-  }
-
-  function transitionToolToRunning(
-    partId: string,
-    childSessionId?: string,
-  ): ToolPart | null {
-    const existing = getPart(partId);
-    if (!existing || existing.type !== 'tool') return null;
-
-    const toolPart = existing as ToolPart;
-    if (toolPart.state.status !== 'pending') return null;
-
-    const updated: ToolPart = {
-      ...toolPart,
-      state: {
-        status: 'running',
-        input: toolPart.state.input,
-        startedAt: Date.now(),
-        ...(childSessionId && { childSessionId }),
-      },
-    };
-
-    return persistKnownPart(updated, { syncFts: false }) as ToolPart;
   }
 
   function transitionToolToCompleted(
@@ -752,10 +696,6 @@ export function createMessageRepository(
       .all(sessionId) as MessageRow[];
 
     return rows.map(rowToMessage);
-  }
-
-  function listMessagesForSession(sessionId: string): MessageWithParts[] {
-    return listMessagesWithParts(sessionId);
   }
 
   /**
@@ -1012,26 +952,6 @@ export function createMessageRepository(
   }
 
   /**
-   * Persist a single streaming snapshot directly.
-   */
-  function persistStreamingPartSnapshot(snapshot: StreamingPartSnapshot): boolean {
-    const db = getDb();
-
-    const data = JSON.stringify({ text: snapshot.text });
-    const result = db.run(
-      `UPDATE parts
-       SET data = ?
-       WHERE id = ?
-         AND message_id = ?
-         AND session_id = ?
-         AND type = ?`,
-      [data, snapshot.id, snapshot.messageId, snapshot.sessionId, snapshot.type],
-    );
-
-    return result.changes > 0;
-  }
-
-  /**
    * Persist multiple streaming snapshots in one transaction.
    */
   function persistStreamingPartSnapshots(snapshots: StreamingPartSnapshot[]): number {
@@ -1064,7 +984,6 @@ export function createMessageRepository(
     getMessage,
     updateMessage,
     listMessages,
-    deleteMessages,
     deleteMessage,
     createPart,
     getPart,
@@ -1074,26 +993,19 @@ export function createMessageRepository(
     getPartsBySession,
     getMessageWithParts,
     listMessagesWithParts,
-    createToolPartPending,
-    transitionToolToRunning,
     transitionToolToCompleted,
     transitionToolToError,
     getToolPartByCallId,
     transitionToolToRunningByCallId,
     transitionToolToInterrupted,
-    findOrphanedToolCalls,
     reconcileOrphanedToolCalls,
     reconcileAllOrphanedToolCalls,
     findOrphanedCompactionTriggers,
-    listMessagesForSession,
-    getLatestCompactionBoundary,
-    listMessagesWithPartsFromSequence,
     buildEffectiveContextHistory,
     countMessagesInSession,
     listLatestMessagesWithPartsPage,
     listMessagesWithPartsBeforeSequence,
     syncMessageFts,
-    persistStreamingPartSnapshot,
     persistStreamingPartSnapshots,
   };
 }
