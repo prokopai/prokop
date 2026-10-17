@@ -9,7 +9,7 @@ import type { HeadlessSessionRunPort } from '@prokopai/core/application/ports/he
 import type { LearningRuntimePort } from '@prokopai/core/application/ports/learning-runtime';
 import type { LearningEvidenceScope } from '@/domains/learning/policy';
 import type { createLearningEvidenceReader } from '@/infrastructure/sqlite/learning-evidence';
-import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository } from '@/application/ports/learning';
 import { createLearningKnowledgeFiles } from '@/infrastructure/filesystem/learning-knowledge';
 import { createLearningHomeTool } from './home-tool';
 import { createLearningKnowledgeExecutor } from './knowledge';

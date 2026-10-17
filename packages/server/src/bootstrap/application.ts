@@ -81,7 +81,8 @@ import { addWorkspaceFilesChangedObserver } from '@prokopai/core/application/wor
 import { setMcpChangeListener } from '@/infrastructure/mcp';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { browserService } from '@/infrastructure/browser/service';
-import { installBrowserRequestsPort } from '@/application/ports/browser';
+import { installBrowserClientsPort, installBrowserRequestsPort } from '@/application/ports/browser';
+import { createBrowserClientsPort } from '@/transport/websocket/browser-clients';
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { createTransportControllerPorts } from '@/transport/websocket/control-port';
@@ -175,6 +176,8 @@ export function createWiredAgentsApplication(): AgentsApplication {
 
 export function createWiredApplication(existingAgents?: AgentsApplication): WiredApplication {
   installBrowserRequestsPort(browserService);
+  installBrowserClientsPort(createBrowserClientsPort((requestId, sessionId) =>
+    getProkopNotificationsApplication().notifyPermissionRequired(requestId, sessionId)));
   setMcpChangeListener(path => {
     if (path === null) {
       broadcastEvent({ type: 'mcp.changed', workspaceId: null });

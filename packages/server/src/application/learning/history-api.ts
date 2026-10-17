@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { LearningRunDetail, LearningRunSummary, Preconfig, Session, SessionLearningSettings, Workspace, WorkspaceLearningSettings } from '@prokopai/sdk';
-import type { LearningRepository, LearningRunRecord } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository, LearningRunRecord } from '@/application/ports/learning';
 import { BadRequestError, NotFoundError } from '@/application/http-errors';
 import { buildLearningPrompt } from '@/domains/learning/prompt';
 import { notifyLearningActivity } from './activity';

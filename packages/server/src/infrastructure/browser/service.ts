@@ -1,6 +1,6 @@
 import type { Ask, AskApi, PermissionAsk } from '@prokopai/sdk/tool';
 import type { AskAuthority } from '@prokopai/sdk';
-import type { BrowserRequestsPort } from '@/application/ports/browser';
+import { browserClients, type BrowserRequestsPort } from '@/application/ports/browser';
 import type { WorkspaceMcpResult } from '@prokopai/core/application/ports/mcp-tools';
 import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { getSession } from '@/infrastructure/sqlite/session-store';
@@ -9,11 +9,6 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createPendingAsk, expirePermissionRequest, resolvePermissionRequestByRequestId } from '@/infrastructure/sqlite/pending-asks';
 import { createGrantFromOptions, matchGrant } from '@/infrastructure/sqlite/permissions';
 import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
-import { getAllClients, getConnectionById } from '@/transport/websocket/connection-registry';
-import { getControllerConnections } from '@/transport/websocket/control-registry';
-import { broadcastToSessionEvent, sendToAskTargetsEvent, sendToConnectionEvent } from '@/transport/websocket/broadcast';
-import type { ConnectionId } from '@/transport/websocket/connection-id';
-import { getProkopNotificationsApplication } from '@/adapters/prokop/notifications';
 import { browserTools, validateBrowserInput } from '@prokopai/core/infrastructure/browser/catalog';
 
 const CONTROLLER: AskAuthority = { visibilityScope: 'controller_only', resolutionMode: 'controller_only' };
@@ -27,7 +22,7 @@ interface Pending {
   toolName: string;
   ask: Ask;
   authority: AskAuthority;
-  connectionId?: ConnectionId;
+  connectionId?: string;
   dbId?: string;
   key: string;
   check(): Promise<void>;
@@ -35,8 +30,8 @@ interface Pending {
 }
 
 /** One extension connection only. Ambiguity is an error, never a fan-out. */
-export function browserConnection(): { clientId: string; connectionId: ConnectionId; capabilities: string[] } | null {
-  const clients = [...getAllClients().values()].filter(client => client.clientType === 'extension'
+export function browserConnection(): { clientId: string; connectionId: string; capabilities: readonly string[] } | null {
+  const clients = [...browserClients().clients()].filter(client => client.clientType === 'extension'
     && client.capabilities.includes('browser_automation') && client.connectionIds.size > 0);
   if (clients.length !== 1) return null;
   const client = clients[0]!;
@@ -60,7 +55,7 @@ export class BrowserService implements BrowserRequestsPort {
   }
   connectionsChanged(): void {
     for (const pending of this.pending.values()) {
-      if (pending.connectionId && !getConnectionById(pending.connectionId)) {
+      if (pending.connectionId && !browserClients().connection(pending.connectionId)) {
         pending.finish(undefined, new Error('Browser extension disconnected. The command was not retried.'));
       }
     }
@@ -90,7 +85,7 @@ export class BrowserService implements BrowserRequestsPort {
     const connection = browserConnection();
     if (!connection) throw new Error('Connect exactly one Prokop Browser extension before using browser tools');
     const connectionAlive = (): void => {
-      const current = getConnectionById(connection.connectionId);
+      const current = browserClients().connection(connection.connectionId);
       if (!current || current.clientId !== connection.clientId) throw new Error('Browser extension connection changed');
     };
     const ask = async (request: Ask): Promise<unknown> => {
@@ -102,7 +97,7 @@ export class BrowserService implements BrowserRequestsPort {
           toolName: name, resource: 'browser', action: request.action, permissionKey: key });
         if (grant.matched && grant.grant?.scope === 'session' && grant.grant.boundRootSessionId === sessionId) return true;
         if (shouldAutoApproveAsk(request, session.permissionMode ?? 'standard')) return true;
-        if (!getControllerConnections(sessionId).length) throw new Error('Browser access requires a connected session controller');
+        if (!browserClients().hasController(sessionId)) throw new Error('Browser access requires a connected session controller');
         return this.request(name, sessionId, session.workspaceId, request, CONTROLLER, key,
           getPermissionTimeoutMs(), check, signal);
       }
@@ -126,7 +121,7 @@ export class BrowserService implements BrowserRequestsPort {
 
   private request(toolName: string, sessionId: string, workspaceId: string, ask: Ask,
     authority: AskAuthority, key: string, timeout: number, check: () => Promise<void>,
-    signal?: AbortSignal, connectionId?: ConnectionId): Promise<unknown> {
+    signal?: AbortSignal, connectionId?: string): Promise<unknown> {
     signal?.throwIfAborted();
     const requestId = crypto.randomUUID();
     const toolCallId = `browser-request:${crypto.randomUUID()}`;
@@ -144,7 +139,7 @@ export class BrowserService implements BrowserRequestsPort {
         let failure = error;
         try {
           if (error && dbId) expirePermissionRequest(dbId);
-          broadcastToSessionEvent(sessionId, { type: 'ask.timeout', sessionId, toolCallId, requestId });
+          browserClients().broadcastToSession(sessionId, { type: 'ask.timeout', sessionId, toolCallId, requestId });
         } catch (cleanupError: unknown) {
           failure ??= cleanupError instanceof Error ? cleanupError : new Error('Browser request cleanup failed');
         }
@@ -155,10 +150,10 @@ export class BrowserService implements BrowserRequestsPort {
       if (signal?.aborted) { abort(); return; }
       const message = { type: 'ask.request' as const, sessionId, toolCallId, toolName, requestId, authority, ask };
       try {
-        if (connectionId) sendToConnectionEvent(connectionId, message);
+        if (connectionId) browserClients().sendToConnection(connectionId, message);
         else {
-          sendToAskTargetsEvent(sessionId, authority, message);
-          getProkopNotificationsApplication().notifyPermissionRequired(requestId, sessionId);
+          browserClients().sendToAskTargets(sessionId, authority, message);
+          browserClients().notifyPermissionRequired(requestId, sessionId);
         }
       } catch (error: unknown) { finish(undefined, error instanceof Error ? error : new Error('Browser request delivery failed')); }
     });

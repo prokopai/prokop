@@ -1,60 +1,20 @@
 import type { Database } from 'bun:sqlite';
 import { isAbsolute } from 'node:path';
 import { LEARNING_BACKFILL_MS } from '@/domains/learning/policy';
+import type {
+  LearningChangeRecord, LearningDestinationRecord, LearningEvidenceRecord, LearningRepository, LearningReviewerRecord, LearningRunRecord,
+} from '@/application/ports/learning';
 
-export interface LearningReviewerRecord {
-  workspace_id: string;
-  reviewer_id: string;
-  activated_at: number;
-  backfill_from: number;
-  last_started_at: number | null;
-}
-
-export interface LearningEvidenceRecord {
-  sequence: number;
-  workspace_id: string;
-  reviewer_id: string;
-  session_id: string;
-  message_id: string;
-  completed_at: number;
-  reviewed_at: number | null;
-}
-
-export interface LearningRunRecord {
-  id: string;
-  workspace_id: string;
-  reviewer_id: string;
-  status: 'running' | 'completed' | 'failed' | 'interrupted';
-  started_at: number;
-  finished_at: number | null;
-  lease_until: number;
-  error: string | null;
-}
-
-export interface LearningDestinationRecord {
-  run_id: string;
-  workspace_path: string;
-  memory_directory: string;
-  skills_directory: string;
-}
-
-export interface LearningChangeRecord {
-  id: string;
-  run_id: string;
-  operation_id: string;
-  relative_path: string;
-  before_content: string | null;
-  after_content: string | null;
-  status: 'prepared' | 'applied' | 'conflict' | 'undone';
-  created_at: number;
-}
+export type {
+  LearningChangeRecord, LearningDestinationRecord, LearningEvidenceRecord, LearningRepository, LearningReviewerRecord, LearningRunRecord,
+} from '@/application/ports/learning';
 
 function requireTimestamp(value: number): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid learning timestamp');
 }
 
 /** Inject a connection so tests never open the user's database. */
-export function createLearningRepository(db: Database) {
+export function createLearningRepository(db: Database): LearningRepository {
   function getRun(id: string): LearningRunRecord | null {
     return db.query<LearningRunRecord, [string]>('SELECT * FROM learning_runs WHERE id = ?').get(id);
   }
@@ -318,5 +278,3 @@ export function createLearningRepository(db: Database) {
     },
   };
 }
-
-export type LearningRepository = ReturnType<typeof createLearningRepository>;

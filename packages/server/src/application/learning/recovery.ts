@@ -1,4 +1,4 @@
-import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository } from '@/application/ports/learning';
 
 /** Called only after execution cleanup, or at startup before accepting traffic.
  * Recovery never applies old write intents. Fresh reviews read current knowledge. */

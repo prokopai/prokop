@@ -1,5 +1,5 @@
 import type { LearningReviewer, Preconfig, Workspace, WorkspaceLearningSettings } from '@prokopai/sdk';
-import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository } from '@/application/ports/learning';
 import { buildLearningPrompt } from '@/domains/learning/prompt';
 
 export interface LearningReviewRunnerDependencies {

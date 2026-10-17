@@ -1,4 +1,4 @@
-import type { LearningChangeRecord, LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningChangeRecord, LearningRepository } from '@/application/ports/learning';
 
 export interface KnowledgeFilePort {
   read(relativePath: string): Promise<string | null>;

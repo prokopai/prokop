@@ -1,5 +1,5 @@
 import type { Workspace, WorkspaceLearningSettings } from '@prokopai/sdk';
-import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository } from '@/application/ports/learning';
 import { defaultLearningCadence } from '@/domains/learning/settings';
 import { createLearningCoordinator } from './coordinator';
 import { subscribeLearningActivity } from './activity';

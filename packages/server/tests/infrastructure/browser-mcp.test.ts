@@ -16,7 +16,8 @@ import { createCodexMcpTools } from '@prokopai/agent/internal/harnesses/codex-cl
 import { createClaudeWorkspaceMcp } from '@prokopai/agent/internal/harnesses/claude-cli/mcp-tools';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { installBrowserRequestsPort } from '@/application/ports/browser';
+import { installBrowserClientsPort, installBrowserRequestsPort } from '@/application/ports/browser';
+import { createBrowserClientsPort } from '@/transport/websocket/browser-clients';
 import { handleClientRegistration, registerConnection, unregisterConnection } from '@/transport/websocket/connection-registry';
 import { handleClaim, removeSessionControl } from '@/transport/websocket/control-registry';
 import { installDeliveryPort } from '@/transport/websocket/broadcast';
@@ -49,6 +50,7 @@ beforeEach(async () => {
   // Built-in visuals are on by default; these tests count browser tools only.
   await manager.saveServer(null, BUILTIN_VISUALS_MCP_NAME, { type: 'builtin', id: 'visuals', enabled: false });
   installBrowserRequestsPort(browserService);
+  installBrowserClientsPort(createBrowserClientsPort(() => {}));
   const capture = (message: ServerMessage, connection?: ConnectionId) => {
     if (message.type === 'ask.request') { requests.push({ message, connection }); onRequest?.(message); }
   };

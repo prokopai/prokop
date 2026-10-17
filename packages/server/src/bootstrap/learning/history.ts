@@ -1,7 +1,7 @@
 import type { Workspace } from '@prokopai/sdk';
 import { createKnowledgeJournal, type KnowledgeJournalResult } from '@/application/learning/knowledge-journal';
 import { createLearningKnowledgeFiles } from '@/infrastructure/filesystem/learning-knowledge';
-import type { LearningRepository } from '@/infrastructure/sqlite/learning-repository';
+import type { LearningRepository } from '@/application/ports/learning';
 
 export interface LearningHistoryDependencies {
   repository: LearningRepository;
