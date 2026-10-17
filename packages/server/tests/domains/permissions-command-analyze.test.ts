@@ -470,3 +470,83 @@ describe('prefixes and wrappers never hide the command', () => {
     expect(analyzeCommand('(cd /etc && cat passwd)', ctx).concerns).toContain('escape');
   });
 });
+
+describe('programs and patterns are not paths', () => {
+  test('a quoted awk, sed or grep program that starts with a slash is not an escape', () => {
+    for (const command of [
+      "awk '/^Unused exports/{f=1;next} /^Unused exported types/{f=0} f' notes.txt",
+      "awk '$1==0' notes.txt",
+      "awk -F: '{print $1}' notes.txt",
+      "awk -v x=1 '/re/{print}' notes.txt",
+      "sed -n '/^foo/p' notes.txt",
+      "sed -i '' 's/a/b/' notes.txt",
+      "grep '/^foo' notes.txt",
+      'grep -rw --include=\'*.ts\' -l "$n" packages scripts',
+      'grep -v "^$file$"',
+      "rg -g '*.ts' '/^foo' src",
+    ]) {
+      expect(concernsOf(command), command).not.toContain('escape');
+      expect(standardDecision(command), command).toBe('auto');
+    }
+  });
+
+  test('file operands after the program, and files once a flag gave the pattern, still escape', () => {
+    for (const command of [
+      "awk '/x/' /etc/passwd",
+      "awk -F: '{print $1}' /etc/passwd",
+      "sed -n '/^foo/p' /etc/hosts",
+      "sed -i 's/a/b/' /etc/hosts",
+      "sed -i '' 's/a/b/' /etc/hosts",
+      "sed -e 's/a/b/' /etc/hosts",
+      "grep '^x' /etc/passwd",
+      'grep -e foo "/etc/passwd"',
+      'grep -f patterns.txt "/etc/passwd"',
+      "rg -e foo '/etc'",
+      "awk -f prog.awk '/etc/passwd'",
+    ]) {
+      expect(concernsOf(command), command).toContain('escape');
+    }
+  });
+});
+
+describe('substitutions embedded in a word', () => {
+  test('an assignment from a pipeline ending in xargs is not a destructive xargs', () => {
+    for (const command of [
+      'x=$(echo a | xargs)',
+      'x=$(wc -l | xargs)',
+      'total=$(grep -rw -l "$n" packages | grep -v "^$file$" | wc -l | xargs)',
+      'count=`wc -l | xargs`',
+    ]) {
+      expect(concernsOf(command), command).not.toContain('destructive');
+      expect(standardDecision(command), command).toBe('auto');
+    }
+  });
+
+  test('the body of an embedded substitution is analyzed', () => {
+    expect(isCatastrophic('X=$(rm -rf /)')).toBe(true);
+    expect(concernsOf('X=$(cat /etc/passwd)')).toContain('escape');
+    expect(concernsOf('out=$(xargs rm -rf)')).toContain('destructive');
+    expect(concernsOf('echo prefix$(cat /etc/passwd)')).toContain('escape');
+  });
+
+  test('a knip export audit script is opaque at most, never destructive or critical', () => {
+    const script = [
+      'F=/ws/knip.txt',
+      '# Extract "Unused exports" section (values only), skip storybook mocks and scripts',
+      "awk '/^Unused exports/{f=1;next} /^Unused exported types/{f=0} f' $F | grep -v '.storybook' | grep -v '^scripts/' | while IFS= read -r line; do",
+      '  file="${line%%:*}"; rest="${line#*: }"; rest="${rest%% (*}"',
+      "  IFS=',' read -ra names <<< \"$rest\"",
+      '  for n in "${names[@]}"; do n="$(echo $n | xargs)"',
+      '    # count references in repo excluding defining file and node_modules',
+      '    total=$(grep -rw --include=\'*.ts\' --include=\'*.tsx\' --exclude-dir=node_modules --exclude-dir=dist -l "$n" packages scripts 2>/dev/null | grep -v "^$file$" | wc -l | xargs)',
+      '    infile=$(grep -cw "$n" "$file")',
+      '    echo "$total $infile $file $n"',
+      '  done',
+      "done | sort -n > /ws/exports.txt; wc -l /ws/exports.txt; awk '$1==0' /ws/exports.txt",
+    ].join('\n');
+    const finding = analyzeCommand(script, ctx);
+    expect(finding.catastrophic).toBe(false);
+    expect([...finding.concerns].sort()).toEqual(['opaque']);
+    expect(decide('standard', finding)).toBe('auto');
+  });
+});

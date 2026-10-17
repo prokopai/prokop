@@ -9,6 +9,10 @@
 
 ### Fixed
 
+- **Scripts that count with `| xargs` are no longer marked critical**: A value captured from a pipeline, such as `total=$(grep ... | wc -l | xargs)`, was read as running a dangerous command through `xargs` and shown as critical. The captured command is now read as a whole, so a trailing `xargs` with nothing to run is harmless. As a result, a command hidden in a captured value, such as `X=$(rm -rf /)`, is now caught too.
+
+- **awk, sed and grep patterns are not paths**: A quoted program or pattern that starts with a slash, such as `awk '/^Unused exports/{...}' file` or `sed -n '/^foo/p' file`, was treated as a file outside the workspace and asked for approval. The pattern is now recognized as such; the files after it are still checked.
+
 - **No approval for reading Claude's own command output**: When Claude ran a command in the background, reading its output file (kept under `/tmp/claude-<user>`) asked for an outside-workspace approval, although Claude itself asked for that read. That folder is now readable without an approval when it is your own private folder; writing there still asks.
 
 - **Notifications reach every device, and only when you are not already looking**: A push used to go only to the device that first opened the session, so a run started at the desk never buzzed your phone, and one started on the phone buzzed it even while you read the result at the desk. Every enabled device is now notified, and whichever device shows the finish, approval or question to you cancels the push for all of them. A focused window with nothing touched for two minutes (a locked screen, a display asleep) no longer counts as looking. Approvals and questions you already have on screen no longer push either.

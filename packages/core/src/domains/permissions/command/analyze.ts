@@ -222,9 +222,13 @@ function tokenize(input: string): Token[] {
       i = j;
       continue;
     }
+    // A word ends where a quote, a backtick or a `$(` begins, so an embedded
+    // substitution (`X=$(cmd | xargs)`) becomes its own joined token and its
+    // body is analyzed instead of being split on its pipes.
     let j = i;
     while (j < n && !/\s/.test(input[j]!) && !OPERATOR_STARTS.has(input[j]!)
-      && input[j] !== "'" && input[j] !== '"' && input[j] !== '`') {
+      && input[j] !== "'" && input[j] !== '"' && input[j] !== '`'
+      && !(input[j] === '$' && input[j + 1] === '(')) {
       if (input[j] === '\\') j += 1;
       j += 1;
     }
@@ -347,6 +351,75 @@ const CATASTROPHIC_ELIGIBLE = new Set([
 
 /** git flags that take a value before the subcommand (`git -C /x status`). */
 const GIT_VALUE_FLAGS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
+
+/**
+ * Commands whose first operand is a program or pattern, not a file:
+ * `awk '/^x/{print}' file`, `sed -n '/^x/p' file`, `grep '/^x' file`. The
+ * flags that take a separate value, and the flags that supply the pattern
+ * themselves (after which every operand is a file again).
+ */
+interface PatternCommand {
+  valueFlags: ReadonlySet<string>;
+  patternFlags: ReadonlySet<string>;
+}
+
+const GREP_VALUE_FLAGS = ['-e', '-f', '-m', '-A', '-B', '-C', '-d', '-D', '--regexp', '--file',
+  '--max-count', '--after-context', '--before-context', '--context', '--include', '--exclude', '--exclude-dir'];
+const GREP_PATTERN_FLAGS = ['-e', '-f', '--regexp', '--file'];
+const GREP_COMMAND: PatternCommand = { valueFlags: new Set(GREP_VALUE_FLAGS), patternFlags: new Set(GREP_PATTERN_FLAGS) };
+const AWK_COMMAND: PatternCommand = {
+  valueFlags: new Set(['-f', '-v', '-F', '--file', '--assign', '--field-separator']),
+  patternFlags: new Set(['-f', '--file']),
+};
+
+const PATTERN_COMMANDS: Record<string, PatternCommand> = {
+  grep: GREP_COMMAND,
+  egrep: GREP_COMMAND,
+  fgrep: GREP_COMMAND,
+  rg: {
+    valueFlags: new Set([...GREP_VALUE_FLAGS, '-g', '-t', '-T', '-j', '-M', '-r', '-E', '--glob', '--iglob',
+      '--type', '--type-not', '--threads', '--max-columns', '--replace', '--encoding', '--max-depth',
+      '--max-filesize', '--pre', '--sort', '--sortr']),
+    patternFlags: new Set(GREP_PATTERN_FLAGS),
+  },
+  // sed -i is not listed: GNU takes its suffix attached, BSD separately, and
+  // consuming the script as a suffix would hide the file sed edits in place.
+  sed: {
+    valueFlags: new Set(['-e', '-f', '-l', '--expression', '--file', '--line-length']),
+    patternFlags: new Set(['-e', '-f', '--expression', '--file']),
+  },
+  awk: AWK_COMMAND,
+  gawk: AWK_COMMAND,
+  mawk: AWK_COMMAND,
+  nawk: AWK_COMMAND,
+};
+
+/**
+ * Index in `commandWords` of the quoted program or pattern operand of a
+ * pattern command, or -1. Only a quoted first operand counts: programs that
+ * look like paths (`'/^x/'`) are always quoted, and an unquoted one stays a
+ * harmless cwd-relative path candidate as before. Once a flag supplied the
+ * pattern, every operand is a file and nothing is skipped.
+ */
+function patternOperandIndex(base: string, commandWords: readonly CommandWord[]): number {
+  const spec = PATTERN_COMMANDS[base];
+  if (!spec) return -1;
+  for (let i = 1; i < commandWords.length; i += 1) {
+    const word = commandWords[i]!;
+    const text = word.text;
+    if (text === '--') return commandWords[i + 1]?.quoted ? i + 1 : -1;
+    if (text.startsWith('-') && text !== '-' && !word.quoted) {
+      const long = text.startsWith('--');
+      const name = long ? text.split('=')[0]! : text.slice(0, 2);
+      if (spec.patternFlags.has(name)) return -1;
+      const attached = long ? text.includes('=') : text.length > 2;
+      if (spec.valueFlags.has(name) && !attached) i += 1;
+      continue;
+    }
+    return word.quoted ? i : -1;
+  }
+  return -1;
+}
 
 const MAX_RECURSION_DEPTH = 5;
 
@@ -543,8 +616,10 @@ function analyzeSegment(
   const commandWords = structure.words;
   const firstWord = commandWords[0];
   if (!firstWord && !words.some(word => word.redirect !== 'none')) {
-    // A segment made only of substitutions: we cannot see the command.
-    if (segment.tokens.some(token => token.kind === 'substitution')) {
+    // A segment made only of substitutions: we cannot see the command. An
+    // assignment of one (`X=$(cmd)`) runs nothing itself; its body was
+    // analyzed above.
+    if (structure.assignments.length === 0 && segment.tokens.some(token => token.kind === 'substitution')) {
       result.concerns.add('opaque');
       result.evidence.push('command substitution in command position');
     }
@@ -557,9 +632,10 @@ function analyzeSegment(
 
   // Token screen on active text: bare words always; quoted strings only when
   // the base executes its arguments as code. xargs is screened by the
-  // command it runs (analyzed below), never by its own name.
+  // command it runs (analyzed below), never by its own name (matched by
+  // position: a trailing `)` leaves the command word as a trimmed copy).
   const activeParts = words
-    .filter(word => !word.quoted && !(base === 'xargs' && word === firstWord))
+    .filter(word => !word.quoted && !(base === 'xargs' && firstWord && word.start === firstWord.start))
     .map(word => word.text);
   const isExecBase = EXEC_BASES.has(base);
   if (isExecBase) {
@@ -702,7 +778,9 @@ function analyzeSegment(
     const resolved = resolveOperand(raw, cwdAtStart, ctx.home);
     operandCandidates.push({ raw, resolved, access, at: word });
   };
-  for (const word of xargs ? xargs.argFiles : commandWords.slice(1)) {
+  const patternIndex = xargs ? -1 : patternOperandIndex(base, commandWords);
+  const operandWords = xargs ? xargs.argFiles : commandWords.filter((_, index) => index > 0 && index !== patternIndex);
+  for (const word of operandWords) {
     if (xargs || !word.quoted || isFileCommand || /^(?:\/|~|\$)/.test(word.text)) pushOperand(word, operandAccess);
   }
   if (isFileCommand && operandCandidates.length === 0 && (base === 'ls' || base === 'find')) {
