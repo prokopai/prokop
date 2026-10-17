@@ -8,8 +8,10 @@ function Editor() {
   const [draft, setDraft] = useState(`before\n${block}middle\n${block}after\n`);
   return <><RebaseConflictHunks fileName="Engine.kt" draft={draft} disabled={false} onChange={setDraft} /><output data-testid="draft">{draft}</output></>;
 }
-test('keeps resolved section visible and permits changing the choice', () => {
+test('keeps resolved section visible and permits changing the choice', async () => {
   render(<Editor />);
+  // The editor is lazy; wait for its chunk before choosing.
+  await screen.findByRole('textbox', { name: 'Result code' });
   fireEvent.click(screen.getByRole('button', { name: 'Use incoming version ↓' }));
   expect(screen.getByText('Conflict 1 of 2 · 1 unresolved')).toBeInTheDocument();
   expect(screen.getByRole('textbox', { name: 'Result code' })).toHaveValue('before\nbase code\nmiddle\n');

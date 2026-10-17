@@ -1,7 +1,11 @@
-import { useId, useState } from 'react';
+import { Suspense, lazy, useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PierreCodeEditor } from '@/components/editor/PierreCodeEditor';
 import { conflictSections, hasConflictMarkers } from './rebaseConflictSections';
+
+// The editor loads only when a rebase conflict is open, not with the Branches view.
+const PierreCodeEditor = lazy(() =>
+  import('@/components/editor/PierreCodeEditor').then((m) => ({ default: m.PierreCodeEditor })),
+);
 
 /** Fixed source ranges keep resolved conflicts visible and choices reversible. */
 export function RebaseConflictHunks({ draft, disabled, onChange, fileName = 'file.txt', incomingLabel = 'Incoming version', featureLabel = 'Your change' }: {
@@ -63,6 +67,6 @@ export function MergePane({ title, fileName, value, id, onChange, disabled = fal
   const instanceId = useId();
   return <section className="min-w-0 overflow-hidden rounded-md border" aria-label={title}>
     <h4 className="bg-muted px-2 py-1 text-xs font-medium">{title}</h4>
-    <div className="h-48 min-w-0"><PierreCodeEditor key={id} docId={`${instanceId}:${id}`} fileName={fileName} value={value} saving={!onChange || disabled} onChange={onChange ?? (() => {})} showGitDiff={false} selectedLines={selectedLines} /></div>
+    <div className="h-48 min-w-0"><Suspense fallback={null}><PierreCodeEditor key={id} docId={`${instanceId}:${id}`} fileName={fileName} value={value} saving={!onChange || disabled} onChange={onChange ?? (() => {})} showGitDiff={false} selectedLines={selectedLines} /></Suspense></div>
   </section>;
 }

@@ -1,12 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { useWorkspaceSessionTabs } from '@/hooks/useWorkspaceSessionTabs';
-import { FileEditorSurface, type FileEditorSurfaceHandle } from '@/components/editor/FileEditorSurface';
+import type { FileEditorSurfaceHandle } from '@/components/editor/FileEditorSurface';
 import { WorkspaceViews } from '@/components/app/WorkspaceViews';
 import { WorkspaceUsageView } from '@/components/app/WorkspaceUsageView';
-import { PullRequestsView } from '@/components/pullRequests/PullRequestsView';
 import { FilesPanel } from '@/components/layout/FilesPanel';
 import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
@@ -16,6 +15,15 @@ import { fileViewId, isPullRequestsViewId, parsePullRequestsViewId, useWorkspace
 import { useShallow } from 'zustand/react/shallow';
 import type { WorkspaceTab } from '@/components/app/workspaceTab';
 import { getWorkspaceDisplayName } from '@/lib/workspaceKind';
+
+// Editor (Pierre editor) and pull requests (markdown, katex) load only once
+// a file or pull request tab exists.
+const FileEditorSurface = lazy(() =>
+  import('@/components/editor/FileEditorSurface').then((m) => ({ default: m.FileEditorSurface })),
+);
+const PullRequestsView = lazy(() =>
+  import('@/components/pullRequests/PullRequestsView').then((m) => ({ default: m.PullRequestsView })),
+);
 
 interface WorkspaceContentAreaProps {
   sdkClient: ProkopaiClient | null;
@@ -62,14 +70,16 @@ export function WorkspaceContentArea({
     const checkout = doc.identity.root || workspace?.path || 'Main checkout';
     const context = `${projectName} · ${checkout} · ${doc.identity.path}`;
     resourceViews[viewId] = (
-      <FileEditorSurface
-        ref={(handle) => {
-          if (handle) editorHandles.current.set(docId, handle);
-          else editorHandles.current.delete(docId);
-        }}
-        sdkClient={sdkClient} serverId={doc.identity.serverId}
-        workspaceId={doc.identity.workspaceId} documentId={docId} documentContext={context}
-      />
+      <Suspense fallback={null}>
+        <FileEditorSurface
+          ref={(handle) => {
+            if (handle) editorHandles.current.set(docId, handle);
+            else editorHandles.current.delete(docId);
+          }}
+          sdkClient={sdkClient} serverId={doc.identity.serverId}
+          workspaceId={doc.identity.workspaceId} documentId={docId} documentContext={context}
+        />
+      </Suspense>
     );
     tabs[viewId] = {
       label: (nameCounts.get(doc.name) ?? 0) > 1 ? `${doc.name} · ${context}` : doc.name,
@@ -89,7 +99,9 @@ export function WorkspaceContentArea({
     if (!workspace || !serverId || !sdkClient) continue;
     const name = getWorkspaceDisplayName(workspace, agents) || 'Workspace';
     resourceViews[viewId] = (
-      <PullRequestsView key={viewId} client={sdkClient} serverId={serverId} workspaceId={workspace.id} />
+      <Suspense key={viewId} fallback={null}>
+        <PullRequestsView client={sdkClient} serverId={serverId} workspaceId={workspace.id} />
+      </Suspense>
     );
     tabs[viewId] = {
       label: `Pull requests · ${name}`,

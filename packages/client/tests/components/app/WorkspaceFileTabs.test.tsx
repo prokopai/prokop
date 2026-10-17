@@ -1,4 +1,4 @@
-import { createRef, useEffect, useState } from 'react';
+import { createRef, useEffect, useState, type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ApiError } from '@prokopai/sdk';
@@ -52,6 +52,13 @@ function host(docId: string): HTMLElement {
   return document.getElementById(`workspace-view-${fileViewId(docId)}`)!;
 }
 
+/** The editor is lazy: render, then let its chunk resolve. */
+async function renderLoaded(ui: ReactElement) {
+  const result = render(ui);
+  await act(() => import('@/components/editor/FileEditorSurface'));
+  return result;
+}
+
 function Harness({ client = null }: { client?: ProkopaiClient | null }) {
   const [refs] = useState<ViewRefs>(() => ({
     sidebarRef: createRef(), chatInputRef: createRef(), terminalPanelRef: createRef(),
@@ -82,10 +89,10 @@ describe('individual workspace file tabs', () => {
     localStorage.clear();
   });
 
-  test('keeps two editors independently selected across docks, reopening and mobile transitions', () => {
+  test('keeps two editors independently selected across docks, reopening and mobile transitions', async () => {
     const first = openFile('first.ts');
     const second = openFile('second.ts');
-    const { rerender } = render(<Harness />);
+    const { rerender } = await renderLoaded(<Harness />);
     const firstInput = within(host(first)).getByRole('textbox', { hidden: true });
     const secondInput = within(host(second)).getByRole('textbox');
     act(() => useWorkspaceViewStore.getState().moveView(fileViewId(first), 'right'));
@@ -134,10 +141,10 @@ describe('individual workspace file tabs', () => {
     expect(host(second)).toHaveAttribute('aria-hidden', 'false');
   });
 
-  test('context close on an inactive dirty file preserves its close guard', () => {
+  test('context close on an inactive dirty file preserves its close guard', async () => {
     const first = openFile('first.ts');
     const second = openFile('second.ts');
-    render(<Harness />);
+    await renderLoaded(<Harness />);
     act(() => useFileEditorStore.getState().updateContent(first, 'unsaved'));
     fireEvent.contextMenu(screen.getByRole('tab', { name: 'first.ts' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Close tab' }));
@@ -147,10 +154,10 @@ describe('individual workspace file tabs', () => {
     expect(useFileEditorStore.getState().docs[second]).toBeDefined();
   });
 
-  test('split editors retain undo and dirty guards until the final tab is discarded', () => {
+  test('split editors retain undo and dirty guards until the final tab is discarded', async () => {
     const first = openFile('first.ts');
     const second = openFile('second.ts');
-    render(<Harness />);
+    await renderLoaded(<Harness />);
     const input = within(host(second)).getByRole('textbox');
     fireEvent.change(input, { target: { value: 'keep undo' } });
     fireEvent.contextMenu(screen.getByRole('tab', { name: 'second.ts' }));
@@ -171,10 +178,10 @@ describe('individual workspace file tabs', () => {
     expect(host(first)).toHaveAttribute('aria-hidden', 'false');
   });
 
-  test('shared close controls preserve the dirty guard and only discard the chosen file', () => {
+  test('shared close controls preserve the dirty guard and only discard the chosen file', async () => {
     const first = openFile('first.ts');
     const second = openFile('second.ts');
-    render(<Harness />);
+    await renderLoaded(<Harness />);
     act(() => useFileEditorStore.getState().updateContent(first, 'unsaved'));
     fireEvent.click(screen.getByRole('button', { name: 'Close first.ts' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('first.ts has unsaved changes');
@@ -194,7 +201,7 @@ describe('individual workspace file tabs', () => {
     const save = vi.fn().mockRejectedValue(new Error('disk full'));
     const client = { http: { files: { save } } } as unknown as ProkopaiClient;
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(<Harness client={client} />);
+    await renderLoaded(<Harness client={client} />);
     act(() => {
       useWorkspaceViewStore.getState().moveView(fileViewId(id), 'left');
       useFileEditorStore.getState().updateContent(id, 'draft');
@@ -214,7 +221,7 @@ describe('individual workspace file tabs', () => {
       details: { path: 'src/conflict.ts', expectedRevision: 'rev-conflict.ts', actualRevision: 'r2', currentContent: 'external edit' },
     }));
     const client = { http: { files: { save } } } as unknown as ProkopaiClient;
-    render(<Harness client={client} />);
+    await renderLoaded(<Harness client={client} />);
     act(() => {
       useWorkspaceViewStore.getState().moveView(fileViewId(id), 'bottom');
       useFileEditorStore.getState().updateContent(id, 'local draft');
@@ -232,7 +239,7 @@ describe('individual workspace file tabs', () => {
     const second = openFile('second.ts');
     const save = vi.fn().mockResolvedValue({ revision: 'saved' });
     const client = { http: { files: { save } } } as unknown as ProkopaiClient;
-    render(<Harness client={client} />);
+    await renderLoaded(<Harness client={client} />);
     act(() => useFileEditorStore.getState().updateContent(first, 'saved draft'));
     fireEvent.click(screen.getByRole('button', { name: 'Close first.ts' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
@@ -308,7 +315,7 @@ describe('individual workspace file tabs', () => {
     const second = openFile('second.ts', '/checkout-b', 'workspace-2');
     const save = vi.fn().mockResolvedValue({ revision: 'saved' });
     const client = { http: { files: { save } } } as unknown as ProkopaiClient;
-    render(<Harness client={client} />);
+    await renderLoaded(<Harness client={client} />);
     act(() => useWorkspaceViewStore.getState().moveView(fileViewId(first), 'right'));
     const firstInput = within(host(first)).getByRole('textbox');
     const secondInput = within(host(second)).getByRole('textbox');

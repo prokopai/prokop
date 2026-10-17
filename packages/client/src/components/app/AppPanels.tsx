@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { useWorkspaceViewVisible } from '@/components/app/WorkspaceViewHost';
 import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
@@ -41,6 +41,9 @@ export function AppPanels({
   const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
 
   const open = embedded ? visible : bottomOpen;
+  // xterm loads on first open, then stays mounted so PTYs survive hiding.
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
   const onClose = () => {
     if (!embedded) setDockOpen('bottom', false);
     else if (isMobile) useWorkspaceViewStore.getState().setMobileTerminalOpen(false);
@@ -51,7 +54,7 @@ export function AppPanels({
   // instances and PTY connections instead of recreating them. Hidden panels
   // stay connected only if they were started while active, and in the bottom
   // dock only while it is open.
-  const terminal = (
+  const terminal = opened && (
     <Suspense fallback={<TerminalLoadingFallback />}>
       <KeepAliveStack
         active={{ key: activeWorkspace?.id ?? '', value: activeWorkspace }}

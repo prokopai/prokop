@@ -135,8 +135,8 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     expect(getByTestId('chat-content')).toBe(chat);
   });
 
-  test('uses peer Workbench tabs on phone and keeps their content mounted', () => {
-    const { getByRole, getByTestId } = render(
+  test('uses peer Workbench tabs on phone and keeps their content mounted', async () => {
+    const { findByTestId, getByRole, getByTestId } = render(
       <ViewRefsContext.Provider value={createViewRefs()}>
         <WorkspaceContentArea sdkClient={null} serverUrl={null} />
       </ViewRefsContext.Provider>,
@@ -166,7 +166,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
       );
     });
 
-    const editorContent = getByTestId('editor-content');
+    const editorContent = await findByTestId('editor-content');
     const editorTab = getByRole('button', { name: 'Editor' });
 
     fireEvent.click(editorTab);

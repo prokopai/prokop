@@ -12,8 +12,9 @@ test('real Kotlin merge panes render syntax tokens and update the center after a
   preloadPierreDiffsHighlighter();
   await getSharedHighlighter({ langs: ['kotlin'], themes: ['github-dark', 'github-light'] });
   const { container } = render(<RebaseConflictHunks fileName="Engine.kt" draft={'fun classify() {\n<<<<<<< base\n  val incoming = true\n=======\n  val feature = false\n>>>>>>> feature\n}\n'} disabled={false} onChange={() => {}} />);
+  // The editor is lazy; wait for its chunk to mount all three panes.
+  await waitFor(() => expect(container.querySelectorAll('diffs-container')).toHaveLength(3));
   const panes = container.querySelectorAll('diffs-container');
-  expect(panes).toHaveLength(3);
   await waitFor(() => expect(panes[0].shadowRoot?.textContent).toContain('incoming'));
   expect(panes[0].shadowRoot?.querySelectorAll('span[style]').length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button', { name: 'Use your change ↑' }));

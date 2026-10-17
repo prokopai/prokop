@@ -33,10 +33,11 @@ describe('AppPanels', () => {
 
   test('keeps the terminal controller mounted through collapse and mobile layout changes', async () => {
     const ref = createRef<TerminalPanelHandle>();
-    const { findByTestId, getByRole, queryByRole, rerender } = render(<AppPanels sdkClient={null} terminalPanelRef={ref} />);
-    const terminal = await findByTestId('terminal');
-    expect(terminal).toHaveAttribute('data-open', 'false');
+    const { findByTestId, getByRole, queryByRole, queryByTestId, rerender } = render(<AppPanels sdkClient={null} terminalPanelRef={ref} />);
+    // Nothing loads until the dock opens the first time.
+    expect(queryByTestId('terminal')).toBeNull();
     act(() => useDockStore.getState().setDockOpen('bottom', true));
+    const terminal = await findByTestId('terminal');
     expect(terminal).toHaveAttribute('data-open', 'true');
     expect(getByRole('separator', { name: 'Resize bottom dock' })).toBeInTheDocument();
 
