@@ -1,5 +1,4 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
-import { resolve } from 'node:path';
 import type { ToolContext, PermissionAsk } from '@prokopai/sdk';
 import { definition, execute } from './tool';
 
@@ -206,237 +205,57 @@ describe('windows shell selection', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// Risk Analysis: Dangerous Commands
+// Permissions v2: ask only on a real concern
+// (detailed classification lives in server/tests/domains/permissions*.test.ts)
 // ══════════════════════════════════════════════════════════════════
 
-describe('risk analysis: dangerous commands', () => {
-  const dangerousCommands = [
-    'rm -rf /tmp/test',
-    'rmdir /tmp/empty',
-    'del file.txt',
-    'erase file.txt',
-    'sudo apt install something',
-    'su - root',
-    'doas cat /etc/shadow',
-    'chmod 777 /tmp/file',
-    'chown root /tmp/file',
-    'dd if=/dev/zero of=/dev/sda',
-    'mkfs.ext4 /dev/sda1',
-    'format C:',
-    'shutdown -h now',
-    'reboot',
-    'halt',
-    'iptables -A INPUT -j DROP',
-    'ufw deny 80',
-    'firewall-cmd --add-port=80/tcp',
+describe('permissions v2: ask only on a real concern', () => {
+  test.each([
+    ['cat .env', 'sensitive'],
+    ['cat .env.production', 'sensitive'],
+    ['cat server.pem', 'sensitive'],
+    ['cat id_rsa.key', 'sensitive'],
+    ['grep DATABASE .env', 'sensitive'],
+    ['rm -rf build', 'destructive'],
+    ['sudo apt install something', 'destructive'],
+    ['cat /etc/passwd', 'escape'],
+  ])('"%s" asks with the %s concern', async (command, concern) => {
+    const ctx = createMockContext();
+    await execute({ command }, ctx);
+    const permAsk = getAskCall(ctx) as PermissionAsk & { concerns?: string[] };
+    expect(permAsk.type).toBe('permission');
+    expect(permAsk.concerns).toContain(concern);
+    expect(permAsk.metadata?.command).toBe(command);
+  });
+
+  test.each([
     'curl http://example.com',
-    'wget http://example.com/file.zip',
-    'nc -l 8080',
-    'netcat 10.0.0.1 4444',
-    'eval "echo hello"',
-    'exec bash',
-  ];
-
-  for (const cmd of dangerousCommands) {
-    test(`"${cmd}" requires permission`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      expect(ctx.ask).toHaveBeenCalled();
-      // Confirm no real process spawned (permission approved → mock spawn)
-      expect(spawnSyncCalls.length).toBeLessThanOrEqual(1);
-    });
-  }
-
-  test('dangerous commands produce USER_REJECTION when denied', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => false) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'rm -rf /tmp/test' }, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('USER_REJECTION');
-    // No process spawned at all
-    expect(spawnSyncCalls.length).toBe(0);
-  });
-
-  test('destructive category: rm', async () => {
+    'echo hello | grep h',
+    'echo hello && echo world',
+    'mkdir new-directory',
+    'git push origin main',
+  ])('"%s" has no concern and runs without asking', async (command) => {
     const ctx = createMockContext();
-    await execute({ command: 'rm /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('destructive');
-    expect(permAsk.risk).toBe('high');
-  });
-
-  test('destructive category: sudo', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'sudo rm /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('destructive');
-  });
-
-  test('destructive category: shutdown/reboot/halt', async () => {
-    for (const cmd of ['shutdown -h now', 'reboot', 'halt']) {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      const permAsk = getAskCall(ctx);
-      expect(permAsk.metadata?.riskCategory).toBe('destructive');
-    }
-  });
-
-  test('network category: curl', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'curl http://example.com' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('network');
-    expect(permAsk.risk).toBe('high');
-  });
-
-  test('network category: wget', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'wget http://example.com/file.zip' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('network');
-  });
-
-  test('network category: nc / netcat', async () => {
-    for (const cmd of ['nc -l 8080', 'netcat 10.0.0.1 4444']) {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      const permAsk = getAskCall(ctx);
-      expect(permAsk.metadata?.riskCategory).toBe('network');
-    }
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════
-// Risk Analysis: Filesystem Commands
-// ══════════════════════════════════════════════════════════════════
-
-describe('risk analysis: filesystem commands', () => {
-  const filesystemCommands = [
-    { cmd: 'mv src/file.txt dest/file.txt', name: 'mv' },
-    { cmd: 'cp src/file.txt dest/file.txt', name: 'cp' },
-    { cmd: 'mkdir new-directory', name: 'mkdir' },
-    { cmd: 'touch new-file.txt', name: 'touch' },
-    { cmd: 'ln -s /target link', name: 'ln' },
-    { cmd: 'git push origin main', name: 'git push' },
-  ];
-
-  for (const { cmd, name } of filesystemCommands) {
-    test(`"${cmd}" requires permission`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      expect(ctx.ask).toHaveBeenCalled();
-    });
-
-    test(`"${cmd}" categorized as workspace-modification`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      const permAsk = getAskCall(ctx);
-      expect(permAsk.metadata?.riskCategory).toBe('workspace-modification');
-    });
-
-    test(`"${name}" has medium risk when workspace-bound`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      const permAsk = getAskCall(ctx);
-      // createWorkspaceModificationAsk always returns medium
-      expect(permAsk.risk).toBe('medium');
-    });
-  }
-
-  test('filesystem with outside-workspace paths has medium risk (helper hardcodes medium)', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'mv /etc/config /tmp/config' }, ctx);
-    const permAsk = getAskCall(ctx);
-    // createWorkspaceModificationAsk always returns risk: 'medium'
-    expect(permAsk.risk).toBe('medium');
-  });
-
-  test('git reset --hard is NOT matched (normalizes to "git reset", not "git reset --hard")', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'git reset --hard HEAD~1' }, ctx);
-    // Known detection gap: effective identity is "git reset", not "git reset --hard"
+    const result = await execute({ command }, ctx);
     expect(ctx.ask).not.toHaveBeenCalled();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════
-// Risk Analysis: Shell Operators
-// ══════════════════════════════════════════════════════════════════
-
-describe('risk analysis: shell operators', () => {
-  const operatorCommands = [
-    { cmd: 'echo hello && echo world', op: '&&' },
-    { cmd: 'echo hello || echo fallback', op: '||' },
-    { cmd: 'echo hello | grep h', op: '|' },
-    { cmd: 'echo hello > output.txt', op: '>' },
-    { cmd: 'echo hello >> output.txt', op: '>>' },
-    { cmd: 'echo `date`', op: '`' },
-    { cmd: 'echo $(date)', op: '$(' },
-    { cmd: 'echo hello; echo world', op: ';' },
-  ];
-
-  for (const { cmd, op } of operatorCommands) {
-    test(`operator "${op}" in "${cmd}" requires permission`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      expect(ctx.ask).toHaveBeenCalled();
-    });
-
-    test(`operator "${op}" produces side-effect category`, async () => {
-      const ctx = createMockContext();
-      await execute({ command: cmd }, ctx);
-      const permAsk = getAskCall(ctx);
-      expect(permAsk.metadata?.riskCategory).toBe('side-effect');
-      expect(permAsk.metadata?.hasOperators).toBe(true);
-    });
-  }
-
-  test('operators have medium risk', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'echo hello | grep hello' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('medium');
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════
-// Risk Analysis: Outside Workspace
-// ══════════════════════════════════════════════════════════════════
-
-describe('risk analysis: outside workspace paths', () => {
-  test('command with path outside workspace requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'cat /etc/hosts' }, ctx);
-    expect(ctx.ask).toHaveBeenCalled();
+    expect(spawnSyncCalls.length).toBe(1);
+    expect(result.success).toBe(true);
   });
 
-  test('command with tilde path requires permission', async () => {
+  test('a concern in any segment of a compound command asks', async () => {
     const ctx = createMockContext();
-    await execute({ command: 'ls ~/Documents' }, ctx);
-    expect(ctx.ask).toHaveBeenCalled();
+    await execute({ command: 'echo hello && rm -rf build' }, ctx);
+    const permAsk = getAskCall(ctx) as PermissionAsk & { concerns?: string[] };
+    expect(permAsk.concerns).toContain('destructive');
   });
 
-  test('command with absolute outside path categorized as outside-workspace', async () => {
+  test('a protected target outside the workspace is critical and only allowed once', async () => {
     const ctx = createMockContext();
-    await execute({ command: 'cat /etc/hosts' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('outside-workspace');
-  });
-
-  test('safe command with outside cwd does NOT ask (cwd check gated behind requiresAsk)', async () => {
-    const ctx = createMockContext();
-    // "ls" alone is safe; the cwd-outside-workspace check is inside `if (risk.requiresAsk)`
-    await execute({ command: 'ls', cwd: '/tmp/external' }, ctx);
-    expect(ctx.ask).not.toHaveBeenCalled();
-  });
-
-  test('dangerous command with outside cwd triggers outside-workspace ask branch', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'curl http://example.com', cwd: '/tmp/external' }, ctx);
-    const permAsk = getAskCall(ctx);
-    // The outsideWorkspaceCwd branch takes priority over the risk category
-    expect(permAsk.question).toContain('/tmp/external');
+    await execute({ command: 'rm /etc/config' }, ctx);
+    const permAsk = getAskCall(ctx) as PermissionAsk & { concerns?: string[]; allowedScopes?: string[] };
+    expect(permAsk.risk).toBe('critical');
+    expect(permAsk.concerns).toContain('escape');
+    expect(permAsk.allowedScopes).toEqual(['once']);
   });
 });
 
@@ -480,117 +299,27 @@ describe('risk analysis: low risk commands', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// Permission Ask Structure
+// Permission Flow: approval runs the command, rejection never spawns
 // ══════════════════════════════════════════════════════════════════
 
-describe('permission ask structure', () => {
-  test('dangerous command ask has permission type and file resource (target-based)', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm -rf /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.type).toBe('permission');
-    // Phase 3: rm -rf now produces resource='file', action='delete' instead of 'shell-command'
-    expect(permAsk.resource).toBe('file');
-    expect(permAsk.action).toBe('delete');
-  });
-
-  test('dangerous command ask has target-based patterns', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm -rf /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.patterns).toBeDefined();
-    expect(permAsk.patterns!.length).toBeGreaterThan(0);
-    // Phase 3: patterns now contain the file target path, not the command name
-    expect(permAsk.patterns).toContain('/tmp/test/');
-  });
-
-  test('rm -rf produces prefix-matched delete target with trailing slash', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm -rf /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    // Phase 3: recursive delete produces prefix match with trailing slash
-    expect(permAsk.intents).toBeDefined();
-    expect(permAsk.intents![0].resource).toBe('file');
-    expect(permAsk.intents![0].action).toBe('delete');
-    expect(permAsk.intents![0].targets[0].matcher).toBe('prefix');
-    expect(permAsk.intents![0].targets[0].target).toBe('/tmp/test/');
-  });
-
-  test('ask includes command metadata', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'curl http://example.com' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.command).toBe('curl http://example.com');
-    expect(permAsk.metadata?.baseCommand).toBe('curl');
-    expect(permAsk.metadata?.riskCategory).toBe('network');
-  });
-
-  test('dangerous command with outside cwd produces outside-workspace ask', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm /tmp/test', cwd: '/tmp/external' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.question).toContain('/tmp/external');
-  });
-
-  test('relative targets resolve against an additional-workspace cwd', async () => {
-    const additionalWorkspace = '/workspace/project-b';
-    const ctx = createMockContext({
-      isWithinWorkspace: (path: string) =>
-        path.startsWith(WORKSPACE) || path.startsWith(additionalWorkspace),
-    });
-
-    await execute({ command: 'rm -rf dist', cwd: additionalWorkspace }, ctx);
-
-    const expectedPath = resolve(additionalWorkspace, 'dist');
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.paths).toEqual([expectedPath]);
-    expect(permAsk.intents?.[0]?.targets[0]?.target).toBe(`${expectedPath}/`);
-    expect(spawnSyncCalls[0]?.cwd).toBe(additionalWorkspace);
-  });
-
-  test('workspace-modification ask has correct question format', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'mkdir new-dir' }, ctx);
-    const permAsk = getAskCall(ctx);
-    // mkdir targets a file resource, so the question describes the file operation
-    expect(permAsk.question).toContain('mkdir');
-    expect(permAsk.question).toContain('Requires approval');
-    expect(permAsk.metadata?.riskCategory).toBe('workspace-modification');
-  });
-
-  test('operator-only command has correct reason in metadata', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'echo hello | grep h' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.reason).toContain('shell operators');
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════
-// Permission Flow: Approval → executes (mocked spawn)
-// ══════════════════════════════════════════════════════════════════
-
-describe('permission flow: approval', () => {
-  test('approved dangerous command calls spawnSync', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => true) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'rm -rf /tmp/test' }, ctx);
+describe('permission flow', () => {
+  test('approved concern runs the command', async () => {
+    const ctx = createMockContext({ ask: mock(async () => true) as unknown as ToolContext['ask'] });
+    const result = await execute({ command: 'rm -rf build' }, ctx);
     expect(ctx.ask).toHaveBeenCalled();
     expect(spawnSyncCalls.length).toBe(1);
-    expect(spawnSyncCalls[0].shell).toEqual(['sh', '-c', 'rm -rf /tmp/test']);
+    expect(spawnSyncCalls[0].shell).toEqual(['sh', '-c', 'rm -rf build']);
     expect(result.success).toBe(true);
   });
 
-  test('approved filesystem command calls spawnSync', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => true) as unknown as ToolContext['ask'],
+  test.each(['rm -rf build', 'cat .env', 'cat /etc/passwd'])(
+    'rejected "%s" returns USER_REJECTION without spawning', async (command) => {
+      const ctx = createMockContext({ ask: mock(async () => false) as unknown as ToolContext['ask'] });
+      const result = await execute({ command }, ctx);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('USER_REJECTION');
+      expect(spawnSyncCalls.length).toBe(0);
     });
-    const result = await execute({ command: 'mkdir new-dir' }, ctx);
-    expect(ctx.ask).toHaveBeenCalled();
-    expect(spawnSyncCalls.length).toBe(1);
-    expect(result).toBeDefined();
-  });
 
   test('low-risk command executes without ask', async () => {
     const ctx = createMockContext();
@@ -598,52 +327,6 @@ describe('permission flow: approval', () => {
     expect(ctx.ask).not.toHaveBeenCalled();
     expect(spawnSyncCalls.length).toBe(1);
     expect(result.success).toBe(true);
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════
-// Permission Flow: Rejection → no spawn at all
-// ══════════════════════════════════════════════════════════════════
-
-describe('permission flow: rejection', () => {
-  test('rejected dangerous command returns USER_REJECTION without spawning', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => false) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'rm -rf /tmp' }, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('USER_REJECTION');
-    expect(spawnSyncCalls.length).toBe(0);
-  });
-
-  test('rejected filesystem command returns USER_REJECTION without spawning', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => false) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'mv a.txt b.txt' }, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('USER_REJECTION');
-    expect(spawnSyncCalls.length).toBe(0);
-  });
-
-  test('rejected operator command returns USER_REJECTION without spawning', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => false) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'echo a && echo b' }, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('USER_REJECTION');
-    expect(spawnSyncCalls.length).toBe(0);
-  });
-
-  test('rejected outside-workspace command returns USER_REJECTION without spawning', async () => {
-    const ctx = createMockContext({
-      ask: mock(async () => false) as unknown as ToolContext['ask'],
-    });
-    const result = await execute({ command: 'ls /tmp' }, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('USER_REJECTION');
-    expect(spawnSyncCalls.length).toBe(0);
   });
 });
 
@@ -740,49 +423,11 @@ describe('edge cases', () => {
     expect(result).toBeDefined();
   });
 
-  test('git commands with subcommands are identified (git push)', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'git push origin main' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.baseCommand).toBe('git push');
-  });
-
-  test('compound command prioritizes most dangerous segment (echo && rm)', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'echo hello && rm -rf /tmp' }, ctx);
-    const permAsk = getAskCall(ctx);
-    // rm has higher danger priority than echo
-    expect(permAsk.metadata?.baseCommand).toBe('rm');
-  });
-
-  test('command with flags extracts flags correctly', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm -rf -v /tmp/test' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.flags).toContain('-rf');
-    expect(permAsk.metadata?.flags).toContain('-v');
-  });
-
-  test('simultaneous dangerous + outside-workspace: high risk and not workspace-bound', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'rm /etc/config' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('high');
-    expect(permAsk.metadata?.workspaceBound).toBe(false);
-  });
-
   test('npm/pnpm/yarn/bun subcommands identified but safe', async () => {
     const ctx = createMockContext();
     const result = await execute({ command: 'npm install' }, ctx);
     expect(ctx.ask).not.toHaveBeenCalled();
     expect(result).toBeDefined();
-  });
-
-  test('multi-line-style command with semicolons triggers operator detection', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'echo first; echo second; echo third' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.hasOperators).toBe(true);
   });
 
   test('command with only flags still works', async () => {
@@ -834,24 +479,23 @@ describe('edge cases', () => {
 
   test('cd <workspace> && <dangerous> still catches dangerous command', async () => {
     const ctx = createMockContext();
-    await execute({ command: `cd ${WORKSPACE} && rm -rf /tmp/test` }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('destructive');
+    await execute({ command: `cd ${WORKSPACE} && rm -rf build` }, ctx);
+    const permAsk = getAskCall(ctx) as PermissionAsk & { concerns?: string[] };
+    expect(permAsk.concerns).toContain('destructive');
   });
 
   test('cd <workspace> && cat .env still catches sensitive file', async () => {
     const ctx = createMockContext();
     await execute({ command: `cd ${WORKSPACE} && cat .env` }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
+    const permAsk = getAskCall(ctx) as PermissionAsk & { concerns?: string[] };
+    expect(permAsk.concerns).toContain('sensitive');
   });
 
   test('cd <other_path> && <cmd> does NOT strip when target differs from cwd', async () => {
     const ctx = createMockContext();
     await execute({ command: 'cd /some/other/path && npm install' }, ctx);
-    // Different cd target → not stripped → && triggers operator detection
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.hasOperators).toBe(true);
+    // Different cd target: the command runs as written.
+    expect(spawnSyncCalls[0].shell).toEqual(['sh', '-c', 'cd /some/other/path && npm install']);
   });
 
   test('cd <workspace> && <cmd> with explicit cwd param also strips', async () => {
@@ -864,14 +508,13 @@ describe('edge cases', () => {
     expect(spawnSyncCalls[0].shell).toEqual(['sh', '-c', 'bun test']);
   });
 
-  test('cd with relative path matching workspace also strips', async () => {
+  test('cd with a relative path that differs from the workspace is kept', async () => {
     const ctx = createMockContext();
     // resolvePath('./project') = '/workspace/project/./project' ≠ '/workspace/project'
     // so this should NOT strip — it's a different path
     await execute({ command: 'cd ./project && ls' }, ctx);
-    // The relative path won't match workspace, so && is kept → operator ask
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.hasOperators).toBe(true);
+    // The relative path won't match the workspace, so the cd is kept.
+    expect(spawnSyncCalls[0].shell).toEqual(['sh', '-c', 'cd ./project && ls']);
   });
 
   test('cd <workspace> && <cmd> uses stripped command in visualization', async () => {
@@ -891,15 +534,6 @@ describe('edge cases', () => {
 
   // ── Sensitive file tests ──────────────────────────────────────────
 
-  test('cat .env always requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'cat .env' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('high');
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
-    expect(permAsk.metadata?.reason).toContain('sensitive files');
-  });
-
   test('cat .env is blocked even when user rejects', async () => {
     const ctx = createMockContext({
       ask: mock(async () => false) as unknown as ToolContext['ask'],
@@ -908,37 +542,6 @@ describe('edge cases', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('USER_REJECTION');
     expect(spawnSyncCalls.length).toBe(0);
-  });
-
-  test('cat .env.production also requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'cat .env.production' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('high');
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
-  });
-
-  test('cat .pem file requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'cat server.pem' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('high');
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
-  });
-
-  test('cat .key file requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'cat id_rsa.key' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.risk).toBe('high');
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
-  });
-
-  test('grep across .env still requires permission', async () => {
-    const ctx = createMockContext();
-    await execute({ command: 'grep DATABASE .env' }, ctx);
-    const permAsk = getAskCall(ctx);
-    expect(permAsk.metadata?.riskCategory).toBe('sensitive-files');
   });
 
   test('cat normal.txt does not trigger sensitive-files', async () => {
