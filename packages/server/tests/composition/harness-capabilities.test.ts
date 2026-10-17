@@ -16,7 +16,7 @@ function shape(registrations: Record<string, { execution: object; headless?: unk
 
 test('the capability table matches the real harness registrations', () => {
   const noTitle = async () => {};
-  const deps = { agents: createWiredAgentsApplication(), titles: { 'codex-cli': noTitle, 'claude-cli': noTitle } };
+  const deps = { agents: createWiredAgentsApplication(), titles: { prokop: noTitle, 'codex-cli': noTitle, 'claude-cli': noTitle } };
   const real = Object.fromEntries((Object.keys(harnessCapabilities) as SessionHarness[])
     .map(harness => [harness, createHarnessRegistration(harness, deps)]));
   const table = Object.fromEntries(Object.entries(harnessCapabilities).map(([harness, capabilities]) => [harness, {

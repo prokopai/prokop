@@ -462,6 +462,7 @@ function inProcessHarnessRegistrations(
   agent.configureProkopAgentSource(agents);
   const sessionTitles = { repository, titles: { ...agent.prokopTitleBindings, fallbackSessionTitle } };
   return agent.createHarnessRegistrations({ agents, titles: {
+    prokop: createSessionTitleRegeneration(sessionTitles),
     'codex-cli': createSessionTitleRegeneration(sessionTitles),
     'claude-cli': createSessionTitleRegeneration({ ...sessionTitles,
       harnessTitle: sessionId => harnessProbes().nativeTitle(sessionId) }),

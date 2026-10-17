@@ -5,7 +5,8 @@ import { listPreconfigs } from '@prokopai/core/infrastructure/config/preconfig';
 /** What every harness registration is built from. */
 export interface HarnessRegistrationDeps {
   agents: Pick<AgentsApplication, 'getPreconfigOrAgent' | 'getAgentDirectory' | 'readAgentMemoryFile'>;
-  titles: Record<'codex-cli' | 'claude-cli', SessionExecutionPort['regenerateTitle']>;
+  /** Session title regeneration per harness (the host's shared implementation). */
+  titles: Record<'prokop' | 'codex-cli' | 'claude-cli', SessionExecutionPort['regenerateTitle']>;
 }
 
 /** Preconfig and agent instructions the Claude Code and Codex drivers read. */

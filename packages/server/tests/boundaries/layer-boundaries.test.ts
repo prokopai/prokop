@@ -1806,7 +1806,6 @@ describe('server layer boundaries', () => {
     for (const identity of [
       'handleCapekChat',
       'handleCapekSessionEditMessage',
-      'regenerateCapekSessionTitle',
       'executeCapekCompaction',
       'revertCapekToStep',
       'forkCapekSession',

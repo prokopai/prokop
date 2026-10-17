@@ -39,8 +39,7 @@ function withFallbackMark(metadata: Record<string, unknown> | null | undefined, 
 /**
  * Universal server-side session-title regeneration (S11.3 slice 2).
  *
- * Mirrors the Capek regeneration semantics so every harness gets identical
- * behavior: without force, regenerate only default titles that were never
+ * Every harness gets identical behavior: without force, regenerate only default titles that were never
  * renamed manually; read the newest transcript page (chronological order),
  * generate, persist, and broadcast session.renamed to every client.
  *
@@ -49,8 +48,7 @@ function withFallbackMark(metadata: Record<string, unknown> | null | undefined, 
  * title, then the first prompt's words. A first-prompt title stays
  * replaceable by later turns. Only a forced (user-requested) regeneration
  * reports title_generation_error; the automatic one after each turn is quiet.
- * The Prokop harness keeps its Capek implementation; external harnesses
- * register this one.
+ * Every harness registers this one.
  */
 export function createSessionTitleRegeneration<Origin>(deps: SessionTitleDeps) {
   const transcriptLimit = deps.transcriptLimit ?? 100;

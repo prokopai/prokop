@@ -15,7 +15,7 @@ type HarnessModules = {
 export function createHarnessRegistration(harness: SessionHarness, deps: HarnessRegistrationDeps): HarnessRegistration {
   switch (harness) {
     case 'prokop':
-      return (require('./harnesses/prokop') as HarnessModules['prokop']).createProkopRegistration();
+      return (require('./harnesses/prokop') as HarnessModules['prokop']).createProkopRegistration(deps.titles.prokop);
     case 'codex-cli':
       return (require('./harnesses/codex-cli') as HarnessModules['codex-cli']).createCodexRegistration(deps);
     case 'claude-cli':

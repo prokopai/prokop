@@ -5,7 +5,6 @@ import { forkSession as forkCapekSession } from '#agent/harnesses/prokop/executi
 import {
   handleChat as handleCapekChat,
   handleSessionEditMessage as handleCapekSessionEditMessage,
-  regenerateSessionTitle as regenerateCapekSessionTitle,
 } from '#agent/harnesses/prokop/execution/chat-handler';
 import { interruptManager } from '#agent/harnesses/prokop/execution/interrupt';
 import { revertToStep as revertCapekToStep } from '#agent/harnesses/prokop/execution/revert';
@@ -31,7 +30,8 @@ import { withProkopComposedScopeSync, withProkopExecutionScope } from '#agent/ha
 export interface ProkopSessionExecutionDependencies {
   handleChat?: typeof handleCapekChat;
   handleSessionEditMessage?: typeof handleCapekSessionEditMessage;
-  regenerateSessionTitle?: typeof regenerateCapekSessionTitle;
+  /** The host's shared title regeneration; without it, titles are left alone. */
+  regenerateTitle?: SessionExecutionPort['regenerateTitle'];
   executeCompaction?: typeof executeCapekCompaction;
   revertToStep?: typeof revertCapekToStep;
   forkSession?: typeof forkCapekSession;
@@ -66,7 +66,6 @@ export function createProkopSessionExecution(
 ): SessionExecutionPort {
   const handleChat = dependencies.handleChat ?? handleCapekChat;
   const handleSessionEditMessage = dependencies.handleSessionEditMessage ?? handleCapekSessionEditMessage;
-  const regenerateSessionTitle = dependencies.regenerateSessionTitle ?? regenerateCapekSessionTitle;
   const executeCompaction = dependencies.executeCompaction ?? executeCapekCompaction;
   const revertToStep = dependencies.revertToStep ?? revertCapekToStep;
   const forkSession = dependencies.forkSession ?? forkCapekSession;
@@ -113,12 +112,7 @@ export function createProkopSessionExecution(
       sessionId: string,
       options?: { force?: boolean },
     ): Promise<void> {
-      return withProkopExecutionScope(() => regenerateSessionTitle(
-        runtimeContext(wire, onSessionChanged),
-        origin,
-        sessionId,
-        options,
-      ));
+      return dependencies.regenerateTitle?.(wire, origin, sessionId, options) ?? Promise.resolve();
     },
 
     async interruptSession(sessionId: string, reason?: string): Promise<InterruptExecutionResult> {

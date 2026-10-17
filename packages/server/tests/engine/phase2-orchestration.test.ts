@@ -18,10 +18,7 @@ import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
 import { evaluateGoal } from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
 import { runGoalLoop } from '@prokopai/agent/internal/harnesses/prokop/goals/loop';
 import { executeWorkflow } from '@prokopai/agent/internal/harnesses/prokop/workflow/execution';
-import {
-  handleChat,
-  regenerateSessionTitle,
-} from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
+import { handleChat } from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
 import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/workflow/orchestrator-session';
 import { decomposeTask } from '@prokopai/agent/internal/harnesses/prokop/workflow/decomposer';
 import { synthesizeResults } from '@prokopai/agent/internal/harnesses/prokop/workflow/synthesizer';
@@ -814,7 +811,7 @@ describe.serial('Phase 2 orchestration contracts', () => {
     expect(order.indexOf('usage.delivered')).toBeLessThan(order.indexOf('usage.persisted'));
   });
 
-  test('delivers queue sending before deletion and title rename after persistence', async () => {
+  test('delivers queue sending before deletion', async () => {
     const state = createState();
     const order: string[] = [];
     const queued = [{ id: 'queued-1', sessionId: 'root', content: 'second', createdAt: 1, position: 0 }];
@@ -868,17 +865,11 @@ describe.serial('Phase 2 orchestration contracts', () => {
         expect(queued[0]?.id).toBe(event.queueId);
         order.push(`queue.delivered:${event.queueId}`);
       }
-      if (event.kind === 'session' && event.action === 'renamed') {
-        expect(state.sessions.get('root')?.title).toBe(event.session.title);
-        order.push('title.delivered');
-      }
     });
 
     await handleChat(ctx, ws, 'root', 'first');
-    await regenerateSessionTitle(ctx, ws, 'root', { force: true });
 
     expect(order.indexOf('queue.delivered:queued-1')).toBeLessThan(order.indexOf('queue.deleted:queued-1'));
-    expect(order).toContain('title.delivered');
   });
 
   test.each([

@@ -57,14 +57,10 @@ export function sendGateRejection<Origin>(
 
 export function createSessionChatApplication<Origin>(deps: SessionChatDeps<Origin>): SessionChatApplication<Origin> {
   const sends = deps.sends ?? clientSends;
-  // Capek fires its own auto-title for Prokop sessions right after
-  // persisting the user message inside handleChat; external harnesses have
-  // no such hook, so the universal server-side regeneration runs fire and
-  // forget once the awaited turn settles. Legacy rows without a harness
-  // field are Prokop sessions and stay on the Capek path.
-  const autoTitleForExternalHarness = (wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): void => {
-    const session = deps.repository.getSession(sessionId);
-    if (!session || session.harness === undefined || session.harness === 'prokop') return;
+  // Every harness gets the same server-side title regeneration, fire and
+  // forget once the awaited turn settles.
+  const autoTitle = (wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): void => {
+    if (!deps.repository.getSession(sessionId)) return;
     void deps.execution.regenerateTitle(wire, origin, sessionId);
   };
 
@@ -100,7 +96,7 @@ export function createSessionChatApplication<Origin>(deps: SessionChatDeps<Origi
           goalMaxTurns,
           goalTokenBudget,
         );
-        autoTitleForExternalHarness(wire, origin, sessionId);
+        autoTitle(wire, origin, sessionId);
       } finally {
         tracked.finish();
       }
@@ -113,7 +109,7 @@ export function createSessionChatApplication<Origin>(deps: SessionChatDeps<Origi
         return;
       }
       await deps.execution.editMessage(wire, origin, input);
-      autoTitleForExternalHarness(wire, origin, input.sessionId);
+      autoTitle(wire, origin, input.sessionId);
     },
 
     generateTitle(wire, origin, sessionId, force): void {

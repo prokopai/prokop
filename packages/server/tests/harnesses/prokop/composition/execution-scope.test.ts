@@ -4,7 +4,6 @@ import type { forkSession as CapekForkSession } from '@prokopai/agent/internal/h
 import type {
   handleChat as CapekHandleChat,
   handleSessionEditMessage as CapekHandleSessionEditMessage,
-  regenerateSessionTitle as CapekRegenerateSessionTitle,
 } from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
 import type { revertToStep as CapekRevertToStep } from '@prokopai/agent/internal/harnesses/prokop/execution/revert';
 import { configureStorage, getStorage } from '@prokopai/core/infrastructure/storage/runtime';
@@ -84,8 +83,6 @@ describe('Jean2 composed execution scope', () => {
       handleChat: async (..._args: Parameters<typeof CapekHandleChat>): Promise<void> => observe('chat'),
       handleSessionEditMessage: async (..._args: Parameters<typeof CapekHandleSessionEditMessage>): Promise<void> =>
         observe('edit'),
-      regenerateSessionTitle: async (..._args: Parameters<typeof CapekRegenerateSessionTitle>): Promise<void> =>
-        observe('title'),
       executeCompaction: async (..._args: Parameters<typeof CapekExecuteCompaction>) => {
         await observe('compact');
         return { ok: false, error: 'test' } as Awaited<ReturnType<typeof CapekExecuteCompaction>>;
@@ -117,16 +114,25 @@ describe('Jean2 composed execution scope', () => {
       messageId: 'message',
       content: 'edited',
     });
-    await execution.regenerateTitle(wire, 'origin', 'session', { force: true });
     await execution.compact('session', 'manual');
     await execution.revert({ sessionId: 'session', targetMessageId: 'message' });
     await execution.fork({ sessionId: 'session', targetMessageId: 'message' });
 
-    expect([...observations.keys()]).toEqual(['chat', 'edit', 'title', 'compact', 'revert', 'fork']);
+    expect([...observations.keys()]).toEqual(['chat', 'edit', 'compact', 'revert', 'fork']);
     for (const values of observations.values()) {
       expect(values).toEqual([prokopStorageBundle, prokopStorageBundle]);
     }
     expect(getStorage()).toBe(fallbackStorage);
+  });
+
+  test('title regeneration goes to the host regenerator, and is a no-op without one', async () => {
+    const calls: unknown[][] = [];
+    const wire = {} as never;
+    await createProkopSessionExecution({ regenerateTitle: async (...args) => { calls.push(args); } })
+      .regenerateTitle(wire, 'origin', 'session', { force: true });
+    await createProkopSessionExecution().regenerateTitle(wire, 'origin', 'session');
+
+    expect(calls).toEqual([[wire, 'origin', 'session', { force: true }]]);
   });
 
   test('shutdown rejects new entries, drains active work, and disposes once', async () => {

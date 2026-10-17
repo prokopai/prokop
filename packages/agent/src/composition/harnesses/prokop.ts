@@ -1,10 +1,12 @@
 import { getHarnessNotificationPort } from '@prokopai/core/application/ports/harness-notifications';
 import type { HarnessRegistration } from '@prokopai/core/application/sessions/harness-execution';
+import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { createProkopHarness } from '#agent/harnesses/prokop/index';
 
 /** The Prokop runtime (AI SDK, built-in tools, plugins). */
-export function createProkopRegistration(): HarnessRegistration {
+export function createProkopRegistration(regenerateTitle: SessionExecutionPort['regenerateTitle']): HarnessRegistration {
   return createProkopHarness({
+    regenerateTitle,
     onSessionChanged: (changedSession) => {
       if (changedSession.workspaceRootId) {
         getHarnessNotificationPort()?.notifyWorktreeChanged?.(changedSession.workspaceRootId);

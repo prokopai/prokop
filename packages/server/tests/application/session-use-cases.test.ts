@@ -305,7 +305,7 @@ describe('application session use cases', () => {
       expect(titleCalls).toEqual(['sess-1', 'sess-1']);
     });
 
-    test('send keeps Prokop and legacy sessions on the Capek auto-title path', async () => {
+    test('send and edit auto-title Prokop and legacy sessions like every harness', async () => {
       const titleCalls: string[] = [];
       const execution = makeExecution({ regenerateTitle: async (...args: unknown[]) => { titleCalls.push(String(args[2])); } });
       for (const session of [makeSession(), makeSession({ harness: 'prokop' })]) {
@@ -317,7 +317,7 @@ describe('application session use cases', () => {
         await app.sendMessage(makeWire(makeSpy()), origin, 'sess-1', 'hello');
         await app.editMessage(makeWire(makeSpy()), origin, { sessionId: 'sess-1', messageId: 'm-1', content: 'edited' });
       }
-      expect(titleCalls).toEqual([]);
+      expect(titleCalls).toEqual(['sess-1', 'sess-1', 'sess-1', 'sess-1']);
     });
 
     test('edit gates with the chat.message action', async () => {

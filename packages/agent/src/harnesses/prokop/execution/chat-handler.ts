@@ -2,9 +2,6 @@ import type { AssistantMessage, ResponseFormat } from '@prokopai/sdk/types';
 import {
   emitRuntimeEvent,
   emitSessionUpdated,
-  generateSessionTitle,
-  hasManualSessionTitle,
-  isDefaultSessionTitle,
   isSandboxActive,
   emitTerminal,
   resolveSessionWorkspace,
@@ -141,7 +138,6 @@ async function runSingleChatTurn<Origin>(
 
     deliverToSession(ctx, sessionId, { kind: 'message', action: 'created', message: userMessage });
     deliverToSession(ctx, sessionId, { kind: 'part', action: 'created', sessionId, part: textPart });
-    void regenerateSessionTitle(ctx, origin, sessionId);
   }
 
   if (attachments && attachments.length > 0) {
@@ -456,63 +452,6 @@ async function runSingleChatTurn<Origin>(
       errorMessage: message,
       errorType: 'server',
     };
-  }
-}
-
-export async function regenerateSessionTitle<Origin>(
-  ctx: RuntimeRequestContext<Origin>,
-  origin: Origin,
-  sessionId: string,
-  options?: { force?: boolean },
-): Promise<void> {
-  const session = await getSession(sessionId);
-  if (!session) {
-    console.warn('[session-title] Skipping title generation: session not found', sessionId);
-    return;
-  }
-  if (!options?.force && (!isDefaultSessionTitle(session.title) || hasManualSessionTitle(session.metadata))) {
-    console.info('[session-title] Skipping auto title generation', {
-      sessionId,
-      title: session.title,
-      manuallyRenamed: hasManualSessionTitle(session.metadata),
-    });
-    return;
-  }
-
-  try {
-    const messages = await listMessagesWithParts(sessionId);
-    console.info('[session-title] Generating session title', {
-      sessionId,
-      force: options?.force === true,
-      messageCount: messages.length,
-    });
-    const title = await generateSessionTitle(messages);
-    if (!title) {
-      console.warn('[session-title] Skipping title update: no title generated', sessionId);
-      deliverToOrigin(ctx, origin, {
-        kind: 'failure',
-        category: 'generic',
-        code: 'title_generation_error',
-        message: 'Could not generate a title from the conversation.',
-        sessionId,
-      });
-      return;
-    }
-    const updated = await updateSession(sessionId, { title });
-    if (updated) {
-      console.info('[session-title] Updated session title', { sessionId, title });
-      deliverToSession(ctx, sessionId, { kind: 'session', action: 'renamed', session: updated });
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn('[session-title] Failed to generate session title', { sessionId, message });
-    deliverToOrigin(ctx, origin, {
-      kind: 'failure',
-      category: 'generic',
-      code: 'title_generation_error',
-      message: `Title generation failed: ${message}`,
-      sessionId,
-    });
   }
 }
 
