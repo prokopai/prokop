@@ -7,4 +7,6 @@
 
 ### Fixed
 
+- **Overview keeps fresh session names and status**: A rename or status change that arrived while the overview was loading, or while it loaded more sessions, could be replaced by the older copy from that request until the next change. The newer state now stays.
+
 - **Mermaid labels are no longer cut off**: Diagram labels drew in the code font while Mermaid sized their boxes for the regular font, so longer labels were clipped, for example "store.get(sl" instead of "store.get(slug)". Diagrams now draw in the same font they are sized for.

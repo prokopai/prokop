@@ -4,6 +4,7 @@ import type { ProkopaiClient, Session } from '@prokopai/sdk';
 import { useSessionStore } from '@/stores/sessionStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { RENDER_BUDGETS } from '@/lib/renderBudgets';
+import { mergeFetchedSessions, snapshotSessions } from '@/lib/sessionCacheSync';
 
 const OVERVIEW_LIMIT_PER_WORKSPACE = RENDER_BUDGETS.overviewInitialPageSize;
 
@@ -30,7 +31,6 @@ export function useOverviewSessions({
   workspaceIds,
   connected,
 }: UseOverviewSessionsParams): UseOverviewSessionsReturn {
-  const mergeSessions = useSessionStore(s => s.mergeSessions);
   const allSessions = useSessionStore(s => s.sessions);
 
   // Per-workspace cursor state (updated via setState, not refs, to avoid render-time ref reads)
@@ -76,18 +76,14 @@ export function useOverviewSessions({
     });
   }, [groupedPagination, workspaceIds]);
 
-  // Merge the initial grouped page into the store
-  useEffect(() => {
-    if (groupedQuery.data?.sessions) {
-      const flatSessions = Object.values(groupedQuery.data.sessions).flat();
-      mergeSessions(flatSessions);
-    }
-  }, [groupedQuery.data, mergeSessions]);
+  // The grouped page enters the store through sessionCacheSync, which keeps
+  // live updates that arrive while it loads.
 
   const fetchNextPageForWorkspace = useCallback((workspaceId: string) => {
     const cursor = cursorsByWorkspace[workspaceId];
     if (!cursor || !sdkClient || loadingMoreWorkspace) return;
     setLoadingMoreWorkspace(workspaceId);
+    const baseline = snapshotSessions();
 
     sdkClient.http.sessions.listByWorkspace({
       workspaceId,
@@ -97,9 +93,7 @@ export function useOverviewSessions({
       limit: OVERVIEW_LIMIT_PER_WORKSPACE,
       cursor,
     }).then((response) => {
-      if (response.sessions.length > 0) {
-        mergeSessions(response.sessions);
-      }
+      mergeFetchedSessions(response.sessions, baseline);
       const nextCursor = response.pagination?.hasMore
         ? response.pagination.nextCursor ?? undefined
         : undefined;
@@ -108,7 +102,7 @@ export function useOverviewSessions({
     }).catch(() => {
       setLoadingMoreWorkspace(null);
     });
-  }, [sdkClient, mergeSessions, cursorsByWorkspace, loadingMoreWorkspace]);
+  }, [sdkClient, cursorsByWorkspace, loadingMoreWorkspace]);
 
   // Derive sessionsByWorkspace from the store (deduplicated, server-sorted)
   const sessionsByWorkspace = useMemo(() => {

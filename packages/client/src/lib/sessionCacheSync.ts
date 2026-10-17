@@ -6,6 +6,33 @@ import type { Session } from '@prokopai/sdk';
 
 let unsubscribe: (() => void) | null = null;
 
+/** The store's sessions by id, taken when a request starts. */
+export type SessionSnapshot = Map<string, Session>;
+
+export function snapshotSessions(): SessionSnapshot {
+  return new Map(useSessionStore.getState().sessions.map(s => [s.id, s]));
+}
+
+/**
+ * Merges sessions fetched by a request that started at `baseline`. A session
+ * that changed in the store since then (a live update or deletion) keeps its
+ * newer state; rows unchanged since `previous` (the same list's last merge)
+ * are skipped. Every fetched session list enters the store through here.
+ * Returns this merge, to pass as `previous` next time.
+ */
+export function mergeFetchedSessions(incoming: Session[], baseline: SessionSnapshot, previous?: SessionSnapshot): SessionSnapshot {
+  const current = snapshotSessions();
+  useSessionStore.getState().mergeSessions(
+    incoming.filter(s => previous?.get(s.id) !== s && current.get(s.id) === baseline.get(s.id)),
+  );
+  return new Map(incoming.map(s => [s.id, s]));
+}
+
+/** Overview's first page per workspace (`sessions.grouped*` keys). */
+function isGroupedSessionsKey(key: readonly unknown[]): boolean {
+  return key[0] === queryKeys.sessions.all[0] && key[1] === 'grouped';
+}
+
 function getWorkspaceId(key: readonly unknown[]): string | null {
   if (
     key[0] !== queryKeys.sessions.all[0] ||
@@ -27,6 +54,24 @@ export function startSessionCacheSync(): void {
   const mergedPages = new Map<string, Map<string, Session>>();
   unsubscribe = queryClient.getQueryCache().subscribe((event) => {
     if (event.type !== 'updated' && event.type !== 'removed') return;
+    if (isGroupedSessionsKey(event.query.queryKey)) {
+      const hash = event.query.queryHash;
+      if (event.type === 'removed') {
+        snapshots.delete(hash);
+        mergedPages.delete(hash);
+        return;
+      }
+      if (event.action.type === 'fetch') snapshots.set(hash, snapshotSessions());
+      if (event.action.type !== 'success') return;
+      const data = event.query.state.data as { sessions?: Record<string, Session[]> } | undefined;
+      if (!data?.sessions) return;
+      // Only the first page per workspace: a missing row may just be further
+      // down, so nothing is removed here.
+      const baseline = snapshots.get(hash) ?? snapshotSessions();
+      mergedPages.set(hash, mergeFetchedSessions(Object.values(data.sessions).flat(), baseline, mergedPages.get(hash)));
+      snapshots.delete(hash);
+      return;
+    }
     const workspaceId = getWorkspaceId(event.query.queryKey);
     if (workspaceId === null) return;
     const options = event.query.queryKey[3] as { category?: string };
@@ -38,12 +83,12 @@ export function startSessionCacheSync(): void {
         return; // Evicting one category must not erase other lists or open sessions.
       }
       if (event.action.type === 'fetch') {
-        snapshots.set(hash, new Map(useSessionStore.getState().sessions.map(s => [s.id, s])));
+        snapshots.set(hash, snapshotSessions());
       }
       if (event.action.type !== 'success') return;
       const data = event.query.state.data as { pages?: Array<{ sessions?: Session[] }> } | undefined;
       if (!data) return;
-      const current = new Map(useSessionStore.getState().sessions.map(s => [s.id, s]));
+      const current = snapshotSessions();
       const baseline = snapshots.get(hash) ?? current;
       const incoming = dedupeAndSortSessions((data.pages ?? []).flatMap(page => page.sessions ?? []));
       // Preserve updates and deletions delivered while this request was in flight.
@@ -60,11 +105,10 @@ export function startSessionCacheSync(): void {
         );
         if (belongs) useSessionStore.getState().removeSessionById(id);
       }
-      useSessionStore.getState().mergeSessions(incoming.filter(s => previous?.get(s.id) !== s && current.get(s.id) === baseline.get(s.id)));
+      mergedPages.set(hash, mergeFetchedSessions(incoming, baseline, previous));
       // A session opened by URL can land in the store before its list. The
       // first page fixes its position; later refetches update rows in place.
       if (!previous) useSessionStore.getState().orderSessions(incoming.map(s => s.id));
-      mergedPages.set(hash, new Map(incoming.map(s => [s.id, s])));
       snapshots.delete(hash);
       return;
     }
