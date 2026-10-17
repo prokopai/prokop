@@ -19,6 +19,9 @@ export interface PendingOperation {
 }
 
 const OPERATION_TIMEOUT_MS = 60_000;
+// Compaction summarises the whole transcript with a model call before the
+// server acknowledges, so it gets a longer unacknowledged window.
+const COMPACT_TIMEOUT_MS = 150_000;
 
 const OPERATION_LABELS: Record<PendingOperationType, string> = {
   fork: 'Fork',
@@ -91,7 +94,7 @@ export const usePendingOperationsStore = create<PendingOperationsState>((set, ge
     const now = Date.now();
     const stale = get().operations.filter(
       (op) => op.acknowledgedAt === undefined && now - op.startedAt >
-        (op.type === 'compact' ? 150_000 : OPERATION_TIMEOUT_MS),
+        (op.type === 'compact' ? COMPACT_TIMEOUT_MS : OPERATION_TIMEOUT_MS),
     );
     if (stale.length > 0) {
       for (const op of stale) {

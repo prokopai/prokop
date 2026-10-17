@@ -13,7 +13,8 @@ import { updateWorkspace } from '@/infrastructure/sqlite/workspaces';
 const temporaryDirectories: string[] = [];
 
 function tempRoot(prefix: string): string {
-  const path = mkdtempSync(join(tmpdir(), prefix));
+  // Canonical from the start, so Git and resolved paths match even when TMPDIR is a symlink.
+  const path = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   temporaryDirectories.push(path);
   return path;
 }

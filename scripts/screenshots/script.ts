@@ -4,7 +4,7 @@
  * scoped to one session and consumed in order (`maxUses: 1`).
  */
 import { followAttention, ProkopaiClient } from '../../packages/sdk/src';
-import type { SandboxResponse } from '../../packages/server/src/infrastructure/sandbox/types';
+import type { SandboxResponse } from '../../packages/core/src/infrastructure/sandbox/types';
 
 export type Step = SandboxResponse;
 

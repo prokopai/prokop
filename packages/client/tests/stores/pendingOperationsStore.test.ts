@@ -20,13 +20,33 @@ describe('pendingOperationsStore', () => {
   test('times out an operation when the server does not acknowledge it', () => {
     vi.spyOn(Date, 'now').mockReturnValue(100_000);
     usePendingOperationsStore.getState().startOperation({
-      type: 'compact',
+      type: 'fork',
       sessionId: 'session-1',
       startedAt: 39_999,
     });
 
     usePendingOperationsStore.getState().cleanupStaleOperations();
 
+    expect(mockToastError).toHaveBeenCalledWith('Fork timed out', {
+      description: 'The server did not respond in time.',
+    });
+    expect(usePendingOperationsStore.getState().operations).toEqual([]);
+  });
+
+  test('gives an unacknowledged compaction a longer window than other operations', () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(100_000);
+    usePendingOperationsStore.getState().startOperation({
+      type: 'compact',
+      sessionId: 'session-1',
+      startedAt: 0,
+    });
+
+    usePendingOperationsStore.getState().cleanupStaleOperations();
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(usePendingOperationsStore.getState().operations).toHaveLength(1);
+
+    nowSpy.mockReturnValue(150_001);
+    usePendingOperationsStore.getState().cleanupStaleOperations();
     expect(mockToastError).toHaveBeenCalledWith('Compact timed out', {
       description: 'The server did not respond in time.',
     });

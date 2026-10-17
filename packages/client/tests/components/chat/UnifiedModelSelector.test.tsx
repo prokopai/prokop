@@ -31,10 +31,14 @@ function picker(props: { codexSession?: boolean; models?: typeof prokop; codexMo
   return { onChangeModel, onChangeCodex };
 }
 
-test('one model list keeps provider and Codex IDs separate', async () => {
+test('model sources are separate tabs, so provider and Codex IDs never collide', async () => {
   const { onChangeModel, onChangeCodex } = picker({});
   fireEvent.click(screen.getByRole('combobox'));
   fireEvent.click(screen.getByRole('button', { name: /Model Provider Model/ }));
+  // The Prokop tab lists provider models; the Codex entry waits on its own tab.
+  expect(await screen.findByRole('option', { name: /Provider Model/ })).toBeInTheDocument();
+  expect(screen.queryByText('Codex Model')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
   fireEvent.click(await screen.findByText('Codex Model'));
   expect(onChangeCodex).toHaveBeenCalledWith('shared', 'medium');
   expect(onChangeModel).not.toHaveBeenCalled();
@@ -43,8 +47,8 @@ test('one model list keeps provider and Codex IDs separate', async () => {
 test('established Codex session shows only Codex choices and effort', async () => {
   const { onChangeModel, onChangeCodex } = picker({ codexSession: true, models: [] });
   fireEvent.click(screen.getByRole('combobox'));
-  fireEvent.click(screen.getByRole('button', { name: /Effort Medium/ }));
-  fireEvent.click(await screen.findByText('High'));
+  fireEvent.click(screen.getByRole('button', { name: /Effort medium/ }));
+  fireEvent.click(await screen.findByText('high'));
   expect(onChangeCodex).toHaveBeenCalledWith('shared', 'high');
   expect(onChangeModel).not.toHaveBeenCalled();
   expect(screen.queryByText('Provider Model')).not.toBeInTheDocument();

@@ -21,9 +21,11 @@ test('pin and unpin occupy the same slot after Fork without moving it', () => {
   const { rerender } = render(<MessageBubble {...props} />);
   const fork = screen.getByTitle('Fork from this response');
   const pin = screen.getByTitle('Pin message');
-  const row = fork.parentElement;
+  // The fork button sits in a span that carries the "unavailable" tooltip.
+  const forkSlot = fork.parentElement;
+  const row = forkSlot?.parentElement;
 
-  expect(row?.children[0]).toBe(fork);
+  expect(row?.children[0]).toBe(forkSlot);
   expect(row?.children[1]).toBe(pin);
   expect(pin).toHaveClass('opacity-0');
   fireEvent.click(pin);
@@ -32,7 +34,7 @@ test('pin and unpin occupy the same slot after Fork without moving it', () => {
   rerender(<MessageBubble {...props} isPinned />);
   const unpin = screen.getByTitle('Unpin message');
   expect(screen.queryByTitle('Pin message')).not.toBeInTheDocument();
-  expect(row?.children[0]).toBe(fork);
+  expect(row?.children[0]).toBe(forkSlot);
   expect(row?.children[1]).toBe(unpin);
   expect(unpin).not.toHaveClass('opacity-0');
 });

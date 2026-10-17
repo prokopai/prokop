@@ -7,38 +7,28 @@ import { useSessionStore } from '@/stores/sessionStore';
 const originalSessions = useSessionStore.getState().sessions;
 afterEach(() => { useSessionStore.setState({ sessions: originalSessions }); });
 
-test('Claude session shield updates the persisted risk ceiling', async () => {
-  const session = { id: 'claude', harness: 'claude-cli', autoApproveSeverity: 'low' } as Session;
+test('permission shield persists the chosen mode and reflects the server reply', async () => {
+  const session = { id: 's1', harness: 'prokop', permissionMode: 'standard' } as Session;
   useSessionStore.setState({ sessions: [session] });
-  const update = vi.fn().mockResolvedValue({ session: { ...session, autoApproveSeverity: 'off' } });
+  const update = vi.fn().mockResolvedValue({ session: { ...session, permissionMode: 'extended' } });
   const client = { http: { sessions: { update } } } as unknown as ProkopaiClient;
-  render(<AutoApproveSelector sessionId="claude" sdkClient={client} />);
+  render(<AutoApproveSelector sessionId="s1" sdkClient={client} />);
   await act(async () => {
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Auto-approve: low risk and below' }),
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Standard permissions' }),
       { button: 0, ctrlKey: false, pointerType: 'mouse' });
   });
-  expect(await screen.findByText('Classified tools above this level ask. Other Claude built-in tools run without a Prokop risk check.')).toBeInTheDocument();
   await act(async () => {
-    fireEvent.click(screen.getByText('Ask for classified tools.'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Extended' }));
   });
-  await waitFor(() => expect(update).toHaveBeenCalledWith('claude', { autoApproveSeverity: 'off' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Auto-approve: off' })).toBeInTheDocument());
+  await waitFor(() => expect(update).toHaveBeenCalledWith('s1', { permissionMode: 'extended' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Extended permissions' })).toBeInTheDocument());
 });
 
-test('Codex session shield updates the persisted risk ceiling and explains native approvals', async () => {
-  const session = { id: 'codex', harness: 'codex-cli', autoApproveSeverity: 'low' } as Session;
+test('disabled shield still names the current mode without a menu', () => {
+  const session = { id: 's2', harness: 'prokop', permissionMode: 'full' } as Session;
   useSessionStore.setState({ sessions: [session] });
-  const update = vi.fn().mockResolvedValue({ session: { ...session, autoApproveSeverity: 'medium' } });
-  const client = { http: { sessions: { update } } } as unknown as ProkopaiClient;
-  render(<AutoApproveSelector sessionId="codex" sdkClient={client} />);
-  await act(async () => {
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Auto-approve: low risk and below' }),
-      { button: 0, ctrlKey: false, pointerType: 'mouse' });
-  });
-  expect(await screen.findByText('Critical native approvals still ask.', { exact: false })).toBeInTheDocument();
-  await act(async () => {
-    fireEvent.click(screen.getByText('Auto-approve permissions with medium risk and below.'));
-  });
-  await waitFor(() => expect(update).toHaveBeenCalledWith('codex', { autoApproveSeverity: 'medium' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Auto-approve: medium risk and below' })).toBeInTheDocument());
+  render(<AutoApproveSelector sessionId="s2" sdkClient={null} disabled />);
+  const button = screen.getByRole('button', { name: 'Full access permissions' });
+  expect(button).toBeDisabled();
+  expect(button).not.toHaveAttribute('aria-haspopup');
 });

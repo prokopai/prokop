@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { resolve } from 'path';
 import type { PermissionAsk, ToolContext } from '@prokopai/sdk/tool';
@@ -95,7 +95,8 @@ function makeNoopStore(): TerminalSessionStorePort {
 let tempDirs: string[] = [];
 
 function makeWorkspaceCtx(): { ctx: ToolContext; cwd: string } {
-  const cwd = mkdtempSync(`${tmpdir()}/term-tool-`);
+  // Resolved paths come back canonical, so the fixture must be canonical too (/tmp vs /private/tmp).
+  const cwd = realpathSync(mkdtempSync(`${tmpdir()}/term-tool-`));
   tempDirs.push(cwd);
   const ctx: ToolContext = {
     sessionId: 'test-session-123',
@@ -290,7 +291,7 @@ describe('terminal tool: actions', () => {
 
   test('permission paths use an additional-workspace terminal cwd', async () => {
     const { ctx, cwd } = makeWorkspaceCtx();
-    const additionalCwd = mkdtempSync(`${tmpdir()}/term-tool-additional-`);
+    const additionalCwd = realpathSync(mkdtempSync(`${tmpdir()}/term-tool-additional-`));
     tempDirs.push(additionalCwd);
     ctx.isWithinWorkspace = (path: string) =>
       path.startsWith(cwd) || path.startsWith(additionalCwd);

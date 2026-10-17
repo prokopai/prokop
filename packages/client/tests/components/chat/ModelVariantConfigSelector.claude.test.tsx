@@ -33,7 +33,8 @@ test.each([
     claudeSession={harness === 'claude'} claudeModels={catalog} claudeSelectedModel={model}
     codexSession={harness === 'codex'} codexModels={catalog} codexSelectedModel={model} />);
   const trigger = screen.getByRole('combobox');
-  expect(trigger).toHaveTextContent(compact ? name : `${name} · high`);
+  // The model name and the effort are separate spans, so no whitespace sits between them.
+  expect(trigger).toHaveTextContent(compact ? name : new RegExp(`^${name}\\s*· high$`));
   expect(trigger).not.toHaveTextContent(/^(Claude|Codex) ·/);
 });
 
@@ -51,6 +52,6 @@ test('Claude session picker names effort and sends selected model with changed e
   render(picker(onChangeClaude, true));
   fireEvent.click(screen.getByRole('combobox'));
   fireEvent.click(await screen.findByRole('button', { name: /Effort/ }));
-  fireEvent.click(await screen.findByText('Low'));
+  fireEvent.click(await screen.findByText('low'));
   expect(onChangeClaude).toHaveBeenCalledWith('claude-opus-5', 'low');
 });

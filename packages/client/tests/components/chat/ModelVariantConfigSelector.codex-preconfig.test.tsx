@@ -18,7 +18,7 @@ test('Codex picker retains agent identity and offers the same preconfig selectio
     onChangePreconfig={onChangePreconfig} />);
   const trigger = screen.getByRole('combobox', { name: /Agent A/ });
   fireEvent.click(trigger);
-  fireEvent.click(await screen.findByRole('button', { name: /Config/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /Agent Agent A/ }));
   fireEvent.click(await screen.findByText('Agent B'));
   expect(onChangePreconfig).toHaveBeenCalledWith('agent-b');
 });

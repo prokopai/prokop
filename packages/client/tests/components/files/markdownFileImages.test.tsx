@@ -72,7 +72,7 @@ describe('useMarkdownFileImages', () => {
     expect(shot.getAttribute('src')).toBe('data:image/webp;base64,AAAA');
     expect(shot.getAttribute('width')).toBe('900');
     expect(preview).toHaveBeenCalledTimes(1);
-    expect(preview).toHaveBeenCalledWith('ws-1', 'docs/shots/light.webp', { root: '/extra' });
+    expect(preview).toHaveBeenCalledWith('ws-1', 'docs/shots/light.webp', { root: '/extra', anywhere: false });
     expect(screen.getByAltText('Badge').getAttribute('src')).toBe('https://img.shields.io/badge/x');
   });
 
