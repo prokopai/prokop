@@ -5,7 +5,6 @@ import type {
   Preconfig,
   PromptInfo,
   ModelWithStatus,
-  ProviderStatus,
   Agent,
 } from '@prokopai/sdk';
 
@@ -19,7 +18,6 @@ interface ServerDataState {
   models: ModelWithStatus[];
   defaultModel: string;
   defaultProvider: string;
-  providers: ProviderStatus[];
   agents: Agent[];
 }
 
@@ -31,7 +29,6 @@ interface ServerDataActions {
     models: ModelWithStatus[];
     defaultModel: string;
     defaultProvider: string;
-    providers: ProviderStatus[];
     agents: Agent[];
   }) => void;
   hydrateCritical: (serverId: string, data: {
@@ -43,13 +40,11 @@ interface ServerDataActions {
   }) => void;
   hydrateSecondary: (data: {
     prompts: PromptInfo[];
-    providers: ProviderStatus[];
     agents: Agent[];
   }) => void;
   updateModels: (models: ModelWithStatus[], defaultModel: string, defaultProvider: string) => void;
   updatePreconfigs: (preconfigs: Preconfig[]) => void;
   updatePrompts: (prompts: PromptInfo[]) => void;
-  updateProviders: (providers: ProviderStatus[]) => void;
   updateAgents: (agents: Agent[]) => void;
   setWorkspaces: (workspaces: Workspace[]) => void;
   /** Also remembered across reloads (localStorage). */
@@ -66,7 +61,6 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
   models: [],
   defaultModel: '',
   defaultProvider: '',
-  providers: [],
   agents: [],
 
   hydrate: (serverId, data) => set({
@@ -85,7 +79,6 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
 
   hydrateSecondary: (data) => set({
     prompts: data.prompts,
-    providers: data.providers,
     agents: data.agents,
   }),
 
@@ -97,7 +90,6 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
 
   updatePreconfigs: (preconfigs) => set({ preconfigs }),
   updatePrompts: (prompts) => set({ prompts }),
-  updateProviders: (providers) => set({ providers }),
   updateAgents: (agents) => set({ agents }),
   setWorkspaces: (workspaces) => set({ workspaces }),
   setActiveWorkspaceId: (workspaceId) => {
@@ -115,7 +107,6 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
     models: [],
     defaultModel: '',
     defaultProvider: '',
-    providers: [],
     agents: [],
   }),
 }));

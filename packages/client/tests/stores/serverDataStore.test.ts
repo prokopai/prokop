@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
-import type { Workspace, ModelWithStatus, ProviderStatus } from '@prokopai/sdk';
+import type { Workspace, ModelWithStatus } from '@prokopai/sdk';
 
 const mockWorkspace: Workspace = {
   id: 'ws-1',
@@ -16,11 +16,6 @@ const mockModel: ModelWithStatus = {
   providerId: 'openai',
   providerName: 'OpenAI',
   runtimeStatus: { providerSupported: true, providerConfigured: true, usable: true },
-};
-
-const mockProvider: ProviderStatus = {
-  provider: 'openai',
-  connected: true,
 };
 
 describe('serverDataStore', () => {
@@ -59,7 +54,6 @@ describe('serverDataStore', () => {
         models: [mockModel],
         defaultModel: 'claude-3',
         defaultProvider: 'anthropic',
-        providers: [mockProvider],
         agents: [],
       });
 
@@ -100,13 +94,6 @@ describe('serverDataStore', () => {
     });
   });
 
-  describe('updateProviders', () => {
-    test('updates providers array', () => {
-      useServerDataStore.getState().updateProviders([mockProvider]);
-      expect(useServerDataStore.getState().providers).toEqual([mockProvider]);
-    });
-  });
-
   describe('setWorkspaces', () => {
     test('sets workspaces array', () => {
       useServerDataStore.getState().setWorkspaces([mockWorkspace]);
@@ -137,7 +124,6 @@ describe('serverDataStore', () => {
         models: [mockModel],
         defaultModel: 'claude',
         defaultProvider: 'anthropic',
-        providers: [mockProvider],
         agents: [],
       });
       useServerDataStore.getState().setActiveWorkspaceId(mockWorkspace.id);
@@ -153,7 +139,6 @@ describe('serverDataStore', () => {
       expect(state.models).toEqual([]);
       expect(state.defaultModel).toBe('');
       expect(state.defaultProvider).toBe('');
-      expect(state.providers).toEqual([]);
     });
   });
 });

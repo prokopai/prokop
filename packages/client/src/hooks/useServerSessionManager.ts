@@ -31,16 +31,12 @@ import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
 import { useCompletionStore } from '@/stores/completionStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useOverviewGroupsStore } from '@/stores/overviewGroupsStore';
 
-import { toast } from 'sonner';
-import { queryClient } from '@/components/providers/QueryProvider';
-import { queryKeys } from '@/lib/queryKeys';
 import { useConnectionLifecycle } from '@/hooks/useConnectionLifecycle';
 import { useSessionCommands } from '@/hooks/useSessionCommands';
+import { useWorkspaceCommands } from '@/hooks/useWorkspaceCommands';
 import type { CreateSessionOptions } from '@/lib/sessionCreate';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
-import { randomUUID } from '@/lib/randomId';
 import type { SendChatOptions } from '@/stores/pendingSendStore';
 
 export interface UseServerSessionManagerParams {
@@ -475,199 +471,31 @@ export function useServerSessionManager({
     retry();
   }, [retry]);
 
-  const createWorkspace = async (name: string, path: string, isVirtual: boolean) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    const data = await http.post<{ workspace: Workspace }>('/workspaces', { name, path, isVirtual });
-    const workspace = data.workspace;
-    useServerDataStore.getState().setWorkspaces([...useServerDataStore.getState().workspaces, workspace]);
-    useServerDataStore.getState().setActiveWorkspaceId(workspace.id);
-    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-    navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
-    return workspace;
-  };
-
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
-  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState<string | null>(null);
-  const [isUpdatingWorkspace, setIsUpdatingWorkspace] = useState<Record<string, boolean>>({});
-
-  const selectWorkspace = useCallback((workspace: Workspace) => {
-    useServerDataStore.getState().setActiveWorkspaceId(workspace.id);
-    useSessionBoardStore.getState().clearBoard();
-    navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
-  }, [navigate, _serverId]);
-
-  const deleteWorkspace = async (id: string) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    setDeletingWorkspaceId(id);
-    let deletedSessions: string[] = [];
-    try {
-      const data = await http.delete<{ deletedSessions: string[] }>(`/workspaces/${id}`);
-      deletedSessions = data.deletedSessions;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Failed to delete workspace:', message);
-      toast.error('Failed to delete workspace', { description: message });
-      setDeletingWorkspaceId(null);
-      return;
-    }
-
-    removeFromQuickConnectionsByWorkspace(id);
-    useOverviewGroupsStore.getState().removeWorkspaceFromAllGroups(_serverId, id);
-
-    if (currentSession && (currentSession.workspaceId === id || deletedSessions.includes(currentSession.id))) {
-      navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
-    }
-
-    setSessions(prev => prev.filter(s => !deletedSessions.includes(s.id)));
-
-    useSessionContentStore.getState().evictSessionContentBatch(deletedSessions);
-    deletedSessions.forEach(sessionId => sessionAccessTimesRef.current.delete(sessionId));
-
-    for (const [partId, entry] of partIdIndexRef.current) {
-      if (deletedSessions.includes(entry.sessionId)) {
-        partIdIndexRef.current.delete(partId);
+  const {
+    selectWorkspace,
+    renameWorkspace,
+    updateWorkspacePath,
+    updateWorkspacePaths,
+    updateWorkspaceSettings,
+    handleCreateVirtualWorkspace,
+    handleCreatePhysicalWorkspace,
+    deleteWorkspace,
+    isCreatingWorkspace,
+    deletingWorkspaceId,
+    isUpdatingWorkspace,
+  } = useWorkspaceCommands({
+    clientRef: sdkClientRef,
+    serverId: _serverId,
+    navigate,
+    currentSession,
+    removeFromQuickConnectionsByWorkspace,
+    onSessionsDeleted: (sessionIds) => {
+      for (const sessionId of sessionIds) sessionAccessTimesRef.current.delete(sessionId);
+      for (const [partId, entry] of partIdIndexRef.current) {
+        if (sessionIds.includes(entry.sessionId)) partIdIndexRef.current.delete(partId);
       }
-    }
-
-    const currentWorkspaces = useServerDataStore.getState().workspaces;
-    useServerDataStore.getState().setWorkspaces(currentWorkspaces.filter(w => w.id !== id));
-    const currentActive = selectActiveWorkspace(useServerDataStore.getState());
-    if (currentActive?.id === id) {
-      const remaining = currentWorkspaces.filter(w => w.id !== id);
-      const newActive = remaining[0] || null;
-      useServerDataStore.getState().setActiveWorkspaceId(newActive?.id ?? null);
-    }
-
-    queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-    setDeletingWorkspaceId(null);
-  };
-
-  const renameWorkspace = async (id: string, name: string) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    setIsUpdatingWorkspace(prev => ({ ...prev, [id]: true }));
-    try {
-      const data = await http.patch<{ workspace: Workspace }>(`/workspaces/${id}`, { name });
-      const updatedWorkspace = data.workspace;
-
-      const currentWorkspaces = useServerDataStore.getState().workspaces;
-      useServerDataStore.getState().setWorkspaces(
-        currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
-      );
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Failed to rename workspace:', message);
-      toast.error('Failed to rename workspace', { description: message });
-    } finally {
-      setIsUpdatingWorkspace(prev => { const next = { ...prev }; delete next[id]; return next; });
-    }
-  };
-
-  const updateWorkspacePath = async (id: string, path: string) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    setIsUpdatingWorkspace(prev => ({ ...prev, [id]: true }));
-    try {
-      const data = await http.patch<{ workspace: Workspace }>(`/workspaces/${id}`, { path });
-      const updatedWorkspace = data.workspace;
-
-      const currentWorkspaces = useServerDataStore.getState().workspaces;
-      useServerDataStore.getState().setWorkspaces(
-        currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
-      );
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
-      queryClient.invalidateQueries({ queryKey: ['files'] });
-      toast.success('Workspace folder updated');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Failed to update workspace folder:', message);
-      toast.error('Failed to update workspace folder', { description: message });
-    } finally {
-      setIsUpdatingWorkspace(prev => { const next = { ...prev }; delete next[id]; return next; });
-    }
-  };
-
-  const updateWorkspacePaths = async (id: string, additionalPaths: string[]) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    setIsUpdatingWorkspace(prev => ({ ...prev, [id]: true }));
-    try {
-      const data = await http.patch<{ workspace: Workspace }>(`/workspaces/${id}`, { additionalPaths });
-      const updatedWorkspace = data.workspace;
-
-      const currentWorkspaces = useServerDataStore.getState().workspaces;
-      useServerDataStore.getState().setWorkspaces(
-        currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
-      );
-      toast.success('Workspace paths updated');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Failed to update workspace paths:', message);
-      toast.error('Failed to update workspace paths', { description: message });
-    } finally {
-      setIsUpdatingWorkspace(prev => { const next = { ...prev }; delete next[id]; return next; });
-    }
-  };
-
-  const updateWorkspaceSettings = async (id: string, settings: WorkspaceSettings) => {
-    const http = sdkClientRef.current?.httpClient;
-    if (!http) return;
-
-    setIsUpdatingWorkspace(prev => ({ ...prev, [id]: true }));
-    try {
-      const data = await http.patch<{ workspace: Workspace }>(`/workspaces/${id}`, { settings });
-      const updatedWorkspace = data.workspace;
-
-      const currentWorkspaces = useServerDataStore.getState().workspaces;
-      useServerDataStore.getState().setWorkspaces(
-        currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
-      );
-      toast.success('Workspace settings saved');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Failed to update workspace settings:', message);
-      toast.error('Failed to update workspace settings', { description: message });
-    } finally {
-      setIsUpdatingWorkspace(prev => { const next = { ...prev }; delete next[id]; return next; });
-    }
-  };
-
-  const handleCreateVirtualWorkspace = async () => {
-    const name = `Workspace ${workspaces.length + 1}`;
-    const path = `~/.prokopai/workspaces/${randomUUID()}`;
-    setIsCreatingWorkspace(true);
-    try {
-      await createWorkspace(name, path, true);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error('Failed to create workspace', { description: message });
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
-  };
-
-  const handleCreatePhysicalWorkspace = async (path: string) => {
-    const name = path.split('/').pop() || path.split('\\').pop() || 'Workspace';
-    setIsCreatingWorkspace(true);
-    try {
-      await createWorkspace(name, path, false);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error('Failed to create workspace', { description: message });
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
-  };
+    },
+  });
 
   useLayoutEffect(() => {
     handlerContextRef.current = {

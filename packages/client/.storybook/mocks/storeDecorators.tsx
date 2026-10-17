@@ -23,7 +23,6 @@ import {
   createWorkspace,
   createSession,
   createModelList,
-  createProviderList,
   createPreconfigList,
 } from './index';
 
@@ -83,7 +82,6 @@ interface ServerDataStoreDefaults {
   models?: ServerDataStoreState['models'];
   defaultModel?: string;
   defaultProvider?: string;
-  providers?: ServerDataStoreState['providers'];
 }
 
 const defaultServerDataState = (): ServerDataStoreDefaults => {
@@ -97,7 +95,6 @@ const defaultServerDataState = (): ServerDataStoreDefaults => {
     models: createModelList(),
     defaultModel: 'claude-3.5-sonnet',
     defaultProvider: 'anthropic',
-    providers: createProviderList(),
   };
 };
 

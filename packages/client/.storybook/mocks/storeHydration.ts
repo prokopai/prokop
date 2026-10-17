@@ -17,7 +17,6 @@ import {
   createWorkspace,
   createSession,
   createModelList,
-  createProviderList,
   createPreconfigList,
 } from './index';
 import { resetAllStores } from './storeCleanup';
@@ -66,7 +65,6 @@ export function hydrateStores(options: HydrateStoresOptions = {}): void {
     models: createModelList(),
     defaultModel: 'claude-3.5-sonnet',
     defaultProvider: 'anthropic',
-    providers: createProviderList(),
     agents: [],
   });
   serverDataStore.setActiveWorkspaceId(workspace.id);

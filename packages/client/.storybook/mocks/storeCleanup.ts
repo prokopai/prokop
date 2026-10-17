@@ -39,7 +39,6 @@ export function resetAllStores(): void {
     models: [],
     defaultModel: 'gpt-4o',
     defaultProvider: 'openai',
-    providers: [],
   });
 
   // UI Store

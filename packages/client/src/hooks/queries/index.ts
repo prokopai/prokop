@@ -7,7 +7,6 @@ export { usePreconfigsQuery, useCreatePreconfig, useUpdatePreconfig, useDeletePr
 export { usePromptsQuery, useCreatePrompt, useUpdatePrompt, useDeletePrompt } from './usePromptsQueries';
 export { useProvidersQuery, useProviderCredentialsQuery, useConnectProvider, useDisconnectProvider, useProviderAccountMutation, useCompleteOAuth, useSetProviderCredential, useClearProviderCredential } from './useProvidersQueries';
 export { useMcpStatusQuery, useMcpConnect, useMcpDisconnect, useMcpStartAuth } from './useMcpQueries';
-export { useCreateWorkspaceMutation, useDeleteWorkspaceMutation, useRenameWorkspaceMutation, useUpdateWorkspaceMutation } from './useWorkspaceMutations';
 export { useFileBrowseQuery, useFileSearchQuery, useFileBrowseFsQuery, useFileDrivesQuery, useFileParentQuery, useFilePreviewQuery, useFileGitDiffQuery, useEditorGitDiffQuery, useGitStatusQuery } from './useFileQueries';
 export { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from './useResponseFormatsQueries';
 export { usePinnedMessagesQuery, usePinMessageMutation, useUnpinMessageMutation } from './usePinnedMessagesQueries';

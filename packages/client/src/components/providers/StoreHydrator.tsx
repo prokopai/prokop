@@ -84,7 +84,6 @@ export function StoreHydrator({ children }: StoreHydratorProps) {
       .then((secondary) => {
         useServerDataStore.getState().hydrateSecondary({
           prompts: secondary.prompts,
-          providers: secondary.providers,
           agents: secondary.agents,
         });
 
