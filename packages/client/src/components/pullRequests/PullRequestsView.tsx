@@ -122,9 +122,9 @@ function PullRequestsContent({
   );
 }
 
-function Toolbar({ left, right }: { left: ReactNode; right?: ReactNode }) {
+function Toolbar({ left, right, className }: { left: ReactNode; right?: ReactNode; className?: string }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
+    <div data-testid="pull-requests-toolbar" className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2', className)}>
       {left}
       <div className="ml-auto flex items-center gap-1">{right}</div>
     </div>
@@ -178,9 +178,13 @@ function RepositoryView({
         q.queryKey[3] !== 'connections',
     });
   };
-  const hasConnections = !!connections.data?.connections.length;
-  const toolbar = (right?: ReactNode) => (
+  const connectionCount = connections.data?.connections.length ?? 0;
+  const hasConnections = connectionCount > 0;
+  // Phones get one toolbar row: a lone repository adds nothing the checkout
+  // does not already say, and a choice of repositories moves below the actions.
+  const toolbar = (right?: ReactNode, className?: string) => (
     <Toolbar
+      className={className}
       left={
         <>
           {checkout}
@@ -188,6 +192,7 @@ function RepositoryView({
             <PrSelect
               compact
               label="Repository"
+              className={connectionCount === 1 ? 'max-md:hidden' : 'max-md:order-last max-md:basis-full max-md:max-w-none'}
               value={connection?.repository.remote ?? ''}
               onChange={setRemote}
               options={(connections.data?.connections ?? []).map((c) => ({
@@ -278,7 +283,7 @@ function RepositoryInbox({
   branch: string;
   accountName: string;
   visible: boolean;
-  toolbar(right: ReactNode): ReactNode;
+  toolbar(right: ReactNode, className?: string): ReactNode;
 }) {
   const [state, setState] = useState('open');
   const [query, setQuery] = useState('');
@@ -322,6 +327,9 @@ function RepositoryInbox({
     hover.current = setTimeout(() => void cache.prefetchQuery(detailQuery(ctx, number)), 150);
   };
   const cancelPrefetch = () => clearTimeout(hover.current);
+  // Stacked layout (below md) shows either the list or one PR; the PR brings
+  // its own back button, so the toolbar would only push the PR down.
+  const detailOpen = selected !== null || creating;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {toolbar(
@@ -343,12 +351,13 @@ function RepositoryInbox({
             New PR
           </Button>
         </>,
+        detailOpen ? 'max-md:hidden' : undefined,
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           className={cn(
             'flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-r md:w-72',
-            (selected !== null || creating) && 'hidden md:flex',
+            detailOpen && 'hidden md:flex',
           )}
         >
           <div className="flex flex-col gap-2 p-3">
@@ -450,10 +459,10 @@ function RepositoryInbox({
         <main
           className={cn(
             'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
-            selected === null && !creating && 'hidden md:flex',
+            !detailOpen && 'hidden md:flex',
           )}
         >
-          {(selected !== null || creating) && (
+          {detailOpen && (
             <div className="shrink-0 p-2 md:hidden">
               <Button
                 variant="ghost"

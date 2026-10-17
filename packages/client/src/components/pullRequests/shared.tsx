@@ -119,6 +119,7 @@ export function PrSelect({
   disabled,
   compact,
   title,
+  className,
 }: {
   label: string;
   value: string;
@@ -128,10 +129,11 @@ export function PrSelect({
   /** Toolbar style: small trigger, label only for assistive technology. */
   compact?: boolean;
   title?: string;
+  className?: string;
 }) {
   const id = useId();
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1', compact && 'max-w-72')}>
+    <div className={cn('flex min-w-0 flex-col gap-1', compact && 'max-w-72', className)}>
       <Label htmlFor={id} className={compact ? 'sr-only' : undefined}>
         {label}
       </Label>

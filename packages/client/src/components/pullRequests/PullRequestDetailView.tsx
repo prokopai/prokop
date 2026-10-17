@@ -114,14 +114,21 @@ export function PullRequestDetailView({
   const conversations = pr ? pr.comments.length + pr.threads.length : 0;
   return (
     <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
-      <header className="flex shrink-0 flex-col gap-2 border-b px-4 pt-3">
-        <div className="flex items-start gap-3">
-          <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug">
+      <header className="flex shrink-0 flex-col gap-2 border-b px-3 pt-2 @2xl:px-4 @2xl:pt-3">
+        <div className="flex items-start gap-2">
+          <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug @2xl:text-lg">
             {shown.title} <span className="font-normal text-muted-foreground">#{number}</span>
           </h2>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={safePrUrl(shown.url)} target="_blank" rel="noopener noreferrer">
-              Open on {ctx.provider === 'github' ? 'GitHub' : 'Azure'}
+          {/* Narrow panes keep the whole width for the title; the link shrinks to its icon. */}
+          <Button variant="ghost" size="sm" className="shrink-0 @max-2xl:size-8 @max-2xl:px-0" asChild>
+            <a
+              href={safePrUrl(shown.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open on ${ctx.provider === 'github' ? 'GitHub' : 'Azure'}`}
+              title={`Open on ${ctx.provider === 'github' ? 'GitHub' : 'Azure'}`}
+            >
+              <span className="hidden @2xl:inline">Open on {ctx.provider === 'github' ? 'GitHub' : 'Azure'}</span>
               <ExternalLink />
             </a>
           </Button>
@@ -158,7 +165,7 @@ export function PullRequestDetailView({
           </div>
         ))
       ) : (
-        <div className="@container min-h-0 flex-1 overflow-auto p-4">
+        <div className="@container min-h-0 flex-1 overflow-auto p-3 @2xl:p-4">
           <div className="mb-3 flex flex-col gap-2 empty:hidden">
             <PrError error={records.at(-1)?.error} />
             {records.at(-1)?.status === 'success' && (
@@ -419,23 +426,39 @@ function Overview({
         </Section>
         <Section title={ctx.provider === 'azure' ? 'Completion' : 'Merge'}>
           <div className="flex flex-col gap-3 rounded-md border p-3">
+            {/* Mergeability only matters while the PR is open; a finished PR states its outcome. */}
             <p className="flex items-center gap-2 text-sm">
-              <StatusIcon
-                state={
-                  pr.mergeability === 'mergeable'
-                    ? 'success'
+              {pr.state === 'merged' ? (
+                <>
+                  <StatusIcon state="success" />
+                  <span>
+                    Merged into <code className="rounded bg-muted px-1 py-0.5 text-xs">{pr.targetBranch}</code>
+                  </span>
+                </>
+              ) : pr.state === 'closed' ? (
+                <>
+                  <StatusIcon state="closed" />
+                  {ctx.provider === 'azure' ? 'Abandoned without completing' : 'Closed without merging'}
+                </>
+              ) : (
+                <>
+                  <StatusIcon
+                    state={
+                      pr.mergeability === 'mergeable'
+                        ? 'success'
+                        : pr.mergeability === 'conflicting'
+                          ? 'failure'
+                          : 'pending'
+                    }
+                  />
+                  {pr.mergeability === 'mergeable'
+                    ? 'No merge conflicts'
                     : pr.mergeability === 'conflicting'
-                      ? 'failure'
-                      : 'pending'
-                }
-              />
-              {pr.mergeability === 'mergeable'
-                ? 'No merge conflicts'
-                : pr.mergeability === 'conflicting'
-                  ? 'Merge conflicts must be resolved'
-                  : 'Merge status not yet known'}
+                      ? 'Merge conflicts must be resolved'
+                      : 'Merge status not yet known'}
+                </>
+              )}
             </p>
-            {pr.state === 'merged' && <p className="text-sm text-muted-foreground">This PR is merged.</p>}
             {pr.state === 'closed' && (
               <Button variant="outline" disabled={busy} onClick={() => perform({ action: 'reopen' })}>
                 Reopen PR
@@ -498,7 +521,9 @@ function Overview({
                 </div>
               </>
             )}
-            <p className="text-xs text-muted-foreground">The provider enforces repository policies.</p>
+            {pr.state === 'open' && (
+              <p className="text-xs text-muted-foreground">The provider enforces repository policies.</p>
+            )}
           </div>
         </Section>
       </aside>

@@ -14,6 +14,8 @@
 
 - **Reading a commit in Branches**: Opening a commit now shows its files as a list with a status letter and added and removed line counts, and one file's diff at a time instead of every diff stacked in one scroll. Click a file, use the arrows next to the counter, or press `j` and `k` to move between files; each file starts at the top. The commit subject, hash, author and file list stay put while the diff scrolls. While a commit is open the branch picker, Pull and Push are hidden; the branch name shows beside History and the `+` beside it starts a new branch at that commit.
 
+- **Pull requests on a phone**: The checkout picker, refresh and New PR now share one row, and a repository picker with a single choice stays out of the way. Opening a pull request hides that row so the title, state and tabs sit right under the back button. The Open on GitHub link shrinks to its icon in narrow panes so long titles keep the full width.
+
 - **Faster workspace load**: The terminal, file editor, pull requests and rebase conflict editor now download the first time you open them instead of with every workspace. The first open can take a moment longer.
 - **Lighter streaming replies**: While a reply streams, earlier messages and the prompt markers on the right no longer redraw with every update, and long conversations keep far fewer old messages loaded off screen. Replies use about a fifth less CPU while they stream.
 - **Streaming text fades in word by word**: New words now fade in as they arrive instead of typing out letter by letter, so text shows up sooner. Long code blocks stream smoothly instead of stuttering, and replies use about a third less CPU while they stream. With reduced motion turned on, words appear without the fade.
@@ -22,6 +24,8 @@
 ### Fixed
 
 - **A command that leaves something running no longer hangs the agent**: Starting a server with `&` from the `shell` tool used to stall the agent until the 60 second limit, because the server kept the command's output open. The command now returns as soon as it exits, and whatever it left running keeps going in the background.
+
+- **Merged pull requests no longer say "Merge status not yet known"**: The Merge box of a merged pull request now reads "Merged into main" with a green check, and a closed one reads "Closed without merging" above Reopen. Conflict state and the repository policy note only appear while the pull request is open.
 
 - **Scripts that count with `| xargs` are no longer marked critical**: A value captured from a pipeline, such as `total=$(grep ... | wc -l | xargs)`, was read as running a dangerous command through `xargs` and shown as critical. The captured command is now read as a whole, so a trailing `xargs` with nothing to run is harmless. As a result, a command hidden in a captured value, such as `X=$(rm -rf /)`, is now caught too.
 

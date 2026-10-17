@@ -280,6 +280,17 @@ test('closed pull requests offer no pipeline actions', async () => {
   show();
   expect(await screen.findByText('test')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Re-run: test' })).not.toBeInTheDocument();
+  expect(screen.getByText('Closed without merging')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reopen PR' })).toBeInTheDocument();
+  expect(screen.queryByText(/Merge status|merge conflicts/i)).not.toBeInTheDocument();
+});
+test('a merged pull request states its outcome instead of mergeability', async () => {
+  detail.mockResolvedValue({ ...pr, state: 'merged', mergeability: 'unknown' });
+  show();
+  expect(await screen.findByText(/Merged into/)).toHaveTextContent('Merged into main');
+  expect(screen.queryByText('Merge status not yet known')).not.toBeInTheDocument();
+  expect(screen.queryByText('The provider enforces repository policies.')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Merge PR|Reopen PR|Close PR/ })).not.toBeInTheDocument();
 });
 test('review feedback copies as markdown, all of it or one comment', async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);

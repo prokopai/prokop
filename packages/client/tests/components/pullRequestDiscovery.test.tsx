@@ -196,3 +196,63 @@ test('resting the pointer on a pull request loads it before the click; passing o
   expect(await screen.findByRole('heading', { name: /PR 2/ })).toBeInTheDocument();
   expect(detail).toHaveBeenCalledTimes(1);
 });
+
+test('an open pull request hides the toolbar in the stacked phone layout and keeps a lone repository picker off it', async () => {
+  const detail = vi.fn().mockReturnValue(new Promise(() => {}));
+  const detailClient = {
+    http: { ...client.http, pullRequests: { discover, list, detail } },
+  } as unknown as ProkopaiClient;
+  discover.mockResolvedValue({
+    branch: 'main',
+    connections: [
+      {
+        status: 'connected',
+        accountId: 'viewer',
+        accountName: 'Reviewer',
+        repository: {
+          provider: 'github',
+          host: 'github.com',
+          owner: 'rabbyte-tech',
+          name: 'jean2',
+          remote: 'origin',
+          key: 'github:rabbyte-tech/jean2',
+          url: 'https://github.com/rabbyte-tech/jean2',
+        },
+      },
+    ],
+  });
+  list.mockResolvedValue({
+    items: [{
+      number: 1,
+      title: 'PR 1',
+      body: '',
+      url: 'https://github.com/rabbyte-tech/jean2/pull/1',
+      author: { id: 'a', name: 'Alice' },
+      state: 'open',
+      draft: false,
+      sourceBranch: 'feature',
+      targetBranch: 'main',
+      head: 'a'.repeat(40),
+      base: 'b'.repeat(40),
+      updatedAt: '2026-10-08',
+    }],
+    nextPage: null,
+    accountId: 'viewer',
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PullRequestsView client={detailClient} serverId="server" workspaceId="old" />
+    </QueryClientProvider>,
+  );
+  const row = await screen.findByRole('button', { name: /PR 1/ });
+  const toolbar = screen.getByTestId('pull-requests-toolbar');
+  expect(toolbar).not.toHaveClass('max-md:hidden');
+  // One repository: the picker stays for wide layouts but leaves the phone row.
+  expect(screen.getByRole('combobox', { name: 'Repository' }).parentElement).toHaveClass('max-md:hidden');
+  fireEvent.click(row);
+  expect(await screen.findByRole('heading', { name: /PR 1/ })).toBeInTheDocument();
+  expect(screen.getByTestId('pull-requests-toolbar')).toHaveClass('max-md:hidden');
+  expect(screen.getByRole('link', { name: 'Open on GitHub' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Pull requests' }));
+  expect(screen.getByTestId('pull-requests-toolbar')).not.toHaveClass('max-md:hidden');
+});
