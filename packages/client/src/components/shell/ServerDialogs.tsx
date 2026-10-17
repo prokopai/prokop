@@ -6,6 +6,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { isMobileViewport } from '@/lib/viewport';
 
 const ConfigurationDialog = lazy(() =>
   import('@/components/modals/ConfigurationDialog').then((m) => ({ default: m.ConfigurationDialog })),
@@ -44,15 +45,15 @@ export function ServerDialogs({
   const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const {
-    showConfiguration,
-    setShowConfiguration,
+    showSettings,
+    setShowSettings,
     showSchedulerJob,
     editingSchedulerJob,
     setShowSchedulerJob,
   } = useUIStore(
     useShallow((s) => ({
-      showConfiguration: s.showConfiguration,
-      setShowConfiguration: s.setShowConfiguration,
+      showSettings: s.showSettings,
+      setShowSettings: s.setShowSettings,
       showSchedulerJob: s.showSchedulerJob,
       editingSchedulerJob: s.editingSchedulerJob,
       setShowSchedulerJob: s.setShowSchedulerJob,
@@ -68,13 +69,13 @@ export function ServerDialogs({
 
   return (
     <>
-      {(showConfiguration || showSchedulerJob || filePreviewTarget !== null) && (
+      {(showSettings || showSchedulerJob || filePreviewTarget !== null) && (
         <Suspense fallback={<DialogLoadingFallback />}>
-          {showConfiguration && (
+          {showSettings && (
             <ConfigurationDialog
-              open={showConfiguration}
+              open={showSettings}
               onOpenChange={(open) => {
-                setShowConfiguration(open);
+                setShowSettings(open);
                 if (!open) {
                   onConfigurationClose();
                 }
@@ -116,7 +117,7 @@ export function ServerDialogs({
                   filePreviewTarget.name,
                 );
                 const layout = useChatLayoutStore.getState();
-                if (window.innerWidth < 640) {
+                if (isMobileViewport()) {
                   layout.setMobileSurface('editor');
                 }
                 closeFilePreview();

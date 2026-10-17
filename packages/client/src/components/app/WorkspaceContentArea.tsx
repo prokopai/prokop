@@ -127,9 +127,9 @@ export function WorkspaceContentArea({
       ...resourceViews,
       sessions: left ?? (sessionsContent ? <>{sessionsHeader}{sessionsContent}</> : undefined),
       usage: <WorkspaceUsageView sdkClient={sdkClient} />,
-      explorer: serverId && workspaceId ? <FilesPanel ref={filesPanelRef} sdkClient={sdkClient} view="explorer" embedded /> : undefined,
-      changes: serverId && workspaceId ? <FilesPanel sdkClient={sdkClient} view="changes" embedded /> : undefined,
-      branches: serverId && workspaceId ? <FilesPanel sdkClient={sdkClient} view="branches" embedded /> : undefined,
+      explorer: serverId && workspaceId ? <FilesPanel ref={filesPanelRef} sdkClient={sdkClient} view="explorer" /> : undefined,
+      changes: serverId && workspaceId ? <FilesPanel sdkClient={sdkClient} view="changes" /> : undefined,
+      branches: serverId && workspaceId ? <FilesPanel sdkClient={sdkClient} view="branches" /> : undefined,
       worktrees: serverId && workspaceId ? <WorktreesPanel sdkClient={sdkClient} workspaceId={workspaceId} /> : undefined,
       terminals: bottom,
     }} />

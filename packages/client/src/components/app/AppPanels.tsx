@@ -77,5 +77,5 @@ export function AppPanels({
   );
 
   if (embedded) return terminal;
-  return <DockRegion position="bottom" overlay={isMobile}>{terminal}</DockRegion>;
+  return <DockRegion position="bottom" contents={isMobile}>{terminal}</DockRegion>;
 }

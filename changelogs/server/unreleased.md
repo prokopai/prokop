@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- **The right dock no longer hovers over the chat on smaller windows**: On windows narrower than about 1280 px, opening Explorer, Changes, Branches or Worktrees showed a plain panel floating over the conversation, with a stray close row above its tabs and no way to resize it. The right dock is now the same card at every window size, and keeps its saved width. When the window is too narrow for both side docks beside the conversation, the dock you opened last stays and the other closes; opening it again swaps them back. Between 640 and 768 px the window also showed the phone header and no spacing around the docks; the desktop header and spacing now apply from 640 px up.
+
 - **A Claude tool blocked by a Prokop error no longer looks like your refusal**: When the permission check for a Claude tool hit an error, Claude was told that you had declined the action, and the tool row only said "Claude tool failed". The check now fails with the actual error, and a failed Claude tool row shows the message Claude reported.
 
 - **"Allow for this session" only allows what you approved**: In Prokop sessions, approving one command or file for the session or workspace also approved every later command or file of that tool, including commands that always need your approval, such as deleting your home folder. An approval now covers the exact command in the same folder, or the exact file. Commands that can only be allowed once can no longer be remembered. Approvals you saved before this update stop applying, so you will be asked once more.

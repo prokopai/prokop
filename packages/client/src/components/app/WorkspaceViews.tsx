@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { WorkspaceDock } from '@/components/app/WorkspaceDock';
 import { WorkspaceSplitTree } from '@/components/app/WorkspaceSplitTree';
 import { filterTree, treeGroups, type ViewTree } from '@/stores/workspaceSplitLayout';
@@ -10,7 +10,7 @@ import type { WorkspaceTab } from '@/components/app/workspaceTab';
 import { WorkspaceViewHost } from '@/components/app/WorkspaceViewHost';
 import { DockRegion } from '@/components/layout/DockRegion';
 import { Button } from '@/components/ui/button';
-import { useIsCompact, useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useSessionChatLayoutStore as useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useDockStore } from '@/stores/dockStore';
 import {
@@ -27,11 +27,9 @@ interface WorkspaceViewsProps {
 
 export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSessionId }: WorkspaceViewsProps) {
   const isMobile = useIsMobile();
-  const isCompact = useIsCompact();
   const storedLayout = useWorkspaceViewStore((state) => state.layout);
   const mobileTerminalOpen = useWorkspaceViewStore((state) => state.mobileTerminalOpen);
   const docks = useDockStore((state) => state.docks);
-  const setDockOpen = useDockStore((state) => state.setDockOpen);
   const mobileSurface = useChatLayoutStore((state) => state.mobileSurface);
   const setMobileSurface = useChatLayoutStore((state) => state.setMobileSurface);
   const repositoryTab = useChatLayoutStore((state) => state.filesPanelTab);
@@ -75,24 +73,6 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
       ?? { kind: 'group', groupId: treeGroups(layout.roots[region])[0] };
     return <WorkspaceSplitTree tree={tree} region={region} available={available} tabs={tabs} onSlot={attachSlot} />;
   };
-  // This is a nonmodal overlay. A modal focus/dismiss layer would interpret
-  // events from the stable view portals as outside its React subtree.
-  const right = isCompact ? (
-    <aside
-      data-dock-position="right"
-      aria-label="Right dock"
-      aria-hidden={!docks.right.open}
-      inert={!docks.right.open}
-      className="absolute inset-y-0 right-0 z-30 flex w-[min(90vw,720px)] flex-col overflow-hidden border-l bg-sidebar shadow-xl"
-      style={{ visibility: docks.right.open ? 'visible' : 'hidden' }}
-    >
-      <div className="flex shrink-0 justify-end border-b border-border/40 px-1">
-        <Button variant="ghost" size="icon-xs" aria-label="Close right dock" onClick={() => setDockOpen('right', false)}><X className="size-3.5" /></Button>
-      </div>
-      {group('right')}
-    </aside>
-  ) : <DockRegion position="right">{group('right')}</DockRegion>;
-
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {isMobile ? (
@@ -143,7 +123,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
         <WorkspaceDock
           left={<DockRegion position="left">{group('left')}</DockRegion>}
           center={<div data-dock-position="center" className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-border/50">{group('center')}</div>}
-          right={right}
+          right={<DockRegion position="right">{group('right')}</DockRegion>}
           bottom={<DockRegion position="bottom">{group('bottom')}</DockRegion>}
         />
       )}
@@ -163,7 +143,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
   );
 }
 
-export function WorkspaceEmptyState() {
+function WorkspaceEmptyState() {
   return <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
     <p>Select or create a session</p>
     <p className="text-sm">Choose a session from Sessions, or add a view to this dock.</p>

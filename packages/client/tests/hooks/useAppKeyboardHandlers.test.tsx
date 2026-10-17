@@ -47,7 +47,7 @@ vi.mock('@/hooks/useBoardFocus', () => ({
   useBoardFocus: () => vi.fn(),
 }));
 
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false, useIsCompact: () => false }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 
 const paneRegistry: SessionPaneRegistry = {
   panes: new Map(),

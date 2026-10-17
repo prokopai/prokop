@@ -10,7 +10,6 @@ describe('uiStore', () => {
     storage = mockLocalStorage();
     useUIStore.setState({
       showSettings: false,
-      showConfiguration: false,
       chatFinishSoundEnabled: true,
       permissionSoundEnabled: true,
       filePreviewTarget: null,
@@ -33,17 +32,6 @@ describe('uiStore', () => {
         useUIStore.getState().setShowSettings(true);
         useUIStore.getState().setShowSettings(false);
         expect(useUIStore.getState().showSettings).toBe(false);
-      });
-    });
-
-    describe('showConfiguration', () => {
-      test('starts false', () => {
-        expect(useUIStore.getState().showConfiguration).toBe(false);
-      });
-
-      test('setShowConfiguration toggles', () => {
-        useUIStore.getState().setShowConfiguration(true);
-        expect(useUIStore.getState().showConfiguration).toBe(true);
       });
     });
   });

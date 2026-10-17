@@ -50,7 +50,7 @@ function ChangeDiff({ change }: { change: LearningChange }) {
 export function LearningHistory({ workspaceId }: { workspaceId: string }) {
   const { sdkClient: client, serverUrl } = useServerClient();
   const { resumeSession } = useSessionManager();
-  const setShowConfiguration = useUIStore(s => s.setShowConfiguration);
+  const setShowSettings = useUIStore(s => s.setShowSettings);
   const cache = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
   const key = ['learning', workspaceId, serverUrl];
@@ -102,7 +102,7 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
    * which fetches unknown sessions, switches the workspace, and opens the
    * board pane — a plain route link shows an empty view for those. */
   const openSession = (sessionId: string): void => {
-    setShowConfiguration(false);
+    setShowSettings(false);
     resumeSession(sessionId);
   };
 

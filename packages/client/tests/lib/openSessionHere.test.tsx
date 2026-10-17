@@ -17,7 +17,6 @@ vi.mock('@/contexts/ServerContext', () => ({ useServerContext: () => ({ servers 
 
 import { openSessionHere } from '@/lib/openSessionHere';
 import { OtherMachinesOverview, otherMachineItems } from '@/components/layout/OtherMachinesOverview';
-import { SidebarProvider } from '@/components/ui/sidebar';
 import { useAttentionStore } from '@/lib/attention';
 import { useForeignSessionsStore } from '@/stores/foreignSessionsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
@@ -88,12 +87,12 @@ describe('Other machines in the Overview', () => {
   });
 
   test('is hidden when nothing happens elsewhere, and opens sessions beside your work', async () => {
-    const { container } = render(<SidebarProvider><OtherMachinesOverview activeServerId="studio" /></SidebarProvider>);
+    const { container } = render(<OtherMachinesOverview activeServerId="studio" />);
     expect(container.textContent).not.toContain('Other machines');
 
     useAttentionStore.setState({ hosts: { laptop: { connection: 'live', snapshot } } });
     cleanup();
-    render(<SidebarProvider><OtherMachinesOverview activeServerId="studio" /></SidebarProvider>);
+    render(<OtherMachinesOverview activeServerId="studio" />);
     expect(screen.getByText('Other machines')).toBeTruthy();
     expect(screen.getByText('Needs approval')).toBeTruthy();
 

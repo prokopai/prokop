@@ -7,8 +7,8 @@ import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspa
 import { useDockStore } from '@/stores/dockStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 
-const viewport = vi.hoisted(() => ({ mobile: false, compact: false }));
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile, useIsCompact: () => viewport.compact }));
+const viewport = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile }));
 
 function Draft({ mounted, unmounted }: { mounted: () => void; unmounted: () => void }) {
   const [text, setText] = useState('');
@@ -20,7 +20,6 @@ function Draft({ mounted, unmounted }: { mounted: () => void; unmounted: () => v
 describe('workspace view hosts', () => {
   beforeEach(() => {
     viewport.mobile = false;
-    viewport.compact = false;
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileTerminalOpen: false });
     useDockStore.setState(useDockStore.getInitialState());
     useChatLayoutStore.setState({ mobileSurface: 'chat' });
@@ -33,7 +32,7 @@ describe('workspace view hosts', () => {
     localStorage.clear();
   });
 
-  test('split menus retain content through resizing, compact/mobile transitions and dragging back', () => {
+  test('split menus retain content through resizing, mobile transitions and dragging back', () => {
     useDockStore.getState().setDockOpen('right', true);
     const mounted = vi.fn();
     const unmounted = vi.fn();
@@ -60,15 +59,11 @@ describe('workspace view hosts', () => {
     fireEvent.pointerMove(document, { pointerId: 1, clientY: 366 });
     fireEvent.pointerUp(document, { pointerId: 1 });
     expect(divider).toHaveAttribute('aria-valuenow', '60');
-    viewport.compact = true;
-    rerender(<WorkspaceViews views={views} />);
-    expect(screen.getByRole('textbox')).toBe(input);
     viewport.mobile = true;
     act(() => useChatLayoutStore.getState().setMobileSurface('files'));
     rerender(<WorkspaceViews views={views} />);
     expect(screen.getByRole('textbox')).toBe(input);
     viewport.mobile = false;
-    viewport.compact = false;
     rerender(<WorkspaceViews views={views} />);
     const dataTransfer = new DataTransfer();
     fireEvent.dragStart(screen.getByRole('tab', { name: 'Explorer' }), { dataTransfer });
@@ -110,7 +105,6 @@ describe('workspace view hosts', () => {
     rerender(<StrictMode><WorkspaceViews views={views} /></StrictMode>);
     expect(screen.getByRole('textbox')).toBe(input);
     viewport.mobile = false;
-    viewport.compact = true;
     rerender(<StrictMode><WorkspaceViews views={views} /></StrictMode>);
     expect(screen.getByRole('textbox')).toBe(input);
     act(() => useDockStore.getState().setDockOpen('right', false));

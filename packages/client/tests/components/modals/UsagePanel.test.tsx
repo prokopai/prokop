@@ -8,7 +8,7 @@ import { WorkspaceViews } from '@/components/app/WorkspaceViews';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false, useIsCompact: () => false }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 
 afterEach(() => {
   cleanup();

@@ -335,7 +335,6 @@ function WorkspaceSidebar() {
 
   return (
     <AppSidebar
-      embedded
       ref={sidebarRef}
       header={sidebarHeader}
       currentSessionId={sidebarData.currentSessionId}

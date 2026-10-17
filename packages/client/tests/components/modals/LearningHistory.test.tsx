@@ -19,7 +19,7 @@ vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
   useServerDataStore: (selector: (state: unknown) => unknown) => selector(mocks.store()),
 }));
 vi.mock('@/stores/uiStore', () => ({
-  useUIStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ openFilePreview: vi.fn(), setShowConfiguration: mocks.close }),
+  useUIStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ openFilePreview: vi.fn(), setShowSettings: mocks.close }),
 }));
 // Pierre renders into shadow DOM, invisible to light-DOM queries; the mock surfaces the parsed diff lines.
 vi.mock('@pierre/diffs/react', () => ({

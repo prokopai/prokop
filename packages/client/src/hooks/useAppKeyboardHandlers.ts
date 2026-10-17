@@ -14,6 +14,7 @@ import { useSessionPaneRegistry } from '@/contexts/SessionPaneRegistryContext';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useWorkspaceFocusStore } from '@/stores/workspaceFocusStore';
 import type { TerminalPanelHandle } from '@/components/layout/TerminalPanel';
+import { isMobileViewport } from '@/lib/viewport';
 
 function focusedWorkspaceGroup(): HTMLElement | undefined {
   const groupId = useWorkspaceFocusStore.getState().groupId;
@@ -49,7 +50,7 @@ export function useAppKeyboardHandlers({
   const paneRegistry = useSessionPaneRegistry();
 
   const focusSidebarSessionPanel = useCallback(() => {
-    if (window.innerWidth < 640) {
+    if (isMobileViewport()) {
       useChatLayoutStore.getState().setMobileSurface('sessions');
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -74,7 +75,7 @@ export function useAppKeyboardHandlers({
   }, [sidebarRef]);
 
   const focusTerminalPanel = useCallback(() => {
-    if (window.innerWidth < 640) useWorkspaceViewStore.getState().setMobileTerminalOpen(true);
+    if (isMobileViewport()) useWorkspaceViewStore.getState().setMobileTerminalOpen(true);
     else useWorkspaceViewStore.getState().activateView('terminals');
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -94,7 +95,7 @@ export function useAppKeyboardHandlers({
   });
 
   const handleCloseTerminal = useCallback(() => {
-    if (window.innerWidth < 640) useWorkspaceViewStore.getState().setMobileTerminalOpen(false);
+    if (isMobileViewport()) useWorkspaceViewStore.getState().setMobileTerminalOpen(false);
     else useWorkspaceViewStore.getState().hideView('terminals');
   }, []);
 
@@ -110,7 +111,7 @@ export function useAppKeyboardHandlers({
   });
 
   const focusChatInput = useCallback(() => {
-    if (window.innerWidth < 640) useChatLayoutStore.getState().setMobileSurface('chat');
+    if (isMobileViewport()) useChatLayoutStore.getState().setMobileSurface('chat');
     const focusedSessionId = useSessionBoardStore.getState().focusedSessionId;
     if (focusedSessionId) useSessionBoardStore.getState().focusSession(focusedSessionId);
     requestAnimationFrame(() => {
@@ -153,7 +154,7 @@ export function useAppKeyboardHandlers({
 
   const handleCloseFocusedDock = useCallback(() => {
     const activeEl = document.activeElement;
-    if (window.innerWidth >= 640) {
+    if (!isMobileViewport()) {
       const position = (focusedWorkspaceGroup() ?? activeEl)?.closest<HTMLElement>('[data-dock-position]')?.dataset.dockPosition;
       if (position === 'left' || position === 'right' || position === 'bottom') {
         useDockStore.getState().setDockOpen(position, false);
@@ -237,9 +238,9 @@ export function useAppKeyboardHandlers({
   }, [connected, activeWorkspace, primaryPreconfigs, handleNewSession, router, serverId]);
 
   useKeyboardShortcuts({
-    onFocusLeftDock: () => window.innerWidth < 640 ? focusSidebarSessionPanelRef.current() : focusDock('left'),
-    onFocusBottomDock: () => window.innerWidth < 640 ? focusTerminalPanelRef.current() : focusDock('bottom'),
-    onFocusRightDock: () => window.innerWidth < 640 ? focusFilesPanelRef.current() : focusDock('right'),
+    onFocusLeftDock: () => isMobileViewport() ? focusSidebarSessionPanelRef.current() : focusDock('left'),
+    onFocusBottomDock: () => isMobileViewport() ? focusTerminalPanelRef.current() : focusDock('bottom'),
+    onFocusRightDock: () => isMobileViewport() ? focusFilesPanelRef.current() : focusDock('right'),
     onNewSession: handleNewSession,
     onToggleViewMode: handleToggleViewMode,
     onCloseFocusedDock: handleCloseFocusedDock,

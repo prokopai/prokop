@@ -44,13 +44,12 @@ interface ConfigurationSectionActions {
 
 // --- Dialogs ---
 interface DialogState {
+  /** The unified settings dialog (preference and server sections). */
   showSettings: boolean;
-  showConfiguration: boolean;
 }
 
 interface DialogActions {
   setShowSettings: (show: boolean) => void;
-  setShowConfiguration: (show: boolean) => void;
 }
 
 // --- File Preview ---
@@ -155,11 +154,7 @@ type UIStore = DialogState & DialogActions & ConfigurationSectionState & Configu
 export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set) => ({
   // --- Dialogs ---
   showSettings: false,
-  showConfiguration: false,
-
-  // Open the unified settings dialog (preference or server section)
-  setShowSettings: (show: boolean) => set({ showConfiguration: show, showSettings: show }),
-  setShowConfiguration: (show) => set({ showConfiguration: show, showSettings: show }),
+  setShowSettings: (show) => set({ showSettings: show }),
 
   // --- Configuration Section ---
   configurationSection: 'appearance',

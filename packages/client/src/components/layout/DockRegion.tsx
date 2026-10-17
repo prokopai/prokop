@@ -3,39 +3,49 @@ import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { DesktopPanelDivider } from '@/components/layout/DesktopPanelDivider';
 import { usePointerDrag } from '@/hooks/usePointerDrag';
 import { cn } from '@/lib/utils';
-import { DOCK_SIZE_LIMITS, useDockStore } from '@/stores/dockStore';
+import { DOCK_DIVIDER_WIDTH, DOCK_SIZE_LIMITS, dockMaxSize, useDockStore } from '@/stores/dockStore';
 import type { DockPosition } from '@/stores/dockStore';
 
 interface DockRegionProps {
   position: DockPosition;
   children: ReactNode;
-  /** Content supplies its own mobile overlay; keep the same React ancestry. */
-  overlay?: boolean;
+  /** Content supplies its own mobile presentation; keep the same React ancestry. */
+  contents?: boolean;
 }
 
-/** Placement owns geometry and visibility; content keeps its own lifetime. */
-export function DockRegion({ position, children, overlay = false }: DockRegionProps) {
+/**
+ * Placement owns geometry and visibility; content keeps its own lifetime.
+ *
+ * A dock is always inline. Its shown size is bounded by its container so the
+ * center keeps its minimum; the bound never overwrites the size the user
+ * saved. The left dock's container also holds the right dock, so the right
+ * dock's width is reserved when it is open. When the row cannot hold both side
+ * docks at all, the row (not this component) closes the older one.
+ */
+export function DockRegion({ position, children, contents = false }: DockRegionProps) {
   const dock = useDockStore((state) => state.docks[position]);
   const setDockSize = useDockStore((state) => state.setDockSize);
+  const reserved = useDockStore((state) => (
+    position === 'left' && state.docks.right.open ? state.docks.right.size + DOCK_DIVIDER_WIDTH : 0
+  ));
   const regionRef = useRef<HTMLElement>(null);
   const limits = DOCK_SIZE_LIMITS[position];
-  const [availableSize, setAvailableSize] = useState<number>(limits.max);
-  const maximum = Math.max(limits.min, Math.min(limits.max, availableSize));
-  const size = Math.min(dock.size, maximum);
+  const [extent, setExtent] = useState<number>(0);
   const horizontal = position === 'bottom';
+  const maximum = extent > 0
+    ? Math.max(limits.min, Math.min(limits.max, dockMaxSize(position, extent, reserved)))
+    : limits.max;
+  const size = Math.min(dock.size, maximum);
 
   useEffect(() => {
-    if (overlay) return;
+    if (contents) return;
     const container = regionRef.current?.parentElement;
     if (!container) return;
     let frame: number | null = null;
     const measure = () => {
       const rect = container.getBoundingClientRect();
-      const extent = horizontal ? rect.height : rect.width;
-      if (extent <= 0) return;
-      // Keep space for the center. A temporary viewport constraint does not
-      // overwrite the preferred size saved by the user's resize action.
-      setAvailableSize(horizontal ? extent * 0.7 : extent - 392);
+      const next = horizontal ? rect.height : rect.width;
+      if (next > 0) setExtent(next);
     };
     measure();
     const observer = new ResizeObserver(() => {
@@ -47,7 +57,7 @@ export function DockRegion({ position, children, overlay = false }: DockRegionPr
       observer.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [horizontal, overlay]);
+  }, [horizontal, contents]);
 
   const clamp = useCallback((value: number) => (
     Math.max(limits.min, Math.min(maximum, value))
@@ -84,7 +94,7 @@ export function DockRegion({ position, children, overlay = false }: DockRegionPr
     commitSize(next);
   };
 
-  const divider = dock.open && !overlay && (
+  const divider = dock.open && !contents && (
     <DesktopPanelDivider
       label={`Resize ${position} dock`}
       orientation={horizontal ? 'horizontal' : 'vertical'}
@@ -106,11 +116,11 @@ export function DockRegion({ position, children, overlay = false }: DockRegionPr
         inert={!dock.open}
         data-dock-position={position}
         data-state={dock.open ? 'expanded' : 'collapsed'}
-        className={overlay ? 'contents' : cn(
+        className={contents ? 'contents' : cn(
           'flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground',
           dock.open ? 'rounded-xl border border-border/50' : 'invisible pointer-events-none',
         )}
-        style={overlay ? undefined : {
+        style={contents ? undefined : {
           '--dock-size': `${size}px`,
           [horizontal ? 'height' : 'width']: dock.open ? 'var(--dock-size)' : 0,
         } as CSSProperties}

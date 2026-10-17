@@ -15,7 +15,7 @@ import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import type { SessionUsage } from '@/stores/sessionContentStore';
 
 import { useClientIdentityStore } from '@/stores/clientIdentityStore';
-import {useIsCompact, useIsMobile} from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useElementWidth } from '@/hooks/use-element-width';
 import { useScopedServerData } from '@/contexts/HostScopeContext';
 
@@ -165,12 +165,11 @@ export function ChatHeader({
     else onChangeModel(modelId, providerId);
   };
   const isMobile = useIsMobile();
-  const isCompact = useIsCompact();
-  // Size the selector from this header's own width, so split panes only
-  // shrink it when the pane is actually narrow.
+  // Size the selector from this header's own width, not the viewport, so a
+  // wide pane on a small screen keeps its labels and a narrow split loses them.
   const [headerRef, headerWidth] = useElementWidth<HTMLDivElement>();
   const showIconOnlySelector = isMobile || (headerWidth !== null && headerWidth < ICON_ONLY_SELECTOR_MAX_WIDTH);
-  const showCompactSelector = isCompact || (headerWidth !== null && headerWidth < COMPACT_SELECTOR_MAX_WIDTH);
+  const showCompactSelector = headerWidth !== null && headerWidth < COMPACT_SELECTOR_MAX_WIDTH;
 
   const controlState = useSessionControlStore((s) => s.controlBySessionId[session.id]);
   const myClientId = useClientIdentityStore((s) => s.clientId);

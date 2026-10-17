@@ -13,7 +13,7 @@ import { useServerDataStore } from '@/stores/serverDataStore';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
-const viewport = vi.hoisted(() => ({ mobile: true, compact: true }));
+const viewport = vi.hoisted(() => ({ mobile: true }));
 
 vi.mock('@/contexts/SessionPaneRegistryContext', () => ({
   useSessionPaneRegistry: () => ({ getHandle: () => undefined }),
@@ -28,7 +28,6 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@/hooks/use-mobile', () => ({
   useIsMobile: () => viewport.mobile,
-  useIsCompact: () => viewport.compact,
 }));
 
 vi.mock('@/components/board/SessionPane', () => ({
@@ -92,12 +91,10 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     useServerDataStore.setState({ serverId: 'server-1' });
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     viewport.mobile = true;
-    viewport.compact = true;
     useDockStore.setState(useDockStore.getInitialState());
     useChatLayoutStore.setState({
       filesPanelTab: 'project',
       sessionFilesLayouts: {},
-      workbenchSurface: 'explorer',
       mobileSurface: 'chat',
     });
     useFileEditorStore.setState({
@@ -116,7 +113,6 @@ describe('WorkspaceContentArea responsive surfaces', () => {
 
   test('places the desktop workbench in the right dock and preserves content when collapsed', () => {
     viewport.mobile = false;
-    viewport.compact = false;
     const { getByTestId } = render(
       <ViewRefsContext.Provider value={createViewRefs()}>
         <WorkspaceContentArea sdkClient={null} serverUrl={null} />
@@ -195,7 +191,6 @@ describe('WorkspaceContentArea responsive surfaces', () => {
 
   test('repository tools have separate hosts and remain independently visible across docks and mobile', () => {
     viewport.mobile = false;
-    viewport.compact = false;
     const refs = createViewRefs();
     const content = <ViewRefsContext.Provider value={refs}><WorkspaceContentArea sdkClient={null} serverUrl={null} /></ViewRefsContext.Provider>;
     const { getByTestId, getAllByRole, rerender } = render(content);

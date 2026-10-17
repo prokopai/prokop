@@ -28,23 +28,21 @@ test('saved roots are checked before use without losing pins during discovery', 
   expect(resolveFilesPanelRoot({ ...input, workspaceRootId: 'missing', allowedRoots: ['/primary'] }).blocked).toBe(true);
 });
 
-test('restores each session repository pin, Files tab and workbench surface', () => {
+test('restores each session repository pin and Files tab', () => {
   const { result } = renderHook(() => ({
     root: useSessionChatLayoutStore((s) => s.filesPanelRoot),
     pinned: useSessionChatLayoutStore((s) => s.filesPanelRootPinned),
     tab: useSessionChatLayoutStore((s) => s.filesPanelTab),
-    surface: useSessionChatLayoutStore((s) => s.workbenchSurface),
   }));
   act(() => {
     const layout = useChatLayoutStore.getState();
     layout.setFilesPanelRoot('/other-repo');
     layout.setFilesPanelRootPinned(true);
     layout.setFilesPanelTab('branches');
-    layout.setWorkbenchSurface('branches');
   });
-  expect(result.current).toEqual({ root: '/other-repo', pinned: true, tab: 'branches', surface: 'branches' });
+  expect(result.current).toEqual({ root: '/other-repo', pinned: true, tab: 'branches' });
   act(() => useSessionBoardStore.setState({ focusedSessionId: 'b' }));
-  expect(result.current).toEqual({ root: null, pinned: false, tab: 'project', surface: 'explorer' });
+  expect(result.current).toEqual({ root: null, pinned: false, tab: 'project' });
   act(() => useChatLayoutStore.getState().setFilesPanelRoot('/third-repo'));
   act(() => useSessionBoardStore.setState({ focusedSessionId: 'a' }));
   expect(result.current.root).toBe('/other-repo');

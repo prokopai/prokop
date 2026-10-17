@@ -111,7 +111,6 @@ export function withServerDataStore(overrides: ServerDataStoreDefaults = {}) {
 
 interface UIStoreDefaults {
   showSettings?: boolean;
-  showConfiguration?: boolean;
   showTools?: boolean;
   showMCPDialog?: boolean;
   showWorkspacePermissions?: boolean;
@@ -122,7 +121,6 @@ interface UIStoreDefaults {
 
 const defaultUIState = (): UIStoreDefaults => ({
   showSettings: false,
-  showConfiguration: false,
   showTools: false,
   showMCPDialog: false,
   showWorkspacePermissions: false,
@@ -175,13 +173,11 @@ export function withConnectionStore(overrides: ConnectionStoreDefaults = {}) {
 
 interface ChatLayoutStoreDefaults {
   mobileSurface?: ChatLayoutStoreState['mobileSurface'];
-  workbenchSurface?: ChatLayoutStoreState['workbenchSurface'];
   filesPanelTab?: ChatLayoutStoreState['filesPanelTab'];
 }
 
 const defaultChatLayoutState = (): ChatLayoutStoreDefaults => ({
   mobileSurface: 'chat',
-  workbenchSurface: 'explorer',
   filesPanelTab: 'project',
 });
 

@@ -1,46 +1,23 @@
-import * as React from "react"
+import * as React from 'react';
+import { MOBILE_MEDIA_QUERY } from '@/lib/viewport';
 
-const MOBILE_BREAKPOINT = 640
-const COMPACT_BREAKPOINT = 1280
-
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < MOBILE_BREAKPOINT
-    }
-    return false
-  })
+/** Tracks a media query; the initial value is read synchronously to avoid a layout flash. */
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = React.useState<boolean>(() => (
+    typeof window !== 'undefined' && window.matchMedia(query).matches
+  ));
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    mql.addEventListener('change', onChange);
+    onChange();
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
 
-  return isMobile
+  return matches;
 }
 
-export function useIsCompact() {
-  const [isCompact, setIsCompact] = React.useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < COMPACT_BREAKPOINT
-    }
-    return false
-  })
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${COMPACT_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsCompact(window.innerWidth < COMPACT_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsCompact(window.innerWidth < COMPACT_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
-
-  return isCompact
+export function useIsMobile(): boolean {
+  return useMediaQuery(MOBILE_MEDIA_QUERY);
 }

@@ -8,7 +8,7 @@ import { WorkspaceTabIcon } from '@/components/app/WorkspaceTabIcon';
 import { useWorkspaceTabDrag } from '@/components/app/useWorkspaceTabDrag';
 import { cn } from '@/lib/utils';
 
-export const VIEW_LABELS: Record<WorkspaceToolViewId, string> = {
+const VIEW_LABELS: Record<WorkspaceToolViewId, string> = {
   usage: 'Usage',
   sessions: 'Sessions', conversations: 'Conversations', explorer: 'Explorer', changes: 'Changes', branches: 'Branches', worktrees: 'Worktrees', editor: 'Editor', terminals: 'Terminals',
 };

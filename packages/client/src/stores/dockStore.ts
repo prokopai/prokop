@@ -5,9 +5,29 @@ export type DockPosition = 'left' | 'right' | 'bottom';
 export const DOCK_POSITIONS = ['left', 'right', 'bottom'] as const;
 export const DOCK_SIZE_LIMITS = {
   left: { min: 220, max: 512, default: 256 },
-  right: { min: 360, max: 720, default: 540 },
+  right: { min: 300, max: 720, default: 540 },
   bottom: { min: 200, max: 800, default: 336 },
 } as const;
+
+/** Width the center keeps beside a side dock, and height beside the bottom dock (as a share). */
+export const CENTER_MIN_WIDTH = 360;
+export const BOTTOM_MAX_SHARE = 0.7;
+/** Width of the resize divider between a dock and the center. */
+export const DOCK_DIVIDER_WIDTH = 12;
+
+/**
+ * The largest size a dock may take inside a container of `extent` while the
+ * center keeps its minimum. `reserved` is space in the same container taken by
+ * another open dock.
+ */
+export function dockMaxSize(position: DockPosition, extent: number, reserved = 0): number {
+  return position === 'bottom' ? extent * BOTTOM_MAX_SHARE : extent - reserved - CENTER_MIN_WIDTH;
+}
+
+/** Whether a dock row of `width` can show both side docks at their minimums beside the center. */
+export function sideDocksFit(width: number): boolean {
+  return width >= DOCK_SIZE_LIMITS.left.min + DOCK_SIZE_LIMITS.right.min + CENTER_MIN_WIDTH + 2 * DOCK_DIVIDER_WIDTH;
+}
 
 export const DOCK_STORAGE_KEY = 'prokopai_dock_sizes';
 type DockSizes = Record<DockPosition, number>;
@@ -19,6 +39,8 @@ export interface DockState {
 
 interface DockStore {
   docks: Record<DockPosition, DockState>;
+  /** The side dock opened most recently; it stays when the row is too narrow for both. */
+  lastOpenedSide: 'left' | 'right';
   setDockOpen: (position: DockPosition, open: boolean) => void;
   toggleDock: (position: DockPosition) => void;
   setDockSize: (position: DockPosition, size: number) => void;
@@ -90,12 +112,18 @@ export const useDockStore = create<DockStore>((set) => ({
     right: { open: false, size: initialSizes.right },
     bottom: { open: false, size: initialSizes.bottom },
   },
+  lastOpenedSide: 'left',
   setDockOpen: (position, open) => set((state) => ({
     docks: { ...state.docks, [position]: { ...state.docks[position], open } },
+    lastOpenedSide: open && position !== 'bottom' ? position : state.lastOpenedSide,
   })),
-  toggleDock: (position) => set((state) => ({
-    docks: { ...state.docks, [position]: { ...state.docks[position], open: !state.docks[position].open } },
-  })),
+  toggleDock: (position) => set((state) => {
+    const open = !state.docks[position].open;
+    return {
+      docks: { ...state.docks, [position]: { ...state.docks[position], open } },
+      lastOpenedSide: open && position !== 'bottom' ? position : state.lastOpenedSide,
+    };
+  }),
   setDockSize: (position, size) => {
     if (!Number.isFinite(size)) return;
     set((state) => {

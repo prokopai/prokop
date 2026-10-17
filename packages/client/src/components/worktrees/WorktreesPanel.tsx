@@ -25,6 +25,7 @@ import { useWorktreeMutations, useWorktreeRefsQuery, useWorktreesQuery } from '@
 import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { cn } from '@/lib/utils';
+import { isMobileViewport } from '@/lib/viewport';
 import { WorktreeCreateForm } from '@/components/worktrees/WorktreeCreateForm';
 
 interface WorktreesPanelProps {
@@ -162,9 +163,8 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
     store.setFilesPanelRoot(worktree.path);
     store.setFilesPanelRootPinned(true);
     store.setFilesPanelTab('project');
-    store.setWorkbenchSurface('explorer');
     useWorkspaceViewStore.getState().activateView('explorer');
-    if (window.innerWidth < 640) store.setMobileSurface('files');
+    if (isMobileViewport()) store.setMobileSurface('files');
   };
 
   const remove = (worktree: ManagedWorktree) => {

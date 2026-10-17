@@ -31,9 +31,9 @@ describe('dockStore', () => {
     store.setDockSize('left', 10000);
     store.setDockSize('right', 10);
     store.setDockSize('bottom', 410.6);
-    expect(loadDockSizes()).toEqual({ left: 512, right: 360, bottom: 411 });
+    expect(loadDockSizes()).toEqual({ left: 512, right: 300, bottom: 411 });
     expect(JSON.parse(localStorage.getItem(DOCK_STORAGE_KEY)!)).toEqual({
-      version: 1, sizes: { left: 512, right: 360, bottom: 411 },
+      version: 1, sizes: { left: 512, right: 300, bottom: 411 },
     });
     store.setDockOpen('bottom', true);
     store.setDockOpen('bottom', false);

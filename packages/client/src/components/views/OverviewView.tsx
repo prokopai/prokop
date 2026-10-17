@@ -171,7 +171,6 @@ function OverviewSidebar() {
 
   return (
     <AppSidebar
-      embedded
       ref={sidebarRef}
       currentSessionId={sidebarData.currentSessionId}
       onEscape={() => {

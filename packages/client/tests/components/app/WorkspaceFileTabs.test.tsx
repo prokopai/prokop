@@ -13,14 +13,14 @@ import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useDockStore } from '@/stores/dockStore';
 import { createDefaultViewLayout, fileViewId, findViewRegion, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
-const mocks = vi.hoisted(() => ({ mobile: false, compact: false, mount: vi.fn(), unmount: vi.fn(), gitDiff: vi.fn() }));
+const mocks = vi.hoisted(() => ({ mobile: false, mount: vi.fn(), unmount: vi.fn(), gitDiff: vi.fn() }));
 vi.mock('@/contexts/SessionPaneRegistryContext', () => ({
   useSessionPaneRegistry: () => ({ getHandle: () => undefined }),
 }));
 vi.mock('@/components/app/WorkspaceUsageView', () => ({ WorkspaceUsageView: () => <div>Usage content</div> }));
 vi.mock('@/components/pullRequests/PullRequestsView', () => ({ PullRequestsView: () => <div>Pull requests content</div> }));
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ serverId: 'server-1' }), useNavigate: () => vi.fn(), useRouterState: ({ select }: { select: (state: unknown) => unknown }) => select({ location: { pathname: '/server/server-1/workspace/session/session-1' } }) }));
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile, useIsCompact: () => mocks.compact }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 vi.mock('@/components/board/SessionPane', () => ({ SessionPane: () => <div>Conversation content</div> }));
 vi.mock('@/components/worktrees/WorktreesPanel', () => ({ WorktreesPanel: () => <div>Worktrees content</div> }));
 vi.mock('@/components/layout/FilesPanel', () => ({ FilesPanel: () => <div>Explorer content</div> }));
@@ -70,7 +70,6 @@ function Harness({ client = null }: { client?: ProkopaiClient | null }) {
 describe('individual workspace file tabs', () => {
   beforeEach(() => {
     mocks.mobile = false;
-    mocks.compact = false;
     vi.clearAllMocks();
     useSessionBoardStore.setState({ openSessionIds: ['session-1'], focusedSessionId: 'session-1' });
     useSessionStore.setState({ sessions: [{ id: 'session-1', workspaceId: 'workspace-1', title: 'Session one' } as Session] });
@@ -79,7 +78,7 @@ describe('individual workspace file tabs', () => {
     useDockStore.setState(useDockStore.getInitialState());
     useFileEditorStore.setState({ docs: {}, openDocIds: [], activeDocId: null, anyDirty: false });
     useServerDataStore.setState({ activeWorkspaceId: 'workspace-1' });
-    useChatLayoutStore.setState({ mobileSurface: 'chat', workbenchSurface: 'explorer', filesPanelTab: 'project' });
+    useChatLayoutStore.setState({ mobileSurface: 'chat', filesPanelTab: 'project' });
   });
   afterEach(() => {
     cleanup();

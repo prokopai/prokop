@@ -11,8 +11,6 @@ import {
   type SessionPaneRegistry,
 } from '@/contexts/SessionPaneRegistryContext';
 import { useServerSessionManager } from '@/hooks/useServerSessionManager';
-import { useDockStore } from '@/stores/dockStore';
-import { SidebarProvider } from '@/components/ui/sidebar';
 
 import { AppHeader } from '@/components/app/AppHeader';
 import { AppFrameSkeleton } from './AppFrameSkeleton';
@@ -69,9 +67,6 @@ export default function ServerShell() {
     unregister: (sessionId) => { paneHandles.delete(sessionId); },
     getHandle: (sessionId) => paneHandles.get(sessionId),
   }), [paneHandles]);
-
-  const leftDock = useDockStore((state) => state.docks.left);
-  const setDockOpen = useDockStore((state) => state.setDockOpen);
 
   const viewRefs = useMemo(() => ({
     sidebarRef,
@@ -191,7 +186,7 @@ export default function ServerShell() {
   return (
     <SessionPaneRegistryContext.Provider value={paneRegistry}>
       <ServerClientProvider value={serverClientValue}>
-        <SidebarProvider panelId="sessions" open={leftDock.open} onOpenChange={(open) => setDockOpen('left', open)} className="flex-col" style={{ '--sidebar-width': `${leftDock.size}px`, '--header-height': '2.75rem' } as React.CSSProperties}>
+        <div className="flex h-full w-full flex-col overflow-hidden">
           <div className="relative bg-background">
             <AppHeader />
             {!sessionManager.connected && (
@@ -234,7 +229,7 @@ export default function ServerShell() {
             onConfigurationClose={() => router.invalidate()}
           />
           </SessionManagerContext.Provider>
-        </SidebarProvider>
+        </div>
       </ServerClientProvider>
     </SessionPaneRegistryContext.Provider>
   );

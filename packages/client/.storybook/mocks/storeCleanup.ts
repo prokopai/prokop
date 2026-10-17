@@ -44,7 +44,6 @@ export function resetAllStores(): void {
   // UI Store
   useUIStore.setState({
     showSettings: false,
-    showConfiguration: false,
     chatFinishSoundEnabled: true,
     permissionSoundEnabled: true,
     filePreviewTarget: null,
@@ -67,7 +66,6 @@ export function resetAllStores(): void {
     filesPanelTab: 'project',
     filesPanelRoot: null,
     filesPanelRootPinned: false,
-    workbenchSurface: 'explorer',
     mobileSurface: 'chat',
   });
 

@@ -89,7 +89,7 @@ export function AppHeader() {
   return (
     <>
       <header
-        className="md:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between px-1 pb-2"
+        className="sm:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between px-1 pb-2"
         style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
       >
         <ServerSwitcher compact />
@@ -122,7 +122,7 @@ export function AppHeader() {
         </TooltipProvider>
       </header>
 
-      <header className="app-titlebar hidden md:flex h-11 shrink-0 items-center justify-between gap-2">
+      <header className="app-titlebar hidden sm:flex h-11 shrink-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <ServerSwitcher compact />
           <div className="flex items-center rounded-lg bg-muted p-0.5">

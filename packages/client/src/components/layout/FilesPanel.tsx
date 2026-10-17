@@ -1,5 +1,5 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, RefreshCw, ChevronDown, Folder, GitBranch, Check, PinOff, Plus, FilePlus2, FolderPlus } from 'lucide-react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState, useMemo } from 'react';
+import { RefreshCw, ChevronDown, Folder, GitBranch, Check, PinOff, Plus, FilePlus2, FolderPlus } from 'lucide-react';
 import { useParams } from '@tanstack/react-router';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { FileTree, type FileTreeHandle, GitChangesView, type GitChangesViewHandle } from '@/components/files';
@@ -7,7 +7,6 @@ import { type FileEntryActionTarget } from '@/components/files/FileEntryContextM
 import { FOLDER_ICON_COLOR } from '@/components/files/fileIcons';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,15 +17,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useGitStatusQuery } from '@/hooks/queries/useFileQueries';
 import { useWorktreeMutations, useWorktreesQuery } from '@/hooks/queries';
 import { summarizeDiffStats } from '@/components/files/GitChangesView';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarProvider,
-  PanelResizeHandle,
-} from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { useWorkspaceViewStore, type RepositoryViewId } from '@/stores/workspaceViewStore';
-import { useDockStore } from '@/stores/dockStore';
 import { useSessionChatLayoutStore as useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useUIStore, type DefaultFileOpenMode } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
@@ -37,7 +29,6 @@ import { queryClient } from '@/components/providers/QueryProvider';
 import { queryKeys } from '@/lib/queryKeys';
 import { refreshGitStatus } from '@/lib/rootFeedRefresh';
 import { buildFilesPanelRootOptions, resolveFilesPanelRoot } from '@/lib/sessionWorktree';
-import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 import { BranchesPanel } from '@/components/files/BranchesPanel';
 import { CheckoutMenu } from '@/components/worktrees/SessionCheckoutSelector';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -46,9 +37,8 @@ import { isBinaryImagePath } from '@/lib/imageFiles';
 
 interface FilesPanelProps {
   sdkClient: ProkopaiClient | null;
-  view?: Exclude<RepositoryViewId, 'worktrees'>;
-  embedded?: boolean;
-  embeddedWidth?: number;
+  /** One repository view per panel; each is its own workspace tab. */
+  view: Exclude<RepositoryViewId, 'worktrees'>;
 }
 
 export interface FilesPanelHandle {
@@ -99,21 +89,17 @@ function PathSwitcher({
 }
 
 export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
-  ({ sdkClient, view, embedded = false, embeddedWidth: _embeddedWidth }, ref) => {
+  ({ sdkClient, view }, ref) => {
     const isMobile = useIsMobile();
     const fileTreeRef = useRef<FileTreeHandle>(null);
     const gitChangesRef = useRef<GitChangesViewHandle>(null);
-    const filesPanelWidth = useDockStore((s) => s.docks.right.size);
-    const showFilesPanel = useDockStore((s) => s.docks.right.open);
     const activateView = useWorkspaceViewStore((s) => s.activateView);
-    const selectedTab = useChatLayoutStore((s) => s.filesPanelTab);
-    const filesPanelTab = view === 'explorer' ? 'project' : view ?? selectedTab;
+    const filesPanelTab = view === 'explorer' ? 'project' : view;
     const setFilesPanelTab = useChatLayoutStore((s) => s.setFilesPanelTab);
     const filesPanelRoot = useChatLayoutStore((s) => s.filesPanelRoot);
     const filesPanelRootPinned = useChatLayoutStore((s) => s.filesPanelRootPinned);
     const setFilesPanelRoot = useChatLayoutStore((s) => s.setFilesPanelRoot);
     const setFilesPanelRootPinned = useChatLayoutStore((s) => s.setFilesPanelRootPinned);
-    const setWorkbenchSurface = useChatLayoutStore((s) => s.setWorkbenchSurface);
     const setMobileSurface = useChatLayoutStore((s) => s.setMobileSurface);
     const activeWorkspace = useServerDataStore(selectActiveWorkspace);
     const workspaceId = activeWorkspace?.id;
@@ -210,15 +196,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
       ]).finally(() => setIsRefreshing(false));
     }, [sdkClient, workspaceId, isMainRoot, selectedRoot]);
 
-    // When the last worktree disappears, the tab hides; leave the stored tab
-    // on a surface that still renders.
-    useEffect(() => {
-      if (!view && filesPanelTab === 'worktrees' && !worktrees.isLoading && (worktrees.data ?? []).length === 0) {
-        setFilesPanelTab('project');
-        setWorkbenchSurface('explorer');
-      }
-    }, [view, filesPanelTab, worktrees.isLoading, worktrees.data, setFilesPanelTab, setWorkbenchSurface]);
-
     const focus = useCallback(() => {
       const focusActiveView = () => {
         if (filesPanelTab === 'changes') {
@@ -232,12 +209,11 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
         setFilesPanelTab(filesPanelTab);
         setMobileSurface('files');
       } else {
-        setWorkbenchSurface(filesPanelTab === 'changes' || filesPanelTab === 'branches' || filesPanelTab === 'worktrees' ? filesPanelTab : 'explorer');
-        activateView(filesPanelTab === 'project' ? 'explorer' : filesPanelTab);
+        activateView(view);
       }
       requestAnimationFrame(() => requestAnimationFrame(focusActiveView));
       window.setTimeout(focusActiveView, 250);
-    }, [filesPanelTab, isMobile, setFilesPanelTab, setMobileSurface, activateView, setWorkbenchSurface]);
+    }, [filesPanelTab, view, isMobile, setFilesPanelTab, setMobileSurface, activateView]);
 
     useImperativeHandle(ref, () => ({ focus }), [focus]);
 
@@ -284,7 +260,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
           return;
         }
       }
-    }, [workspaceId, serverId, isMobile, setMobileSurface, activateView, setWorkbenchSurface, openFilePreview, defaultFileOpenMode]);
+    }, [workspaceId, serverId, isMobile, setMobileSurface, openFilePreview, defaultFileOpenMode]);
 
     const handleFileSelect = useCallback((target: FileEntryActionTarget, mode?: DefaultFileOpenMode) => {
       openFile(target, mode);
@@ -293,10 +269,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
     // Changes-tab stats in the header row. Reads the same git-status cache
     // as GitChangesView (shared query key), so no extra request.
     const isChangesTab = filesPanelTab === 'changes';
-    // The worktrees tab manages bindings and is workspace-scoped: a dead
-    // session binding must not block it (Project and Changes stay
-    // fail-closed), and the root-switcher header row is hidden entirely.
-    const isWorktreesTab = filesPanelTab === 'worktrees';
     const changesRoot = isMainRoot ? undefined : selectedRoot;
     const gitStatusQuery = useGitStatusQuery(
       sdkClient,
@@ -309,9 +281,8 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
       [gitStatusQuery.data?.files],
     );
 
-    const headerContent = activeWorkspace && !(embedded && isWorktreesTab) ? (
+    const headerContent = activeWorkspace ? (
       <div className="flex flex-col gap-2 px-2 pt-2 pb-2">
-        {!isWorktreesTab && (
         <div className="flex items-center gap-1.5">
           {rootBlocked ? (
             <div className="flex min-w-0 items-center gap-1.5 px-2 text-sm font-semibold text-destructive">
@@ -385,30 +356,11 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
               )}
             </span>
           )}
-          {isMobile && !embedded && (
-            <Button variant="ghost" size="sm" onClick={() => setMobileSurface('chat')} className="shrink-0">
-              <ArrowLeft className="size-4" />
-              Chat
-            </Button>
-          )}
         </div>
-        )}
-        {!embedded && (
-          <Tabs value={filesPanelTab} onValueChange={(v) => setFilesPanelTab(v as 'project' | 'changes' | 'branches' | 'worktrees')}>
-            <TabsList className="w-full">
-              <TabsTrigger value="project" className="flex-1">Project</TabsTrigger>
-              <TabsTrigger value="changes" className="flex-1">Changes</TabsTrigger>
-              <TabsTrigger value="branches" className="flex-1">Branches</TabsTrigger>
-              {(worktrees.data ?? []).length > 0 && (
-                <TabsTrigger value="worktrees" className="flex-1">Worktrees</TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-        )}
       </div>
     ) : null;
 
-    const content = workspaceId && rootBlocked && !isWorktreesTab ? (
+    const content = workspaceId && rootBlocked ? (
       <div className="p-3">
         <Alert variant="destructive">
           <GitBranch />
@@ -461,9 +413,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
         </Alert>
       </div>
     ) : workspaceId ? (
-      filesPanelTab === 'worktrees' ? (
-        <WorktreesPanel sdkClient={sdkClient} workspaceId={workspaceId} />
-      ) : (
         // Switching sessions across projects reuses the last few workspaces'
         // trees instead of rebuilding them; only the active entry holds refs.
         <KeepAliveStack
@@ -506,50 +455,19 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
             );
           }}
         </KeepAliveStack>
-      )
     ) : null;
 
     if (!workspaceId) {
       return null;
     }
 
-    if (embedded) {
-      return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar" data-workbench-explorer>
-          {headerContent}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            {content}
-          </div>
-        </div>
-      );
-    }
-
-    if (isMobile) {
-      return (
-        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-sidebar" data-workbench-explorer>
-          {headerContent}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {content}
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <SidebarProvider
-        panelId="files"
-        defaultOpen={true}
-        className="w-0 shrink-0"
-        style={{ '--sidebar-width': `${filesPanelWidth}px` } as React.CSSProperties}
-      >
-        <Sidebar side="right" isOpen={showFilesPanel} variant="floating">
-          <PanelResizeHandle side="right" panelId="files" />
-          {headerContent}
-          <SidebarContent className="overflow-hidden">
-            {content}
-          </SidebarContent>
-        </Sidebar>
-      </SidebarProvider>
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-sidebar" data-workbench-explorer>
+        {headerContent}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {content}
+        </div>
+      </div>
     );
   }
 );

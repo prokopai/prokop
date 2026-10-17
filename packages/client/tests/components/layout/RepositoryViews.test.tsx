@@ -70,9 +70,9 @@ describe('independent repository content', () => {
 
   test('fixed views ignore legacy tab selection and share the focused session root pin', () => {
     render(<>
-      <FilesPanel sdkClient={null} view="explorer" embedded />
-      <FilesPanel sdkClient={null} view="changes" embedded />
-      <FilesPanel sdkClient={null} view="branches" embedded />
+      <FilesPanel sdkClient={null} view="explorer" />
+      <FilesPanel sdkClient={null} view="changes" />
+      <FilesPanel sdkClient={null} view="branches" />
     </>);
     const explorer = screen.getByRole('textbox');
     expect(screen.queryByRole('tablist')).toBeNull();
@@ -101,9 +101,9 @@ describe('independent repository content', () => {
   test('all root-scoped views block an unavailable worktree without querying primary status', () => {
     useSessionStore.setState({ sessions: [{ id: 'session', workspaceId: 'workspace', workspaceRootId: 'missing' } as Session] });
     render(<>
-      <FilesPanel sdkClient={null} view="explorer" embedded />
-      <FilesPanel sdkClient={null} view="changes" embedded />
-      <FilesPanel sdkClient={null} view="branches" embedded />
+      <FilesPanel sdkClient={null} view="explorer" />
+      <FilesPanel sdkClient={null} view="changes" />
+      <FilesPanel sdkClient={null} view="branches" />
     </>);
     expect(screen.getAllByText("This session's worktree is unavailable")).toHaveLength(3);
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -114,7 +114,7 @@ describe('independent repository content', () => {
 
   test('Explorer focus restores its moved instance and selects Explorer on mobile', () => {
     const ref = createRef<FilesPanelHandle>();
-    const { rerender } = render(<FilesPanel ref={ref} sdkClient={null} view="explorer" embedded />);
+    const { rerender } = render(<FilesPanel ref={ref} sdkClient={null} view="explorer" />);
     act(() => {
       useWorkspaceViewStore.getState().moveView('explorer', 'bottom');
       useWorkspaceViewStore.getState().hideView('explorer');
@@ -125,7 +125,7 @@ describe('independent repository content', () => {
     expect(useDockStore.getState().docks.bottom.open).toBe(true);
     mocks.mobile = true;
     act(() => useChatLayoutStore.getState().setFilesPanelTab('branches'));
-    rerender(<FilesPanel ref={ref} sdkClient={null} view="explorer" embedded />);
+    rerender(<FilesPanel ref={ref} sdkClient={null} view="explorer" />);
     act(() => ref.current?.focus());
     expect(useChatLayoutStore.getState().mobileSurface).toBe('files');
     expect(useChatLayoutStore.getState().sessionFilesLayouts[JSON.stringify(['server', 'workspace', 'session'])].filesPanelTab).toBe('project');

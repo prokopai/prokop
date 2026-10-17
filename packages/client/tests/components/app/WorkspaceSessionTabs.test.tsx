@@ -27,7 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({ select }: { select: (state: unknown) => unknown }) => select({ location: { pathname: '/server/server/workspace' } }),
 }));
 vi.mock('@/components/app/ForeignSessionView', () => ({ ForeignSessionView: ({ serverId, sessionId }: { serverId: string; sessionId: string }) => <div>Foreign {sessionId} on {serverId}</div> }));
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile, useIsCompact: () => false }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 vi.mock('@/components/layout/FilesPanel', () => ({ FilesPanel: () => <div>Repository tool</div> }));
 vi.mock('@/components/app/WorkspaceUsageView', () => ({ WorkspaceUsageView: () => <div>Usage</div> }));
 vi.mock('@/components/worktrees/WorktreesPanel', () => ({ WorktreesPanel: () => <div>Worktrees</div> }));

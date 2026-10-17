@@ -87,12 +87,47 @@ describe('DockRegion', () => {
     useDockStore.getState().setDockOpen('right', true);
     useDockStore.getState().setDockSize('right', 650);
     const { getByRole } = render(<div data-testid="container"><DockRegion position="right">Content</DockRegion></div>);
-    expect(getByRole('separator')).toHaveAttribute('aria-valuenow', '508');
+    // 900 minus the 360 px center floor bounds the shown width to 540.
+    expect(getByRole('separator')).toHaveAttribute('aria-valuenow', '540');
     expect(useDockStore.getState().docks.right.size).toBe(650);
 
     width = 1400;
     act(() => notifyResize());
     await vi.waitFor(() => expect(getByRole('separator')).toHaveAttribute('aria-valuenow', '650'));
     expect(useDockStore.getState().docks.right.size).toBe(650);
+  });
+
+  test('never shrinks a dock below its minimum and keeps it inline in a narrow row', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return new DOMRect(0, 0, this.dataset.testid === 'container' ? 620 : 0, 800);
+    });
+    useDockStore.getState().setDockOpen('right', true);
+    useDockStore.getState().setDockSize('right', 540);
+    const { container, getByRole } = render(
+      <div data-testid="container"><DockRegion position="right">Content</DockRegion></div>,
+    );
+    const region = container.querySelector<HTMLElement>('[data-dock-position="right"]')!;
+    // 620 - 360 leaves 260, below the 300 minimum: the dock takes its minimum, the center gives.
+    expect(getByRole('separator', { name: 'Resize right dock' })).toHaveAttribute('aria-valuenow', '300');
+    expect(region.style.getPropertyValue('--dock-size')).toBe('300px');
+    expect(region).not.toHaveClass('absolute');
+    expect(useDockStore.getState().docks.right.size).toBe(540);
+  });
+
+  test('bounds the left dock by the open right dock sharing its row', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return new DOMRect(0, 0, this.dataset.testid === 'container' ? 1100 : 0, 800);
+    });
+    useDockStore.getState().setDockSize('left', 500);
+    useDockStore.getState().setDockSize('right', 400);
+    useDockStore.getState().setDockOpen('right', true);
+    const { getByRole } = render(
+      <div data-testid="container"><DockRegion position="left">Content</DockRegion></div>,
+    );
+    // 1100 - (400 + 12) - 360 leaves 328 for the left dock.
+    expect(getByRole('separator', { name: 'Resize left dock' })).toHaveAttribute('aria-valuenow', '328');
+    act(() => useDockStore.getState().setDockOpen('right', false));
+    expect(getByRole('separator', { name: 'Resize left dock' })).toHaveAttribute('aria-valuenow', '500');
+    expect(useDockStore.getState().docks.left.size).toBe(500);
   });
 });
