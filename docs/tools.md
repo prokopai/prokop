@@ -1,10 +1,10 @@
 # Tools
 
-Tools give the agent the ability to interact with your filesystem, run commands, search the web, and more. Built-in tools ship inside the server binary and need no installation or updates. Bundled agent preconfigs enable a focused subset, and custom preconfigs can enable other built-ins.
+Tools give the agent the ability to interact with your filesystem, run commands, search the web, and more. Built-in tools ship inside the server binary and need no installation or updates. Bundled agent preconfigs enable a focused subset, and custom preconfigs can enable other built-ins. Anything beyond the built-ins comes from MCP servers.
 
 ## Built-in tools
 
-A fresh `prokop init` can use the filesystem, shell, web fetch, task, question, and worktree tools immediately. Built-in tools take precedence over optional extensions with the same name.
+A fresh `prokop init` can use the filesystem, shell, web fetch, task, question, and worktree tools immediately.
 
 ### File Tools
 
@@ -73,17 +73,9 @@ See [Workspaces & Sessions](./workspaces.md#workspace-capabilities) for how to e
 
 ## MCP Tools
 
-When you connect an MCP server to a workspace, its tools appear alongside built-in and installed tools. The agent calls them identically. No adapters, no wrappers.
+When you connect an MCP server to a workspace, its tools appear alongside the built-in tools. The agent calls them identically. No adapters, no wrappers. MCP is the way to add a tool: there is no tool directory on disk.
 
 MCP tools are configured per-workspace in `<workspace>/.prokopai/mcp.json`. See [Configuration](./configuration.md#mcp-configuration) for the config format.
-
-## External tool extensions
-
-Prokop loads external tools directly from `~/.prokopai/tools/`, or from the directory configured by `PROKOPAI_TOOLS_PATH`. It does not provide a repository, downloader, installer, updater, or removal command.
-
-Place each tool in its own directory. Čapek loads the entry named by an existing `.install-manifest.json`, then falls back to `tool.js`, then `tool.ts`. Built-in and domain tools win name collisions.
-
-Prokop does not install dependencies or compile manually placed tools. Use a self-contained `tool.js`, or prepare the tool directory and its dependencies before placing it under the tools path.
 
 ## The Ask Protocol
 
@@ -118,72 +110,3 @@ const answer = await ctx.ask({
 ```
 
 The client renders the appropriate form (radio buttons, checkboxes, text input, etc.) and returns the answer.
-
-## Writing a Custom Tool
-
-A tool is a directory containing an ES module entry point:
-
-```
-my-tool/
-├── tool.js          # Recommended self-contained entry point
-├── package.json     # Optional, when runtime dependencies are prepared
-└── VERSION          # Optional semantic version
-```
-
-### `tool.js` or `tool.ts`
-
-```typescript
-import type { ToolDefinition, ToolContext, ToolResult } from '@prokopai/sdk/tool';
-
-interface Input {
-  message: string;
-}
-
-export const definition: ToolDefinition = {
-  name: 'my-tool',
-  description: 'Does something useful.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      message: {
-        type: 'string',
-        description: 'A message to process',
-      },
-    },
-    required: ['message'],
-  },
-};
-
-export async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
-  try {
-    // Do work here. ctx has:
-    //   ctx.fs    = filesystem access (scoped to workspace)
-    //   ctx.ask() = permission and question requests
-    //   ctx.env   = safe environment variables
-
-    const result = `Processed: ${input.message}`;
-    return { success: true, result };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
-  }
-}
-```
-
-### `package.json`
-
-The SDK is a private workspace in the Prokop checkout. For an external tool project, point the development dependency at your checkout (adjust the relative path below). Type-only imports disappear from the prepared JavaScript; bundle any runtime helpers you use into the tool.
-
-```json
-{
-  "name": "my-tool",
-  "version": "1.0.0",
-  "devDependencies": {
-    "@prokopai/sdk": "file:../prokop/packages/sdk"
-  }
-}
-```
-
-### Activating a custom tool
-
-Place the prepared directory at `~/.prokopai/tools/<tool-name>/`. The runtime scans for `tool.js` and `tool.ts` modules at startup and refreshes its directory snapshot while running. Restart the server when an immediate, guaranteed reload is required.

@@ -1,60 +1,14 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-
-const realBarrel = await import('@prokopai/core/infrastructure/tools/registry');
-const realConfig = await import('@prokopai/core/config');
-const realPaths = await import('@prokopai/core/infrastructure/runtime/paths');
-
-const realConfigureToolsPath = realBarrel.configureToolsPath;
-const { configureWorkspaceToolDiscovery: realConfigureWorkspaceToolDiscovery } = await import('@prokopai/core/infrastructure/tools/tool-source');
-
-let resolvedToolsPath = '/resolved/tools';
-let resolvedPathError: Error | null = null;
-const configuredPaths: (string | undefined)[] = [];
-
-// File-scoped module mocks. Every other export is the real implementation, so
-// unrelated module consumers keep their original behavior.
-mock.module('@prokopai/core/config', () => ({
-  ...realConfig,
-  resolveToolsPath: (): string => {
-    if (resolvedPathError) throw resolvedPathError;
-    return resolvedToolsPath;
-  },
-}));
-
-mock.module('@prokopai/core/infrastructure/runtime/paths', () => ({
-  ...realPaths,
-  getToolsDir: (): string => '/tools-dir',
-}));
-
-mock.module('@prokopai/core/infrastructure/tools/registry', () => ({
-  ...realBarrel,
-  configureToolsPath: (path?: string): void => {
-    configuredPaths.push(path);
-  },
-}));
-
-const adapter = await import('@/adapters/prokop/runtime-host/tool-source');
-const { builtinTools } = await import('@prokopai/agent/internal/harnesses/prokop/tools/index');
-const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@prokopai/core/application/ports/builtin-tools');
-const { resetDomainToolFallbacksForTests } = await import('@prokopai/core/infrastructure/tools/domain-tool-source');
-const { configureProkopRuntimeDefaults } = await import('@prokopai/agent/internal/harnesses/prokop/bindings/runtime-defaults');
-
-let savedToolsPathEnv: string | undefined;
+import { afterEach, describe, expect, test } from 'bun:test';
+import { configureWorkspaceToolDiscovery, getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
+import * as adapter from '@/adapters/prokop/runtime-host/tool-source';
+import { builtinTools } from '@prokopai/agent/internal/harnesses/prokop/tools/index';
+import { getBuiltinToolsPort, installBuiltinToolsPort } from '@prokopai/core/application/ports/builtin-tools';
+import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
+import { configureProkopRuntimeDefaults } from '@prokopai/agent/internal/harnesses/prokop/bindings/runtime-defaults';
 
 describe('Čapek workspace tool discovery adapter', () => {
-  beforeEach(() => {
-    configuredPaths.length = 0;
-    resolvedToolsPath = '/resolved/tools';
-    resolvedPathError = null;
-    savedToolsPathEnv = process.env.JEAN2_TOOLS_PATH;
-  });
-
   afterEach(() => {
-    if (savedToolsPathEnv === undefined) delete process.env.JEAN2_TOOLS_PATH;
-    else process.env.JEAN2_TOOLS_PATH = savedToolsPathEnv;
-    realConfigureToolsPath();
-    realConfigureWorkspaceToolDiscovery();
+    configureWorkspaceToolDiscovery();
   });
 
   test('defers MCP initialization until discovery can resolve the session workspace', async () => {
@@ -73,6 +27,9 @@ describe('Čapek workspace tool discovery adapter', () => {
       // The removed tools stay absent even with the port installed.
       expect(tools.some((tool) => tool.name === 'git-worktree')).toBe(false);
       expect(await adapter.prokopToolCatalog.getTool('git-worktree')).toBeNull();
+      // Only the binary and the domains supply tools: nothing comes from disk.
+      expect(tools.every((tool) => tool.source === 'builtin' || tool.source === 'domain')).toBe(true);
+      expect(await adapter.prokopToolCatalog.getTool('browser_navigate')).toBeNull();
     } finally {
       installBuiltinToolsPort(previousPort);
     }
@@ -93,32 +50,14 @@ describe('Čapek workspace tool discovery adapter', () => {
     try {
       const tools = await adapter.prokopToolCatalog.listTools();
       expect(tools.every((tool) => tool.source !== 'builtin')).toBe(true);
+      expect(await adapter.prokopToolCatalog.getTool('read-file')).toBeNull();
     } finally {
       installBuiltinToolsPort(previousPort);
     }
   });
 
-  test('configures the resolved tools path first and installs the module-level discovery', () => {
-    process.env.JEAN2_TOOLS_PATH = '/env-must-not-win';
+  test('installs the module-level discovery', () => {
     adapter.configureProkopWorkspaceToolDiscovery();
-
-    expect(configuredPaths).toEqual(['/resolved/tools']);
     expect(getWorkspaceToolDiscovery()).toBe(adapter.prokopWorkspaceToolDiscovery);
-  });
-
-  test('falls back to the environment path when resolution throws', () => {
-    resolvedPathError = new Error('resolution unavailable');
-    process.env.JEAN2_TOOLS_PATH = '/env/tools';
-    adapter.configureProkopWorkspaceToolDiscovery();
-
-    expect(configuredPaths).toEqual(['/env/tools']);
-  });
-
-  test('falls back to the tools directory when resolution throws and the environment is unset', () => {
-    resolvedPathError = new Error('resolution unavailable');
-    delete process.env.JEAN2_TOOLS_PATH;
-    adapter.configureProkopWorkspaceToolDiscovery();
-
-    expect(configuredPaths).toEqual(['/tools-dir']);
   });
 });

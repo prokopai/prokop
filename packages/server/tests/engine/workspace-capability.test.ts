@@ -36,7 +36,6 @@ function loadedTool(execute: (ctx: ToolContext) => Promise<ToolResult>): LoadedT
       inputSchema: { type: 'object' },
     },
     execute: async (_input, ctx) => execute(ctx),
-    path: '/tools/fixture',
   };
 }
 

@@ -1,3 +1,7 @@
+### Removed
+
+- **Tools loaded from a folder on disk**: Prokop no longer loads tool modules from `~/.prokopai/tools` or `PROKOPAI_TOOLS_PATH`, and `prokop init` no longer takes `--tools-path`. Tools come from the binary and from MCP servers. An existing tools folder is left in place and ignored.
+
 ### Changed
 
 - **Fewer approvals for paths in variables**: A command like `ROOT=/repo/build; rm -rf "$ROOT"` used to ask every time, because `$ROOT` was unknown. When the same command surely set the variable to a plain value, the path is now judged by that value. Variables from the environment, set inside `if`, loops or `( )`, after `||`, or changed by `read`, `unset`, `eval` and similar still count as unknown.

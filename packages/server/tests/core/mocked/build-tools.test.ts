@@ -11,8 +11,9 @@ import { configureProkopBindings } from '@/adapters/prokop/runtime-host/bindings
 import { prokopCompatibilityBindings } from '@/adapters/prokop/runtime-host/bindings';
 import { prokopStorageBundle } from '@/adapters/prokop/runtime-host/storage';
 import { buildAiSdkTools, type BuildToolsOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
-import { clearCache, scanTools } from '@prokopai/core/infrastructure/tools/registry';
+import { withToolRegistryResolver, type ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import type { Preconfig, Session, Workspace } from '@prokopai/sdk';
+import type { LoadedTool, ToolContext } from '@prokopai/sdk/tool';
 
 interface BindingOverrides {
   sessions?: Record<string, Partial<Session>>;
@@ -57,29 +58,42 @@ function configureBindings(overrides: BindingOverrides = {}): void {
   });
 }
 
-async function seedTool(
+/** Tools the composed scope would contribute, resolved through the ambient
+ * scoped resolver exactly as a composed agent resolves its catalog. */
+const seeded = new Map<string, LoadedTool>();
+const seededResolver: ToolRegistryResolver = {
+  get: (name) => seeded.get(name) ?? null,
+  list: () => [...seeded.values()],
+};
+
+function seedTool(
   name: string,
   options: { capabilities?: string[]; success?: boolean; inspectContext?: boolean } = {},
-): Promise<void> {
-  fixtureDir ??= mkdtempSync(join(tmpdir(), 'capek-build-tools-'));
-  const toolPath = join(fixtureDir, name);
-  mkdirSync(toolPath, { recursive: true });
-  writeFileSync(join(toolPath, 'tool.ts'), `
-export const definition = {
-  name: '${name}',
-  description: 'Fixture ${name} tool',
-  inputSchema: { type: 'object', properties: {} },
-  ${options.capabilities ? `capabilities: ${JSON.stringify(options.capabilities)},` : ''}
-};
-export async function execute(_input, ctx) {
-  return ${options.success === false
-    ? "{ success: false, error: 'Tool crashed' }"
-    : options.inspectContext
-      ? "{ success: true, result: { workspacePath: ctx.workspacePath, allowedPaths: ctx.allowedPaths, tempDir: ctx.fs.tempDir, additionalAllowed: ctx.isWithinWorkspace('/workspace/shared/file.txt'), siblingAllowed: ctx.isWithinWorkspace('/workspace/project-other/file.txt') } }"
-      : "{ success: true, result: 'fixture-result' }"};
+): void {
+  seeded.set(name, {
+    definition: {
+      name,
+      description: `Fixture ${name} tool`,
+      inputSchema: { type: 'object', properties: {} },
+      ...(options.capabilities ? { capabilities: options.capabilities } : {}),
+    } as LoadedTool['definition'],
+    execute: async (_input: unknown, ctx: ToolContext) => {
+      if (options.success === false) return { success: false, error: 'Tool crashed' };
+      if (options.inspectContext) {
+        return { success: true, result: {
+          workspacePath: ctx.workspacePath, allowedPaths: ctx.allowedPaths, tempDir: ctx.fs.tempDir,
+          additionalAllowed: ctx.isWithinWorkspace('/workspace/shared/file.txt'),
+          siblingAllowed: ctx.isWithinWorkspace('/workspace/project-other/file.txt'),
+        } };
+      }
+      return { success: true, result: 'fixture-result' };
+    },
+  });
 }
-`);
-  await scanTools(fixtureDir);
+
+/** Builds inside the seeded scope, like a composed agent run. */
+function buildSeeded(options: BuildToolsOptions) {
+  return withToolRegistryResolver(seededResolver, () => buildAiSdkTools(options));
 }
 
 function defaultOptions(overrides: Partial<BuildToolsOptions> = {}): BuildToolsOptions {
@@ -112,7 +126,7 @@ describe('build-tools binding integration', () => {
   beforeEach(() => configureBindings());
 
   afterEach(() => {
-    clearCache();
+    seeded.clear();
     if (fixtureDir) {
       rmSync(fixtureDir, { recursive: true, force: true });
       fixtureDir = null;
@@ -135,9 +149,9 @@ describe('build-tools binding integration', () => {
   });
 
   test('loads and executes a real package registry tool', async () => {
-    await seedTool('read-file');
+    seedTool('read-file');
 
-    const tools = await buildAiSdkTools(defaultOptions({ toolNames: ['read-file'] }));
+    const tools = await buildSeeded(defaultOptions({ toolNames: ['read-file'] }));
     const result = await tools['read-file']!.execute!({}, { toolCallId: 'call-1', messages: [] });
 
     expect(tools).toHaveProperty('read-file');
@@ -145,9 +159,9 @@ describe('build-tools binding integration', () => {
   });
 
   test('constructs external tool workspace capabilities through the adapter seam', async () => {
-    await seedTool('workspace-context', { inspectContext: true });
+    seedTool('workspace-context', { inspectContext: true });
 
-    const tools = await buildAiSdkTools(defaultOptions({
+    const tools = await buildSeeded(defaultOptions({
       toolNames: ['workspace-context'],
       workspacePath: '/workspace/project',
       additionalPaths: ['/workspace/shared'],
@@ -169,9 +183,9 @@ describe('build-tools binding integration', () => {
   });
 
   test('returns the existing error object for failed tool execution', async () => {
-    await seedTool('write-file', { success: false });
+    seedTool('write-file', { success: false });
 
-    const tools = await buildAiSdkTools(defaultOptions({ toolNames: ['write-file'] }));
+    const tools = await buildSeeded(defaultOptions({ toolNames: ['write-file'] }));
     const result = await tools['write-file']!.execute!({}, { toolCallId: 'call-2', messages: [] });
 
     expect(result).toEqual({ error: 'Tool crashed' });
@@ -199,8 +213,8 @@ describe('build-tools binding integration', () => {
   });
 
   test('filters interactive tools using binding-provided session ancestry', async () => {
-    await seedTool('question', { capabilities: ['interactive-user-input'] });
-    await seedTool('read-file');
+    seedTool('question', { capabilities: ['interactive-user-input'] });
+    seedTool('read-file');
     configureBindings({
       sessions: {
         parent: { parentId: null },
@@ -208,7 +222,7 @@ describe('build-tools binding integration', () => {
       },
     });
 
-    const tools = await buildAiSdkTools(defaultOptions({
+    const tools = await buildSeeded(defaultOptions({
       sessionId: 'child',
       toolNames: ['question', 'read-file'],
     }));

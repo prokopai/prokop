@@ -56,7 +56,6 @@ import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/stora
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { resolvePermission } from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
-import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function flush(): Promise<void> {
@@ -191,7 +190,6 @@ afterEach(async () => {
   configureEnvironment();
   resetDomainToolFallbacksForTests();
   resetProviders();
-  clearCache();
   for (const path of roots.splice(0)) await rm(path, { recursive: true, force: true });
 });
 

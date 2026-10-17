@@ -45,7 +45,6 @@ import {
 import { selfDelegationGuidance } from '@prokopai/agent/internal/harnesses/prokop/subagent/guidance';
 import { configureStorage, createSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
-import { clearCache } from '@prokopai/core/infrastructure/tools/registry';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 
 function minimalHost(): RuntimeHost {
@@ -147,7 +146,6 @@ function configureEnvironment(): void {
 afterEach(async () => {
   configureEnvironment();
   resetDomainToolFallbacksForTests();
-  clearCache();
 });
 
 function makeSession(overrides: Partial<Session> = {}): Session {

@@ -40,7 +40,7 @@ describe('prokop legacy data migration', () => {
     const canonicalHome = join(homedir(), PROKOPAI_DIR_NAME);
     writeFileSync(
       join(dataDir, '.env'),
-      `# comment stays\nJEAN2_LLM_OPENAI_API_KEY=old-key\nOTHER_VAR=untouched\nJEAN2_PORT=9000\nJEAN2_DATABASE_PATH="${legacyHome}/data/agent.db"\nPROKOPAI_TOOLS_PATH=${legacyHome}/tools\n`,
+      `# comment stays\nJEAN2_LLM_OPENAI_API_KEY=old-key\nOTHER_VAR=untouched\nJEAN2_PORT=9000\nJEAN2_DATABASE_PATH="${legacyHome}/data/agent.db"\n`,
     );
 
     const result = runProkopaiRenameMigration({ skipDirMove: true });
@@ -52,7 +52,6 @@ describe('prokop legacy data migration', () => {
     expect(content).toContain('PROKOPAI_LLM_OPENAI_API_KEY=old-key');
     expect(content).toContain('PROKOPAI_PORT=9000');
     expect(content).toContain(`PROKOPAI_DATABASE_PATH="${canonicalHome}/data/agent.db"`);
-    expect(content).toContain(`PROKOPAI_TOOLS_PATH=${canonicalHome}/tools`);
     expect(content).toContain('# comment stays');
     expect(content).toContain('OTHER_VAR=untouched');
     expect(content).not.toContain('JEAN2_');
@@ -201,7 +200,7 @@ describe('prokop legacy data migration', () => {
     expect(result.steps.find((step) => step.step === 'config-paths')).toEqual({
       step: 'config-paths',
       status: 'done',
-      detail: 'rewrote 2 paths',
+      detail: 'rewrote 1 paths',
     });
 
     Paths.configure({ dataDir: canonicalDataDir });
@@ -245,10 +244,8 @@ describe('prokop legacy data migration', () => {
     expect(existsSync(result.backupPath!)).toBe(true);
     const repairedConfig = JSON.parse(readFileSync(join(canonicalDataDir, 'config.json'), 'utf-8')) as {
       databasePath: string;
-      toolsPath: string;
     };
     expect(repairedConfig.databasePath).toBe(canonicalDbPath);
-    expect(repairedConfig.toolsPath).toBe(join(canonicalDataDir, 'tools'));
     const verify = new Database(canonicalDbPath, { readonly: true });
     const row = verify.query('SELECT id FROM workspaces WHERE id = ?').get('existing') as { id: string };
     verify.close();

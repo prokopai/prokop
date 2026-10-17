@@ -13,7 +13,6 @@
 
 import { serviceKey } from '#agent/harnesses/prokop/composition/kernel/service-key';
 import type { ProviderStatus } from '@prokopai/sdk/types';
-import type { LoadedTool, ToolDefinition } from '@prokopai/sdk/tool';
 import type { RuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/contracts';
 import type { ContextSources } from '#agent/harnesses/prokop/context/sources';
 import type { ContextAssembler } from '#agent/harnesses/prokop/context/assembler';
@@ -47,27 +46,11 @@ export interface ProviderRegistryContract {
   createModelForProvider(options: ModelFactoryOptions): Promise<ModelFactoryResult>;
 }
 
-/** Current `tools/registry.ts` surface. `getTool` and `listTools` read the
- * seeded resolver first, exactly like the module functions they delegate to. */
-export interface InstalledToolRegistryContract {
-  getTool(name: string): Promise<LoadedTool | null>;
-  listTools(): Promise<ToolDefinition[]>;
-  scanTools(toolsPath?: string | null): Promise<LoadedTool[]>;
-  watchTools(toolsPath?: string | null): void;
-  stopWatching(): void;
-  clearCache(): void;
-  configureToolsPath(path?: string): void;
-}
 
 // Process scope: process-global registries and hosts.
 
 export const capekProviderRegistryKey = serviceKey<ProviderRegistryContract>(
   'capek.provider-registry',
-  'process',
-);
-
-export const capekInstalledToolRegistryKey = serviceKey<InstalledToolRegistryContract>(
-  'capek.installed-tool-registry',
   'process',
 );
 
@@ -255,7 +238,6 @@ export const C2_SERVICE_KEYS = [
   capekProviderOverridesKey,
   capekContextAssemblerKey,
   capekProviderRegistryKey,
-  capekInstalledToolRegistryKey,
   capekSessionSearchHostKey,
 ] as const;
 
@@ -279,7 +261,6 @@ export const C2_REQUIRED_AGENT_KEYS = [
 
 export const C2_PROCESS_KEYS = [
   capekProviderRegistryKey,
-  capekInstalledToolRegistryKey,
   capekSessionSearchHostKey,
 ] as const;
 

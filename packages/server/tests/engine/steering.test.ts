@@ -50,7 +50,6 @@ async function fixture(rules: AutoResponderRule[], onTool: (fixture: Fixture) =>
   const tool: LoadedTool = {
     definition: { name: 'work', description: 'Perform one bounded action.', inputSchema: { type: 'object', properties: {} }, timeout: 1000 },
     execute: async () => { await onTool(state); return { success: true, result: 'worked' }; },
-    path: 'builtin:test',
   };
   const tempRoot = await mkdtemp(join(tmpdir(), 'prokop-steering-'));
   tempRoots.push(tempRoot);

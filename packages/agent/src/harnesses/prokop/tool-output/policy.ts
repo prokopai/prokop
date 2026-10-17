@@ -195,7 +195,6 @@ export function createToolOutputService(
   function createRetrieveToolOutputStandardTool(): LoadedTool {
     return {
       definition: retrievalDefinitionBase,
-      path: 'builtin:@prokopai/runtime',
       execute: (input: Record<string, unknown>, context: ToolContext) =>
         executeRetrieval(input, context.sessionId),
     };
@@ -359,7 +358,6 @@ export function retrieveToolOutputForSession(
 export function getRetrieveToolOutputStandardTool(): LoadedTool {
   return {
     definition: retrievalDefinitionBase,
-    path: 'builtin:@prokopai/runtime',
     execute: async (input: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const page = await retrieveToolOutputForSession(context.sessionId, {
         artifactId: String(input.artifactId ?? ''),

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import { getEnvFilePath, getToolsDir } from './paths';
+import { getEnvFilePath } from './paths';
 import { readEnv, readEnvFloat, readEnvInt, JEAN2_ENV_PREFIX, PROKOPAI_ENV_PREFIX } from './env-compat';
 
 const envOverlay = new Map<string, string>();
@@ -81,10 +81,6 @@ export function getPort(): number {
 
 export function getHost(): string {
   return readEnv('HOST') || '127.0.0.1';
-}
-
-export function getToolsPath(): string {
-  return readEnv('TOOLS_PATH') || getToolsDir();
 }
 
 export function getModelsPath(): string | undefined {

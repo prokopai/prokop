@@ -23,20 +23,10 @@ import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import type { SessionSearchHost } from '#agent/harnesses/shared/session-search/host';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
-import {
-  clearCache,
-  configureToolsPath,
-  getTool,
-  listTools,
-  scanTools,
-  stopWatching,
-  watchTools,
-  type ToolRegistryResolver,
-} from '@prokopai/core/infrastructure/tools/registry';
+import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import {
   capekContextSourcesKey,
-  capekInstalledToolRegistryKey,
   capekProviderOverridesKey,
   capekProviderRegistryKey,
   capekRuntimeConfigurationKey,
@@ -46,7 +36,6 @@ import {
   capekStorageKey,
   capekToolResolverKey,
   capekWorkspaceToolDiscoveryKey,
-  type InstalledToolRegistryContract,
   type ProviderRegistryContract,
 } from '#agent/harnesses/prokop/composition/plugins/service-keys';
 
@@ -122,21 +111,6 @@ export function providerRegistryValuePlugin(id: string): RuntimePlugin<unknown> 
     createModelForProvider,
   };
   return valuePlugin(id, capekProviderRegistryKey, registry);
-}
-
-/** Process-scope installed tool registry provider. Delegates to the current
- * module functions, which read the seeded resolver first. */
-export function installedToolRegistryValuePlugin(id: string): RuntimePlugin<unknown> {
-  const registry: InstalledToolRegistryContract = {
-    getTool,
-    listTools,
-    scanTools,
-    watchTools,
-    stopWatching,
-    clearCache,
-    configureToolsPath,
-  };
-  return valuePlugin(id, capekInstalledToolRegistryKey, registry);
 }
 
 export function sessionSearchHostValuePlugin(id: string, host: SessionSearchHost): RuntimePlugin<unknown> {

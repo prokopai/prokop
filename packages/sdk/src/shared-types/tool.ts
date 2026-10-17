@@ -385,7 +385,6 @@ export interface ToolLogger {
 export interface LoadedTool {
   definition: ToolDefinition;
   execute: ToolModule['execute'];
-  path: string;
 }
 
 // ===========================================
@@ -428,5 +427,3 @@ export interface ToolExecution {
   startedAt: string;
   completedAt: string | null;
 }
-
-export type { InstallManifest } from './install-manifest';

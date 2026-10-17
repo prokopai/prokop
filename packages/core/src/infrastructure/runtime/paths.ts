@@ -158,10 +158,6 @@ class PathsSingleton {
     return join(this.getUploadDir(), workspaceId, sessionId);
   }
 
-  getToolsDir(): string {
-    return join(this.getDataDir(), 'tools');
-  }
-
   getPreconfigsDir(): string {
     return join(this.getDataDir(), 'preconfigs');
   }
@@ -214,7 +210,6 @@ export function getDatabaseDir(): string { return Paths.getDatabaseDir(); }
 export function getDefaultDatabasePath(): string { return Paths.getDefaultDatabasePath(); }
 export function getUploadDir(): string { return Paths.getUploadDir(); }
 export function getAttachmentDir(workspaceId: string, sessionId: string): string { return Paths.getAttachmentDir(workspaceId, sessionId); }
-export function getToolsDir(): string { return Paths.getToolsDir(); }
 export function getPreconfigsDir(): string { return Paths.getPreconfigsDir(); }
 export function getPromptsDir(): string { return Paths.getPromptsDir(); }
 export function getProvidersDir(): string { return Paths.getProvidersDir(); }

@@ -55,7 +55,6 @@ When conversations grow too large for the context window, Prokop automatically c
 | `PROKOPAI_ALLOWED_HOSTS` | (none) | Comma-separated hostnames or URLs other devices use through a proxy, added to the remote-access addresses |
 | `PROKOPAI_DATA_DIR` | `~/.prokopai` | Root data directory |
 | `PROKOPAI_DATABASE_PATH` | `~/.prokopai/data/agent.db` | SQLite database path |
-| `PROKOPAI_TOOLS_PATH` | `~/.prokopai/tools` | Tool modules directory |
 | `PROKOPAI_PRECONFIGS_PATH` | `~/.prokopai/preconfigs` | Preconfigs directory |
 | `PROKOPAI_MODELS_PATH` | (none) | Custom models.json path |
 | `PROKOPAI_CLIENT_ENABLED` | `true` | Set to `false` to disable the client embedded in the server binary |

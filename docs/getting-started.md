@@ -37,12 +37,12 @@ prokop init
 4. Starts the Prokopai daemon on port **8742**.
 5. Opens the built-in client in your browser.
 
-The baseline tools used by the bundled agents are included in the binary. No tool installation or update command is required.
+The tools used by the bundled agents are included in the binary. No tool installation or update command is required; connect MCP servers for anything more.
 
 Advanced automation can override paths or skip individual setup operations:
 
 ```bash
-prokop init --db-path <path> --tools-path <path>
+prokop init --db-path <path>
 prokop init --no-migrations
 prokop init --no-preconfigs
 prokop init --force

@@ -1,7 +1,6 @@
 import { atomicWriteFile, readFileSafe } from './files';
 import { getEnvFilePath } from '@prokopai/core/infrastructure/runtime/paths';
 import { getProkopEnvValue, getAllProkopEnvKeys, reloadProkopEnv } from '@prokopai/core/infrastructure/runtime/environment';
-import { listTools } from '@prokopai/core/infrastructure/tools/registry';
 import { ENV_PRESETS, getPreset, isPresetKey } from './env-presets';
 import { ConfigurationPersistenceError, ConfigurationValidationError } from './errors';
 
@@ -80,38 +79,6 @@ export async function listToolEnvVars(): Promise<ToolEnvStatus> {
     if ((key.startsWith('JEAN2_') || key.startsWith('PROKOPAI_')) && !isPresetKey(key)) {
       excludedKeys.add(key);
     }
-  }
-
-  // --- Tool-declared env vars ---
-  const tools = await listTools();
-  const envVarToolsMap = new Map<string, string[]>();
-  for (const tool of tools) {
-    if (tool.env && Array.isArray(tool.env)) {
-      for (const envVar of tool.env) {
-        const existing = envVarToolsMap.get(envVar) || [];
-        existing.push(tool.name);
-        envVarToolsMap.set(envVar, existing);
-        excludedKeys.add(envVar); // also exclude from custom
-      }
-    }
-  }
-  for (const [key, usedBy] of envVarToolsMap) {
-    if (result.has(key)) continue; // skip if already a preset
-    const value = getProkopEnvValue(key);
-    const configured = value !== undefined && value !== '';
-    const sensitive = isSensitiveEnvKey(key);
-    const status: ToolEnvVarStatus = {
-      key,
-      configured,
-      sensitive,
-      source: 'tool',
-      usedBy,
-    };
-    if (configured && !sensitive) {
-      status.value = value;
-    }
-    result.set(key, status);
-    configuredKeys.delete(key);
   }
 
   // --- Custom: any remaining configured key not excluded or a preset ---

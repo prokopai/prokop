@@ -145,10 +145,10 @@ export interface SessionWorktreeResponse {
  * GET /api/tools
  *
  * Each entry carries `source`: 'builtin' (shipped with the server
- * binary) or 'installed' (resolved from the tools directory).
+ * binary) or 'domain' (enabled by a workspace capability).
  */
 export interface ListToolsResponse {
-  tools: Array<ToolDefinition & { source: 'builtin' | 'installed' | 'domain' }>;
+  tools: Array<ToolDefinition & { source: 'builtin' | 'domain' }>;
 }
 
 /**

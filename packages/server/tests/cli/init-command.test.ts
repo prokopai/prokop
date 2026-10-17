@@ -6,7 +6,6 @@ const initialization: InitResult = {
   success: true,
   configPath: '/tmp/prokopai/config.json',
   databasePath: '/tmp/prokopai/agent.db',
-  toolsPath: '/tmp/prokopai/tools',
   modelsPath: '/tmp/prokopai/models.json',
   preconfigsInstalled: true,
 };

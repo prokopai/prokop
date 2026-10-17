@@ -6,7 +6,6 @@ import { buildSystemMessage } from '@prokopai/agent/internal/harnesses/prokop/co
 import { createWorkspaceCapability } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
 import { createModelForProvider, getConnectableProviders, getProvider } from '@prokopai/core/infrastructure/providers/registry';
 import { configureWorkspaceToolDiscovery, getWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
-import { configureToolsPath } from '@prokopai/core/infrastructure/tools/registry';
 import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import {
   configureRuntimeConfiguration,
@@ -122,7 +121,6 @@ describe('Čapek composition root', () => {
     configureAgentSource();
     configureInstructionSource();
     configureSessionSearchHost();
-    configureToolsPath();
     configureWorkspaceToolDiscovery();
     configureWorkspacePolicy();
   });
@@ -337,13 +335,12 @@ describe('C2 kernel composition of Jean2 dependencies', () => {
       ['capek.workspace-policy', 'agent', 'current.workspace-policy', 'agent'],
       ['capek.workspace-tool-discovery', 'agent', 'current.workspace-tool-discovery', 'agent'],
       ['capek.tool-resolver', 'agent', 'prokopai.tool-resolver', 'agent'],
-      ['capek.installed-tool-registry', 'process', 'current.installed-tool-registry', 'process'],
       ['capek.provider-registry', 'process', 'current.provider-registry', 'process'],
       ['capek.session-search-host', 'process', 'current.session-search-host', 'process'],
     ]);
 
-    // The built-in tools resolver is provided: built-ins plus installed
-    // tools resolve through the merged scoped resolver.
+    // The built-in tools resolver is provided: built-ins and domain tools
+    // resolve through the scoped resolver.
     expect(agentScope.optional(capekToolResolverKey)).toBeDefined();
     expect(agentServices.some((entry) => entry[0] === 'capek.tool-resolver')).toBe(true);
 
@@ -434,8 +431,8 @@ describe('C4 coding bundle in the Jean2 composition', () => {
       ).toBe(true);
     }
 
-    // The merged scoped resolver is provided: built-ins plus installed
-    // external tools resolve through it.
+    // The scoped resolver is provided: built-ins and domain tools resolve
+    // through it.
     expect(agentScope.optional(capekToolResolverKey)).toBeDefined();
   });
 });

@@ -58,7 +58,6 @@ prokop init [options]
 | Flag | Description |
 |------|-------------|
 | `--db-path <path>` | Custom database path |
-| `--tools-path <path>` | Custom tools directory |
 | `--run-migrations` | Run schema migrations (default) |
 | `--no-migrations` | Skip schema migrations |
 | `--install-preconfigs` | Install default preconfigs (default) |

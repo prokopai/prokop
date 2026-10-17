@@ -24,7 +24,6 @@ function neverSettlingTool(timeout?: number | null): LoadedTool {
       timeout,
     },
     execute,
-    path: 'virtual://never-settles',
   };
 }
 
@@ -92,7 +91,6 @@ describe('executeTool abort race', () => {
         resolved = true;
         return { success: true, result: { ok: true } };
       },
-      path: 'virtual://slow-tool',
     };
 
     const result = await executeTool({
@@ -122,7 +120,6 @@ describe('executeTool abort race', () => {
         resolved = true;
         return { success: true, result: { ok: true } };
       },
-      path: 'virtual://slow-tool',
     };
 
     const result = await executeTool({

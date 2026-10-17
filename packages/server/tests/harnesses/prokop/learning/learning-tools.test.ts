@@ -21,7 +21,7 @@ for (const scope of ['workspace', 'agent'] as const) {
   test(`public plugin composition exposes only ${scope} learning tools`, async () => {
     const process = await createProcessScope([]);
     const agent = await createAgentScope(process, [
-      loadedToolsPlugin('unrelated', [{ definition: { name: 'shell', description: 'No', inputSchema: {} }, path: 'test', execute: async () => ({ success: true }) }]),
+      loadedToolsPlugin('unrelated', [{ definition: { name: 'shell', description: 'No', inputSchema: {} }, execute: async () => ({ success: true }) }]),
       ...createLearningToolsPlugins(options({ scope, home: true })),
     ]);
     try {

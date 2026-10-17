@@ -123,7 +123,6 @@ Commands:
 
   init                 Set up Prokop, start it, and open the client
     --db-path <path>   Custom database path
-    --tools-path <path>  Custom tools path
     --run-migrations   Run schema migrations (default)
     --no-migrations    Skip schema migrations
     --install-preconfigs   Install default preconfigs (default)
@@ -292,8 +291,6 @@ async function main(): Promise<void> {
       for (let i = 0; i < initArgs.length; i++) {
         if (initArgs[i] === '--db-path' && initArgs[i + 1]) {
           initOptions.databasePath = initArgs[++i];
-        } else if (initArgs[i] === '--tools-path' && initArgs[i + 1]) {
-          initOptions.toolsPath = initArgs[++i];
         } else if (initArgs[i] === '--run-migrations' || initArgs[i] === '--no-migrations') {
           initOptions.runMigrations = initArgs[i] === '--run-migrations';
         } else if (initArgs[i] === '--install-preconfigs' || initArgs[i] === '--no-preconfigs') {

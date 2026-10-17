@@ -6,7 +6,6 @@ import {
   getGlobalAgentsPath,
   getConfigPath,
   getDefaultDatabasePath,
-  getToolsDir,
   getModelsConfigPath,
 } from '@prokopai/core/infrastructure/runtime/paths';
 
@@ -22,7 +21,6 @@ import defaultModelsJson from '@/config/models.json';
 
 export interface InitOptions {
   databasePath?: string;
-  toolsPath?: string;
   runMigrations?: boolean;
   installPreconfigs?: boolean;
   force?: boolean;
@@ -33,13 +31,12 @@ export interface InitResult {
   error?: string;
   configPath: string;
   databasePath: string;
-  toolsPath: string;
   modelsPath: string;
   preconfigsInstalled: boolean;
 }
 
 async function initProkopInternal(options: InitOptions = {}): Promise<InitResult> {
-  const { databasePath, toolsPath, runMigrations: runMigrationsOption, installPreconfigs: installPreconfigsOption, force } = options;
+  const { databasePath, runMigrations: runMigrationsOption, installPreconfigs: installPreconfigsOption, force } = options;
 
   if (isInitialized() && !force) {
     return {
@@ -47,7 +44,6 @@ async function initProkopInternal(options: InitOptions = {}): Promise<InitResult
       error: 'Prokopai is already initialized. Use --force to re-initialize.',
       configPath: getConfigPath(),
       databasePath: databasePath || getDefaultDatabasePath(),
-      toolsPath: toolsPath || getToolsDir(),
       modelsPath: getModelsConfigPath(),
       preconfigsInstalled: false,
     };
@@ -61,11 +57,9 @@ async function initProkopInternal(options: InitOptions = {}): Promise<InitResult
   const shouldRunMigrations = runMigrationsOption ?? true;
   const shouldInstallPreconfigs = installPreconfigsOption ?? true;
   const finalDbPath = databasePath || getDefaultDatabasePath();
-  const finalToolsPath = toolsPath || getToolsDir();
 
   // Create directories
   mkdirSync(dirname(finalDbPath), { recursive: true });
-  mkdirSync(finalToolsPath, { recursive: true });
   mkdirSync(getPromptsDir(), { recursive: true });
 
   // Create empty .env file
@@ -109,7 +103,6 @@ PROKOPAI_LLM_SUBAGENT_MAX_STEPS=500
   // Save config
   saveConfig({
     databasePath: finalDbPath,
-    toolsPath: finalToolsPath,
     initializedAt: new Date().toISOString(),
   });
 
@@ -133,7 +126,6 @@ PROKOPAI_LLM_SUBAGENT_MAX_STEPS=500
     success: true,
     configPath: getConfigPath(),
     databasePath: finalDbPath,
-    toolsPath: finalToolsPath,
     modelsPath: getModelsConfigPath(),
     preconfigsInstalled: shouldInstallPreconfigs,
   };

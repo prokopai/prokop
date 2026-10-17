@@ -2,7 +2,6 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 import {
   getDatabasePath as getEnvDatabasePath,
-  getToolsPath as getEnvToolsPath,
   getLLMMaxTokens,
   getModelsPath,
 } from '../infrastructure/runtime/environment';
@@ -11,7 +10,6 @@ import {
   getConfigPath,
   getModelsConfigPath,
   getDefaultDatabasePath,
-  getToolsDir,
 } from '../infrastructure/runtime/paths';
 import { validateModelsDocument } from './schema';
 
@@ -48,7 +46,7 @@ export class ModelsConfigInvalidError extends Error {
   }
 }
 
-let configCache: { databasePath: string; toolsPath: string } | null = null;
+let configCache: { databasePath: string } | null = null;
 
 let modelsCache: ModelsConfig | null = null;
 
@@ -96,7 +94,7 @@ function loadModelsConfig(): ModelsConfig {
   }
 }
 
-function loadConfig(): { databasePath: string; toolsPath: string } {
+function loadConfig(): { databasePath: string } {
   if (configCache) {
     return configCache;
   }
@@ -110,9 +108,10 @@ function loadConfig(): { databasePath: string; toolsPath: string } {
   try {
     const content = readFileSync(configPath, 'utf-8');
     const config = JSON.parse(content);
+    // Older files also carry `toolsPath`; the tools directory no longer exists
+    // and the key is ignored.
     configCache = {
       databasePath: config.databasePath || getDefaultDatabasePath(),
-      toolsPath: config.toolsPath || getToolsDir(),
     };
     return configCache;
   } catch {
@@ -137,16 +136,6 @@ export function isInitialized(): boolean {
  */
 export function resolveDatabasePath(): string {
   return getEnvDatabasePath() || loadConfig().databasePath;
-}
-
-/**
- * Resolve the tools path using the following priority:
- * 1. JEAN2_TOOLS_PATH environment variable (highest priority)
- * 2. Path from ~/.jean2/config.json
- * 3. Default: ~/.jean2/tools
- */
-export function resolveToolsPath(): string {
-  return getEnvToolsPath() || loadConfig().toolsPath;
 }
 
 // Maximum output tokens cap (like opencode's OUTPUT_TOKEN_MAX)
@@ -287,7 +276,6 @@ export function getMaxOutputTokens(modelId?: string): number {
 /** config.json. Port and host come from the environment (`PROKOPAI_PORT`, `PROKOPAI_HOST`). */
 export interface ProkopConfig {
   databasePath: string;
-  toolsPath: string;
   initializedAt: string;
 }
 

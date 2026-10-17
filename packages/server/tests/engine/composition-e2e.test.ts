@@ -51,7 +51,6 @@ function askingGrepTool(): LoadedTool {
       if (!approved) return { success: false, error: 'USER_REJECTION' };
       return { success: true, result: { content: 'ok', truncated: false } };
     },
-    path: 'builtin:test',
   };
 }
 
@@ -82,7 +81,6 @@ function plainGrepTool(): LoadedTool {
       }
       return { success: true, result: { content: lines.join('\n'), truncated: false } };
     },
-    path: 'builtin:test',
   };
 }
 

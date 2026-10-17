@@ -12,7 +12,6 @@ export { localHarnessProbes } from '#agent/composition/probes';
 
 // The Prokop runtime's own bindings and process defaults.
 export * from '#agent/harnesses/prokop/bindings/index';
-export { warmInstalledToolsCache } from '#agent/harnesses/prokop/bindings/tool-resolver';
 export { builtinTools } from '#agent/harnesses/prokop/tools/index';
 export { disposeProkopExecutionScope, initializeProkopExecutionScope } from '#agent/harnesses/prokop/composition/execution-scope';
 

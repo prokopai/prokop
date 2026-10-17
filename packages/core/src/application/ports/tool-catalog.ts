@@ -1,9 +1,9 @@
 import type { LoadedTool, ToolDefinition, ToolEnvVarStatus } from '@prokopai/sdk';
 
-/** Catalog entry exposed to the tools route. Built-ins and domain tools win
- * over same-named external directory tools, so a name appears at most once. */
+/** Catalog entry exposed to the tools route: a built-in shipped in the
+ * binary, or a domain tool a workspace capability enables. */
 export type ToolCatalogEntry = ToolDefinition & {
-  source: 'builtin' | 'installed' | 'domain';
+  source: 'builtin' | 'domain';
 };
 
 export interface ToolCatalogPort {

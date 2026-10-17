@@ -28,12 +28,6 @@ describe('built-in tool catalog', () => {
     }
   });
 
-  test('marks tools with the builtin source path', () => {
-    for (const tool of builtinTools) {
-      expect(tool.path).toBe('builtin:prokopai');
-    }
-  });
-
   test('isBuiltinToolName matches catalog names only', () => {
     expect(isBuiltinToolName('read-file')).toBe(true);
     expect(isBuiltinToolName('browser_navigate')).toBe(false);

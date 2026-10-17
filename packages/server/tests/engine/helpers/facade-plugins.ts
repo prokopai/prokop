@@ -36,7 +36,6 @@ import {
   storageValuePlugin,
   toolResolverValuePlugin,
   workspaceToolDiscoveryValuePlugin,
-  installedToolRegistryValuePlugin,
   providerRegistryValuePlugin,
   sessionSearchHostValuePlugin,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/value-plugins';
@@ -44,7 +43,6 @@ import {
 export function facadeProcessPlugins(): readonly RuntimePlugin<unknown>[] {
   return [
     providerRegistryValuePlugin('facade.provider-registry'),
-    installedToolRegistryValuePlugin('facade.installed-tool-registry'),
     sessionSearchHostValuePlugin('facade.session-search-host', getSessionSearchHost()),
   ];
 }

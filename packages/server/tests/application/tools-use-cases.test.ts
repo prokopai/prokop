@@ -16,7 +16,7 @@ function makeDefinition(overrides: Partial<ToolCatalogEntry> = {}): ToolCatalogE
     description: 'Demo tool',
     inputSchema: { type: 'object', properties: {} },
     timeout: 30000,
-    source: 'installed',
+    source: 'builtin',
     ...overrides,
   } as ToolCatalogEntry;
 }

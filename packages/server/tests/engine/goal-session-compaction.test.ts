@@ -50,7 +50,6 @@ async function fixture(rules: AutoResponderRule[], run: (fixture: {
   const tool: LoadedTool = {
     definition: { name: 'work', description: 'Perform one bounded action.', inputSchema: { type: 'object', properties: {} }, timeout: 1000 },
     execute: async () => { executions++; return { success: true, result: 'x'.repeat(4000) }; },
-    path: 'builtin:test',
   };
   const base = createSingleModelConfiguration({ modelId: 'test-model', providerId: 'sandbox' });
   const configuration = {

@@ -4,7 +4,6 @@ import type { RuntimePlugin } from '#agent/harnesses/prokop/composition/plugins/
 import { compactionPolicyPlugin } from '#agent/harnesses/prokop/composition/plugins/compaction-policy';
 import {
   contextSourcesValuePlugin,
-  installedToolRegistryValuePlugin,
   providerOverridesValuePlugin,
   providerRegistryValuePlugin,
   runtimeConfigurationValuePlugin,
@@ -51,7 +50,6 @@ import { prokopWorkspacePolicyOptions } from '#agent/harnesses/prokop/bindings/w
 
 export const JEAN2_PROCESS_PLUGIN_IDS = [
   'current.provider-registry',
-  'current.installed-tool-registry',
   'current.session-search-host',
 ] as const;
 
@@ -83,7 +81,6 @@ export const JEAN2_AGENT_PLUGIN_IDS = [
 export function prokopProcessPlugins(): readonly RuntimePlugin<unknown>[] {
   return [
     providerRegistryValuePlugin('current.provider-registry'),
-    installedToolRegistryValuePlugin('current.installed-tool-registry'),
     sessionSearchHostValuePlugin('current.session-search-host', getSessionSearchHost()),
   ];
 }

@@ -65,7 +65,6 @@ export function createRuntime(existingAgents?: AgentsApplication): AgentsApplica
   runtime.configureProkopInstructionSource();
   configureProkopSessionSearchHost(createSessionSearchHostDeps(agents));
   configureProkopWorkspaceToolDiscovery();
-  void runtime.warmInstalledToolsCache();
   inProcessBindings().configureProkopBindings();
   configureAgentPorts();
   // S11.4: the harness-owned composed-scope lifecycle installs here; the

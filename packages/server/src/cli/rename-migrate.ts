@@ -110,8 +110,6 @@ const PATH_ENV_KEYS = [
   'JEAN2_DATA_DIR',
   'PROKOPAI_DATABASE_PATH',
   'JEAN2_DATABASE_PATH',
-  'PROKOPAI_TOOLS_PATH',
-  'JEAN2_TOOLS_PATH',
   'PROKOPAI_MODELS_PATH',
   'JEAN2_MODELS_PATH',
   'PROKOPAI_PRECONFIGS_PATH',
@@ -181,7 +179,7 @@ function migrateConfigPaths(
   try {
     const config = readJsonObject(configPath)!;
     let rewritten = 0;
-    for (const key of ['databasePath', 'toolsPath']) {
+    for (const key of ['databasePath']) {
       const value = config[key];
       if (typeof value !== 'string') continue;
       const migrated = rewriteLegacyPath(value, legacyDataDir, canonicalDataDir);

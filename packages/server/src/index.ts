@@ -21,7 +21,6 @@ import {
   getParticipantClientIds,
   getParticipantConnections,
 } from '@/transport/websocket/control-registry';
-import { scanTools } from '@prokopai/core/infrastructure/tools/registry';
 import { closeDatabase, getDatabase } from '@/infrastructure/sqlite/database';
 import { backfillFts } from '@/infrastructure/session-search/fts';
 import type { ServerMessage, AskAuthority } from '@prokopai/sdk';
@@ -182,10 +181,6 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
     console.warn('WARNING: No LLM API keys configured. Chat will not work.');
     console.warn('Set at least one of: JEAN2_LLM_OPENROUTER_API_KEY, JEAN2_LLM_MINIMAX_API_KEY, JEAN2_LLM_ZHIPU_CODING_API_KEY, JEAN2_LLM_DEEPSEEK_API_KEY');
   }
-
-  console.log('Scanning for tools...');
-  const tools = await scanTools();
-  console.log(`Found ${tools.length} tools: ${tools.map(t => t.definition.name).join(', ')}`);
 
   // Remote access decides the bind address (unless PROKOPAI_HOST or --host does)
   // and controls the listeners created below; `listenerControl` is late-bound.

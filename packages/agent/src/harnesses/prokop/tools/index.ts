@@ -20,8 +20,6 @@ import * as todo from '#agent/harnesses/prokop/tools/todo/tool';
 import * as webfetch from '#agent/harnesses/prokop/tools/webfetch/tool';
 import * as writeFile from '#agent/harnesses/prokop/tools/write-file/tool';
 
-const BUILTIN_PATH = 'builtin:prokopai';
-
 type BuiltinToolModule = {
   definition: ToolDefinition;
   execute: (input: never, ctx: ToolContext) => Promise<ToolResult>;
@@ -31,7 +29,6 @@ function toLoadedTool(module: BuiltinToolModule): LoadedTool {
   return {
     definition: module.definition,
     execute: module.execute as unknown as LoadedTool['execute'],
-    path: BUILTIN_PATH,
   };
 }
 

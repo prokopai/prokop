@@ -60,7 +60,6 @@ You (browser / PWA / browser extension)
 |                                           |
 |   ~/.prokopai/                               |
 |   +-- data/agent.db                       |
-|   +-- tools/                              |
 |   +-- preconfigs/                         |
 |   +-- models.json                         |
 |   +-- .env                                |

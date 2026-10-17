@@ -72,9 +72,7 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
     '@/transport/websocket/broadcast', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/session-store',
   ],
   'packages/server/src/adapters/prokop/runtime-host/tool-source.ts': [
-    '@prokopai/core/config', '@/infrastructure/mcp', '@prokopai/core/infrastructure/runtime/paths',
-    '@prokopai/core/infrastructure/runtime/env-compat',
-    '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/workspaces',
+    '@/infrastructure/mcp', '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/workspaces',
   ],
   'packages/server/src/adapters/prokop/runtime-host/workspace.ts': [
     '@/infrastructure/sqlite/workspaces', '@/infrastructure/sqlite/session-store',
