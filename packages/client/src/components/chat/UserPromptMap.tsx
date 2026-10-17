@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Part, TextPart } from '@prokopai/sdk';
 import { contextMessagePlainText } from '@prokopai/sdk';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -134,6 +134,57 @@ function buildMarkerLabels(items: UserPromptMapItem[]): string[] {
   return labels;
 }
 
+/**
+ * Primitive props only: the items are rebuilt on every streamed update, but a
+ * marker's values change only when its prompt does.
+ */
+const PromptMarker = memo(function PromptMarker({
+  messageId,
+  kind,
+  label,
+  preview,
+  markerWidth,
+  active,
+  onNavigate,
+}: {
+  messageId: string;
+  kind: UserPromptMapItemKind;
+  label: string;
+  preview: string;
+  markerWidth: number;
+  active: boolean;
+  onNavigate: (messageId: string) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          onClick={() => onNavigate(messageId)}
+          className="group pointer-events-auto flex h-3 w-8 shrink-0 items-center justify-end rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <span
+            className={cn(
+              'block transition-all',
+              MARKER_CLASS[kind].idle,
+              active && MARKER_CLASS[kind].active,
+            )}
+            style={{ width: `${markerWidth}px` }}
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        sideOffset={8}
+        className="block max-h-48 w-80 max-w-[min(20rem,calc(100vw-2rem))] overflow-hidden whitespace-normal text-left leading-relaxed"
+      >
+        {preview}
+      </TooltipContent>
+    </Tooltip>
+  );
+});
+
 export function canShowUserPromptMap(width: number): boolean {
   return width >= MIN_PROMPT_MAP_WIDTH;
 }
@@ -201,32 +252,16 @@ export function UserPromptMap({
           <TooltipProvider>
             <div className="flex max-h-full w-full flex-col gap-1 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {promptItems.map((item, index) => (
-                <Tooltip key={item.messageId}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={markerLabels[index]}
-                      onClick={() => onNavigate(item.messageId)}
-                      className="group pointer-events-auto flex h-3 w-8 shrink-0 items-center justify-end rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      <span
-                        className={cn(
-                          'block transition-all',
-                          MARKER_CLASS[item.kind].idle,
-                          targetMessageId === item.messageId && MARKER_CLASS[item.kind].active,
-                        )}
-                        style={{ width: `${item.markerWidth}px` }}
-                      />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="left"
-                    sideOffset={8}
-                    className="block max-h-48 w-80 max-w-[min(20rem,calc(100vw-2rem))] overflow-hidden whitespace-normal text-left leading-relaxed"
-                  >
-                    {item.preview}
-                  </TooltipContent>
-                </Tooltip>
+                <PromptMarker
+                  key={item.messageId}
+                  messageId={item.messageId}
+                  kind={item.kind}
+                  label={markerLabels[index]}
+                  preview={item.preview}
+                  markerWidth={item.markerWidth}
+                  active={targetMessageId === item.messageId}
+                  onNavigate={onNavigate}
+                />
               ))}
             </div>
           </TooltipProvider>

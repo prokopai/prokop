@@ -1236,7 +1236,10 @@ export function VirtualizedTranscript({
       extraData={listExtraData}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
-      estimatedItemSize={100}
+      // Rows run 100-3000px. The first window is sized from this estimate and
+      // recycled containers keep their rows, so a low value leaves ~20 rows
+      // mounted far offscreen for the whole session.
+      estimatedItemSize={400}
       drawDistance={800}
       initialScrollAtEnd={!targetMessageId && autoFollow}
       initialScrollIndex={initialScroll}

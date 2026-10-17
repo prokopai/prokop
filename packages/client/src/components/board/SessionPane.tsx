@@ -59,8 +59,10 @@ export function SessionPane({
   // so pin/unpin mutations always target the message's actual workspace.
   const workspaceId = session?.workspaceId ?? null;
   const { data: pinnedMessages } = usePinnedMessagesQuery(sdkClient, workspaceId);
-  const pinMessageMutation = usePinMessageMutation(sdkClient, workspaceId);
-  const unpinMessageMutation = useUnpinMessageMutation(sdkClient, workspaceId);
+  // Depend on the stable `mutate` functions, not the mutation results: those
+  // are new objects every render and would re-render every transcript row.
+  const { mutate: pinMessage, isPending: isPinPending } = usePinMessageMutation(sdkClient, workspaceId);
+  const { mutate: unpinMessage, isPending: isUnpinPending } = useUnpinMessageMutation(sdkClient, workspaceId);
 
   const pinnedMessageIds = useMemo(
     () => new Set((pinnedMessages ?? []).map(pin => pin.messageId)),
@@ -70,16 +72,36 @@ export function SessionPane({
   const handleTogglePinMessage = useCallback((message: Message) => {
     if (!workspaceId || message.role !== 'assistant') return;
     if (pinnedMessageIds.has(message.id)) {
-      unpinMessageMutation.mutate({ messageId: message.id });
+      unpinMessage({ messageId: message.id });
     } else {
-      pinMessageMutation.mutate({
+      pinMessage({
         sessionId: message.sessionId,
         messageId: message.id,
       });
     }
-  }, [workspaceId, pinnedMessageIds, pinMessageMutation, unpinMessageMutation]);
+  }, [workspaceId, pinnedMessageIds, pinMessage, unpinMessage]);
 
-  const isPinningMessage = pinMessageMutation.isPending || unpinMessageMutation.isPending;
+  const isPinningMessage = isPinPending || isUnpinPending;
+
+  // Row callbacks live outside the ChatView JSX: the compiler memoizes that
+  // element as one block, so inline arrows there change with every streamed
+  // message and break the memo on every transcript row.
+  const handleCompact = useCallback(() => commands.compactSession(sessionId), [commands, sessionId]);
+  const handleClearCompactionSuccess = useCallback(
+    () => useSessionStore.getState().setCompactionSuccessForSession(sessionId, false),
+    [sessionId],
+  );
+  const handleTargetMessageHandled = useCallback(
+    () => useSessionStore.getState().setNavigationIntentForSession(sessionId, { mode: 'free' }),
+    [sessionId],
+  );
+  const handleNavigateToMessage = useCallback(
+    (messageId: string) => useSessionStore.getState().setNavigationIntentForSession(
+      sessionId,
+      { mode: 'target-message', messageId },
+    ),
+    [sessionId],
+  );
 
   const scrollToBottomRef = useRef<(() => void) | null>(null);
   const autoFollowToggleRef = useRef<{ toggle: () => void } | null>(null);
@@ -190,10 +212,10 @@ export function SessionPane({
           onRevert={commands.revertSession}
           onFork={commands.forkSession}
           onEditMessage={commands.editMessage}
-          onCompact={() => commands.compactSession(sessionId)}
+          onCompact={handleCompact}
           isCompacting={isCompacting}
           compactionSuccess={compactionSuccess}
-          onClearCompactionSuccess={() => useSessionStore.getState().setCompactionSuccessForSession(sessionId, false)}
+          onClearCompactionSuccess={handleClearCompactionSuccess}
           serverUrl={serverUrl ?? undefined}
           sdkClient={sdkClient}
           scrollToBottomRef={scrollToBottomRef}
@@ -203,11 +225,8 @@ export function SessionPane({
           isPinningMessage={isPinningMessage}
           targetMessageId={targetMessageId}
           navigationIntent={navigationIntent}
-          onTargetMessageHandled={() => useSessionStore.getState().setNavigationIntentForSession(sessionId, { mode: 'free' })}
-          onNavigateToMessage={(messageId) => useSessionStore.getState().setNavigationIntentForSession(
-            sessionId,
-            { mode: 'target-message', messageId },
-          )}
+          onTargetMessageHandled={handleTargetMessageHandled}
+          onNavigateToMessage={handleNavigateToMessage}
           onClaimControl={commands.claimControl}
         />
       )}
