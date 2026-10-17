@@ -10,4 +10,12 @@ export class NotificationsNamespace {
       sessionId,
     });
   }
+
+  /** Tells the server whether someone is at this device (see `ClientAttentionMessage`). */
+  reportAttention(attending: boolean): void {
+    this.send({
+      type: 'client.attention',
+      attending,
+    });
+  }
 }

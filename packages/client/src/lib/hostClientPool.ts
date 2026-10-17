@@ -18,6 +18,7 @@ import {
   sessionHandlers,
 } from '@/handlers/serverMessage';
 import { resolveClientDescriptor } from '@/config/client-identity';
+import { attachAttentionReporter } from '@/lib/attentionReporter';
 import { resolveHostUrl } from '@/lib/hostRoutes';
 import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { foreignSessionsOf, useForeignSessionsStore } from '@/stores/foreignSessionsStore';
@@ -236,7 +237,13 @@ function start(server: SavedServer): () => void {
       if (stopped) return;
       const next = new ProkopaiClient({ url, ...(server.token ? { token: server.token } : {}), autoSyncPermissions: false, clientDescriptor: descriptor });
       client = next;
-      unsubscribe = subscribe(next, server.id);
+      const unsubscribeEvents = subscribe(next, server.id);
+      // Other machines hold their pushes too while someone is at this device.
+      const detachAttention = attachAttentionReporter(next);
+      unsubscribe = () => {
+        unsubscribeEvents();
+        detachAttention();
+      };
       const closed = new Promise<{ code: number } | null>((resolve) => {
         next.on('disconnected', (payload) => resolve(payload as { code: number }));
         pending.wake = () => resolve(null);

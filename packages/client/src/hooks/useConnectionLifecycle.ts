@@ -13,6 +13,7 @@ import { subscribeToServerEvents } from './subscribeToServerEvents';
 import { subscribeToAccessRequests } from '@/lib/accessRequestPrompts';
 import { refreshWorkspaceActivity } from '@/lib/refreshWorkspaceActivity';
 import { resolveClientDescriptor } from '@/config/client-identity';
+import { attachAttentionReporter } from '@/lib/attentionReporter';
 import {
   markConnectionAttempt,
   startConnectionSupervisor,
@@ -75,9 +76,12 @@ export function useConnectionLifecycle({
 
     let cancelled = false;
     let unsubscribeAccessRequests: (() => void) | null = null;
+    let detachAttention: (() => void) | null = null;
     let ownedClient: ProkopaiClient | null = null;
     const cancelAttempt = () => {
       cancelled = true;
+      detachAttention?.();
+      detachAttention = null;
       if (ownedClient) {
         void ownedClient.dispose().catch((error: unknown) => console.error('Connection disposal failed:', error));
         if (clientRef.current === ownedClient) clientRef.current = null;
@@ -174,6 +178,9 @@ export function useConnectionLifecycle({
       subscribeToServerEvents(client, handlerContextRef);
       unsubscribeAccessRequests?.();
       unsubscribeAccessRequests = subscribeToAccessRequests(client);
+      // The server holds pushes while someone is at this device.
+      detachAttention?.();
+      detachAttention = attachAttentionReporter(client);
 
       client.connect().catch((err: unknown) => {
         if (cancelled || clientRef.current !== client) return;

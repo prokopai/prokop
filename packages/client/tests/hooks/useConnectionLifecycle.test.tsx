@@ -86,7 +86,8 @@ describe('connection lifecycle', () => {
     expect(FakeSocket.instances).toHaveLength(2);
     act(() => latest().open());
     const messages = latest().sent.map(value => JSON.parse(value));
-    expect(messages.map(message => message.type)).toEqual(['client.register', 'session.resume']);
+    // The new socket learns who is here; no mutation is replayed.
+    expect(messages.map(message => message.type)).toEqual(['client.register', 'session.resume', 'client.attention']);
     expect(invalidate).toHaveBeenCalledTimes(2);
     expect(invalidate).toHaveBeenLastCalledWith();
     expect(useConnectionStore.getState().connected).toBe(true);

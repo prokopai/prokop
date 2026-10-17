@@ -153,6 +153,7 @@ function makeDeps(state: FakeState, overrides: Partial<NotificationsApplicationD
       : requestId === 'question-req' ? { status: 'pending', isPermission: false }
         : { status: 'resolved', isPermission: true }),
     permissionTimeoutMs: () => 1_800_000,
+    isAnyClientAttending: () => false,
     ...overrides,
   };
 }
@@ -334,6 +335,31 @@ describe('notifications application use cases', () => {
 
       // Already cancelled: a second ack has nothing to do.
       expect(application.acknowledgePendingNotification('message:msg-1:completed', 'sess-1', 'client-phone')).toBe(false);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  test('a held push is dropped at its due time while someone is at any device', async () => {
+    // Working at the desk in another session: the desk sounds and marks the
+    // finish unread; the phone must not buzz for it.
+    const timers = patchTimers();
+    try {
+      let attending = true;
+      const application = makeApplication(state, makeDeps(state, { isAnyClientAttending: () => attending }));
+      application.notifyTerminalMessage(makeMessage(), 'sess-1');
+      application.notifyAnswerRequired('pending-req', 'sess-1');
+      expect(timers.timeouts).toHaveLength(2);
+      for (const timer of timers.timeouts) timer.callback();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(state.sent).toHaveLength(0);
+
+      // Nobody present: the next finish goes out to every device.
+      attending = false;
+      application.notifyTerminalMessage({ ...makeMessage(), id: 'msg-2' }, 'sess-1');
+      timers.timeouts[2]!.callback();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(state.sent).toHaveLength(1);
     } finally {
       timers.restore();
     }

@@ -114,4 +114,8 @@ export interface NotificationsApplicationDeps {
   canNotifyForSession(session: Session): boolean;
   getPendingAsk(requestId: string): PendingAskLookup | null | undefined;
   permissionTimeoutMs(): number;
+  /** Someone is at one of the connected devices right now. A held push is
+   * dropped at its due time while this is true: that device signals locally
+   * (sound, unread mark, the ask itself), and the person is one person. */
+  isAnyClientAttending(): boolean;
 }

@@ -31,9 +31,11 @@ import type { NotificationsApplicationDeps } from '@/application/ports/notificat
  * sender, and the scheduled-run eligibility stay behind ports.
  *
  * One person, several devices: every push goes to every enabled device, and
- * any device showing the event to someone who is present cancels it for all
- * of them within the dispatch delay. Which device controls the session does
- * not matter here; control decides who may act, not who is told.
+ * none goes out while that person is at one of them. A device showing the
+ * event to someone present cancels it at once; at the due time a push is
+ * also dropped when any connected device reports someone present, since
+ * that device signals locally. Which device controls the session does not
+ * matter here; control decides who may act, not who is told.
  */
 
 interface PendingNotificationDispatch {
@@ -214,6 +216,10 @@ export function createNotificationsApplication(
 
     const timeout = setTimeout(() => {
       pendingDispatches.delete(key.eventId);
+      if (deps.isAnyClientAttending()) {
+        console.info('[web-push] Delivery suppressed: someone is at a connected device', key);
+        return;
+      }
       run().catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[web-push] ${label} dispatch failed: ${message}`);

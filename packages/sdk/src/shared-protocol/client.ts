@@ -318,6 +318,17 @@ export interface ClientPingMessage {
   type: 'ping';
 }
 
+/**
+ * Whether someone is at this device: the window is visible and focused and
+ * had input within the last couple of minutes. Sent on every change and
+ * refreshed about once a minute while true. While any device is attended,
+ * the server holds its push notifications: that device signals locally.
+ */
+export interface ClientAttentionMessage {
+  type: 'client.attention';
+  attending: boolean;
+}
+
 // =============================================================================
 // Git Status Feed Messages
 // =============================================================================
@@ -399,6 +410,7 @@ export type ClientMessage =
   | NotificationAcknowledgeMessage
   | PongMessage
   | ClientPingMessage
+  | ClientAttentionMessage
   | GitStatusSubscribeMessage
   | GitStatusUnsubscribeMessage
   | GitStatusRefreshMessage

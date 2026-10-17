@@ -33,7 +33,18 @@ export interface RegisteredConnection {
    */
   ws: unknown;
   activeSessionIds: Set<string>;
+  /** Someone is at this device, as last reported (see `ClientAttentionMessage`). */
+  attending: boolean;
+  attentionReportedAt: number;
 }
+
+/**
+ * How long an "attending" report counts without a refresh. The client
+ * refreshes about once a minute while someone is active and reports false
+ * when they stop; a report older than this came from a client that went
+ * quiet without saying so.
+ */
+export const ATTENTION_REPORT_TTL_MS = 3 * 60 * 1000;
 
 // Registries
 
@@ -54,6 +65,8 @@ export function registerConnection(socket: unknown): ConnectionId {
     lastSeenAt: now,
     ws: socket,
     activeSessionIds: new Set(),
+    attending: false,
+    attentionReportedAt: 0,
   };
 
   connectionsByConnectionId.set(connectionId, entry);
@@ -262,4 +275,21 @@ export function getAllConnectionsWithActiveSession(sessionId: string): Registere
     }
   }
   return result;
+}
+
+// Attention
+
+export function setConnectionAttention(connectionId: ConnectionId, attending: boolean, now: number = Date.now()): void {
+  const conn = connectionsByConnectionId.get(connectionId);
+  if (!conn) return;
+  conn.attending = attending;
+  conn.attentionReportedAt = now;
+}
+
+/** Whether any connected device reported someone present recently enough. */
+export function isAnyConnectionAttending(now: number = Date.now()): boolean {
+  for (const conn of connectionsByConnectionId.values()) {
+    if (conn.attending && now - conn.attentionReportedAt <= ATTENTION_REPORT_TTL_MS) return true;
+  }
+  return false;
 }

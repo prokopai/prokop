@@ -10,6 +10,7 @@ const sdk = vi.hoisted(() => {
     listeners = new Map<string, Set<Listener>>();
     connected = false;
     sessions = { resume: vi.fn() };
+    notifications = { reportAttention: vi.fn() };
     dispose = vi.fn(async () => {});
     probeConnection = vi.fn(async () => true);
     config: unknown;

@@ -106,3 +106,30 @@ describe('notification acknowledge wire handler', () => {
     expect(spy.acks).toEqual([]);
   });
 });
+
+describe('client attention', () => {
+  test('a device counts as attended from its report until the report ages out', async () => {
+    const { handleClientAttention } = await import('@/transport/websocket/handlers/misc');
+    const { ATTENTION_REPORT_TTL_MS, isAnyConnectionAttending, setConnectionAttention } = await import('@/transport/websocket/connection-registry');
+    const socket = {};
+    const connectionId = registerConnection(socket);
+    try {
+      expect(isAnyConnectionAttending()).toBe(false);
+      handleClientAttention(makeCtx(), connectionId, { type: 'client.attention', attending: true });
+      expect(isAnyConnectionAttending()).toBe(true);
+      // Quiet for longer than the TTL: the socket may have died without a close.
+      expect(isAnyConnectionAttending(Date.now() + ATTENTION_REPORT_TTL_MS + 1)).toBe(false);
+      handleClientAttention(makeCtx(), connectionId, { type: 'client.attention', attending: false });
+      expect(isAnyConnectionAttending()).toBe(false);
+      // A malformed flag never counts as present.
+      handleClientAttention(makeCtx(), connectionId, { type: 'client.attention', attending: 'yes' as unknown as boolean });
+      expect(isAnyConnectionAttending()).toBe(false);
+      setConnectionAttention(connectionId, true);
+      expect(isAnyConnectionAttending()).toBe(true);
+    } finally {
+      unregisterConnection(socket);
+    }
+    // Gone with the connection.
+    expect(isAnyConnectionAttending()).toBe(false);
+  });
+});

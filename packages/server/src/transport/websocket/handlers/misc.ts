@@ -1,6 +1,6 @@
 import type { RouterContext } from '@/transport/websocket/router-context';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
-import { handleClientRegistration, getClientByClientId, getClientIdForConnection, getConnectionById } from '@/transport/websocket/connection-registry';
+import { handleClientRegistration, getClientByClientId, getClientIdForConnection, getConnectionById, setConnectionAttention } from '@/transport/websocket/connection-registry';
 import { sandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import type { SandboxRespondMessage } from '@prokopai/core/infrastructure/sandbox/types';
 import {
@@ -18,6 +18,7 @@ import type {
   NotificationAcknowledgeMessage,
   PongMessage,
   ClientPingMessage,
+  ClientAttentionMessage,
 } from '@prokopai/sdk';
 
 export function handleClientRegister(
@@ -50,6 +51,15 @@ export function handlePing(
     clientData.missedPings = 0;
   }
   ctx.send(ws, { type: 'pong' });
+}
+
+/** Someone is (or is no longer) at this device; pushes are held while anyone is. */
+export function handleClientAttention(
+  _ctx: RouterContext<ConnectionId>,
+  ws: ConnectionId,
+  msg: ClientAttentionMessage,
+): void {
+  setConnectionAttention(ws, msg.attending === true);
 }
 
 export function handleNotificationAcknowledge(
