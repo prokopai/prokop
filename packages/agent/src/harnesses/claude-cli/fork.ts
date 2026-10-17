@@ -2,7 +2,7 @@ import { forkSession, getSessionMessages } from '@anthropic-ai/claude-agent-sdk'
 import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
-import { writeForkedSession, writeForkedTranscript } from '#agent/harnesses/shared/fork-copy';
+import { writeForkedSession, writeForkedTranscript } from '@prokopai/core/infrastructure/storage/fork-copy';
 import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { getClaudeModelSelection } from './models';
 import {

@@ -2,7 +2,7 @@ import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/a
 import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
-import { writeForkedSession, writeForkedTranscript } from '#agent/harnesses/shared/fork-copy';
+import { writeForkedSession, writeForkedTranscript } from '@prokopai/core/infrastructure/storage/fork-copy';
 import { CodexAppServer, codexObject, type CodexConnection } from './app-server';
 import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import {

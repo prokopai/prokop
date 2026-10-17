@@ -1,13 +1,12 @@
-import type { Message, MessageWithParts, Part, Session } from '@prokopai/sdk/types';
+import type { MessageWithParts, Session } from '@prokopai/sdk/types';
 import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import {
-  createMessage,
-  createPart,
-  createSession,
   getSession,
   getWorkspaceAutoApproveSeverity,
   listMessagesWithParts,
 } from '@prokopai/core/infrastructure/storage/runtime';
+import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { writeForkedSession, writeForkedTranscript } from '@prokopai/core/infrastructure/storage/fork-copy';
 
 interface ForkOptions {
   sessionId: string;
@@ -20,42 +19,11 @@ interface ForkResult {
   messages: MessageWithParts[];
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
-
-function copyMessage(
-  message: Message,
-  newSessionId: string,
-  newMessageId: string,
-  idMap: Map<string, string>,
-): Message {
-  if (message.role === 'assistant') {
-    const parentId = (message as { parentId?: string }).parentId;
-    return {
-      ...message,
-      id: newMessageId,
-      sessionId: newSessionId,
-      status: 'completed' as const,
-      ...(parentId ? { parentId: idMap.get(parentId) ?? parentId } : {}),
-    };
-  }
-  return {
-    ...message,
-    id: newMessageId,
-    sessionId: newSessionId,
-  };
-}
-
-function copyPart(part: Part, newMessageId: string, newPartId: string): Part {
-  const { id: _oldId, messageId: _oldMsgId, ...rest } = part;
-  return {
-    ...rest,
-    id: newPartId,
-    messageId: newMessageId,
-  } as Part;
-}
-
+/**
+ * Copies the transcript up to and including the target into a new session in
+ * one commit. The fork keeps the source's token totals and auto-approve level;
+ * copied assistant messages are completed.
+ */
 export async function forkSession(options: ForkOptions): Promise<ForkResult> {
   const { sessionId, targetMessageId, title } = options;
   const sourceSession = await getSession(sessionId);
@@ -66,40 +34,23 @@ export async function forkSession(options: ForkOptions): Promise<ForkResult> {
   const targetIndex = allMessages.findIndex((entry) => entry.message.id === targetMessageId);
   if (targetIndex === -1) throw new Error('Target message not found');
 
-  const messagesToFork = allMessages.slice(0, targetIndex + 1);
-  const forkedSession = await createSession({
-    id: generateId(),
-    workspaceId: sourceSession.workspaceId,
-    preconfigId: sourceSession.preconfigId,
-    title: title || `${sourceSession.title || 'Untitled'} (fork)`,
-    status: 'active',
-    metadata: { ...(sourceSession.metadata || {}), forkedFrom: sessionId },
-    parentId: null,
-    agentName: null,
-    selectedModel: sourceSession.selectedModel,
-    selectedProvider: sourceSession.selectedProvider,
-    promptTokens: sourceSession.promptTokens,
-    completionTokens: sourceSession.completionTokens,
-    totalTokens: sourceSession.totalTokens,
-    autoApproveSeverity: sourceSession.autoApproveSeverity ?? await getWorkspaceAutoApproveSeverity(sourceSession.workspaceId),
+  const retained = allMessages.slice(0, targetIndex + 1);
+  const autoApproveSeverity = sourceSession.autoApproveSeverity
+    ?? await getWorkspaceAutoApproveSeverity(sourceSession.workspaceId);
+  const forkedSessionId = crypto.randomUUID();
+  const forkedSession = await storeTransaction((tx) => {
+    const created = writeForkedSession(tx, sourceSession, {
+      id: forkedSessionId, harness: 'prokop', title, metadata: sourceSession.metadata ?? {},
+      extra: {
+        promptTokens: sourceSession.promptTokens,
+        completionTokens: sourceSession.completionTokens,
+        totalTokens: sourceSession.totalTokens,
+        autoApproveSeverity,
+      },
+    });
+    writeForkedTranscript(tx, forkedSessionId, retained, () => {}, { completeAssistants: true });
+    return created;
   });
 
-  const forkedMessages: MessageWithParts[] = [];
-  const idMap = new Map<string, string>();
-  for (const { message } of messagesToFork) idMap.set(message.id, generateId());
-
-  for (const { message, parts } of messagesToFork) {
-    const newMessageId = idMap.get(message.id)!;
-    const newMessage = copyMessage(message, forkedSession.id, newMessageId, idMap);
-    await createMessage(newMessage);
-    const newParts: Part[] = [];
-    for (const part of parts) {
-      const newPart = copyPart(part, newMessageId, generateId());
-      await createPart(newPart, forkedSession.id);
-      newParts.push(newPart);
-    }
-    forkedMessages.push({ message: newMessage, parts: newParts });
-  }
-
-  return { forkedSession, messages: forkedMessages };
+  return { forkedSession: forkedSession.value, messages: await listMessagesWithParts(forkedSessionId) };
 }

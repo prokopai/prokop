@@ -3,7 +3,7 @@ import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspaceWithSession } from '#tests/seed';
 import { forkSession } from '@prokopai/agent/internal/harnesses/prokop/execution/fork';
 import { createMessage, createPart, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
-import { getSession } from '@/infrastructure/sqlite/session-store';
+import { getSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import type { AssistantMessage, ToolPart } from '@prokopai/sdk';
 
 describe('forkSession', () => {
@@ -103,6 +103,19 @@ describe('forkSession', () => {
     const forkedSession = getSession(result.forkedSession.id);
     expect(forkedSession!.metadata).toBeDefined();
     expect((forkedSession!.metadata as Record<string, unknown>).forkedFrom).toBe(sessionId);
+  });
+
+  test('forked session keeps the source agent and permission mode', async () => {
+    updateSession(sessionId, { agentId: 'agent-1', permissionMode: 'extended' });
+    createUserMsg('msg1', 1000);
+    addTextPart('msg1', 'Hello');
+
+    const result = await forkSession({ sessionId, targetMessageId: 'msg1' });
+
+    const forkedSession = getSession(result.forkedSession.id);
+    expect(forkedSession!.agentId).toBe('agent-1');
+    expect(forkedSession!.permissionMode).toBe('extended');
+    expect(forkedSession!.harness).toBe('prokop');
   });
 
   test('uses custom title when provided', async () => {
