@@ -38,7 +38,6 @@ interface GitChangesViewProps {
   root?: string;
   onFileSelect: (target: FileEntryActionTarget, mode?: FileOpenMode) => void;
   serverId?: string;
-  isMobile?: boolean;
   onOpenFileEdit?: (path: string, name: string) => void;
 }
 
@@ -136,7 +135,7 @@ export function allAncestorDirectories(paths: readonly string[]): string[] {
  * across refreshes and reloads via the shared per-workspace store.
  */
 export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewProps>(
-  ({ workspaceId, sdkClient, root, onFileSelect, serverId, isMobile, onOpenFileEdit }, ref) => {
+  ({ workspaceId, sdkClient, root, onFileSelect, serverId, onOpenFileEdit }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { data, isLoading, error, refetch } = useGitStatusQuery(sdkClient, workspaceId, root);
     const { mutate: addToGit, isPending: addingToGit } = useGitAddMutation(sdkClient, workspaceId, root);
@@ -227,7 +226,6 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
       sdkClient,
       workspaceId,
       serverId,
-      isMobile,
       root,
       onMutated: (kind, info) => {
         // Implicit dirs carry the trailing slash; refetch reconciles.

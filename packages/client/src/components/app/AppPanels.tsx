@@ -46,8 +46,7 @@ export function AppPanels({
   if (open && !opened) setOpened(true);
   const onClose = () => {
     if (!embedded) setDockOpen('bottom', false);
-    else if (isMobile) useWorkspaceViewStore.getState().setMobileTerminalOpen(false);
-    else useWorkspaceViewStore.getState().hideView('terminals');
+    else useWorkspaceViewStore.getState().closeView('terminals');
   };
 
   // One panel per recent workspace: switching back reuses its xterm

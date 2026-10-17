@@ -111,7 +111,6 @@ interface FileTreeProps {
   /** Root the activePath belongs to ('' for the main root). */
   activeRoot?: string;
   serverId?: string;
-  isMobile?: boolean;
   onOpenFileEdit?: (path: string, name: string) => void;
 }
 
@@ -135,7 +134,7 @@ export interface FileTreeHandle {
  * - the active editor file is revealed with scrollToPath.
  */
 export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
-  ({ workspaceId, sdkClient, onFileSelect, root, activePath, activeRoot, serverId, isMobile, onOpenFileEdit }, ref) => {
+  ({ workspaceId, sdkClient, onFileSelect, root, activePath, activeRoot, serverId, onOpenFileEdit }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const pathsQuery = useFileTreeFullQuery(sdkClient, workspaceId, root);
     const { data: pathsData, isLoading, error, refetch } = pathsQuery;
@@ -198,7 +197,6 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
       sdkClient,
       workspaceId,
       serverId,
-      isMobile,
       root,
       onMutated: (kind, info) => {
         try {

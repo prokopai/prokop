@@ -41,11 +41,15 @@ collapse into their sibling. Each region retains one group when empty.
 
 ## Opening or moving a view
 
-Desktop actions call `useWorkspaceViewStore.getState().activateView(id)`. This
-unhides the view, selects its tab, and opens its current dock. Callers must not
-assume Explorer belongs on the right or Terminals at the bottom. Mobile file/session
-actions continue to select `chatLayoutStore.mobileSurface`; the mobile terminal
-has independent transient visibility.
+Callers use `useWorkspaceViewStore.getState().showView(id)`. On desktop this
+unhides the view, selects its tab, and opens its current dock; on the phone it
+switches to the surface that shows the view (Sessions, Chat, Files, Editor,
+Pull requests) or opens the terminal sheet. `closeView(id)` hides the view on
+desktop and returns to the surface behind it on the phone. `toggleRegion` backs
+the three header buttons. Callers must not assume Explorer belongs on the right
+or Terminals at the bottom, and must not branch on the viewport themselves.
+`sessionFilesStore` keeps per-session Files preferences (repository view on the
+phone, checkout root) and nothing about placement.
 
 `moveView(id, region)` transfers the existing ID, selects it at the destination,
 and closes a peripheral source if it has no remaining unhidden views. `hideView`

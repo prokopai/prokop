@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { GitPullRequest, SquarePen } from 'lucide-react';
 import { pullRequestsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { toast } from 'sonner';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
 import { useSessionManager } from '@/contexts/SessionManagerContext';
@@ -197,7 +196,6 @@ function WorkspaceSidebar() {
   const openPullRequests = () => {
     if (!activeWorkspace) return;
     useWorkspaceViewStore.getState().openInCenter(pullRequestsViewId(serverId, activeWorkspace.id));
-    useChatLayoutStore.getState().setMobileSurface('pull-requests');
   };
 
   const sidebarHeader = (

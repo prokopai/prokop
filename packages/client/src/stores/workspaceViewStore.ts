@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { useDockStore } from '@/stores/dockStore';
-import type { DockPosition } from '@/stores/dockStore';
+import type { DockPosition, DockState } from '@/stores/dockStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { filterTree, mapTree, treeGroups, type SplitDirection, type ViewTree } from '@/stores/workspaceSplitLayout';
 import { randomUUID } from '@/lib/randomId';
+import { isMobileViewport } from '@/lib/viewport';
 
 const LEGACY_VIEW_IDS = ['sessions', 'conversations', 'files', 'editor', 'terminals'] as const;
 export const REPOSITORY_VIEW_IDS = ['explorer', 'changes', 'branches', 'worktrees'] as const;
@@ -265,17 +267,59 @@ export function activeGroupView(layout: WorkspaceViewLayout, region: string, ava
   return group.activeId && visible.includes(group.activeId) ? group.activeId : visible[0] ?? null;
 }
 
-interface WorkspaceViewStore {
-  layout: WorkspaceViewLayout;
+/**
+ * The phone shows one surface at a time instead of docks. The terminal is a
+ * sheet over whichever surface is shown, so it has its own flag.
+ */
+export type MobileSurface = 'chat' | 'sessions' | 'files' | 'editor' | 'pull-requests';
+
+export function isRepositoryViewId(id: string): id is RepositoryViewId {
+  return REPOSITORY_VIEW_IDS.some((view) => view === id);
+}
+
+/** The phone surface that shows a view. */
+export function mobileSurfaceFor(id: WorkspaceViewId): MobileSurface | 'terminal' {
+  if (id === 'terminals') return 'terminal';
+  if (id === 'sessions' || id === 'usage') return 'sessions';
+  if (id === 'editor' || isFileViewId(id)) return 'editor';
+  if (isRepositoryViewId(id)) return 'files';
+  if (isPullRequestsViewId(id)) return 'pull-requests';
+  return 'chat';
+}
+
+interface MobileLayoutState {
+  mobileSurface: MobileSurface;
   mobileTerminalOpen: boolean;
+}
+
+/** Whether a dock position's content is showing: a dock on desktop, a surface on the phone. */
+export function isRegionOpen(view: MobileLayoutState, docks: Record<DockPosition, DockState>, position: DockPosition, mobile: boolean): boolean {
+  if (!mobile) return docks[position].open;
+  if (position === 'bottom') return view.mobileTerminalOpen;
+  if (position === 'left') return view.mobileSurface === 'sessions';
+  return view.mobileSurface === 'files' || view.mobileSurface === 'editor';
+}
+
+interface WorkspaceViewStore extends MobileLayoutState {
+  layout: WorkspaceViewLayout;
+  setMobileSurface: (surface: MobileSurface) => void;
   setMobileTerminalOpen: (open: boolean) => void;
+  /**
+   * Bring a view in front of the user on either layout: select its tab and
+   * open its dock on desktop, switch to its surface on the phone.
+   */
+  showView: (id: WorkspaceViewId) => void;
+  /** Take a view out of the way: hide it on desktop, return to the surface behind it on the phone. */
+  closeView: (id: WorkspaceViewId) => void;
+  /** The header toggles: a dock on desktop, the matching surface on the phone. */
+  toggleRegion: (position: DockPosition) => void;
   ensureViews: (ids: WorkspaceViewId[]) => void;
   activateView: (id: WorkspaceViewId) => void;
   moveView: (id: WorkspaceViewId, destination: string, beforeId?: WorkspaceViewId | null) => void;
   splitView: (id: WorkspaceViewId, direction: SplitDirection, available: readonly WorkspaceViewId[]) => string | null;
   resizeSplit: (id: string, ratio: number) => void;
   hideView: (id: WorkspaceViewId) => void;
-  /** Open a pull requests tab in the center, moving it back there if it was docked elsewhere. */
+  /** Open a pull requests tab in the center (its surface on the phone), moving it back there if it was docked elsewhere. */
   openInCenter: (id: PullRequestsViewId) => void;
   removeView: (id: ResourceViewId) => void;
   replaceView: (id: SessionViewId, replacement: SessionViewId) => void;
@@ -289,8 +333,31 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
   };
   return {
     layout: loadLayout(),
+    mobileSurface: 'chat',
     mobileTerminalOpen: false,
+    setMobileSurface: (mobileSurface) => set({ mobileSurface }),
     setMobileTerminalOpen: (mobileTerminalOpen) => set({ mobileTerminalOpen }),
+    showView: (id) => {
+      // The phone Files surface shows one repository view; remember which.
+      if (isRepositoryViewId(id)) useSessionFilesStore.getState().setFilesPanelTab(id);
+      if (!isMobileViewport()) { get().activateView(id); return; }
+      const surface = mobileSurfaceFor(id);
+      if (surface === 'terminal') set({ mobileTerminalOpen: true });
+      else set({ mobileSurface: surface });
+    },
+    closeView: (id) => {
+      if (!isMobileViewport()) { get().hideView(id); return; }
+      const surface = mobileSurfaceFor(id);
+      if (surface === 'terminal') set({ mobileTerminalOpen: false });
+      else set({ mobileSurface: surface === 'editor' ? 'files' : 'chat' });
+    },
+    toggleRegion: (position) => {
+      if (!isMobileViewport()) { useDockStore.getState().toggleDock(position); return; }
+      const state = get();
+      const open = isRegionOpen(state, useDockStore.getState().docks, position, true);
+      if (position === 'bottom') set({ mobileTerminalOpen: !open });
+      else set({ mobileSurface: open ? 'chat' : position === 'left' ? 'sessions' : 'files' });
+    },
     ensureViews: (ids) => {
       const current = get().layout;
       const resolved = resolveViewLayout(current, ids);
@@ -384,6 +451,7 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
         activeId: id,
       };
       update(pruneEmptyGroups({ ...layout, groups, hidden: layout.hidden.filter((viewId) => viewId !== id) }));
+      set({ mobileSurface: 'pull-requests' });
     },
     removeView: (id) => {
       const layout = get().layout;

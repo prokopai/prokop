@@ -11,7 +11,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -73,7 +73,7 @@ describe('individual session tabs', () => {
     useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     useDockStore.setState(useDockStore.getInitialState());
-    useChatLayoutStore.setState(useChatLayoutStore.getInitialState());
+    useSessionFilesStore.setState(useSessionFilesStore.getInitialState());
     useFileEditorStore.setState(useFileEditorStore.getInitialState());
     useAskStore.setState({ pendingRequests: [] });
     useConnectionStore.setState({ connected: false, streamingSessionIds: new Set() });

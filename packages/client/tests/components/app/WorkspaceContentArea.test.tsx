@@ -7,7 +7,7 @@ import type { FilesPanelHandle } from '@/components/layout/FilesPanel';
 import { ViewRefsContext, type ViewRefs } from '@/contexts/ViewRefsContext';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
@@ -35,15 +35,15 @@ vi.mock('@/components/board/SessionPane', () => ({
 }));
 
 vi.mock('@/components/layout/FilesPanel', async () => {
-  const { useChatLayoutStore: layoutStore } = await import('@/stores/chatLayoutStore');
+  const { useWorkspaceViewStore: viewStore } = await import('@/stores/workspaceViewStore');
   return {
     FilesPanel: forwardRef<FilesPanelHandle, { view?: string }>(function MockFilesPanel({ view }, ref) {
       useImperativeHandle(ref, () => ({
-        focus: () => layoutStore.getState().setMobileSurface('files'),
+        focus: () => viewStore.getState().setMobileSurface('files'),
       }), []);
       return (
         <div data-testid={view === 'explorer' ? 'files-content' : view}>
-          <button type="button" onClick={() => layoutStore.getState().setMobileSurface('chat')}>
+          <button type="button" onClick={() => viewStore.getState().setMobileSurface('chat')}>
             Chat
           </button>
         </div>
@@ -92,11 +92,11 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     viewport.mobile = true;
     useDockStore.setState(useDockStore.getInitialState());
-    useChatLayoutStore.setState({
-      filesPanelTab: 'project',
+    useSessionFilesStore.setState({
+      filesPanelTab: 'explorer',
       sessionFilesLayouts: {},
-      mobileSurface: 'chat',
     });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat', mobileTerminalOpen: false });
     useFileEditorStore.setState({
       docs: {},
       openDocIds: [],
@@ -143,7 +143,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     expect(chatSurface).toHaveAttribute('aria-hidden', 'false');
     expect(workbenchSurface).toHaveAttribute('aria-hidden', 'true');
 
-    act(() => useChatLayoutStore.getState().setMobileSurface('files'));
+    act(() => useWorkspaceViewStore.getState().setMobileSurface('files'));
 
     expect(chatSurface).toHaveAttribute('aria-hidden', 'true');
     expect(workbenchSurface).toHaveAttribute('aria-hidden', 'false');
@@ -173,13 +173,13 @@ describe('WorkspaceContentArea responsive surfaces', () => {
 
     fireEvent.click(getByRole('button', { name: 'Files' }));
     fireEvent.click(getByRole('tab', { name: 'Changes' }));
-    expect(useChatLayoutStore.getState().mobileSurface).toBe('files');
-    expect(useChatLayoutStore.getState().sessionFilesLayouts[JSON.stringify(['server-1', 'workspace-1', 'session-1'])].filesPanelTab).toBe('changes');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('files');
+    expect(useSessionFilesStore.getState().sessionFilesLayouts[JSON.stringify(['server-1', 'workspace-1', 'session-1'])].filesPanelTab).toBe('changes');
     expect(getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true');
     expect(editorContent.parentElement).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(getByRole('tab', { name: 'Explorer' }));
-    expect(useChatLayoutStore.getState().sessionFilesLayouts[JSON.stringify(['server-1', 'workspace-1', 'session-1'])].filesPanelTab).toBe('project');
+    expect(useSessionFilesStore.getState().sessionFilesLayouts[JSON.stringify(['server-1', 'workspace-1', 'session-1'])].filesPanelTab).toBe('explorer');
     expect(getByRole('tab', { name: 'Explorer' })).toHaveAttribute('aria-selected', 'true');
 
     fireEvent.click(getByRole('button', { name: 'Back to Chat' }));
@@ -215,8 +215,8 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     }
     viewport.mobile = true;
     act(() => {
-      useChatLayoutStore.getState().setFilesPanelTab('worktrees');
-      useChatLayoutStore.getState().setMobileSurface('files');
+      useSessionFilesStore.getState().setFilesPanelTab('worktrees');
+      useWorkspaceViewStore.getState().setMobileSurface('files');
     });
     rerender(<ViewRefsContext.Provider value={refs}><WorkspaceContentArea sdkClient={null} serverUrl={null} /></ViewRefsContext.Provider>);
     expect(getByTestId('worktrees')).toBe(worktrees);
@@ -226,7 +226,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
   });
 
   test('keeps Chat mounted while Sessions opens and returns to Chat', () => {
-    useChatLayoutStore.setState({ mobileSurface: 'chat' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat' });
 
     const { container, getByRole, getByTestId } = render(
       <ViewRefsContext.Provider value={createViewRefs()}>
@@ -243,7 +243,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
     );
 
     const chatSurface = getByTestId('chat-content').closest('[data-workspace-view="session:server-1:session-1"]');
-    act(() => useChatLayoutStore.getState().setMobileSurface('sessions'));
+    act(() => useWorkspaceViewStore.getState().setMobileSurface('sessions'));
     const sessionsSurface = getByTestId('session-row').closest('[data-workspace-view="sessions"]');
     expect(chatSurface).toHaveAttribute('aria-hidden', 'true');
     expect(chatSurface).toHaveAttribute('inert');
@@ -254,7 +254,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
 
     fireEvent.click(getByRole('button', { name: 'Back to Chat' }));
 
-    expect(useChatLayoutStore.getState().mobileSurface).toBe('chat');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
     expect(chatSurface).toHaveAttribute('aria-hidden', 'false');
     expect(sessionsSurface).toHaveAttribute('aria-hidden', 'true');
     expect(sessionsSurface).toHaveAttribute('inert');
@@ -272,7 +272,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
         },
         'index.ts',
       );
-      useChatLayoutStore.getState().setMobileSurface('editor');
+      useWorkspaceViewStore.getState().setMobileSurface('editor');
       useFileEditorStore.getState().closeDoc(docId);
     });
 

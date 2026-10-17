@@ -7,7 +7,7 @@ vi.mock('@/hooks/use-mobile', () => ({
 }));
 
 describe('AppSidebar on phone', () => {
-  test('renders the same in-flow list, marked as the sessions surface for focus shortcuts', () => {
+  test('renders the same in-flow list; the Sessions surface is chosen by the workspace views', () => {
     const { container, getByText } = render(
       <AppSidebar currentSessionId={null}>
         <button type="button" data-sidebar="menu-button">
@@ -17,6 +17,6 @@ describe('AppSidebar on phone', () => {
     );
 
     expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(container.querySelector('[data-mobile-surface="sessions"]')).toContainElement(getByText('Session one'));
+    expect(container.querySelector('[data-sidebar="sidebar"]')).toContainElement(getByText('Session one'));
   });
 });

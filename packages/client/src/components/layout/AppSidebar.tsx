@@ -1,6 +1,5 @@
 import { useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { SidebarContent } from '@/components/ui/sidebar';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AppSidebarProps {
   children: React.ReactNode;
@@ -16,7 +15,6 @@ export interface AppSidebarHandle {
 /** Sessions list content; its dock placement is decided by the workspace views. */
 export const AppSidebar = forwardRef<AppSidebarHandle, AppSidebarProps>((props, ref) => {
   const { children, header, currentSessionId, onEscape } = props;
-  const isMobile = useIsMobile();
 
   const sessionListRef = useRef<HTMLDivElement>(null);
   const currentSessionIdRef = useRef<string | null>(null);
@@ -137,7 +135,7 @@ export const AppSidebar = forwardRef<AppSidebarHandle, AppSidebarProps>((props, 
   }, [onEscape]);
 
   return (
-    <div data-sidebar="sidebar" data-mobile-surface={isMobile ? 'sessions' : undefined} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div data-sidebar="sidebar" className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {header}
       <SidebarContent
         ref={sessionListRef}

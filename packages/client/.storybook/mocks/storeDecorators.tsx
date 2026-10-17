@@ -14,7 +14,7 @@ import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useDockStore } from '@/stores/dockStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useAskStore } from '@/stores/askStore';
 import type { PendingAskRequest, AskHandler } from '@/stores/askStore';
 import { useCompletionStore } from '@/stores/completionStore';
@@ -35,7 +35,7 @@ type SessionContentStoreState = ReturnType<typeof useSessionContentStore.getStat
 type ServerDataStoreState = ReturnType<typeof useServerDataStore.getState>;
 type UIStoreState = ReturnType<typeof useUIStore.getState>;
 type ConnectionStoreState = ReturnType<typeof useConnectionStore.getState>;
-type ChatLayoutStoreState = ReturnType<typeof useChatLayoutStore.getState>;
+type SessionFilesStoreState = ReturnType<typeof useSessionFilesStore.getState>;
 type CompletionStoreState = ReturnType<typeof useCompletionStore.getState>;
 
 // -----------------------------------------------------------------------------
@@ -168,22 +168,20 @@ export function withConnectionStore(overrides: ConnectionStoreDefaults = {}) {
 }
 
 // -----------------------------------------------------------------------------
-// Chat Layout Store
+// Session Files Store
 // -----------------------------------------------------------------------------
 
-interface ChatLayoutStoreDefaults {
-  mobileSurface?: ChatLayoutStoreState['mobileSurface'];
-  filesPanelTab?: ChatLayoutStoreState['filesPanelTab'];
+interface SessionFilesStoreDefaults {
+  filesPanelTab?: SessionFilesStoreState['filesPanelTab'];
 }
 
-const defaultChatLayoutState = (): ChatLayoutStoreDefaults => ({
-  mobileSurface: 'chat',
-  filesPanelTab: 'project',
+const defaultSessionFilesState = (): SessionFilesStoreDefaults => ({
+  filesPanelTab: 'explorer',
 });
 
-export function withChatLayoutStore(overrides: ChatLayoutStoreDefaults = {}) {
-  return function ChatLayoutStoreDecorator(Story: ComponentType) {
-    useChatLayoutStore.setState({ ...defaultChatLayoutState(), ...overrides });
+export function withSessionFilesStore(overrides: SessionFilesStoreDefaults = {}) {
+  return function SessionFilesStoreDecorator(Story: ComponentType) {
+    useSessionFilesStore.setState({ ...defaultSessionFilesState(), ...overrides });
     return <Story />;
   };
 }
@@ -237,7 +235,7 @@ export interface AllStoresOverrides {
   serverData?: ServerDataStoreDefaults;
   ui?: UIStoreDefaults;
   connection?: ConnectionStoreDefaults;
-  chatLayout?: ChatLayoutStoreDefaults;
+  sessionFiles?: SessionFilesStoreDefaults;
   docks?: ReturnType<typeof useDockStore.getState>['docks'];
   ask?: AskStoreDefaults;
   completion?: CompletionStoreDefaults;
@@ -250,7 +248,7 @@ export function withAllStores(overrides: AllStoresOverrides = {}) {
     useSessionStore.setState({ ...defaultSessionState(), ...overrides.session });
     useUIStore.setState({ ...defaultUIState(), ...overrides.ui });
     useConnectionStore.setState({ ...defaultConnectionState(), ...overrides.connection });
-    useChatLayoutStore.setState({ ...defaultChatLayoutState(), ...overrides.chatLayout });
+    useSessionFilesStore.setState({ ...defaultSessionFilesState(), ...overrides.sessionFiles });
     useDockStore.setState({ docks: overrides.docks ?? useDockStore.getInitialState().docks });
     useAskStore.setState({ ...defaultAskState(), ...overrides.ask });
     useCompletionStore.setState({ ...defaultCompletionState(), ...overrides.completion });

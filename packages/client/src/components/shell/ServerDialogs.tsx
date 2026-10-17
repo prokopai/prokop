@@ -5,8 +5,7 @@ import type { ProkopaiClient } from '@prokopai/sdk';
 import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
-import { isMobileViewport } from '@/lib/viewport';
+import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
 const ConfigurationDialog = lazy(() =>
   import('@/components/modals/ConfigurationDialog').then((m) => ({ default: m.ConfigurationDialog })),
@@ -116,10 +115,8 @@ export function ServerDialogs({
                   },
                   filePreviewTarget.name,
                 );
-                const layout = useChatLayoutStore.getState();
-                if (isMobileViewport()) {
-                  layout.setMobileSurface('editor');
-                }
+                // The phone shows the editor surface; on desktop the editor tab is already in place.
+                useWorkspaceViewStore.getState().setMobileSurface('editor');
                 closeFilePreview();
               } : undefined}
             />

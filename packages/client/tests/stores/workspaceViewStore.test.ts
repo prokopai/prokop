@@ -1,9 +1,112 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useDockStore } from '@/stores/dockStore';
 import {
-  activeGroupView, createDefaultViewLayout, fileViewId, findViewRegion, isFileViewId, isViewOpen, isSessionViewId, sessionViewId, parseViewLayout, parsePullRequestsViewId, pullRequestsViewId,
+  activeGroupView, createDefaultViewLayout, fileViewId, findViewRegion, isFileViewId, isRegionOpen, isViewOpen, isSessionViewId, sessionViewId, parseViewLayout, parsePullRequestsViewId, pullRequestsViewId,
   useWorkspaceViewStore, VIEW_LAYOUT_STORAGE_KEY, VIEW_REGIONS, WORKSPACE_VIEW_IDS, REPOSITORY_VIEW_IDS,
 } from '@/stores/workspaceViewStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
+
+describe('layout intents on desktop and phone', () => {
+  const originalWidth = window.innerWidth;
+  const setWidth = (value: number) => Object.defineProperty(window, 'innerWidth', { configurable: true, value });
+  beforeEach(() => {
+    useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileSurface: 'chat', mobileTerminalOpen: false });
+    useDockStore.setState(useDockStore.getInitialState());
+    useSessionFilesStore.setState(useSessionFilesStore.getInitialState());
+  });
+  afterEach(() => {
+    setWidth(originalWidth);
+    useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileSurface: 'chat', mobileTerminalOpen: false });
+    useDockStore.setState(useDockStore.getInitialState());
+    useSessionFilesStore.setState(useSessionFilesStore.getInitialState());
+  });
+
+  test('showView selects the tab and opens its dock on desktop', () => {
+    setWidth(1440);
+    const store = useWorkspaceViewStore.getState();
+    store.hideView('changes');
+    store.showView('changes');
+    expect(useWorkspaceViewStore.getState().layout.hidden).not.toContain('changes');
+    expect(useWorkspaceViewStore.getState().layout.groups.right.activeId).toBe('changes');
+    expect(useDockStore.getState().docks.right.open).toBe(true);
+    expect(useSessionFilesStore.getState().filesPanelTab).toBe('changes');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+  });
+
+  test('showView switches surfaces on the phone and leaves the desktop layout alone', () => {
+    setWidth(390);
+    const store = useWorkspaceViewStore.getState();
+    const layout = store.layout;
+    store.showView('branches');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('files');
+    expect(useSessionFilesStore.getState().filesPanelTab).toBe('branches');
+    store.showView('sessions');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('sessions');
+    store.showView(fileViewId(['server', 'workspace', '', 'src/a.ts'].join('\u0001')));
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('editor');
+    store.showView('terminals');
+    expect(useWorkspaceViewStore.getState().mobileTerminalOpen).toBe(true);
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('editor');
+    store.showView(sessionViewId('server', 'one'));
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+    expect(useWorkspaceViewStore.getState().layout).toBe(layout);
+    expect(useDockStore.getState().docks.right.open).toBe(false);
+  });
+
+  test('closeView hides on desktop and steps back on the phone', () => {
+    setWidth(1440);
+    useWorkspaceViewStore.getState().closeView('terminals');
+    expect(useWorkspaceViewStore.getState().layout.hidden).toContain('terminals');
+
+    setWidth(390);
+    const store = useWorkspaceViewStore.getState();
+    store.showView('terminals');
+    store.closeView('terminals');
+    expect(useWorkspaceViewStore.getState().mobileTerminalOpen).toBe(false);
+    store.showView('editor');
+    store.closeView('editor');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('files');
+    store.closeView('explorer');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+  });
+
+  test('toggleRegion flips a dock on desktop and a surface on the phone', () => {
+    setWidth(1440);
+    useWorkspaceViewStore.getState().toggleRegion('right');
+    expect(useDockStore.getState().docks.right.open).toBe(true);
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+
+    setWidth(390);
+    const store = useWorkspaceViewStore.getState();
+    store.toggleRegion('left');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('sessions');
+    store.toggleRegion('right');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('files');
+    store.toggleRegion('right');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+    store.setMobileSurface('editor');
+    store.toggleRegion('right');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
+    store.toggleRegion('bottom');
+    expect(useWorkspaceViewStore.getState().mobileTerminalOpen).toBe(true);
+    expect(useDockStore.getState().docks.bottom.open).toBe(false);
+  });
+
+  test('isRegionOpen reads docks on desktop and surfaces on the phone', () => {
+    const docks = { ...useDockStore.getState().docks, right: { open: true, size: 400 } };
+    expect(isRegionOpen({ mobileSurface: 'chat', mobileTerminalOpen: false }, docks, 'right', false)).toBe(true);
+    expect(isRegionOpen({ mobileSurface: 'chat', mobileTerminalOpen: false }, docks, 'right', true)).toBe(false);
+    expect(isRegionOpen({ mobileSurface: 'editor', mobileTerminalOpen: false }, docks, 'right', true)).toBe(true);
+    expect(isRegionOpen({ mobileSurface: 'sessions', mobileTerminalOpen: true }, docks, 'left', true)).toBe(true);
+    expect(isRegionOpen({ mobileSurface: 'sessions', mobileTerminalOpen: true }, docks, 'bottom', true)).toBe(true);
+    expect(isRegionOpen({ mobileSurface: 'sessions', mobileTerminalOpen: true }, docks, 'bottom', false)).toBe(false);
+  });
+
+  test('opening pull requests also selects their phone surface', () => {
+    useWorkspaceViewStore.getState().openInCenter(pullRequestsViewId('server', 'one'));
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('pull-requests');
+  });
+});
 
 describe('workspace view placement', () => {
   const prsOne = pullRequestsViewId('server', 'one');

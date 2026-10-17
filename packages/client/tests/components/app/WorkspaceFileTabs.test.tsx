@@ -9,7 +9,7 @@ import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useDockStore } from '@/stores/dockStore';
 import { createDefaultViewLayout, fileViewId, findViewRegion, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
@@ -78,7 +78,8 @@ describe('individual workspace file tabs', () => {
     useDockStore.setState(useDockStore.getInitialState());
     useFileEditorStore.setState({ docs: {}, openDocIds: [], activeDocId: null, anyDirty: false });
     useServerDataStore.setState({ activeWorkspaceId: 'workspace-1' });
-    useChatLayoutStore.setState({ mobileSurface: 'chat', filesPanelTab: 'project' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat' });
+    useSessionFilesStore.setState({ filesPanelTab: 'explorer' });
   });
   afterEach(() => {
     cleanup();
@@ -110,7 +111,7 @@ describe('individual workspace file tabs', () => {
     expect(screen.getAllByRole('tab', { name: 'first.ts' })).toHaveLength(1);
 
     mocks.mobile = true;
-    act(() => useChatLayoutStore.getState().setMobileSurface('editor'));
+    act(() => useWorkspaceViewStore.getState().setMobileSurface('editor'));
     rerender(<Harness />);
     expect(within(host(first)).getByRole('textbox')).toBe(firstInput);
     fireEvent.click(screen.getByRole('tab', { name: 'second.ts' }));

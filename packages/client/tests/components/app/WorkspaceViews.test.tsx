@@ -5,7 +5,6 @@ import { WorkspaceViews } from '@/components/app/WorkspaceViews';
 import { useWorkspaceViewVisible } from '@/components/app/WorkspaceViewHost';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 
 const viewport = vi.hoisted(() => ({ mobile: false }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => viewport.mobile }));
@@ -22,7 +21,7 @@ describe('workspace view hosts', () => {
     viewport.mobile = false;
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileTerminalOpen: false });
     useDockStore.setState(useDockStore.getInitialState());
-    useChatLayoutStore.setState({ mobileSurface: 'chat' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat' });
   });
   afterEach(() => {
     cleanup();
@@ -60,7 +59,7 @@ describe('workspace view hosts', () => {
     fireEvent.pointerUp(document, { pointerId: 1 });
     expect(divider).toHaveAttribute('aria-valuenow', '60');
     viewport.mobile = true;
-    act(() => useChatLayoutStore.getState().setMobileSurface('files'));
+    act(() => useWorkspaceViewStore.getState().setMobileSurface('files'));
     rerender(<WorkspaceViews views={views} />);
     expect(screen.getByRole('textbox')).toBe(input);
     viewport.mobile = false;

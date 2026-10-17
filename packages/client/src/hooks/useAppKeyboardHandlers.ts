@@ -1,9 +1,8 @@
 import {useCallback, useEffect, useLayoutEffect, useRef} from 'react';
 import {useRouter} from '@tanstack/react-router';
-import { isFileViewId, isWorkspaceViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { isWorkspaceViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore, type DockPosition } from '@/stores/dockStore';
 import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
-import {useChatLayoutStore} from '@/stores/chatLayoutStore';
 import {useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import type {AppSidebarHandle} from '@/components/layout/AppSidebar';
 import type {Preconfig, Workspace} from '@prokopai/sdk';
@@ -49,24 +48,9 @@ export function useAppKeyboardHandlers({
 }: AppKeyboardHandlersConfig) {
   const paneRegistry = useSessionPaneRegistry();
 
+  // The same Sessions list serves both layouts; showView picks the dock or the surface.
   const focusSidebarSessionPanel = useCallback(() => {
-    if (isMobileViewport()) {
-      useChatLayoutStore.getState().setMobileSurface('sessions');
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const surface = document.querySelector<HTMLElement>(
-            '[data-mobile-surface="sessions"]',
-          );
-          const firstSession = surface?.querySelector<HTMLElement>(
-            '[data-sidebar="menu-button"]',
-          );
-          (firstSession ?? surface)?.focus();
-        });
-      });
-      return;
-    }
-
-    useWorkspaceViewStore.getState().activateView('sessions');
+    useWorkspaceViewStore.getState().showView('sessions');
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         sidebarRef.current?.focusSessionPanel();
@@ -75,8 +59,7 @@ export function useAppKeyboardHandlers({
   }, [sidebarRef]);
 
   const focusTerminalPanel = useCallback(() => {
-    if (isMobileViewport()) useWorkspaceViewStore.getState().setMobileTerminalOpen(true);
-    else useWorkspaceViewStore.getState().activateView('terminals');
+    useWorkspaceViewStore.getState().showView('terminals');
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         terminalPanelRef.current?.focus();
@@ -94,11 +77,6 @@ export function useAppKeyboardHandlers({
     focusTerminalPanelRef.current = focusTerminalPanel;
   });
 
-  const handleCloseTerminal = useCallback(() => {
-    if (isMobileViewport()) useWorkspaceViewStore.getState().setMobileTerminalOpen(false);
-    else useWorkspaceViewStore.getState().hideView('terminals');
-  }, []);
-
   const focusFilesPanel = useCallback(() => {
     requestAnimationFrame(() => {
       filesPanelRef.current?.focus();
@@ -111,7 +89,8 @@ export function useAppKeyboardHandlers({
   });
 
   const focusChatInput = useCallback(() => {
-    if (isMobileViewport()) useChatLayoutStore.getState().setMobileSurface('chat');
+    // The phone returns to Chat; on desktop the surface is unused.
+    useWorkspaceViewStore.getState().setMobileSurface('chat');
     const focusedSessionId = useSessionBoardStore.getState().focusedSessionId;
     if (focusedSessionId) useSessionBoardStore.getState().focusSession(focusedSessionId);
     requestAnimationFrame(() => {
@@ -152,8 +131,10 @@ export function useAppKeyboardHandlers({
     });
   }, []);
 
+  // Desktop closes the dock holding the focus; the phone leaves the focused view's surface.
   const handleCloseFocusedDock = useCallback(() => {
     const activeEl = document.activeElement;
+    const views = useWorkspaceViewStore.getState();
     if (!isMobileViewport()) {
       const position = (focusedWorkspaceGroup() ?? activeEl)?.closest<HTMLElement>('[data-dock-position]')?.dataset.dockPosition;
       if (position === 'left' || position === 'right' || position === 'bottom') {
@@ -165,19 +146,11 @@ export function useAppKeyboardHandlers({
       return;
     }
     const view = activeEl?.closest<HTMLElement>('[data-workspace-view]')?.dataset.workspaceView;
-    if (view && isFileViewId(view)) {
-      useChatLayoutStore.getState().setMobileSurface('files');
-    } else if (isWorkspaceViewId(view)) {
-      if (view === 'terminals') handleCloseTerminal();
-      else useChatLayoutStore.getState().setMobileSurface(view === 'editor' ? 'files' : 'chat');
-    } else if (activeEl?.closest('[data-terminal-panel]')) {
-      handleCloseTerminal();
-    } else if (activeEl?.closest('[data-editor-surface]')) {
-      useChatLayoutStore.getState().setMobileSurface('files');
-    } else {
-      useChatLayoutStore.getState().setMobileSurface('chat');
-    }
-  }, [handleCloseTerminal]);
+    if (isWorkspaceViewId(view)) views.closeView(view);
+    else if (activeEl?.closest('[data-terminal-panel]')) views.closeView('terminals');
+    else if (activeEl?.closest('[data-editor-surface]')) views.closeView('editor');
+    else views.setMobileSurface('chat');
+  }, []);
 
   const handleStopStreaming = useCallback(() => {
     handleInterruptSession();
@@ -237,10 +210,18 @@ export function useAppKeyboardHandlers({
     return subscribeLaunchActions(run);
   }, [connected, activeWorkspace, primaryPreconfigs, handleNewSession, router, serverId]);
 
+  // Desktop focuses the dock's selected tab; the phone shows the region's surface and focuses its content.
+  const focusRegion = useCallback((position: DockPosition) => {
+    if (!isMobileViewport()) { focusDock(position); return; }
+    if (position === 'left') focusSidebarSessionPanelRef.current();
+    else if (position === 'bottom') focusTerminalPanelRef.current();
+    else focusFilesPanelRef.current();
+  }, [focusDock]);
+
   useKeyboardShortcuts({
-    onFocusLeftDock: () => isMobileViewport() ? focusSidebarSessionPanelRef.current() : focusDock('left'),
-    onFocusBottomDock: () => isMobileViewport() ? focusTerminalPanelRef.current() : focusDock('bottom'),
-    onFocusRightDock: () => isMobileViewport() ? focusFilesPanelRef.current() : focusDock('right'),
+    onFocusLeftDock: () => focusRegion('left'),
+    onFocusBottomDock: () => focusRegion('bottom'),
+    onFocusRightDock: () => focusRegion('right'),
     onNewSession: handleNewSession,
     onToggleViewMode: handleToggleViewMode,
     onCloseFocusedDock: handleCloseFocusedDock,

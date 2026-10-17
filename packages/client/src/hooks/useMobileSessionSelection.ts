@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import type { ResumeSessionOptions } from '@/stores/sessionStore';
 
 export type ResumeSession = (
@@ -8,6 +8,10 @@ export type ResumeSession = (
   options?: ResumeSessionOptions,
 ) => void;
 
+/**
+ * Picking a session from the phone Sessions surface stays in the shell
+ * (no route change) and returns to Chat. Desktop resumes with navigation.
+ */
 export function useMobileSessionSelection(
   resumeSession: ResumeSession,
 ): ResumeSession {
@@ -18,8 +22,6 @@ export function useMobileSessionSelection(
       sessionId,
       isMobile ? { ...options, skipNavigation: true } : options,
     );
-    if (isMobile) {
-      useChatLayoutStore.getState().setMobileSurface('chat');
-    }
+    if (isMobile) useWorkspaceViewStore.getState().setMobileSurface('chat');
   }, [isMobile, resumeSession]);
 }

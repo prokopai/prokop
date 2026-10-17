@@ -13,13 +13,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useGitStatusQuery } from '@/hooks/queries/useFileQueries';
 import { useWorktreeMutations, useWorktreesQuery } from '@/hooks/queries';
 import { summarizeDiffStats } from '@/components/files/GitChangesView';
 import { cn } from '@/lib/utils';
 import { useWorkspaceViewStore, type RepositoryViewId } from '@/stores/workspaceViewStore';
-import { useSessionChatLayoutStore as useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useScopedSessionFiles } from '@/stores/sessionFilesStore';
 import { useUIStore, type DefaultFileOpenMode } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
@@ -90,17 +89,13 @@ function PathSwitcher({
 
 export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
   ({ sdkClient, view }, ref) => {
-    const isMobile = useIsMobile();
     const fileTreeRef = useRef<FileTreeHandle>(null);
     const gitChangesRef = useRef<GitChangesViewHandle>(null);
-    const activateView = useWorkspaceViewStore((s) => s.activateView);
-    const filesPanelTab = view === 'explorer' ? 'project' : view;
-    const setFilesPanelTab = useChatLayoutStore((s) => s.setFilesPanelTab);
-    const filesPanelRoot = useChatLayoutStore((s) => s.filesPanelRoot);
-    const filesPanelRootPinned = useChatLayoutStore((s) => s.filesPanelRootPinned);
-    const setFilesPanelRoot = useChatLayoutStore((s) => s.setFilesPanelRoot);
-    const setFilesPanelRootPinned = useChatLayoutStore((s) => s.setFilesPanelRootPinned);
-    const setMobileSurface = useChatLayoutStore((s) => s.setMobileSurface);
+    const showView = useWorkspaceViewStore((s) => s.showView);
+    const filesPanelRoot = useScopedSessionFiles((s) => s.filesPanelRoot);
+    const filesPanelRootPinned = useScopedSessionFiles((s) => s.filesPanelRootPinned);
+    const setFilesPanelRoot = useScopedSessionFiles((s) => s.setFilesPanelRoot);
+    const setFilesPanelRootPinned = useScopedSessionFiles((s) => s.setFilesPanelRootPinned);
     const activeWorkspace = useServerDataStore(selectActiveWorkspace);
     const workspaceId = activeWorkspace?.id;
     const focusedSessionId = useSessionBoardStore((s) => s.focusedSessionId);
@@ -198,22 +193,16 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
 
     const focus = useCallback(() => {
       const focusActiveView = () => {
-        if (filesPanelTab === 'changes') {
+        if (view === 'changes') {
           gitChangesRef.current?.focus();
         } else {
           fileTreeRef.current?.focus();
         }
       };
-
-      if (isMobile) {
-        setFilesPanelTab(filesPanelTab);
-        setMobileSurface('files');
-      } else {
-        activateView(view);
-      }
+      showView(view);
       requestAnimationFrame(() => requestAnimationFrame(focusActiveView));
       window.setTimeout(focusActiveView, 250);
-    }, [filesPanelTab, view, isMobile, setFilesPanelTab, setMobileSurface, activateView]);
+    }, [view, showView]);
 
     useImperativeHandle(ref, () => ({ focus }), [focus]);
 
@@ -254,13 +243,12 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
             },
             entry.name,
           );
-          if (isMobile) {
-            setMobileSurface('editor');
-          }
+          // The phone shows the editor surface; on desktop the editor tab is already in place.
+          useWorkspaceViewStore.getState().setMobileSurface('editor');
           return;
         }
       }
-    }, [workspaceId, serverId, isMobile, setMobileSurface, openFilePreview, defaultFileOpenMode]);
+    }, [workspaceId, serverId, openFilePreview, defaultFileOpenMode]);
 
     const handleFileSelect = useCallback((target: FileEntryActionTarget, mode?: DefaultFileOpenMode) => {
       openFile(target, mode);
@@ -268,7 +256,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
 
     // Changes-tab stats in the header row. Reads the same git-status cache
     // as GitChangesView (shared query key), so no extra request.
-    const isChangesTab = filesPanelTab === 'changes';
+    const isChangesTab = view === 'changes';
     const changesRoot = isMainRoot ? undefined : selectedRoot;
     const gitStatusQuery = useGitStatusQuery(
       sdkClient,
@@ -323,7 +311,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
           >
             <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
           </Button>
-          {filesPanelTab === 'project' && (
+          {view === 'explorer' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label="New file or folder">
@@ -416,13 +404,13 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
         // Switching sessions across projects reuses the last few workspaces'
         // trees instead of rebuilding them; only the active entry holds refs.
         <KeepAliveStack
-          key={`${serverId ?? ''}:${filesPanelTab}`}
+          key={`${serverId ?? ''}:${view}`}
           active={{ key: JSON.stringify([workspaceId, selectedRoot]), value: { workspaceId, root: isMainRoot ? undefined : selectedRoot } }}
         >
           {(target, active) => {
             const openEdit = (path: string, name: string) =>
               openFile({ entry: { name, type: 'file', path }, root: target.root }, 'edit');
-            if (filesPanelTab === 'project') {
+            if (view === 'explorer') {
               return (
                 <FileTree
                   ref={active ? fileTreeRef : undefined}
@@ -433,12 +421,11 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
                   activePath={active ? activeEditorPath : undefined}
                   activeRoot={active ? activeEditorRoot : undefined}
                   serverId={serverId}
-                  isMobile={isMobile}
                   onOpenFileEdit={openEdit}
                 />
               );
             }
-            if (filesPanelTab === 'branches') {
+            if (view === 'branches') {
               return <BranchesPanel sdkClient={sdkClient} workspaceId={target.workspaceId} serverId={serverId} root={target.root} />;
             }
             return (
@@ -449,7 +436,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
                 root={target.root}
                 onFileSelect={handleFileSelect}
                 serverId={serverId}
-                isMobile={isMobile}
                 onOpenFileEdit={openEdit}
               />
             );

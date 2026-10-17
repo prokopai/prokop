@@ -11,10 +11,10 @@ import { WorkspaceViewHost } from '@/components/app/WorkspaceViewHost';
 import { DockRegion } from '@/components/layout/DockRegion';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useSessionChatLayoutStore as useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useScopedSessionFiles } from '@/stores/sessionFilesStore';
 import { useDockStore } from '@/stores/dockStore';
 import {
-  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isPullRequestsViewId, isSessionViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
+  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isPullRequestsViewId, isRepositoryViewId, isSessionViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
   type ViewRegion, type WorkspaceViewId,
 } from '@/stores/workspaceViewStore';
 
@@ -30,10 +30,10 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
   const storedLayout = useWorkspaceViewStore((state) => state.layout);
   const mobileTerminalOpen = useWorkspaceViewStore((state) => state.mobileTerminalOpen);
   const docks = useDockStore((state) => state.docks);
-  const mobileSurface = useChatLayoutStore((state) => state.mobileSurface);
-  const setMobileSurface = useChatLayoutStore((state) => state.setMobileSurface);
-  const repositoryTab = useChatLayoutStore((state) => state.filesPanelTab);
-  const setRepositoryTab = useChatLayoutStore((state) => state.setFilesPanelTab);
+  const mobileSurface = useWorkspaceViewStore((state) => state.mobileSurface);
+  const setMobileSurface = useWorkspaceViewStore((state) => state.setMobileSurface);
+  const repositoryView = useScopedSessionFiles((state) => state.filesPanelTab);
+  const setRepositoryView = useScopedSessionFiles((state) => state.setFilesPanelTab);
   const [centerSlot, attachCenter] = useState<HTMLDivElement | null>(null);
   const [slots, setSlots] = useState<Record<string, HTMLDivElement | null>>({});
   const attachSlot = useCallback((id: string, slot: HTMLDivElement | null) => {
@@ -57,7 +57,6 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
     tabs[id]?.onActivate?.();
   };
   const repositoryIds = REPOSITORY_VIEW_IDS.filter((id) => available.includes(id));
-  const repositoryView = repositoryTab === 'project' ? 'explorer' : repositoryTab;
   const chatView = selectedSession ?? 'conversations';
   // Several pull requests tabs can be open (one per workspace); show the one last activated.
   const pullRequestIds = available.filter(isPullRequestsViewId);
@@ -98,10 +97,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
           {isRepositoryView && (
             <div className="flex h-10 shrink-0 items-center border-b border-border/40 px-1">
               <WorkspaceTabStrip ids={repositoryIds} activeId={mobileView} tabs={tabs} label="Repository views"
-                onSelect={(id) => {
-                  const view = REPOSITORY_VIEW_IDS.find((candidate) => candidate === id);
-                  if (view) setRepositoryTab(view === 'explorer' ? 'project' : view);
-                }} onClose={() => {}} />
+                onSelect={(id) => { if (isRepositoryViewId(id)) setRepositoryView(id); }} onClose={() => {}} />
             </div>
           )}
           {mobileView === 'editor' && fileIds.length > 0 && (

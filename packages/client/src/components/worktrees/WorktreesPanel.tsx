@@ -23,9 +23,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWorktreeMutations, useWorktreeRefsQuery, useWorktreesQuery } from '@/hooks/queries';
 import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { cn } from '@/lib/utils';
-import { isMobileViewport } from '@/lib/viewport';
 import { WorktreeCreateForm } from '@/components/worktrees/WorktreeCreateForm';
 
 interface WorktreesPanelProps {
@@ -159,12 +158,10 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
   const openInExplorer = (worktree: ManagedWorktree) => {
     // Pinning the worktree path reuses the existing root switcher so the
     // explorer and changes views follow the selected worktree root.
-    const store = useChatLayoutStore.getState();
-    store.setFilesPanelRoot(worktree.path);
-    store.setFilesPanelRootPinned(true);
-    store.setFilesPanelTab('project');
-    useWorkspaceViewStore.getState().activateView('explorer');
-    if (isMobileViewport()) store.setMobileSurface('files');
+    const files = useSessionFilesStore.getState();
+    files.setFilesPanelRoot(worktree.path);
+    files.setFilesPanelRootPinned(true);
+    useWorkspaceViewStore.getState().showView('explorer');
   };
 
   const remove = (worktree: ManagedWorktree) => {

@@ -12,7 +12,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useAskStore } from '@/stores/askStore';
 import { useCompletionStore } from '@/stores/completionStore';
 
@@ -60,17 +60,16 @@ export function resetAllStores(): void {
     interruptedSessions: new Set<string>(),
   });
 
-  // Chat Layout Store
-  useChatLayoutStore.setState({
+  // Session Files Store
+  useSessionFilesStore.setState({
     sessionFilesLayouts: {},
-    filesPanelTab: 'project',
+    filesPanelTab: 'explorer',
     filesPanelRoot: null,
     filesPanelRootPinned: false,
-    mobileSurface: 'chat',
   });
 
   useDockStore.setState(useDockStore.getInitialState());
-  useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileTerminalOpen: false });
+  useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileSurface: 'chat', mobileTerminalOpen: false });
 
   // Ask Store
   useAskStore.setState({

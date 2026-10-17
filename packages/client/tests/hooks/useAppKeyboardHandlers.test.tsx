@@ -9,7 +9,6 @@ import {
   type SessionPaneRegistry,
 } from '@/contexts/SessionPaneRegistryContext';
 import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { DOCK_POSITIONS, useDockStore } from '@/stores/dockStore';
 import { useWorkspaceFocusStore } from '@/stores/workspaceFocusStore';
 
@@ -87,7 +86,7 @@ function renderHarness() {
 describe('useAppKeyboardHandlers phone Sessions surface', () => {
   beforeEach(() => {
     mocks.keyboardConfig = null;
-    useChatLayoutStore.setState({ mobileSurface: 'chat' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat' });
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
       value: 390,
@@ -99,17 +98,17 @@ describe('useAppKeyboardHandlers phone Sessions surface', () => {
 
     act(() => mocks.keyboardConfig?.onFocusLeftDock());
 
-    expect(useChatLayoutStore.getState().mobileSurface).toBe('sessions');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('sessions');
   });
 
   test('Shift+Escape handler returns focused Sessions to Chat', () => {
     const { getByRole } = renderHarness();
-    useChatLayoutStore.setState({ mobileSurface: 'sessions' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'sessions' });
     getByRole('button', { name: 'Session one' }).focus();
 
     act(() => mocks.keyboardConfig?.onCloseFocusedDock());
 
-    expect(useChatLayoutStore.getState().mobileSurface).toBe('chat');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('chat');
   });
 });
 

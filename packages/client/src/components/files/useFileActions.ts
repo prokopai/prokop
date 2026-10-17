@@ -3,7 +3,7 @@ import type { ProkopaiClient } from '@prokopai/sdk';
 import { queryClient } from '@/components/providers/QueryProvider';
 import { queryKeys } from '@/lib/queryKeys';
 import { basename } from '@/lib/path';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { buildDocId, useFileEditorStore } from '@/stores/fileEditorStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -46,7 +46,6 @@ export interface UseFileActionsOptions {
   sdkClient: ProkopaiClient | null;
   workspaceId: string | undefined;
   serverId?: string;
-  isMobile?: boolean;
   /** Selected root; undefined or '' means the workspace main path. */
   root?: string;
   onMutated?: (kind: FileActionKind, info: FileActionMutationInfo) => void;
@@ -164,10 +163,8 @@ function openFileInEditor(options: UseFileActionsOptions, path: string, name: st
       { serverId: options.serverId, workspaceId: options.workspaceId, root: options.root ?? '', path },
       name,
     );
-  const layout = useChatLayoutStore.getState();
-  if (options.isMobile) {
-    layout.setMobileSurface('editor');
-  }
+  // The phone shows the editor surface; on desktop the editor tab is already in place.
+  useWorkspaceViewStore.getState().setMobileSurface('editor');
 }
 
 export function useFileActions(options: UseFileActionsOptions): UseFileActionsResult {

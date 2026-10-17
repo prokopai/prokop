@@ -14,8 +14,7 @@ import { ServerSwitcher } from '@/components/layout/ServerSwitcher';
 import { HeaderPanelToggles } from '@/components/app/HeaderPanelToggles';
 import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
-import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { isRegionOpen, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 import { cn } from '@/lib/utils';
 
@@ -35,50 +34,26 @@ export function AppHeader() {
   const setShowSettings = useUIStore((s) => s.setShowSettings);
   const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
-  const leftOpen = useDockStore((s) => s.docks.left.open);
-  const rightOpen = useDockStore((s) => s.docks.right.open);
+  // One toggle per region; the store decides whether that means a dock or a phone surface.
+  const docks = useDockStore((s) => s.docks);
+  const mobileSurface = useWorkspaceViewStore((s) => s.mobileSurface);
   const mobileTerminalOpen = useWorkspaceViewStore((s) => s.mobileTerminalOpen);
-  const setMobileTerminalOpen = useWorkspaceViewStore((s) => s.setMobileTerminalOpen);
-  const bottomOpen = useDockStore((s) => s.docks.bottom.open);
-  const toggleDock = useDockStore((s) => s.toggleDock);
-  const mobileSurface = useChatLayoutStore((s) => s.mobileSurface);
-  const setMobileSurface = useChatLayoutStore((s) => s.setMobileSurface);
-
-  const sessionsActive = isMobile
-    ? mobileSurface === 'sessions'
-    : leftOpen;
-  const filesActive = isMobile
-    ? mobileSurface === 'files' || mobileSurface === 'editor'
-    : rightOpen;
+  const toggleRegion = useWorkspaceViewStore((s) => s.toggleRegion);
+  const regionOpen = (position: 'left' | 'right' | 'bottom') => isRegionOpen({ mobileSurface, mobileTerminalOpen }, docks, position, isMobile);
 
   const goWorkspace = () =>
     router.navigate({ to: '/server/$serverId/workspace', params: { serverId: params.serverId } });
   const goOverview = () =>
     router.navigate({ to: '/server/$serverId/overview', params: { serverId: params.serverId } });
 
-  const toggleSessions = () => {
-    if (isMobile) {
-      setMobileSurface(sessionsActive ? 'chat' : 'sessions');
-    } else {
-      toggleDock('left');
-    }
-  };
-  const toggleFiles = () => {
-    if (isMobile) {
-      setMobileSurface(filesActive ? 'chat' : 'files');
-    } else {
-      toggleDock('right');
-    }
-  };
-
   const panelToggles = (
     <HeaderPanelToggles
-      leftActive={sessionsActive}
-      onToggleLeft={toggleSessions}
-      rightActive={filesActive}
-      onToggleRight={toggleFiles}
-      bottomActive={isMobile ? mobileTerminalOpen : bottomOpen}
-      onToggleBottom={() => isMobile ? setMobileTerminalOpen(!mobileTerminalOpen) : toggleDock('bottom')}
+      leftActive={regionOpen('left')}
+      onToggleLeft={() => toggleRegion('left')}
+      rightActive={regionOpen('right')}
+      onToggleRight={() => toggleRegion('right')}
+      bottomActive={regionOpen('bottom')}
+      onToggleBottom={() => toggleRegion('bottom')}
       hasRightDock={!isMobile || Boolean(activeWorkspace)}
       mobile={isMobile}
       onOpenSettings={() => setShowSettings(true)}

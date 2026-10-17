@@ -11,7 +11,6 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useMobileSessionSelection } from '@/hooks/useMobileSessionSelection';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { pullRequestsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useBoardRouteSync } from '@/hooks/useBoardRouteSync';
 import { useFocusedSessionWorkspaceContext } from '@/hooks/useFocusedSessionWorkspaceContext';
@@ -111,7 +110,6 @@ function OverviewSidebar() {
   const handleOpenPullRequests = useCallback((workspaceId: string) => {
     if (!serverId) return;
     useWorkspaceViewStore.getState().openInCenter(pullRequestsViewId(serverId, workspaceId));
-    useChatLayoutStore.getState().setMobileSurface('pull-requests');
   }, [serverId]);
 
   const handleAddTag = useCallback(async (sessionId: string, tag: string) => {

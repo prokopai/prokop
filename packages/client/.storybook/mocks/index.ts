@@ -142,7 +142,7 @@ export {
   withServerDataStore,
   withUIStore,
   withConnectionStore,
-  withChatLayoutStore,
+  withSessionFilesStore,
   withAskStore,
   withCompletionStore,
   withAllStores,

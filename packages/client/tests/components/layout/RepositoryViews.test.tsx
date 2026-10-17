@@ -3,7 +3,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Session, Workspace } from '@prokopai/sdk';
 import { FilesPanel, type FilesPanelHandle } from '@/components/layout/FilesPanel';
-import { useChatLayoutStore } from '@/stores/chatLayoutStore';
+import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -46,10 +46,11 @@ const activeTestId = (id: string) => {
 };
 
 describe('independent repository content', () => {
+  const originalWidth = window.innerWidth;
   beforeEach(() => {
     mocks.mobile = false;
     mocks.gitStatus.mockClear();
-    useChatLayoutStore.setState(useChatLayoutStore.getInitialState());
+    useSessionFilesStore.setState(useSessionFilesStore.getInitialState());
     useServerDataStore.setState({ serverId: 'server', workspaces: [workspace], activeWorkspaceId: workspace.id });
     useSessionBoardStore.setState({ focusedSessionId: 'session' });
     useSessionStore.setState({ sessions: [{ id: 'session', workspaceId: 'workspace', workspaceRootId: null } as Session] });
@@ -58,7 +59,9 @@ describe('independent repository content', () => {
   });
   afterEach(() => {
     cleanup();
-    useChatLayoutStore.setState(useChatLayoutStore.getInitialState());
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat', mobileTerminalOpen: false });
+    useSessionFilesStore.setState(useSessionFilesStore.getInitialState());
     useServerDataStore.setState(useServerDataStore.getInitialState());
     useSessionBoardStore.setState(useSessionBoardStore.getInitialState());
     useSessionStore.setState(useSessionStore.getInitialState());
@@ -77,9 +80,9 @@ describe('independent repository content', () => {
     const explorer = screen.getByRole('textbox');
     expect(screen.queryByRole('tablist')).toBeNull();
     act(() => {
-      useChatLayoutStore.getState().setFilesPanelTab('worktrees');
-      useChatLayoutStore.getState().setFilesPanelRoot('/extra');
-      useChatLayoutStore.getState().setFilesPanelRootPinned(true);
+      useSessionFilesStore.getState().setFilesPanelTab('worktrees');
+      useSessionFilesStore.getState().setFilesPanelRoot('/extra');
+      useSessionFilesStore.getState().setFilesPanelRootPinned(true);
     });
     expect(screen.getByRole('textbox')).toHaveAttribute('data-root', '/extra');
     expect(activeTestId('changes')).toHaveAttribute('data-root', '/extra');
@@ -89,7 +92,7 @@ describe('independent repository content', () => {
     expect(screen.getByRole('textbox')).not.toBe(explorer);
     expect(explorer.closest('[data-keep-alive-entry]')).toHaveAttribute('data-keep-alive-entry', 'hidden');
     const pinnedExplorer = screen.getByRole('textbox');
-    act(() => useChatLayoutStore.getState().setFilesPanelTab('branches'));
+    act(() => useSessionFilesStore.getState().setFilesPanelTab('branches'));
     expect(screen.getByRole('textbox')).toBe(pinnedExplorer);
     act(() => useSessionBoardStore.setState({ focusedSessionId: 'other-session' }));
     expect(screen.getByRole('textbox')).toHaveAttribute('data-root', 'primary');
@@ -123,11 +126,13 @@ describe('independent repository content', () => {
     expect(findViewRegion(useWorkspaceViewStore.getState().layout, 'explorer')).toBe('bottom');
     expect(useWorkspaceViewStore.getState().layout.hidden).not.toContain('explorer');
     expect(useDockStore.getState().docks.bottom.open).toBe(true);
+    // The store decides by viewport width; the hook mock only drives rendering.
     mocks.mobile = true;
-    act(() => useChatLayoutStore.getState().setFilesPanelTab('branches'));
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    act(() => useSessionFilesStore.getState().setFilesPanelTab('branches'));
     rerender(<FilesPanel ref={ref} sdkClient={null} view="explorer" />);
     act(() => ref.current?.focus());
-    expect(useChatLayoutStore.getState().mobileSurface).toBe('files');
-    expect(useChatLayoutStore.getState().sessionFilesLayouts[JSON.stringify(['server', 'workspace', 'session'])].filesPanelTab).toBe('project');
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('files');
+    expect(useSessionFilesStore.getState().sessionFilesLayouts[JSON.stringify(['server', 'workspace', 'session'])].filesPanelTab).toBe('explorer');
   });
 });
