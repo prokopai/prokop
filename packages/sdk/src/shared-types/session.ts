@@ -23,6 +23,11 @@ export interface Session {
   selectedModel?: string | null;
   selectedProvider?: string | null;
   selectedVariant?: string | null;
+  /**
+   * Token fields: the Prokop harness's latest request usage (its context in
+   * use, reset by compaction). Claude Code and Codex keep their usage in
+   * `metadata` and report it through `harnessState.usage`.
+   */
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;

@@ -580,19 +580,11 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             completion: usage.completion }, cost: usage.cost } : {}) });
         if (completed) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completed });
         if (usage) {
-          const previous = await getSession(sessionId);
-          if (previous) {
-            const total = usage.prompt + usage.cacheRead + usage.cacheWrite + usage.completion;
-            const updated = await patchSessionMetadata(sessionId, {
-              claudeUsage: { last: usage, contextWindow: usage.contextWindow },
-            }, { promptTokens: (previous.promptTokens ?? 0)
-              + usage.prompt + usage.cacheRead + usage.cacheWrite,
-            completionTokens: (previous.completionTokens ?? 0) + usage.completion,
-            totalTokens: (previous.totalTokens ?? 0) + total,
-            cacheReadTokens: (previous.cacheReadTokens ?? 0) + usage.cacheRead,
-            cacheWriteTokens: (previous.cacheWriteTokens ?? 0) + usage.cacheWrite });
-            if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-          }
+          // The meter reads `claudeUsage`; the session token fields are Prokop's context usage.
+          const updated = await patchSessionMetadata(sessionId, {
+            claudeUsage: { last: usage, contextWindow: usage.contextWindow },
+          });
+          if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
         }
         await storeTransaction(async (tx) => {
           await releaseClaudeBinding(tx, sessionId);

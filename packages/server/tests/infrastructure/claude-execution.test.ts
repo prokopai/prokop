@@ -747,8 +747,9 @@ test('model usage includes child costs, persists totals and rejects missing usag
   } });
   await exec.sendMessage(wire, 'origin', 'session', 'hello');
   expect(listMessagesWithParts('session')[1]?.message).toMatchObject({ tokens: { prompt: 24, completion: 7 }, cost: 0.03 });
-  expect(getSession('session')).toMatchObject({ promptTokens: 24, completionTokens: 7, totalTokens: 31,
-    metadata: { claudeUsage: { contextWindow: 200000 } } });
+  // Usage lives in claudeUsage; the session token fields are Prokop's.
+  expect(getSession('session')).toMatchObject({ metadata: { claudeUsage: { contextWindow: 200000 } } });
+  expect(getSession('session')?.totalTokens ?? 0).toBe(0);
 });
 test('records only native compaction boundaries, not a fabricated manual compact turn', async () => {
   const { wire, events } = wireFixture();
