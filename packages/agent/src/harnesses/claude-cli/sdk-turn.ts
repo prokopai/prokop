@@ -155,15 +155,27 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
     // The hook waits for the human, so it outlives the permission timeout (the CLI default is 10 minutes,
     // after which it abandons the call while the ask would still be shown); Jean2's own timer denies first.
     hooks: { PreToolUse: [{ timeout: Math.ceil(getPermissionTimeoutMs() / 1000) + 30, hooks: [async (event, _id, context) => {
-      if (event.hook_event_name !== 'PreToolUse') return { continue: false };
+      // Only PreToolUse is registered. Anything else gets no decision; `continue: false`
+      // would make the CLI report the call as refused by the user.
+      if (event.hook_event_name !== 'PreToolUse') return {};
       if (streamClosed) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Claude stream has ended' } };
       // agent_id is set only for calls from a subagent.
       if (event.agent_id && MAIN_THREAD_ONLY_TOOLS.has(event.tool_name)) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Only the main agent can show pages in the conversation' } };
-      const decision = await input.canUseTool(event.tool_name, event.tool_input as Record<string, unknown>, {
-        signal: context.signal, toolUseID: event.tool_use_id, requestId: crypto.randomUUID(),
-      });
+      let decision: Awaited<ReturnType<typeof input.canUseTool>>;
+      try {
+        decision = await input.canUseTool(event.tool_name, event.tool_input as Record<string, unknown>, {
+          signal: context.signal, toolUseID: event.tool_use_id, requestId: crypto.randomUUID(),
+        });
+      } catch (error: unknown) {
+        // A hook that throws is reported by the CLI as "the user doesn't want this action".
+        // Fail closed with the real reason instead, so the transcript names the host error.
+        const message = error instanceof Error ? error.message : 'unknown error';
+        console.warn('[claude-cli] permission check failed', { tool: event.tool_name, message });
+        return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
+          permissionDecisionReason: `Prokop permission check failed: ${message}` } };
+      }
       if (streamClosed) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Claude stream has ended' } };
       const updatedInput = decision?.behavior === 'allow' ? decision.updatedInput : undefined;

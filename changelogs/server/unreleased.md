@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- **A Claude tool blocked by a Prokop error no longer looks like your refusal**: When the permission check for a Claude tool hit an error, Claude was told that you had declined the action, and the tool row only said "Claude tool failed". The check now fails with the actual error, and a failed Claude tool row shows the message Claude reported.
+
 - **"Allow for this session" only allows what you approved**: In Prokop sessions, approving one command or file for the session or workspace also approved every later command or file of that tool, including commands that always need your approval, such as deleting your home folder. An approval now covers the exact command in the same folder, or the exact file. Commands that can only be allowed once can no longer be remembered. Approvals you saved before this update stop applying, so you will be asked once more.
 
 - **Approvals no longer vanish when you reconnect**: Reopening the app or reconnecting expired every approval or question older than 5 minutes, although it should wait 30. The prompt disappeared while the session kept waiting, and nothing could answer it. Reconnecting now keeps each prompt until its own timeout.

@@ -36,6 +36,7 @@ import { resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '#agent/harnesses/shared/tool-viz';
+import { claudeToolFailure } from './tool-failure';
 import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
 import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
@@ -528,7 +529,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
               continue;
             }
             if (part.name === 'subagent') await children.finish(event.id, event.failed ? 'error' : 'completed');
-            const updated = event.failed ? await transitionToolToError(part.id, 'Claude tool failed')
+            const updated = event.failed ? await transitionToolToError(part.id, claudeToolFailure(event.output))
               : await transitionToolToCompleted(part.id, {
                 _visualization: claudeToolVisualization(part.name, part.state.input,
                   typeof event.output === 'string' ? event.output : '', event.failed),

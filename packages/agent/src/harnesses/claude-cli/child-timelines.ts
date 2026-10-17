@@ -7,6 +7,7 @@ import {
 import { StreamingTextWriter } from '#agent/harnesses/shared/streaming-text';
 import type { ClaudeTurnEvent } from './sdk-turn';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '#agent/harnesses/shared/tool-viz';
+import { claudeToolFailure } from './tool-failure';
 
 interface ChildTextSegment { part: TextPart; text: string }
 
@@ -139,7 +140,7 @@ export class ClaudeChildTimelines {
       const part = await getToolPartByCallId(sessionId, `claude-tool:${this.nativeId}:${event.id}`);
       if (!part || !child.openTools.delete(part.id)) throw new Error('Unknown Claude child tool result');
       if (this.children.has(event.id)) await this.finish(event.id, event.failed ? 'error' : 'completed');
-      const updated = event.failed ? await transitionToolToError(part.id, 'Claude tool failed')
+      const updated = event.failed ? await transitionToolToError(part.id, claudeToolFailure(event.output))
         : await transitionToolToCompleted(part.id, {
           _visualization: claudeToolVisualization(part.name, part.state.input,
             typeof event.output === 'string' ? event.output : '', event.failed),

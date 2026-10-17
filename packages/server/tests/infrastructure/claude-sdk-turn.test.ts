@@ -294,6 +294,34 @@ test('SDK hook denies render_html to subagents and leaves the main agent to poli
   expect(asked).toEqual(['mcp__workspace__render_html']);
 });
 
+test('SDK hook fails closed with the host error when the permission check throws', async () => {
+  const warn = console.warn;
+  const warned: unknown[][] = [];
+  console.warn = (...args: unknown[]) => { warned.push(args); };
+  try {
+    for await (const _item of runClaudeTurn({ ...base,
+      canUseTool: async () => { throw new Error('session lookup failed'); },
+      start: (_prompt, config) => {
+        async function* stream(): AsyncGenerator<SDKMessage> {
+          const hook = config.hooks!.PreToolUse![0]!.hooks[0]!;
+          const decision = await hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash',
+            tool_input: { command: 'git status' }, tool_use_id: 'bash-1' } as never, 'bash-1',
+          { signal: base.controller.signal });
+          // Never `continue: false` or a throw: the CLI turns both into "the user doesn't want this action".
+          expect(decision).toEqual({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
+            permissionDecisionReason: 'Prokop permission check failed: session lookup failed' } });
+          expect(await hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash' } as never, 'bash-1',
+            { signal: base.controller.signal })).toEqual({});
+          yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+          yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done' });
+        }
+        return stream();
+      },
+    })) { /* Consume the fake turn. */ }
+  } finally { console.warn = warn; }
+  expect(warned).toEqual([['[claude-cli] permission check failed', { tool: 'Bash', message: 'session lookup failed' }]]);
+});
+
 test('default Agent and future tools keep parent tool rows while child events stay out of parent text', async () => {
   const approved: string[] = [];
   const collected = [];

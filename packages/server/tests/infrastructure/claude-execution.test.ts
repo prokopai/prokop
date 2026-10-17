@@ -303,6 +303,35 @@ test('persists and resumes native CLI identity, model and effort over two text t
   expect(events.some(event => (event as { type?: string }).type === 'message.updated')).toBe(true);
 });
 
+test('a failed native tool keeps the first line of what Claude reported as its error', async () => {
+  const { wire } = wireFixture();
+  const refused = 'The user doesn\'t want to take this action right now. STOP what you are doing.\nsecond line';
+  const exec = createClaudeExecution({ version: () => '2.1.274', start: (_prompt, options) => {
+    const id = options.sessionId!;
+    async function* stream(): AsyncGenerator<SDKMessage> {
+      yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+      yield { type: 'assistant', session_id: id, parent_tool_use_id: null, message: {
+        content: [{ type: 'tool_use', id: 'call-1', name: 'Bash', input: { command: 'git status' } },
+          { type: 'tool_use', id: 'call-2', name: 'Read', input: { file_path: 'README.md' } }],
+      } } as SDKMessage;
+      yield { type: 'user', session_id: id, parent_tool_use_id: null, message: {
+        content: [{ type: 'tool_result', tool_use_id: 'call-1', content: refused, is_error: true },
+          { type: 'tool_result', tool_use_id: 'call-2', content: '', is_error: true }],
+      } } as SDKMessage;
+      yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'stopped' } as SDKMessage;
+    }
+    return stream();
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'commit');
+  const parts = listMessagesWithParts('session')[1]!.parts;
+  expect(parts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ type: 'tool', name: 'shell', state: expect.objectContaining({ status: 'error',
+      error: 'The user doesn\'t want to take this action right now. STOP what you are doing.' }) }),
+    expect.objectContaining({ type: 'tool', name: 'read-file', state: expect.objectContaining({ status: 'error',
+      error: 'Claude tool failed' }) }),
+  ]));
+});
+
 test('persists native tool calls, bounded results, and assistant text', async () => {
   const { wire, events } = wireFixture();
   const exec = createClaudeExecution({ version: () => '2.1.274', start: (_prompt, options) => {
