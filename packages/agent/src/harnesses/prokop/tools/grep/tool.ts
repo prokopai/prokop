@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolContext, ToolResult } from '@prokopai/sdk';
 import type { FileListVisualization } from '@prokopai/sdk';
+import { extname } from 'path';
 import ignore from 'ignore';
 import picomatch from 'picomatch';
 import { fileConcernAsk, isToolPathAllowed } from '../file-permission';
@@ -43,7 +44,7 @@ const SKIP_DIRS = new Set([
 ]);
 
 const BINARY_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2',
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2',
   '.ttf', '.eot', '.zip', '.tar', '.gz', '.7z', '.rar', '.pdf',
   '.exe', '.dll', '.so', '.dylib', '.wasm', '.mp4', '.mp3', '.wav',
   '.avi', '.mov', '.mkv', '.webp', '.webm', '.sqlite', '.db', '.bin', '.dat',
@@ -83,8 +84,7 @@ export const definition: ToolDefinition = {
 };
 
 function isBinaryFile(filePath: string): boolean {
-  const ext = filePath.split('.').pop()?.toLowerCase() || '';
-  return BINARY_EXTENSIONS.has(ext);
+  return BINARY_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 
 async function searchInFile(ctx: ToolContext, filePath: string, regex: RegExp): Promise<Array<{ line: number; content: string }>> {

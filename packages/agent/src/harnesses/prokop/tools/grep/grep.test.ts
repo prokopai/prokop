@@ -271,6 +271,35 @@ describe('grep: skip directories', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════
+// Binary files
+// ══════════════════════════════════════════════════════════════════
+
+describe('grep: binary files', () => {
+  test('skips binary extensions even without NUL bytes, keeps svg and extensionless files', async () => {
+    vfs.writeFile(`${WORKSPACE}/assets/logo.PNG`, 'needle');
+    vfs.writeFile(`${WORKSPACE}/assets/data.db`, 'needle');
+    vfs.writeFile(`${WORKSPACE}/assets/icon.svg`, '<svg>needle</svg>');
+    vfs.writeFile(`${WORKSPACE}/assets/Makefile`, 'needle:');
+    vfs.addDir(`${WORKSPACE}/assets`);
+
+    const result = await execute({ pattern: 'needle', path: `${WORKSPACE}` }, ctx);
+    expect(result.success).toBe(true);
+    const files = (result.result as { matches: Array<{ file: string }> }).matches.map(m => m.file).sort();
+    expect(files.length).toBe(2);
+    expect(files[0]).toContain('Makefile');
+    expect(files[1]).toContain('icon.svg');
+  });
+
+  test('skips a single binary file passed as the path', async () => {
+    vfs.writeFile(`${WORKSPACE}/photo.jpg`, 'needle');
+
+    const result = await execute({ pattern: 'needle', path: `${WORKSPACE}/photo.jpg` }, ctx);
+    expect(result.success).toBe(true);
+    expect((result.result as { matches: unknown[] }).matches).toEqual([]);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
 // Permissions
 // ══════════════════════════════════════════════════════════════════
 
