@@ -134,7 +134,8 @@ function subscribe(client: ProkopaiClient, serverId: string): () => void {
 
   // Content events arrive only for sessions this connection resumed.
   add('message.created', (message) => withCtx((context) => messagePartHandlers['message.created']({ type: 'message.created', message: message as Message }, context)));
-  add('message.updated', (message) => withCtx((context) => messagePartHandlers['message.updated']({ type: 'message.updated', message: message as Message }, context)));
+  add('message.updated', (message, continues) => withCtx((context) => messagePartHandlers['message.updated']({
+    type: 'message.updated', message: message as Message, ...(continues ? { continues: true as const } : {}) }, context)));
   add('part.created', (sessionId, part) => withCtx((context) => messagePartHandlers['part.created']({ type: 'part.created', sessionId: sessionId as string, part: part as Part }, context)));
   add('part.updated', (sessionId, part) => withCtx((context) => messagePartHandlers['part.updated']({ type: 'part.updated', sessionId: sessionId as string, part: part as Part }, context)));
   add('part.append', (sessionId, partId, field, delta) => withCtx((context) => messagePartHandlers['part.append']({ type: 'part.append', sessionId: sessionId as string, partId: partId as string, field: field as 'text' | 'reasoning', delta: delta as string }, context)));

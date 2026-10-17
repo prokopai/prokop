@@ -800,7 +800,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               });
               assistant = next!;
               const completedReply = (answered as { readonly value: Message | null } | null)?.value;
-              if (completedReply) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completedReply });
+              if (completedReply) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completedReply, continues: true });
               wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
               toolItems?.retarget(assistant.id);
               logHarness('codex-cli', 'steer started', { sessionId, queueId: steer.queued.id }, 'info');

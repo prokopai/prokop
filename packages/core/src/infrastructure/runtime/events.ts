@@ -10,7 +10,11 @@ export interface UsageEventData {
 }
 
 export type RuntimeEvent =
-  | { kind: 'message'; action: 'created' | 'updated'; message: Message }
+  | {
+      kind: 'message'; action: 'created' | 'updated'; message: Message;
+      /** The reply ended but its turn goes on (steer, compaction). */
+      continues?: true;
+    }
   | { kind: 'part'; action: 'created' | 'updated'; sessionId: string; part: Part }
   | { kind: 'part'; action: 'append'; sessionId: string; partId: string; field: 'text' | 'reasoning'; delta: string }
   | { kind: 'session'; action: 'created' | 'updated' | 'renamed'; session: Session }

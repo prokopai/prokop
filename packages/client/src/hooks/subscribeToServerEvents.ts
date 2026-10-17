@@ -146,8 +146,9 @@ export function subscribeToServerEvents(
   add('message.created', (message: unknown) => {
     messagePartHandlers['message.created']({ type: 'message.created', message: message as Message }, ctx()!);
   });
-  add('message.updated', (message: unknown) => {
-    messagePartHandlers['message.updated']({ type: 'message.updated', message: message as Message }, ctx()!);
+  add('message.updated', (message: unknown, continues?: unknown) => {
+    messagePartHandlers['message.updated']({ type: 'message.updated', message: message as Message,
+      ...(continues === true ? { continues: true as const } : {}) }, ctx()!);
   });
   add('part.created', (sessionId: unknown, part: unknown) => {
     messagePartHandlers['part.created']({ type: 'part.created', sessionId: sessionId as string, part: part as Part }, ctx()!);

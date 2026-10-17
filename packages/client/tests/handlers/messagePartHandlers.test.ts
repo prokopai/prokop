@@ -121,6 +121,25 @@ describe('messagePartHandlers notification acknowledgement', () => {
     );
   });
 
+  test('a reply ended by a steered message is not a finished chat', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    const ctx = makeCtx();
+    ctx.chatFinishSoundEnabledRef.current = true;
+    ctx.sessionsRef.current = [{ id: 'sess-1', parentId: null }] as unknown as typeof ctx.sessionsRef.current;
+
+    handleMessageUpdated({ type: 'message.updated', message: makeAssistantMessage('completed'), continues: true }, ctx);
+    expect(ctx.setMessagesBySession).toHaveBeenCalled();
+    expect(ctx.playChatFinishSound).not.toHaveBeenCalled();
+    expect(ctx.setCompletion).not.toHaveBeenCalled();
+    expect(ctx.removeStreamingSession).not.toHaveBeenCalled();
+
+    // The turn's real end still finishes the chat.
+    handleMessageUpdated({ type: 'message.updated', message: makeAssistantMessage('completed') }, ctx);
+    expect(ctx.playChatFinishSound).toHaveBeenCalledTimes(1);
+    expect(ctx.setCompletion).toHaveBeenCalledTimes(1);
+    expect(ctx.removeStreamingSession).toHaveBeenCalledWith('sess-1');
+  });
+
   test('does not acknowledge while the client is hidden', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     Object.defineProperty(document, 'visibilityState', {

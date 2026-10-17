@@ -59,7 +59,7 @@ export function handleMessageCreated(
 }
 
 export function handleMessageUpdated(
-  msg: { type: 'message.updated'; message: Message },
+  msg: { type: 'message.updated'; message: Message; continues?: true },
   ctx: SessionHandlersContext,
 ): void {
   const { message } = msg;
@@ -99,6 +99,10 @@ export function handleMessageUpdated(
       ),
     }));
   }
+
+  // A reply that ended because a steered message (or compaction) continues
+  // the turn: the session is still running, so no finish sound or badge.
+  if (msg.continues) return;
 
   if ('status' in message && message.status !== 'streaming') {
     removeStreamingSession(message.sessionId);

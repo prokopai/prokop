@@ -15,6 +15,8 @@
 
 - **Prokop approvals and questions wait 30 minutes**: In Prokop sessions they expired after 5 minutes. They now wait as long as Claude and Codex approvals.
 
+- **No "finished" signal when a message joins a running reply**: Sending a message into a running turn played the finish sound, marked the chat as finished and stopped showing it as running, although the agent kept working. It now does that only when the turn really ends.
+
 - **Notifications for questions**: When Claude or Prokop asks you a question, you now get a push notification ("Prokopai has a question for you") and the attention sound, like approvals. The setting is now called "Approvals and questions".
 
 - **Claude approvals no longer expire after 10 minutes**: In Claude sessions, an approval left unanswered for 10 minutes was dropped by Claude while Jean2 still allowed up to 30 minutes, so the prompt vanished and the command failed. Claude now waits for your answer as long as the prompt is shown, like Codex.

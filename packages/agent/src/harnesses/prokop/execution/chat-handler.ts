@@ -232,7 +232,8 @@ async function runSingleChatTurn<Origin>(
             terminalMessage = event.message;
             if (!event.continuation) emitTerminal(event.message, sessionId);
           }
-          deliverToSession(ctx, sessionId, { kind: 'message', action: 'updated', message: event.message });
+          deliverToSession(ctx, sessionId, { kind: 'message', action: 'updated', message: event.message,
+            ...(event.continuation ? { continues: true as const } : {}) });
           break;
 
         case 'part.created':

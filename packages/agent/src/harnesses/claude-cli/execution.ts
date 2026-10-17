@@ -448,7 +448,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
               openSegment = null;
             }
             const answered = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now() });
-            if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered });
+            if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered, continues: true });
             const steered = await commitSteer(wire.delivery, sessionId, steer);
             assistant = await createMessage(streamingAssistant(sessionId, {
               modelId: selection.model, providerId: 'claude-cli', agent: session.agentId,

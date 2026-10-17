@@ -105,6 +105,13 @@ describe('prokop steering', () => {
       expect(JSON.stringify(last?.content)).toContain('Use tabs instead');
       expect(events).toContainEqual({ kind: 'queue', action: 'sending', sessionId, queueId: steered });
       expect(events.filter(event => event.kind === 'terminal' && event.sessionId === sessionId)).toHaveLength(1);
+      // Only the turn's last reply finishes the chat (completion sound and badge).
+      const [steeredReply, lastReply] = messages.filter(entry => entry.message.role === 'assistant');
+      const completions = events.filter(event => event.kind === 'message' && event.action === 'updated'
+        && 'status' in event.message && event.message.status === 'completed') as Array<Extract<typeof events[number], { kind: 'message' }>>;
+      expect(completions.filter(event => event.message.id === steeredReply!.message.id).every(event => event.continues)).toBe(true);
+      expect(completions.some(event => event.message.id === steeredReply!.message.id)).toBe(true);
+      expect(completions.some(event => event.message.id === lastReply!.message.id && !event.continues)).toBe(true);
       expect(events.filter(event => event.kind === 'failure')).toEqual([]);
       expect(await storage.queue.peek(sessionId)).toBeNull();
       expect(interruptManager.isSessionActive(sessionId)).toBe(false);

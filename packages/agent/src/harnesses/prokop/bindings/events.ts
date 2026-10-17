@@ -6,7 +6,8 @@ import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 export function mapCapekEventToServerMessage(event: RuntimeEvent): ServerMessage | null {
   switch (event.kind) {
     case 'message':
-      return { type: event.action === 'created' ? 'message.created' : 'message.updated', message: event.message };
+      if (event.action === 'created') return { type: 'message.created', message: event.message };
+      return { type: 'message.updated', message: event.message, ...(event.continues ? { continues: true as const } : {}) };
     case 'part':
       if (event.action === 'append') {
         return {

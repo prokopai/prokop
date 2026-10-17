@@ -2595,6 +2595,12 @@ test('a steered message enters the running Codex turn with turn/steer and splits
   expect(listQueuedMessages('s')).toEqual([]);
   expect(messages.filter(message => message.type === 'queue.sending')).toEqual([
     { type: 'queue.sending', sessionId: 's', queueId: queued.id }]);
+  // Only the turn's last reply finishes the chat (completion sound and badge).
+  const [steeredReply, lastReply] = listMessagesWithParts('s').filter(entry => entry.message.role === 'assistant');
+  const completions = messages.filter((message): message is Extract<ServerMessage, { type: 'message.updated' }> =>
+    message.type === 'message.updated' && 'status' in message.message && message.message.status === 'completed');
+  expect(completions.filter(event => event.message.id === steeredReply!.message.id).every(event => event.continues)).toBe(true);
+  expect(completions.some(event => event.message.id === lastReply!.message.id && !event.continues)).toBe(true);
   expect(codexBinding('s')?.pendingTurn).toBe(false);
 });
 

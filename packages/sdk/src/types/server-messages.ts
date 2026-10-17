@@ -129,7 +129,7 @@ export interface SdkEventMap {
   ];
 
   'message.created': [message: MessageCreatedMessage['message']];
-  'message.updated': [message: MessageUpdatedMessage['message']];
+  'message.updated': [message: MessageUpdatedMessage['message'], continues?: MessageUpdatedMessage['continues']];
   'part.created': [sessionId: PartCreatedMessage['sessionId'], part: PartCreatedMessage['part']];
   'part.updated': [sessionId: PartUpdatedMessage['sessionId'], part: PartUpdatedMessage['part']];
   'part.append': [
@@ -331,7 +331,7 @@ export function routeServerMessage(
       emitter.emit('message.created', msg.message);
       break;
     case 'message.updated':
-      emitter.emit('message.updated', msg.message);
+      emitter.emit('message.updated', msg.message, msg.continues);
       break;
     case 'part.created':
       emitter.emit('part.created', msg.sessionId, msg.part);

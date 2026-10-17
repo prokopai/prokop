@@ -231,7 +231,7 @@ export type PartField = 'text' | 'reasoning';
 export type MessageEvent =
   // Message lifecycle
   | { type: 'message.created'; message: Message }
-  | { type: 'message.updated'; message: Message }
+  | { type: 'message.updated'; message: Message; continues?: true }
   // Part lifecycle
   | { type: 'part.created'; sessionId: string; part: Part }
   | { type: 'part.updated'; sessionId: string; part: Part }

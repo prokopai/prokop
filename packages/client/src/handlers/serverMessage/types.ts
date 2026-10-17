@@ -126,7 +126,7 @@ export type SessionHandlers = {
 
 export type MessagePartHandlers = {
   'message.created': (msg: { type: 'message.created'; message: Message }, ctx: SessionHandlersContext) => void;
-  'message.updated': (msg: { type: 'message.updated'; message: Message }, ctx: SessionHandlersContext) => void;
+  'message.updated': (msg: { type: 'message.updated'; message: Message; continues?: true }, ctx: SessionHandlersContext) => void;
   'part.created': (msg: { type: 'part.created'; sessionId: string; part: Part }, ctx: SessionHandlersContext) => void;
   'part.updated': (msg: { type: 'part.updated'; sessionId: string; part: Part }, ctx: SessionHandlersContext) => void;
   'part.append': (msg: { type: 'part.append'; sessionId: string; partId: string; field: 'text' | 'reasoning'; delta: string }, ctx: SessionHandlersContext) => void;

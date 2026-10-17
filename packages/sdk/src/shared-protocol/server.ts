@@ -72,6 +72,9 @@ export interface MessageCreatedMessage {
 export interface MessageUpdatedMessage {
   type: 'message.updated';
   message: Message;
+  /** The reply ended but its turn goes on (a steered message or compaction
+   * follows): not a finished chat, so no completion sound or badge. */
+  continues?: true;
 }
 
 export interface PartCreatedMessage {

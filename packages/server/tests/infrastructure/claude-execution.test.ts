@@ -1303,6 +1303,12 @@ test('a steered message enters the running Claude turn and splits the transcript
   const steeredUser = listMessagesWithParts('session')[2]!.message;
   expect(events).toContainEqual(expect.objectContaining({ type: 'queue.sending', sessionId: 'session' }));
   expect(events).toContainEqual({ type: 'message.created', message: steeredUser });
+  // Only the turn's last reply finishes the chat (completion sound and badge).
+  const [steeredReply, lastReply] = listMessagesWithParts('session').filter(entry => entry.message.role === 'assistant');
+  const completions = (events as Array<{ type: string; message?: { id: string; status?: string }; continues?: true }>)
+    .filter(event => event.type === 'message.updated' && event.message?.status === 'completed');
+  expect(completions.filter(event => event.message!.id === steeredReply!.message.id).every(event => event.continues)).toBe(true);
+  expect(completions.some(event => event.message!.id === lastReply!.message.id && !event.continues)).toBe(true);
   expect(getSession('session')?.runningAt).toBeNull();
 });
 
