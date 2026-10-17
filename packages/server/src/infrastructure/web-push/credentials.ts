@@ -185,10 +185,14 @@ export async function sendWebPush(input: SendPushInput): Promise<SendPushResult>
   };
 
   try {
+    // Every push here is something waiting on you now (a finished run, an
+    // approval). High urgency asks the push service and the phone to deliver
+    // it at once instead of batching it for the next wake, which iOS and
+    // Android do for normal urgency in low power mode.
     const result = await webpush.sendNotification(
       subscription,
       input.payload,
-      { TTL: input.ttl ?? 2419200 },
+      { TTL: input.ttl ?? 2419200, urgency: 'high' },
     );
     return {
       success: true,

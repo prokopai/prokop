@@ -4,7 +4,7 @@ import type {
   NotificationEventType,
   Session,
 } from '@prokopai/sdk';
-import { getTerminalNotificationEventId } from '@prokopai/sdk';
+import { getAskNotificationEventId, getTerminalNotificationEventId } from '@prokopai/sdk';
 
 /**
  * Notification domain: web-push reservation and delivery policy.
@@ -27,12 +27,13 @@ export const RETRY_NEXT_ATTEMPT_MS = 60_000;
 export const MAX_RETRY_ATTEMPTS = 5;
 export const DELIVERY_CLEANUP_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Shared with the client, which acknowledges asks by the same id. */
 export function permissionEventId(requestId: string): string {
-  return `permission:${requestId}`;
+  return getAskNotificationEventId(requestId, true);
 }
 
 export function questionEventId(requestId: string): string {
-  return `question:${requestId}`;
+  return getAskNotificationEventId(requestId, false);
 }
 
 // ── Payload construction ─────────────────────────────────────

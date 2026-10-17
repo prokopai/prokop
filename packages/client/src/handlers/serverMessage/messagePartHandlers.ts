@@ -9,6 +9,8 @@ import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { usePendingSendStore } from '@/stores/pendingSendStore';
+import { isUserAttending } from '@/lib/userActivity';
+import { markFinishHandled } from '@/lib/finishSignals';
 
 const STREAM_FLUSH_INTERVAL_MS = 75;
 
@@ -118,10 +120,12 @@ export function handleMessageUpdated(
 
     if (isTopLevel) {
       const isError = 'error' in message && message.status === 'error';
-      // Unread unless you are looking at it right now (focused pane, window in front).
-      const isLookedAt = useSessionBoardStore.getState().focusedSessionId === message.sessionId
-        && document.visibilityState === 'visible'
-        && document.hasFocus();
+      // The session.updated that follows must not sound this finish again.
+      markFinishHandled(message.sessionId);
+      // Unread unless you are looking at it right now: focused pane, window
+      // in front, and you touched the device recently.
+      const attending = isUserAttending();
+      const isLookedAt = useSessionBoardStore.getState().focusedSessionId === message.sessionId && attending;
       if (!isLookedAt) setCompletion(message.sessionId, { finishedAt: Date.now(), failed: isError });
       if (!isError && chatFinishSoundEnabledRef.current) {
         playChatFinishSound();
@@ -130,6 +134,8 @@ export function handleMessageUpdated(
       const isDisplayed = useSessionBoardStore.getState().openSessionIds.includes(message.sessionId)
         || currentSessionIdRef.current === message.sessionId;
 
+      // Someone present at a device showing this session cancels the push
+      // for every device; a focused but idle window does not.
       if (
         message.role === 'assistant'
         && (message.status === 'completed' || message.status === 'error')
@@ -137,8 +143,7 @@ export function handleMessageUpdated(
         && message.mode !== 'compaction'
         && hasContent
         && isDisplayed
-        && document.visibilityState === 'visible'
-        && document.hasFocus()
+        && attending
       ) {
         const eventId = getTerminalNotificationEventId(message.id, message.status);
         acknowledgeNotification(eventId, message.sessionId);

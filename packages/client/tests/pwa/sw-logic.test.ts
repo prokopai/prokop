@@ -6,6 +6,8 @@ import {
   isSameOriginRoute,
   normalizeRoute,
   hasVisibleFocusedClient,
+  isApplePushEndpoint,
+  shouldShowPushNotification,
   type ProkopaiPushPayloadV1,
 } from '@/pwa/sw-logic';
 
@@ -148,5 +150,28 @@ describe('sw-logic: visibility suppression', () => {
 
   it('returns false for empty clients list', () => {
     expect(hasVisibleFocusedClient([])).toBe(false);
+  });
+});
+
+describe('sw-logic: showing a push', () => {
+  const focused = [{ visibilityState: 'visible', focused: true }];
+  const hidden = [{ visibilityState: 'hidden', focused: false }];
+
+  it('recognizes Apple push endpoints', () => {
+    expect(isApplePushEndpoint('https://web.push.apple.com/QGxyz')).toBe(true);
+    expect(isApplePushEndpoint('https://fcm.googleapis.com/fcm/send/abc')).toBe(false);
+    expect(isApplePushEndpoint('https://push.apple.com.evil.example/x')).toBe(false);
+    expect(isApplePushEndpoint(null)).toBe(false);
+    expect(isApplePushEndpoint('not a url')).toBe(false);
+  });
+
+  it('skips the banner when a focused Jean2 window already shows the event', () => {
+    expect(shouldShowPushNotification({ clients: focused, endpoint: 'https://fcm.googleapis.com/fcm/send/abc' })).toBe(false);
+    expect(shouldShowPushNotification({ clients: hidden, endpoint: 'https://fcm.googleapis.com/fcm/send/abc' })).toBe(true);
+    expect(shouldShowPushNotification({ clients: [], endpoint: undefined })).toBe(true);
+  });
+
+  it('always shows on Apple endpoints, where a silent push costs the subscription', () => {
+    expect(shouldShowPushNotification({ clients: focused, endpoint: 'https://web.push.apple.com/QGxyz' })).toBe(true);
   });
 });

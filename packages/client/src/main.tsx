@@ -17,6 +17,8 @@ import { startPierreWorkerPool } from '@/lib/pierreWorkerPool';
 import { PierreWorkerPoolProvider } from '@/components/providers/PierreWorkerPoolProvider';
 import PierreDiffsWorker from '@pierre/diffs/worker/worker.js?worker';
 import { installDesktopChrome, requestPersistentStorage } from '@/lib/desktopChrome';
+import { installUserActivityTracking } from '@/lib/userActivity';
+import { primeNotificationSounds } from '@/lib/notificationSounds';
 import './index.css';
 
 // Warm the shared Pierre diffs highlighter before any code surface mounts,
@@ -54,6 +56,11 @@ void requestPersistentStorage();
 installLaunchQueue((href) => { void router.navigate({ href }); });
 
 registerProkopServiceWorker();
+
+// Presence for notifications (a focused but idle window does not count as
+// "looking"), and the attention cues unlocked by the first input.
+installUserActivityTracking();
+primeNotificationSounds();
 
 // The query cache owns session-list hydration into the session read-model.
 startSessionCacheSync();

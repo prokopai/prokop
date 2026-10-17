@@ -26,10 +26,14 @@ import type { NotificationsApplicationDeps } from '@/application/ports/notificat
 /**
  * Notification use cases (S4/S5). Own the route-level subscription flows and
  * the delivery orchestration (reservation-before-send idempotency, the
- * terminal and permission dispatch delays, the active-client suppression
- * map, the retry tick, and the delivery cleanup). The reservation store,
- * the push sender, and the scheduled-run eligibility stay behind ports;
- * every log line and error string matches the pre-S4 dispatch module.
+ * terminal and ask dispatch delays, the active-client suppression map, the
+ * retry tick, and the delivery cleanup). The reservation store, the push
+ * sender, and the scheduled-run eligibility stay behind ports.
+ *
+ * One person, several devices: every push goes to every enabled device, and
+ * any device showing the event to someone who is present cancels it for all
+ * of them within the dispatch delay. Which device controls the session does
+ * not matter here; control decides who may act, not who is told.
  */
 
 interface PendingNotificationDispatch {
@@ -60,7 +64,17 @@ export interface NotificationsApplication {
 export function createNotificationsApplication(
   deps: NotificationsApplicationDeps,
 ): NotificationsApplication {
-  const pendingTerminalDispatches = new Map<string, PendingNotificationDispatch>();
+  const pendingDispatches = new Map<string, PendingNotificationDispatch>();
+
+  function askEvent(requestId: string, isPermission: boolean, rootSessionId: string): {
+    eventId: string;
+    eventType: NotificationEventType;
+    sessionId: string;
+  } {
+    return isPermission
+      ? { eventId: permissionEventId(requestId), eventType: 'permission_required', sessionId: rootSessionId }
+      : { eventId: questionEventId(requestId), eventType: 'question_asked', sessionId: rootSessionId };
+  }
 
   async function dispatchPendingAnswerNotification(
     requestId: string,
@@ -76,9 +90,7 @@ export function createNotificationsApplication(
       return;
     }
 
-    await dispatch(pending.isPermission
-      ? { eventId: permissionEventId(requestId), eventType: 'permission_required', sessionId: rootSessionId }
-      : { eventId: questionEventId(requestId), eventType: 'question_asked', sessionId: rootSessionId });
+    await dispatch(askEvent(requestId, pending.isPermission, rootSessionId));
   }
 
   function buildPayload(
@@ -103,23 +115,8 @@ export function createNotificationsApplication(
       return;
     }
 
-    // Single-user control model: push only the controlling client's
-    // devices. Uncontrolled sessions (scheduled runs) fan out to everyone.
-    const controllerClientId = deps.getControllerClientId(sessionId);
-    const recipients = controllerClientId
-      ? subscriptions.filter((sub) => sub.client_id === controllerClientId)
-      : subscriptions;
-    if (recipients.length === 0) {
-      console.info(`[web-push] Controller has no enabled subscriptions, skipping`, {
-        eventId,
-        eventType,
-        controllerClientId,
-      });
-      return;
-    }
-
     await Promise.allSettled(
-      recipients.map(async (sub) => {
+      subscriptions.map(async (sub) => {
         const isNew = deps.store.reserveDelivery({
           eventId,
           subscriptionId: sub.id,
@@ -202,25 +199,29 @@ export function createNotificationsApplication(
     );
   }
 
-  function scheduleTerminalNotification(input: {
-    eventId: string;
-    eventType: NotificationEventType;
-    sessionId: string;
-  }): void {
-    if (pendingTerminalDispatches.has(input.eventId)) {
+  /**
+   * Holds a push for the dispatch delay so a device already showing the
+   * event can cancel it. The same event scheduled twice keeps one timer.
+   */
+  function scheduleDispatch(
+    key: { eventId: string; sessionId: string },
+    run: () => Promise<void>,
+    label: string,
+  ): void {
+    if (pendingDispatches.has(key.eventId)) {
       return;
     }
 
     const timeout = setTimeout(() => {
-      pendingTerminalDispatches.delete(input.eventId);
-      dispatch(input).catch((err: unknown) => {
+      pendingDispatches.delete(key.eventId);
+      run().catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
-        console.error(`[web-push] Terminal message dispatch failed: ${message}`);
+        console.error(`[web-push] ${label} dispatch failed: ${message}`);
       });
     }, PUSH_DISPATCH_DELAY_MS);
 
-    pendingTerminalDispatches.set(input.eventId, {
-      sessionId: input.sessionId,
+    pendingDispatches.set(key.eventId, {
+      sessionId: key.sessionId,
       timeout,
     });
   }
@@ -311,35 +312,20 @@ export function createNotificationsApplication(
         return;
       }
 
-      scheduleTerminalNotification({
-        eventId: result.eventId,
-        eventType: result.eventType,
-        sessionId,
-      });
+      const event = { eventId: result.eventId, eventType: result.eventType, sessionId };
+      scheduleDispatch(event, () => dispatch(event), 'Terminal message');
     },
 
     acknowledgePendingNotification(eventId, sessionId, clientId) {
-      const pending = pendingTerminalDispatches.get(eventId);
+      const pending = pendingDispatches.get(eventId);
       if (!pending || pending.sessionId !== sessionId) {
         return false;
       }
 
-      // Suppression mirrors delivery: only the controller's ack cancels a
-      // push (an observing client watching live must not silence the
-      // controller's device). Uncontrolled sessions accept any ack.
-      const controllerClientId = deps.getControllerClientId(sessionId);
-      if (controllerClientId && controllerClientId !== clientId) {
-        console.info('[web-push] Ack ignored: client is not the controller', {
-          eventId,
-          sessionId,
-          clientId,
-          controllerClientId,
-        });
-        return false;
-      }
-
+      // The client only acknowledges what it shows to someone present, and
+      // that person is the one person all these devices belong to.
       clearTimeout(pending.timeout);
-      pendingTerminalDispatches.delete(eventId);
+      pendingDispatches.delete(eventId);
       console.info('[web-push] Delivery suppressed by active client', {
         eventId,
         sessionId,
@@ -351,12 +337,14 @@ export function createNotificationsApplication(
     dispatchPendingAnswerNotification,
 
     notifyAnswerRequired(requestId, rootSessionId) {
-      setTimeout(() => {
-        dispatchPendingAnswerNotification(requestId, rootSessionId).catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[web-push] Permission dispatch failed: ${msg}`);
-        });
-      }, PUSH_DISPATCH_DELAY_MS);
+      // The ask is stored before this is called; the id names the push the
+      // client acknowledges when the ask is on a screen in front of someone.
+      const isPermission = deps.getPendingAsk(requestId)?.isPermission ?? true;
+      scheduleDispatch(
+        askEvent(requestId, isPermission, rootSessionId),
+        () => dispatchPendingAnswerNotification(requestId, rootSessionId),
+        'Ask',
+      );
     },
 
     async runRetryTick() {

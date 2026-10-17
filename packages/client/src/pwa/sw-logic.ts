@@ -79,3 +79,24 @@ export interface ClientLike {
 export function hasVisibleFocusedClient(clients: ClientLike[]): boolean {
   return clients.some((c) => c.visibilityState === 'visible' && c.focused);
 }
+
+/** Apple's push service, used by Safari and installed web apps on iOS and macOS. */
+export function isApplePushEndpoint(endpoint: string | null | undefined): boolean {
+  if (!endpoint) return false;
+  try {
+    return /(^|\.)push\.apple\.com$/i.test(new URL(endpoint).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a push must be shown. A focused Jean2 window already shows the
+ * event, so the banner is skipped elsewhere. On Apple's service it is always
+ * shown: WebKit counts a push that shows nothing as a silent push and drops
+ * the subscription after a few, after which no notification arrives at all.
+ */
+export function shouldShowPushNotification(input: { clients: ClientLike[]; endpoint: string | null | undefined }): boolean {
+  if (isApplePushEndpoint(input.endpoint)) return true;
+  return !hasVisibleFocusedClient(input.clients);
+}

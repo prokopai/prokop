@@ -153,7 +153,6 @@ function makeDeps(state: FakeState, overrides: Partial<NotificationsApplicationD
       : requestId === 'question-req' ? { status: 'pending', isPermission: false }
         : { status: 'resolved', isPermission: true }),
     permissionTimeoutMs: () => 1_800_000,
-    getControllerClientId: () => null,
     ...overrides,
   };
 }
@@ -264,50 +263,23 @@ describe('notifications application use cases', () => {
     expect(state.sent).toHaveLength(1);
   });
 
-  test('dispatch delivers only to the controller client subscriptions', async () => {
+  test('dispatch delivers to every enabled device, whichever one started the session', async () => {
+    // The desktop opened the session first; the phone must still hear about
+    // the finish, or a run started at the desk never reaches your pocket.
     state.subscriptions = [
       makeSubRow({ id: 'sub-desktop', client_id: 'client-desktop' }),
       makeSubRow({ id: 'sub-phone', client_id: 'client-phone', endpoint: 'https://push.example.com/phone' }),
     ];
-    const application = makeApplication(state, makeDeps(state, {
-      getControllerClientId: (sessionId) => (sessionId === 'sess-1' ? 'client-desktop' : null),
-    }));
+    const application = makeApplication(state);
 
-    await application.dispatch({ eventId: 'e-ctrl', eventType: 'session_completed', sessionId: 'sess-1' });
+    await application.dispatch({ eventId: 'e-all', eventType: 'session_completed', sessionId: 'sess-1' });
 
-    expect(state.sent).toHaveLength(1);
-    expect(state.sent[0].endpoint).toBe('https://push.example.com/endpoint');
-    expect(state.log).toContain('delivered:e-ctrl:sub-desktop');
-    expect(state.log.some((entry) => entry.includes('sub-phone'))).toBe(false);
-  });
-
-  test('dispatch fans out to all subscriptions when the session is uncontrolled', async () => {
-    state.subscriptions = [
-      makeSubRow({ id: 'sub-desktop', client_id: 'client-desktop' }),
-      makeSubRow({ id: 'sub-phone', client_id: 'client-phone', endpoint: 'https://push.example.com/phone' }),
-    ];
-    const application = makeApplication(state, makeDeps(state, {
-      getControllerClientId: () => null,
-    }));
-
-    await application.dispatch({ eventId: 'e-free', eventType: 'session_completed', sessionId: 'sess-1' });
-
-    expect(state.sent).toHaveLength(2);
-    expect(state.log).toContain('delivered:e-free:sub-desktop');
-    expect(state.log).toContain('delivered:e-free:sub-phone');
-  });
-
-  test('dispatch skips when the controller has no enabled subscriptions', async () => {
-    state.subscriptions = [
-      makeSubRow({ id: 'sub-phone', client_id: 'client-phone' }),
-    ];
-    const application = makeApplication(state, makeDeps(state, {
-      getControllerClientId: () => 'client-desktop',
-    }));
-
-    await application.dispatch({ eventId: 'e-none', eventType: 'session_completed', sessionId: 'sess-1' });
-
-    expect(state.sent).toHaveLength(0);
+    expect(state.sent.map((sent) => sent.endpoint)).toEqual([
+      'https://push.example.com/endpoint',
+      'https://push.example.com/phone',
+    ]);
+    expect(state.log).toContain('delivered:e-all:sub-desktop');
+    expect(state.log).toContain('delivered:e-all:sub-phone');
   });
 
   test('dispatch deletes stale subscriptions and marks transient and permanent failures', async () => {
@@ -348,20 +320,41 @@ describe('notifications application use cases', () => {
     }
   });
 
-  test('observer acks do not suppress the controller notification', () => {
+  test('any device showing the finish to someone present suppresses the push for all', () => {
+    // The phone started the session, but you are reading the result at the
+    // desk: the desk's acknowledgement must stop the phone from buzzing.
     const timers = patchTimers();
     try {
-      const application = makeApplication(state, makeDeps(state, {
-        getControllerClientId: (sessionId) => (sessionId === 'sess-1' ? 'client-phone' : null),
-      }));
+      const application = makeApplication(state);
       application.notifyTerminalMessage(makeMessage(), 'sess-1');
 
       expect(timers.timeouts).toHaveLength(1);
-      expect(application.acknowledgePendingNotification('message:msg-1:completed', 'sess-1', 'client-desktop')).toBe(false);
-      expect(timers.cleared).toBe(0);
-
-      expect(application.acknowledgePendingNotification('message:msg-1:completed', 'sess-1', 'client-phone')).toBe(true);
+      expect(application.acknowledgePendingNotification('message:msg-1:completed', 'sess-1', 'client-desktop')).toBe(true);
       expect(timers.cleared).toBe(1);
+
+      // Already cancelled: a second ack has nothing to do.
+      expect(application.acknowledgePendingNotification('message:msg-1:completed', 'sess-1', 'client-phone')).toBe(false);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  test('an approval or question on screen in front of someone is acknowledged by its ask id', () => {
+    const timers = patchTimers();
+    try {
+      const application = makeApplication(state);
+      application.notifyAnswerRequired('pending-req', 'sess-1');
+      application.notifyAnswerRequired('question-req', 'sess-1');
+
+      expect(timers.timeouts.map((timer) => timer.delay)).toEqual([3000, 3000]);
+      expect(application.acknowledgePendingNotification('permission:pending-req', 'sess-1', 'client-1')).toBe(true);
+      expect(application.acknowledgePendingNotification('question:question-req', 'sess-1', 'client-1')).toBe(true);
+      expect(timers.cleared).toBe(2);
+
+      // Scheduling the same ask twice keeps one timer.
+      application.notifyAnswerRequired('pending-req', 'sess-1');
+      application.notifyAnswerRequired('pending-req', 'sess-1');
+      expect(timers.timeouts).toHaveLength(3);
     } finally {
       timers.restore();
     }

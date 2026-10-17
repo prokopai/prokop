@@ -18,6 +18,11 @@ function createContext(): SessionHandlersContext {
     setSessions: vi.fn((updater: (sessions: Session[]) => Session[]) => updater([])),
     setModelForSession: vi.fn(),
     setVariantForSession: vi.fn(),
+    setCompletion: vi.fn(),
+    playChatFinishSound: vi.fn(),
+    chatFinishSoundEnabledRef: { current: true },
+    skipFinishSoundSessionIdsRef: { current: new Set<string>() },
+    currentSessionIdRef: { current: null },
   } as unknown as SessionHandlersContext;
 }
 
@@ -219,5 +224,79 @@ describe('session tab lifecycle navigation', () => {
     expect(findViewRegion(useWorkspaceViewStore.getState().layout, sessionViewId('server', 'fork'))).toBe('right');
     expect(context.navigateToSessionWithOpen).toHaveBeenCalledWith('fork', 'fork,other');
     expect(context.navigateToSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('a run finishing in a session that is not open here', () => {
+  const session = (overrides: Partial<Session> = {}): Session => ({
+    id: 'bg', workspaceId: 'ws', parentId: null, status: 'active', title: 'Background', tags: [],
+    runningAt: null, metadata: null, updatedAt: '2026-10-06T10:00:00.000Z', ...overrides,
+  }) as Session;
+  const running = '2026-10-06T10:01:00.000Z';
+
+  function finishContext(initial: Session[]) {
+    let sessions = initial;
+    const context = {
+      ...createContext(),
+      setSessions: vi.fn((updater: Session[] | ((prev: Session[]) => Session[])) => {
+        sessions = typeof updater === 'function' ? updater(sessions) : updater;
+      }),
+    } as unknown as SessionHandlersContext;
+    return context;
+  }
+
+  beforeEach(async () => {
+    useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
+    const { resetFinishSignalsForTests } = await import('@/lib/finishSignals');
+    resetFinishSignalsForTests();
+  });
+
+  test('plays the finish sound and marks it unread', () => {
+    const context = finishContext([session({ runningAt: running })]);
+    handleSessionUpdated({ type: 'session.updated', session: session() }, context);
+
+    expect(context.playChatFinishSound).toHaveBeenCalledTimes(1);
+    expect(context.setCompletion).toHaveBeenCalledWith('bg', expect.objectContaining({ failed: false }));
+  });
+
+  test('stays quiet when the message path already handled this finish', async () => {
+    const { markFinishHandled } = await import('@/lib/finishSignals');
+    markFinishHandled('bg');
+    const context = finishContext([session({ runningAt: running })]);
+    handleSessionUpdated({ type: 'session.updated', session: session() }, context);
+
+    expect(context.playChatFinishSound).not.toHaveBeenCalled();
+    expect(context.setCompletion).not.toHaveBeenCalled();
+  });
+
+  test('stays quiet for a session open on this board, a stopped run, a child, or an archived session', () => {
+    useSessionBoardStore.setState({ openSessionIds: ['bg'], focusedSessionId: 'bg' });
+    const open = finishContext([session({ runningAt: running })]);
+    handleSessionUpdated({ type: 'session.updated', session: session() }, open);
+    expect(open.playChatFinishSound).not.toHaveBeenCalled();
+    useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
+
+    const stopped = finishContext([session({ runningAt: running })]);
+    stopped.skipFinishSoundSessionIdsRef.current.add('bg');
+    handleSessionUpdated({ type: 'session.updated', session: session() }, stopped);
+    expect(stopped.playChatFinishSound).not.toHaveBeenCalled();
+    expect(stopped.skipFinishSoundSessionIdsRef.current.has('bg')).toBe(false);
+
+    const child = finishContext([session({ runningAt: running, parentId: 'root' })]);
+    handleSessionUpdated({ type: 'session.updated', session: session({ parentId: 'root' }) }, child);
+    expect(child.playChatFinishSound).not.toHaveBeenCalled();
+
+    const archived = finishContext([session({ runningAt: running })]);
+    handleSessionUpdated({ type: 'session.updated', session: session({ status: 'closed' }) }, archived);
+    expect(archived.playChatFinishSound).not.toHaveBeenCalled();
+  });
+
+  test('respects the finish sound setting but still marks unread', () => {
+    const context = finishContext([session({ runningAt: running })]);
+    context.chatFinishSoundEnabledRef.current = false;
+    handleSessionUpdated({ type: 'session.updated', session: session() }, context);
+
+    expect(context.playChatFinishSound).not.toHaveBeenCalled();
+    expect(context.setCompletion).toHaveBeenCalledTimes(1);
   });
 });

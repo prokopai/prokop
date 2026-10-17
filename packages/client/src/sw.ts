@@ -7,7 +7,7 @@ import {
   parsePushData,
   isSameOriginRoute,
   normalizeRoute,
-  hasVisibleFocusedClient,
+  shouldShowPushNotification,
 } from './pwa/sw-logic';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -80,13 +80,15 @@ self.addEventListener('push', (event) => {
         type: 'window',
         includeUncontrolled: true,
       });
-      const visible = hasVisibleFocusedClient(
-        allClients.map((c) => ({
+      const subscription = await self.registration.pushManager.getSubscription().catch(() => null);
+      const show = shouldShowPushNotification({
+        clients: allClients.map((c) => ({
           visibilityState: c.visibilityState,
           focused: c.focused,
         })),
-      );
-      if (visible) {
+        endpoint: subscription?.endpoint,
+      });
+      if (!show) {
         return;
       }
 

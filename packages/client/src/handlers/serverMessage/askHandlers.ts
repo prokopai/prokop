@@ -1,6 +1,9 @@
 import type { Ask, AskAuthority, AskResponse } from '@prokopai/sdk';
+import { getAskNotificationEventId } from '@prokopai/sdk';
 import type { SessionHandlersContext } from './types';
 import type { PendingAskRequest } from '@/stores/askStore';
+import { useSessionBoardStore } from '@/stores/sessionBoardStore';
+import { isUserAttending } from '@/lib/userActivity';
 
 function handleAskRequest(
   msg: { type: 'ask.request'; sessionId: string; toolCallId: string; toolName: string; ask: Ask; requestId?: string; authority?: AskAuthority },
@@ -35,12 +38,20 @@ function handleAskRequest(
       notifiedToolCallIdsRef,
       permissionSoundEnabledRef,
       playPermissionSound,
+      currentSessionIdRef,
+      acknowledgeNotification,
     } = ctx;
     const dedupKey = requestId ?? toolCallId;
     const session = sessionsRef.current.find(s => s.id === sessionId);
     if (session?.parentId === null && permissionSoundEnabledRef.current && !notifiedToolCallIdsRef.current.has(dedupKey)) {
       playPermissionSound();
       notifiedToolCallIdsRef.current.add(dedupKey);
+    }
+    // The ask is on screen in front of someone: no push needed on any device.
+    const isDisplayed = useSessionBoardStore.getState().openSessionIds.includes(sessionId)
+      || currentSessionIdRef.current === sessionId;
+    if (requestId && isDisplayed && isUserAttending()) {
+      acknowledgeNotification(getAskNotificationEventId(requestId, target === 'permission'), sessionId);
     }
   };
 

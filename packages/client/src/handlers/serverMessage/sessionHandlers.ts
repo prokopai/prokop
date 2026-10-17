@@ -9,6 +9,7 @@ import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { queryClient } from '@/components/providers/QueryProvider';
 import { queryKeys } from '@/lib/queryKeys';
 import { mark, markAndMeasure } from '@/lib/perf';
+import { wasFinishHandledRecently } from '@/lib/finishSignals';
 
 /**
  * Check whether a query key contains a given workspace ID.
@@ -341,6 +342,22 @@ function handleSessionDeleted(
 }
 
 /**
+ * A run that ended in a session not open here. Its `message.updated` went
+ * only to clients that opened the session, so this is the one signal this
+ * device gets: the finish sound and the unread mark. A session open here was
+ * already handled by the message path, and a run you stopped is not a finish.
+ */
+function signalBackgroundFinish(session: Session, ctx: SessionHandlersContext): void {
+  if (session.parentId !== null || session.status !== 'active') return;
+  const stopped = ctx.skipFinishSoundSessionIdsRef.current.delete(session.id);
+  if (stopped || wasFinishHandledRecently(session.id)) return;
+  const board = useSessionBoardStore.getState();
+  if (board.openSessionIds.includes(session.id) || ctx.currentSessionIdRef.current === session.id) return;
+  ctx.setCompletion(session.id, { finishedAt: Date.now(), failed: false });
+  if (ctx.chatFinishSoundEnabledRef.current) ctx.playChatFinishSound();
+}
+
+/**
  * Every session change (running state, tokens, model, title, status, tags,
  * forks and scheduled runs announced to other clients). The session list
  * updates in place; lists are refetched only when the session moves between
@@ -384,6 +401,7 @@ export function handleSessionUpdated(
   if (previous?.runningAt && !session.runningAt) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.config.providers.usageAll });
     void queryClient.invalidateQueries({ queryKey: queryKeys.harnesses.usageAll });
+    signalBackgroundFinish(session, ctx);
   }
 
   const workspaceIds = [...new Set([session.workspaceId, previous?.workspaceId].filter(Boolean) as string[])];

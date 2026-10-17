@@ -23,6 +23,8 @@ vi.mock('@/stores/pendingOperationsStore', () => ({
 import { handleMessageUpdated, handlePartUpdated } from '@/handlers/serverMessage/messagePartHandlers';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
+import { markUserActivity, resetUserActivityForTests } from '@/lib/userActivity';
+import { resetFinishSignalsForTests, wasFinishHandledRecently } from '@/lib/finishSignals';
 
 function getInvalidatedKeys(): readonly (readonly unknown[])[] {
   return mockInvalidate.mock.calls.map((c: unknown[]) => {
@@ -96,10 +98,29 @@ describe('messagePartHandlers notification acknowledgement', () => {
       configurable: true,
       value: 'visible',
     });
+    resetUserActivityForTests();
+    resetFinishSignalsForTests();
+    markUserActivity();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  test('a focused but idle window marks the finish unread and keeps the push', () => {
+    // Nothing touched for a while: the display may be asleep behind a
+    // focused window, so the finish is not "seen" and the phone must buzz.
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    resetUserActivityForTests();
+    const ctx = makeCtx();
+    ctx.sessionsRef.current = [{ id: 'sess-1', parentId: null }] as unknown as typeof ctx.sessionsRef.current;
+
+    handleMessageUpdated({ type: 'message.updated', message: makeAssistantMessage('completed') }, ctx);
+
+    expect(ctx.acknowledgeNotification).not.toHaveBeenCalled();
+    expect(ctx.setCompletion).toHaveBeenCalledWith('sess-1', expect.objectContaining({ failed: false }));
+    // The session.updated that follows must not sound the same finish again.
+    expect(wasFinishHandledRecently('sess-1')).toBe(true);
   });
 
   test('acknowledges a displayed completion while visible and focused', () => {

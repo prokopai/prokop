@@ -13,6 +13,15 @@ export function getTerminalNotificationEventId(
 }
 
 /**
+ * Event id of the push for a waiting approval or question. The client
+ * acknowledges it with the same id when it shows the ask to someone who is
+ * present, which cancels the push.
+ */
+export function getAskNotificationEventId(requestId: string, isPermission: boolean): string {
+  return `${isPermission ? 'permission' : 'question'}:${requestId}`;
+}
+
+/**
  * Per-subscription preferences for which events produce notifications.
  */
 export interface NotificationPreferences {

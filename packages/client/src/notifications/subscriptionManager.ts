@@ -1,4 +1,5 @@
 import type { ProkopaiClient } from '@prokopai/sdk';
+import { toast } from 'sonner';
 import { storage, STORAGE_KEYS } from '@/lib/storage';
 import { useNotificationStore } from '@/stores/notificationStore';
 import {
@@ -238,9 +239,22 @@ export async function reconcileSubscription(client: ProkopaiClient | null): Prom
   }
 
   if (!browserSub) {
-    // Browser subscription disappeared: show recoverable error
+    // The browser dropped the subscription (iOS does this after pushes that
+    // showed nothing, or when the app was removed and reinstalled). Nothing
+    // will arrive until it is renewed, so say so where it will be seen.
     store.setError('Browser subscription was lost. Re-enable notifications to fix.');
     store.setRegistrationState('error');
+    toast.warning('Notifications stopped on this device', {
+      id: 'notifications-subscription-lost',
+      description: `The browser dropped the subscription for ${registration.serverName}.`,
+      duration: Infinity,
+      action: client ? {
+        label: 'Re-enable',
+        onClick: () => {
+          void enableNotifications(client, registration.serverId, registration.serverName, registration.serverUrl);
+        },
+      } : undefined,
+    });
     return;
   }
 

@@ -36,6 +36,7 @@ let mockSendResult: { success: boolean; statusCode: number; body?: string } = {
   success: true,
   statusCode: 201,
 };
+let lastSendOptions: Record<string, unknown> | undefined;
 
 mock.module('web-push', () => {
   const mockObj = {
@@ -44,7 +45,8 @@ mock.module('web-push', () => {
       privateKey: 'test_private_key_for_testing_purposes_only_xxxxx',
     }),
     setVapidDetails: () => {},
-    sendNotification: async () => {
+    sendNotification: async (_subscription: unknown, _payload: unknown, options?: Record<string, unknown>) => {
+      lastSendOptions = options;
       if (!mockSendResult.success) {
         const err = new Error(mockSendResult.body || 'Failed') as Error & {
           statusCode: number;
@@ -139,6 +141,19 @@ describe('web-push dispatch service', () => {
     const { getPushSubscription } = await import('@/infrastructure/sqlite/web-push');
     // Since sendNotification mock succeeds, deliveries are marked delivered
     expect(getPushSubscription).toBeDefined();
+  });
+
+  test('pushes are sent with high urgency so phones deliver them at once', async () => {
+    upsertPushSubscription(makeSubscription());
+    lastSendOptions = undefined;
+
+    await getProkopNotificationsApplication().dispatch({
+      eventId: 'message:urgent:completed',
+      eventType: 'session_completed',
+      sessionId: 'session-1',
+    });
+
+    expect(lastSendOptions).toMatchObject({ urgency: 'high' });
   });
 
   test('disabled preference skips the matching event type', async () => {
