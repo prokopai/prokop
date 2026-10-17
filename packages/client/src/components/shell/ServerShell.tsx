@@ -147,7 +147,7 @@ export default function ServerShell() {
   // The manager context carries the stable commands plus the few values its
   // consumers read. Passing the manager object itself re-rendered the whole
   // workspace (sidebar, every pane header) on any session, ask, or usage change.
-  const { sdkClient, serverUrl, primaryPreconfigs, isCreatingWorkspace, deletingWorkspaceId, isUpdatingWorkspace, setCompactionSuccess } = sessionManager;
+  const { sdkClient, serverUrl, primaryPreconfigs, isCreatingWorkspace, deletingWorkspaceId, isUpdatingWorkspace } = sessionManager;
   const managerValue = useMemo<SessionManagerValue>(() => ({
     ...commandsValue,
     sdkClient,
@@ -156,8 +156,7 @@ export default function ServerShell() {
     isCreatingWorkspace,
     deletingWorkspaceId,
     isUpdatingWorkspace,
-    setCompactionSuccess,
-  }), [commandsValue, sdkClient, serverUrl, primaryPreconfigs, isCreatingWorkspace, deletingWorkspaceId, isUpdatingWorkspace, setCompactionSuccess]);
+  }), [commandsValue, sdkClient, serverUrl, primaryPreconfigs, isCreatingWorkspace, deletingWorkspaceId, isUpdatingWorkspace]);
 
   if (!hasConnectedOnce) {
     if (sessionManager.connectionTimedOut || sessionManager.retryCount > 0 || sessionManager.authError) {

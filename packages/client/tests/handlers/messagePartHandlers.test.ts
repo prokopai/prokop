@@ -35,8 +35,6 @@ function makeCtx(): SessionHandlersContext {
   return {
     setMessagesBySession: vi.fn(),
     setPartsBySession: vi.fn(),
-    setSessionUsage: vi.fn(),
-    setCurrentModel: vi.fn(),
     addStreamingSession: vi.fn(),
     removeStreamingSession: vi.fn(),
     removeInterruptedSession: vi.fn(),
@@ -52,7 +50,6 @@ function makeCtx(): SessionHandlersContext {
     chatFinishSoundEnabledRef: { current: false },
     playChatFinishSound: vi.fn(),
     acknowledgeNotification: vi.fn(),
-    setCompactionSuccess: vi.fn(),
     interruptedSessions: new Set<string>(),
   } as unknown as SessionHandlersContext;
 }

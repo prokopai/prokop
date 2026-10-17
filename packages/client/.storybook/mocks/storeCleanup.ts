@@ -22,19 +22,7 @@ import { useCompletionStore } from '@/stores/completionStore';
 export function resetAllStores(): void {
   // Session Store
   useSessionStore.setState({
-    currentSession: null,
     sessions: [],
-    sessionUsage: {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      noCacheTokens: 0,
-    },
-    currentModel: 'gpt-4o',
-    selectedVariant: null,
-    compactionSuccess: false,
     messagesBySession: {},
     partsBySession: {},
     queuedMessages: {},

@@ -72,7 +72,6 @@ export function hydrateStores(options: HydrateStoresOptions = {}): void {
 
   // --- Session Store ---
   const sessionStore = useSessionStore.getState();
-  sessionStore.setCurrentSession(session);
   sessionStore.setSessions([session]);
 
   if (messages && messages.length > 0) {

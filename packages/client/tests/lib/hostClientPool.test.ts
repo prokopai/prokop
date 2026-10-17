@@ -64,7 +64,6 @@ const session = (id: string, title = id) => ({ id, workspaceId: 'w-remote', titl
 function baseContext(): SessionHandlersContext {
   return {
     setSessions: vi.fn(),
-    setCurrentSession: vi.fn(),
     setModelForSession: vi.fn(),
     setVariantForSession: vi.fn(),
   } as unknown as SessionHandlersContext;

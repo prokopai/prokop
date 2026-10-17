@@ -95,17 +95,8 @@ type ContentMetaUpdater = ContentMetaBySession | ((prev: ContentMetaBySession) =
 
 // --- Combined Store ---
 interface SessionState {
-  // --- Active Session ---
-  currentSession: Session | null;
-
   // --- Session List ---
   sessions: Session[];
-
-  // --- Chat Session (singleton, backward compat) ---
-  sessionUsage: SessionUsage;
-  currentModel: string;
-  selectedVariant: string | null;
-  compactionSuccess: boolean;
 
   // --- Per-session keyed state (multi-pane) ---
   usageBySessionId: Record<string, SessionUsage>;
@@ -121,16 +112,9 @@ interface SessionState {
 
   // --- Message Queue ---
   queuedMessages: Record<string, QueuedMessage[]>;
-
-  // --- Navigation (singleton, backward compat) ---
-  navigationIntent: SessionNavigationIntent;
 }
 
 interface SessionActions {
-  // --- Active Session ---
-  setCurrentSession: (session: Session | null) => void;
-  clearActiveSession: () => void;
-
   // --- Session List ---
   setSessions: (updater: SessionsUpdater) => void;
   addSessionToFront: (session: Session) => void;
@@ -144,13 +128,6 @@ interface SessionActions {
   updateSession: (session: Session) => void;
   removeSessionById: (sessionId: string) => void;
   clearSessions: () => void;
-
-  // --- Chat Session (singleton, backward compat) ---
-  setSessionUsage: (usage: SessionUsage) => void;
-  setCurrentModel: (model: string) => void;
-  setSelectedVariant: (variant: string | null) => void;
-  setCompactionSuccess: (success: boolean) => void;
-  clearChatSession: () => void;
 
   // --- Per-session keyed state (multi-pane) ---
   setUsageForSession: (sessionId: string, usage: SessionUsage) => void;
@@ -208,21 +185,11 @@ interface SessionActions {
   addQueuedMessage: (sessionId: string, message: QueuedMessage) => void;
   removeQueuedMessageById: (sessionId: string, queueId: string) => void;
   removeQueuedMessagesByIds: (sessionId: string, queueIds: string[]) => void;
-
-  // --- Navigation ---
-  setNavigationIntent: (intent: SessionNavigationIntent) => void;
-  clearTargetMessageIntent: () => void;
 }
 
 type SessionStore = SessionState & SessionActions;
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
-  // --- Active Session ---
-  currentSession: null,
-
-  setCurrentSession: (session) => set({ currentSession: session }),
-  clearActiveSession: () => set({ currentSession: null }),
-
   // --- Session List ---
   sessions: [],
 
@@ -284,24 +251,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   clearSessions: () => set({ sessions: [] }),
 
-  // --- Chat Session (singleton, backward compat) ---
-  sessionUsage: { ...DEFAULT_USAGE },
-  currentModel: 'gpt-4o',
-  selectedVariant: null,
-  compactionSuccess: false,
-
-  setSessionUsage: (sessionUsage) => set({ sessionUsage }),
-  setCurrentModel: (currentModel) => set({ currentModel }),
-  setSelectedVariant: (selectedVariant) => set({ selectedVariant }),
-  setCompactionSuccess: (compactionSuccess) => set({ compactionSuccess }),
-  clearChatSession: () =>
-    set({
-      sessionUsage: { ...DEFAULT_USAGE },
-      currentModel: 'gpt-4o',
-      selectedVariant: null,
-      compactionSuccess: false,
-    }),
-
   // --- Per-session keyed state (multi-pane) ---
   usageBySessionId: {},
   modelBySessionId: {},
@@ -336,9 +285,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   getUsageForSession: (sessionId) => get().usageBySessionId[sessionId] ?? DEFAULT_USAGE,
 
-  getModelForSession: (sessionId) => get().modelBySessionId[sessionId] ?? get().currentModel,
+  getModelForSession: (sessionId) => get().modelBySessionId[sessionId] ?? '',
 
-  getVariantForSession: (sessionId) => get().variantBySessionId[sessionId] ?? get().selectedVariant,
+  getVariantForSession: (sessionId) => get().variantBySessionId[sessionId] ?? null,
 
   getCompactionSuccessForSession: (sessionId) => get().compactionSuccessBySessionId[sessionId] ?? false,
 
@@ -622,30 +571,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         [sessionId]: (state.queuedMessages[sessionId] || []).filter((q) => !queueIds.includes(q.id)),
       },
     })),
-
-  // --- Navigation ---
-  navigationIntent: { mode: 'follow' },
-  setNavigationIntent: (navigationIntent) => set({ navigationIntent }),
-  clearTargetMessageIntent: () =>
-    set((state) => ({
-      navigationIntent:
-        state.navigationIntent.mode === 'target-message'
-          ? { mode: 'free' }
-          : state.navigationIntent,
-    })),
 }));
 
 // --- Utility Function ---
 export function clearSessionState() {
   const state = useSessionStore.getState();
   state.clearSessions();
-  state.clearActiveSession();
-  state.clearChatSession();
   state.clearQueuedMessages();
   state.setMessagesBySession({});
   state.setPartsBySession({});
   state.setContentMetaBySession({});
-  state.setNavigationIntent({ mode: 'follow' });
 }
 
 // --- Weighted cache eviction helper ---

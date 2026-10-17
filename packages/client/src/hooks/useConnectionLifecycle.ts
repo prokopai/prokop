@@ -131,20 +131,17 @@ export function useConnectionLifecycle({
           console.log('[reconnect] Resumed board sessions:', openSessionIds.length);
         } else {
           // Fall back to single-session resume for backward compat
-          const sessionId = currentSessionIdRef.current
-            ?? useSessionStore.getState().currentSession?.id;
+          const sessionId = currentSessionIdRef.current;
 
           if (sessionId) {
-            const wasNull = currentSessionIdRef.current === null;
-            currentSessionIdRef.current = sessionId;
             const hasContent = !!useSessionStore.getState().messagesBySession[sessionId]?.length;
             if (!hasContent) {
               useSessionStore.getState().beginSessionContentLoad(sessionId);
             }
-            console.log('[reconnect] Resuming session:', sessionId, wasNull ? '(restored from store)' : '(from ref)');
+            console.log('[reconnect] Resuming session:', sessionId);
             client.sessions.resume(sessionId);
           } else {
-            console.log('[reconnect] No session to resume (ref:', currentSessionIdRef.current, ', store:', useSessionStore.getState().currentSession?.id, ')');
+            console.log('[reconnect] No session to resume');
           }
         }
       });

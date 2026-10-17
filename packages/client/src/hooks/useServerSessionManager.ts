@@ -131,8 +131,6 @@ export interface UseServerSessionManagerReturn {
   handleRetry: () => void;
 
   favoritedWorkspaceIds: string[];
-
-  setCompactionSuccess: (success: boolean) => void;
 }
 
 export function useServerSessionManager({
@@ -164,12 +162,6 @@ export function useServerSessionManager({
     })),
   );
 
-  const { setCurrentSession } = useSessionStore(
-    useShallow((s) => ({
-      setCurrentSession: s.setCurrentSession,
-    })),
-  );
-
   const { setMessagesBySession, setPartsBySession } = useSessionStore(
     useShallow((state) => ({
       setMessagesBySession: state.setMessagesBySession,
@@ -193,40 +185,6 @@ export function useServerSessionManager({
 
   const isSessionLoading = sessionIdFromUrl != null && currentSession == null;
 
-  // Focused-session adapter: synchronizes singleton compat state from the
-  // focused session's keyed state. This is the ONLY place singleton values
-  // (usage, model, variant, compaction, navigation intent) are derived from
-  // per-session data. Server event handlers must not write singletons directly.
-  const focusedSessionId = currentSession?.id ?? null;
-  const focusedKeyedUsage = useSessionStore(s => focusedSessionId ? s.usageBySessionId[focusedSessionId] : undefined);
-  const focusedKeyedModel = useSessionStore(s => focusedSessionId ? s.modelBySessionId[focusedSessionId] : undefined);
-  const focusedKeyedVariant = useSessionStore(s => focusedSessionId ? s.variantBySessionId[focusedSessionId] : undefined);
-  const focusedKeyedCompaction = useSessionStore(s => focusedSessionId ? s.compactionSuccessBySessionId[focusedSessionId] : undefined);
-  const focusedKeyedNav = useSessionStore(s => focusedSessionId ? s.navigationIntentBySessionId[focusedSessionId] : undefined);
-  useEffect(() => {
-    const store = useSessionStore.getState();
-    if (currentSession?.id !== store.currentSession?.id) {
-      setCurrentSession(currentSession);
-    }
-    if (focusedSessionId) {
-      if (focusedKeyedUsage && focusedKeyedUsage !== store.sessionUsage) {
-        store.setSessionUsage(focusedKeyedUsage);
-      }
-      if (focusedKeyedModel && focusedKeyedModel !== store.currentModel) {
-        store.setCurrentModel(focusedKeyedModel);
-      }
-      if (focusedKeyedVariant !== undefined && focusedKeyedVariant !== store.selectedVariant) {
-        store.setSelectedVariant(focusedKeyedVariant);
-      }
-      if (focusedKeyedCompaction !== undefined && focusedKeyedCompaction !== store.compactionSuccess) {
-        store.setCompactionSuccess(focusedKeyedCompaction);
-      }
-      if (focusedKeyedNav && focusedKeyedNav !== store.navigationIntent) {
-        store.setNavigationIntent(focusedKeyedNav);
-      }
-    }
-  }, [currentSession, focusedSessionId, focusedKeyedUsage, focusedKeyedModel, focusedKeyedVariant, focusedKeyedCompaction, focusedKeyedNav, setCurrentSession]);
-
   const activeSessionId = currentSession?.id;
 
   const {
@@ -244,20 +202,6 @@ export function useServerSessionManager({
       removeStreamingSession: s.removeStreamingSession,
       addInterruptedSession: s.addInterruptedSession,
       removeInterruptedSession: s.removeInterruptedSession,
-    })),
-  );
-
-  // Setters only: the focused-session singletons are written for legacy readers,
-  // and subscribing to them here re-rendered the shell after every switch.
-  const {
-    setSessionUsage,
-    setCurrentModel,
-    setSelectedVariant,
-  } = useSessionStore(
-    useShallow((s) => ({
-      setSessionUsage: s.setSessionUsage,
-      setCurrentModel: s.setCurrentModel,
-      setSelectedVariant: s.setSelectedVariant,
     })),
   );
 
@@ -349,7 +293,6 @@ export function useServerSessionManager({
   const nextRetryIn = useConnectionStore(s => s.nextRetryIn);
   const connected = useConnectionStore(s => s.connected);
   const isCompacting = currentSession?.compacting ?? false;
-  const setCompactionSuccess = useSessionStore(s => s.setCompactionSuccess);
 
   const { playChatFinishSound, playPermissionSound } = useNotificationSound();
 
@@ -539,7 +482,6 @@ export function useServerSessionManager({
     useServerDataStore.getState().setWorkspaces([...useServerDataStore.getState().workspaces, workspace]);
     useServerDataStore.getState().setActiveWorkspace(workspace);
     localStorage.setItem('activeWorkspaceId', workspace.id);
-    setCurrentSession(null);
     queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
     navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
     return workspace;
@@ -552,10 +494,9 @@ export function useServerSessionManager({
   const selectWorkspace = useCallback((workspace: Workspace) => {
     useServerDataStore.getState().setActiveWorkspace(workspace);
     localStorage.setItem('activeWorkspaceId', workspace.id);
-    setCurrentSession(null);
     useSessionBoardStore.getState().clearBoard();
     navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
-  }, [setCurrentSession, navigate, _serverId]);
+  }, [navigate, _serverId]);
 
   const deleteWorkspace = async (id: string) => {
     const http = sdkClientRef.current?.httpClient;
@@ -578,7 +519,6 @@ export function useServerSessionManager({
     useOverviewGroupsStore.getState().removeWorkspaceFromAllGroups(_serverId, id);
 
     if (currentSession && (currentSession.workspaceId === id || deletedSessions.includes(currentSession.id))) {
-      setCurrentSession(null);
       navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
     }
 
@@ -753,12 +693,8 @@ export function useServerSessionManager({
   useLayoutEffect(() => {
     handlerContextRef.current = {
       setSessions,
-      setCurrentSession,
       setMessagesBySession,
       setPartsBySession,
-      setSessionUsage,
-      setCurrentModel,
-      setSelectedVariant,
       addStreamingSession,
       removeStreamingSession,
       addInterruptedSession,
@@ -767,7 +703,6 @@ export function useServerSessionManager({
       addQueuedMessage,
       removeQueuedMessageById,
       clearQueuedMessages,
-      setCompactionSuccess,
       setUsageForSession: useSessionStore.getState().setUsageForSession,
       setModelForSession: useSessionStore.getState().setModelForSession,
       setVariantForSession: useSessionStore.getState().setVariantForSession,
@@ -866,7 +801,6 @@ export function useServerSessionManager({
       },
       resumeSessionAfterCreate: (sessionId: string) => {
         const client = sdkClientRef.current;
-        useSessionStore.getState().setNavigationIntent({ mode: 'follow' });
         if (client && client.connected) {
           client.sessions.resume(sessionId);
         }
@@ -1021,8 +955,6 @@ export function useServerSessionManager({
     handleRetry,
 
     favoritedWorkspaceIds,
-
-    setCompactionSuccess,
 
     permissions,
   };

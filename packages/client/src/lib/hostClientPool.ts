@@ -58,7 +58,6 @@ function foreignContext(serverId: string): SessionHandlersContext | null {
   return {
     ...base,
     serverId,
-    setCurrentSession: () => {},
     currentSessionIdRef: { current: null },
     pendingSessionCreateRef: { current: null },
     sessionsRef: { current: foreignSessionsOf(serverId) },

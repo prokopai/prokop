@@ -16,7 +16,6 @@ export type SessionManagerValue = SessionCommandsValue & Pick<
   | 'isCreatingWorkspace'
   | 'deletingWorkspaceId'
   | 'isUpdatingWorkspace'
-  | 'setCompactionSuccess'
 >;
 
 export const SessionManagerContext = createContext<SessionManagerValue | null>(null);

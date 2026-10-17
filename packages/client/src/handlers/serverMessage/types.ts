@@ -51,12 +51,8 @@ export interface PartIndexEntry {
 
 export interface SessionHandlersContext {
   setSessions: (updater: Session[] | ((prev: Session[]) => Session[])) => void;
-  setCurrentSession: (session: Session | null) => void;
   setMessagesBySession: (updater: Record<string, Message[]> | ((prev: Record<string, Message[]>) => Record<string, Message[]>)) => void;
   setPartsBySession: (updater: Record<string, Record<string, Part[]>> | ((prev: Record<string, Record<string, Part[]>>) => Record<string, Record<string, Part[]>>)) => void;
-  setSessionUsage: (usage: SessionUsage) => void;
-  setCurrentModel: (model: string) => void;
-  setSelectedVariant: (variant: string | null) => void;
   setUsageForSession: (sessionId: string, usage: SessionUsage) => void;
   setModelForSession: (sessionId: string, model: string) => void;
   setVariantForSession: (sessionId: string, variant: string | null) => void;
@@ -69,7 +65,6 @@ export interface SessionHandlersContext {
   addQueuedMessage: (sessionId: string, message: import('@prokopai/sdk').QueuedMessage) => void;
   removeQueuedMessageById: (sessionId: string, queueId: string) => void;
   clearQueuedMessages: () => void;
-  setCompactionSuccess: (success: boolean) => void;
   setCompletion: (sessionId: string, record: CompletionRecord) => void;
   clearCompletion: (sessionId: string) => void;
   clearAllCompletions: () => void;

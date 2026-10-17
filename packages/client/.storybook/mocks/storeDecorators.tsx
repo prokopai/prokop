@@ -3,13 +3,12 @@
 // =============================================================================
 //
 // Usage in stories:
-//   decorators: [withSessionStore({ currentModel: 'gpt-4o' })]
+//   decorators: [withSessionStore({ sessions: [] })]
 //   decorators: [withAllStores()]
 //   decorators: [withAllStores({ connection: { connected: false } })]
 
 import type { ComponentType } from 'react';
 import { useSessionStore } from '@/stores/sessionStore';
-import type { SessionUsage } from '@/stores/sessionStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -43,12 +42,7 @@ type CompletionStoreState = ReturnType<typeof useCompletionStore.getState>;
 // -----------------------------------------------------------------------------
 
 interface SessionStoreDefaults {
-  currentSession?: SessionStoreState['currentSession'];
   sessions?: SessionStoreState['sessions'];
-  sessionUsage?: SessionUsage;
-  currentModel?: string;
-  selectedVariant?: string | null;
-  compactionSuccess?: boolean;
   messagesBySession?: SessionStoreState['messagesBySession'];
   partsBySession?: SessionStoreState['partsBySession'];
   queuedMessages?: SessionStoreState['queuedMessages'];
@@ -58,19 +52,7 @@ const defaultSessionState = (): SessionStoreDefaults => {
   const workspace = createWorkspace({ name: 'my-project', path: '/home/user/my-project' });
   const session = createSession({ title: 'Storybook Session', workspaceId: workspace.id });
   return {
-    currentSession: session,
     sessions: [session],
-    sessionUsage: {
-      promptTokens: 500,
-      completionTokens: 200,
-      totalTokens: 700,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      noCacheTokens: 0,
-    },
-    currentModel: 'claude-3.5-sonnet',
-    selectedVariant: null,
-    compactionSuccess: false,
     messagesBySession: {},
     partsBySession: {},
     queuedMessages: {},
