@@ -20,7 +20,7 @@ function scopeKey(serverId: string | null, workspaceId: string | undefined, sess
 }
 function updateSessionLayout(state: ChatLayoutState, patch: Partial<SessionFilesLayout>): Partial<ChatLayoutState> {
   const server = useServerDataStore.getState();
-  const key = scopeKey(server.serverId, server.activeWorkspace?.id, useSessionBoardStore.getState().focusedSessionId);
+  const key = scopeKey(server.serverId, server.activeWorkspaceId ?? undefined, useSessionBoardStore.getState().focusedSessionId);
   return key ? { sessionFilesLayouts: { ...state.sessionFilesLayouts, [key]: { ...(state.sessionFilesLayouts[key] ?? defaultSessionFilesLayout), ...patch } } } : patch;
 }
 
@@ -61,7 +61,7 @@ export const useChatLayoutStore = create<ChatLayoutStore>((set) => ({
 /** Select session-owned Files preferences without copying state on focus changes. */
 export function useSessionChatLayoutStore<T>(selector: (state: ChatLayoutStore) => T): T {
   const serverId = useServerDataStore((state) => state.serverId);
-  const workspaceId = useServerDataStore((state) => state.activeWorkspace?.id);
+  const workspaceId = useServerDataStore((state) => state.activeWorkspaceId ?? undefined);
   const sessionId = useSessionBoardStore((state) => state.focusedSessionId);
   const key = scopeKey(serverId, workspaceId, sessionId);
   return useChatLayoutStore((state) => selector(key

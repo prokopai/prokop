@@ -107,7 +107,7 @@ describe('WorkspaceContentArea responsive surfaces', () => {
       anyDirty: false,
     });
     useServerDataStore.setState({
-      activeWorkspace: workspace,
+      activeWorkspaceId: workspace.id,
       workspaces: [workspace],
     });
   });

@@ -50,7 +50,7 @@ describe('independent repository content', () => {
     mocks.mobile = false;
     mocks.gitStatus.mockClear();
     useChatLayoutStore.setState(useChatLayoutStore.getInitialState());
-    useServerDataStore.setState({ serverId: 'server', activeWorkspace: workspace });
+    useServerDataStore.setState({ serverId: 'server', workspaces: [workspace], activeWorkspaceId: workspace.id });
     useSessionBoardStore.setState({ focusedSessionId: 'session' });
     useSessionStore.setState({ sessions: [{ id: 'session', workspaceId: 'workspace', workspaceRootId: null } as Session] });
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });

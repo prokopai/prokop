@@ -15,7 +15,7 @@ import { useScheduledJobs, usePauseScheduledJob, useResumeScheduledJob, useTrigg
 import { useSessionStore } from '@/stores/sessionStore';
 import { useBoardRouteSync } from '@/hooks/useBoardRouteSync';
 import { useOverviewRouteSessionLoader } from '@/hooks/useOverviewRouteSessionLoader';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUIStore } from '@/stores/uiStore';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -44,7 +44,7 @@ import { STORAGE_KEYS } from '@/lib/storage';
 export default function WorkspaceView() {
   const { sdkClient, serverUrl } = useSessionManager();
   const { terminalPanelRef } = useViewRefs();
-  const activeWorkspaceId = useServerDataStore(s => s.activeWorkspace?.id ?? null);
+  const activeWorkspaceId = useServerDataStore(s => s.activeWorkspaceId);
   const connected = useConnectionStore(s => s.connected);
 
   // Sync board state with URL search params
@@ -72,7 +72,7 @@ function WorkspaceSidebar() {
   const sessionManager = useSessionManager();
   const sidebarData = useSidebarData();
   const { sidebarRef, chatInputRef } = useViewRefs();
-  const activeWorkspace = useServerDataStore(s => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
   const agents = useServerDataStore(s => s.agents);
   const allPreconfigs = useServerDataStore(s => s.preconfigs);
   const navigate = useNavigate();

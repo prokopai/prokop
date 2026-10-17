@@ -78,7 +78,7 @@ describe('individual workspace file tabs', () => {
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileTerminalOpen: false });
     useDockStore.setState(useDockStore.getInitialState());
     useFileEditorStore.setState({ docs: {}, openDocIds: [], activeDocId: null, anyDirty: false });
-    useServerDataStore.setState({ activeWorkspace: { id: 'workspace-1' } as Workspace });
+    useServerDataStore.setState({ activeWorkspaceId: 'workspace-1' });
     useChatLayoutStore.setState({ mobileSurface: 'chat', workbenchSurface: 'explorer', filesPanelTab: 'project' });
   });
   afterEach(() => {
@@ -322,19 +322,19 @@ describe('individual workspace file tabs', () => {
     fireEvent.change(firstInput, { target: { value: 'first draft' } });
     fireEvent.change(secondInput, { target: { value: 'second draft' } });
     const layout = useWorkspaceViewStore.getState().layout;
-    act(() => useServerDataStore.setState({ activeWorkspace: { id: 'workspace-3' } as Workspace }));
+    act(() => useServerDataStore.setState({ activeWorkspaceId: 'workspace-3' }));
     expect(within(host(first)).getByRole('textbox')).toBe(firstInput);
     expect(within(host(second)).getByRole('textbox')).toBe(secondInput);
     expect(useWorkspaceViewStore.getState().layout).toBe(layout);
     firstInput.focus();
-    expect(useServerDataStore.getState().activeWorkspace?.id).toBe('workspace-3');
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('workspace-3');
     fireEvent.click(within(host(first)).getByRole('button', { name: 'Undo' }));
     expect(firstInput).toHaveValue('first.ts');
     expect(secondInput).toHaveValue('second draft');
     fireEvent.click(within(host(second)).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(save).toHaveBeenCalledWith('workspace-2', expect.objectContaining({ root: '/checkout-b', path: 'src/second.ts', content: 'second draft' })));
     expect(mocks.unmount).not.toHaveBeenCalled();
-    act(() => useServerDataStore.setState({ activeWorkspace: null }));
+    act(() => useServerDataStore.setState({ activeWorkspaceId: null }));
     expect(within(host(second)).getByRole('textbox')).toBe(secondInput);
     expect(screen.getByRole('tab', { name: 'Session one' })).toBeInTheDocument();
   });

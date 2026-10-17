@@ -4,7 +4,7 @@ import { isFileViewId, isWorkspaceViewId, useWorkspaceViewStore } from '@/stores
 import { useDockStore, type DockPosition } from '@/stores/dockStore';
 import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
 import {useChatLayoutStore} from '@/stores/chatLayoutStore';
-import {useServerDataStore} from '@/stores/serverDataStore';
+import {useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import type {AppSidebarHandle} from '@/components/layout/AppSidebar';
 import type {Preconfig, Workspace} from '@prokopai/sdk';
 import { getWorkspaceDefaultPreconfigId } from '@/lib/workspacePreconfigs';
@@ -266,7 +266,7 @@ export interface AppKeyboardHandlersMountProps {
 }
 
 export function AppKeyboardHandlersMount(props: AppKeyboardHandlersMountProps) {
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
   const preconfigs = useServerDataStore((s) => s.preconfigs);
   const primaryPreconfigs = preconfigs.filter((p) => p.mode !== 'subagent');
 

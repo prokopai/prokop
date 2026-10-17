@@ -9,7 +9,7 @@ import { WorkspaceUsageView } from '@/components/app/WorkspaceUsageView';
 import { FilesPanel } from '@/components/layout/FilesPanel';
 import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { isDocDirty, useFileEditorStore } from '@/stores/fileEditorStore';
 import { fileViewId, isPullRequestsViewId, parsePullRequestsViewId, useWorkspaceViewStore, type WorkspaceViewId } from '@/stores/workspaceViewStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -42,7 +42,7 @@ export function WorkspaceContentArea({
     from: '/server/$serverId', strict: false,
   } as unknown as Parameters<typeof useParams>[0]);
   const serverId = params?.serverId as string | undefined;
-  const activeWorkspace = useServerDataStore((state) => state.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
   const workspaceId = activeWorkspace?.id;
   const workspaces = useServerDataStore((state) => state.workspaces);
   const agents = useServerDataStore((state) => state.agents);

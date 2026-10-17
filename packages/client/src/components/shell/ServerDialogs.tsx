@@ -3,7 +3,7 @@ import { useParams } from '@tanstack/react-router';
 import { useShallow } from 'zustand/react/shallow';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { useUIStore } from '@/stores/uiStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 
@@ -41,7 +41,7 @@ export function ServerDialogs({
     strict: false,
   } as unknown as Parameters<typeof useParams>[0]);
   const serverId = params?.serverId as string | undefined;
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const {
     showConfiguration,

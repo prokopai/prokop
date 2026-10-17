@@ -4,7 +4,7 @@ import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 import { DockRegion } from '@/components/layout/DockRegion';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { KeepAliveStack } from '@/components/app/KeepAliveStack';
 import type { TerminalPanelHandle } from '@/components/layout/TerminalPanel';
 import type { ProkopaiClient } from '@prokopai/sdk';
@@ -38,7 +38,7 @@ export function AppPanels({
   const isMobile = useIsMobile();
   const bottomOpen = useDockStore((s) => s.docks.bottom.open);
   const setDockOpen = useDockStore((s) => s.setDockOpen);
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const open = embedded ? visible : bottomOpen;
   // xterm loads on first open, then stays mounted so PTYs survive hiding.

@@ -33,7 +33,7 @@ export function resetAllStores(): void {
   useServerDataStore.setState({
     serverId: null,
     workspaces: [],
-    activeWorkspace: null,
+    activeWorkspaceId: null,
     preconfigs: [],
     prompts: [],
     models: [],

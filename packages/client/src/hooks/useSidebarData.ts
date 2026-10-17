@@ -5,7 +5,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useServerContext } from '@/contexts/ServerContext';
 import type { ChildrenMap, SessionDerivedValuesMap } from '@/components/layout/SessionMenuButton';
 
@@ -46,7 +46,7 @@ export const useSidebarData = (): UseSidebarDataReturn => {
   const pendingAskRequests = useAskStore(s => s.pendingRequests);
   const connected = useConnectionStore(s => s.connected);
   const workspaces = useServerDataStore(s => s.workspaces);
-  const activeWorkspace = useServerDataStore(s => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   // Derive currentSession from URL params (sessionId from nested route)
   const params = useParams({ from: '/server/$serverId', strict: false } as unknown as Parameters<typeof useParams>[0]);

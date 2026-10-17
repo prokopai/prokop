@@ -16,7 +16,7 @@ const workspace = { id: 'workspace', name: 'Project', path: '/project' } as Work
 const sessions = Array.from({ length: 12 }, (_, index) => ({ id: `s${index}`, workspaceId: 'workspace', title: `Session ${index}` }) as Session);
 
 beforeEach(() => {
-  useServerDataStore.setState({ serverId: 'server', activeWorkspace: workspace, workspaces: [workspace] });
+  useServerDataStore.setState({ serverId: 'server', activeWorkspaceId: workspace.id, workspaces: [workspace] });
   useSessionStore.setState(useSessionStore.getInitialState());
   useSessionContentStore.setState(useSessionContentStore.getInitialState());
   useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });

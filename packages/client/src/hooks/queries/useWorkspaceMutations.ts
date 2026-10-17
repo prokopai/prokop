@@ -34,8 +34,7 @@ export function useCreateWorkspaceMutation(clientRef: RefObject<ProkopaiClient |
     onSuccess: ({ workspace }) => {
       const store = useServerDataStore.getState();
       store.setWorkspaces([...store.workspaces, workspace]);
-      store.setActiveWorkspace(workspace);
-      localStorage.setItem('activeWorkspaceId', workspace.id);
+      store.setActiveWorkspaceId(workspace.id);
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
     },
   });
@@ -71,15 +70,10 @@ export function useDeleteWorkspaceMutation(clientRef: RefObject<ProkopaiClient |
       const currentWorkspaces = store.workspaces;
       store.setWorkspaces(currentWorkspaces.filter(w => w.id !== id));
 
-      if (store.activeWorkspace?.id === id) {
+      if (store.activeWorkspaceId === id) {
         const remaining = currentWorkspaces.filter(w => w.id !== id);
         const newActive = remaining[0] || null;
-        store.setActiveWorkspace(newActive);
-        if (newActive) {
-          localStorage.setItem('activeWorkspaceId', newActive.id);
-        } else {
-          localStorage.removeItem('activeWorkspaceId');
-        }
+        store.setActiveWorkspaceId(newActive?.id ?? null);
       }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
@@ -99,9 +93,6 @@ export function useRenameWorkspaceMutation(clientRef: RefObject<ProkopaiClient |
       store.setWorkspaces(
         store.workspaces.map(w => w.id === updatedWorkspace.id ? updatedWorkspace : w),
       );
-      if (store.activeWorkspace?.id === updatedWorkspace.id) {
-        store.setActiveWorkspace(updatedWorkspace);
-      }
     },
   });
 }
@@ -118,9 +109,6 @@ export function useUpdateWorkspaceMutation(clientRef: RefObject<ProkopaiClient |
       store.setWorkspaces(
         store.workspaces.map(w => w.id === updatedWorkspace.id ? updatedWorkspace : w),
       );
-      if (store.activeWorkspace?.id === updatedWorkspace.id) {
-        store.setActiveWorkspace(updatedWorkspace);
-      }
     },
   });
 }

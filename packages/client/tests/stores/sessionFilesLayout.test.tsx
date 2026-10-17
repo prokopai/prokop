@@ -1,21 +1,20 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { resolveFilesPanelRoot } from '@/lib/sessionWorktree';
-import type { Workspace } from '@prokopai/sdk';
 import { useChatLayoutStore, useSessionChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 
 beforeEach(() => {
   useChatLayoutStore.setState({ sessionFilesLayouts: {} });
-  useServerDataStore.setState({ serverId: 'server', activeWorkspace: { id: 'workspace' } as Workspace });
+  useServerDataStore.setState({ serverId: 'server', activeWorkspaceId: 'workspace' });
   useSessionBoardStore.setState({ focusedSessionId: 'a' });
 });
 
 afterEach(() => {
   cleanup();
   useChatLayoutStore.setState({ sessionFilesLayouts: {} });
-  useServerDataStore.setState({ serverId: null, activeWorkspace: null });
+  useServerDataStore.setState({ serverId: null, activeWorkspaceId: null });
   useSessionBoardStore.setState({ focusedSessionId: null });
 });
 
@@ -59,8 +58,8 @@ test('same session IDs do not share selection across servers or workspaces', () 
   act(() => useChatLayoutStore.getState().setFilesPanelRoot('/repo'));
   act(() => useServerDataStore.setState({ serverId: 'another-server' }));
   expect(result.current).toBeNull();
-  act(() => useServerDataStore.setState({ serverId: 'server', activeWorkspace: { id: 'another-workspace' } as Workspace }));
+  act(() => useServerDataStore.setState({ serverId: 'server', activeWorkspaceId: 'another-workspace' }));
   expect(result.current).toBeNull();
-  act(() => useServerDataStore.setState({ activeWorkspace: { id: 'workspace' } as Workspace }));
+  act(() => useServerDataStore.setState({ activeWorkspaceId: 'workspace' }));
   expect(result.current).toBe('/repo');
 });

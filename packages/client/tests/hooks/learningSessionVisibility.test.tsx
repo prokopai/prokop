@@ -16,7 +16,7 @@ function session(id: string, overrides: Partial<Session> = {}): Session {
 }
 
 beforeEach(() => {
-  useServerDataStore.setState({ activeWorkspace: { id: 'ws' } as Workspace });
+  useServerDataStore.setState({ workspaces: [{ id: 'ws' } as Workspace], activeWorkspaceId: 'ws' });
   useSessionStore.getState().setSessions([
     session('normal'),
     session('excluded', { metadata: { learning: { excluded: true, includeAutomated: false } } }),

@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ServerSwitcher } from '@/components/layout/ServerSwitcher';
 import { HeaderPanelToggles } from '@/components/app/HeaderPanelToggles';
 import { useUIStore } from '@/stores/uiStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
@@ -33,7 +33,7 @@ export function AppHeader() {
   const updateVersion = useServerUpdate();
 
   const setShowSettings = useUIStore((s) => s.setShowSettings);
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const leftOpen = useDockStore((s) => s.docks.left.open);
   const rightOpen = useDockStore((s) => s.docks.right.open);

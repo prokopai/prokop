@@ -52,7 +52,7 @@ const pendingFor = (sessionId: string) => usePendingSendStore.getState().bySessi
 
 beforeEach(() => {
   usePendingSendStore.setState({ bySession: {} });
-  useServerDataStore.setState({ serverId: 'studio', activeWorkspace: workspace, workspaces: [workspace] });
+  useServerDataStore.setState({ serverId: 'studio', activeWorkspaceId: workspace.id, workspaces: [workspace] });
   useSessionStore.setState({ ...useSessionStore.getInitialState(), sessions: [idle, running] });
 });
 afterEach(cleanup);

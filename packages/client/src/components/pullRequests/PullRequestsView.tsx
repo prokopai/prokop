@@ -4,7 +4,7 @@ import { useInfiniteQuery, useIsFetching, useQuery, useQueryClient } from '@tans
 import { ArrowLeft, GitPullRequest, Plus, RefreshCw } from 'lucide-react';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { useWorkspaceViewVisible } from '@/components/app/WorkspaceViewHost';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useWorktreesQuery } from '@/hooks/queries';
@@ -59,7 +59,7 @@ function PullRequestsContent({
   visible: boolean;
 }) {
   const workspace = useServerDataStore(
-    (s) => s.workspaces.find((w) => w.id === workspaceId) ?? s.activeWorkspace,
+    (s) => s.workspaces.find((w) => w.id === workspaceId) ?? selectActiveWorkspace(s),
   );
   const focused = useSessionBoardStore((s) => s.focusedSessionId);
   const session = useSessionStore((s) =>

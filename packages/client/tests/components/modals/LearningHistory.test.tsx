@@ -14,7 +14,10 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, params }: { children: ReactNode; params: { serverId: string; sessionId: string } }) =>
     <a href={`/server/${params.serverId}/workspace/session/${params.sessionId}`}>{children}</a>,
 }));
-vi.mock('@/stores/serverDataStore', () => ({ useServerDataStore: (selector: (state: unknown) => unknown) => selector(mocks.store()) }));
+vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
+  selectActiveWorkspace: (await importOriginal<typeof import('@/stores/serverDataStore')>()).selectActiveWorkspace,
+  useServerDataStore: (selector: (state: unknown) => unknown) => selector(mocks.store()),
+}));
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ openFilePreview: vi.fn(), setShowConfiguration: mocks.close }),
 }));

@@ -18,7 +18,7 @@ function makeWorkspace(id: string, name: string, settings: Workspace['settings']
 beforeEach(() => {
   const alpha = makeWorkspace('a', 'Alpha');
   const beta = makeWorkspace('b', 'Beta');
-  useServerDataStore.setState({ workspaces: [alpha, beta], activeWorkspace: beta, agents: [],
+  useServerDataStore.setState({ workspaces: [alpha, beta], activeWorkspaceId: beta.id, agents: [],
     preconfigs: [{ id: 'general', name: 'General', mode: 'primary' },
       { id: 'explore', name: 'Explore', mode: 'subagent' }] as Preconfig[] });
   useUIStore.setState({ configurationSection: 'workspace-general' });
@@ -164,7 +164,7 @@ describe('workspaces in shared settings', () => {
   test('captures the opening workspace even if the active workspace later changes', async () => {
     useUIStore.setState({ configurationSection: 'mcp' });
     const { user } = setup();
-    act(() => useServerDataStore.getState().setActiveWorkspace(useServerDataStore.getState().workspaces[0]!));
+    act(() => useServerDataStore.getState().setActiveWorkspaceId(useServerDataStore.getState().workspaces[0]!.id));
     await section(user, 'General');
     expect(await screen.findByRole('combobox', { name: 'Select workspace' })).toHaveTextContent('Beta');
     await selectWorkspace(user, 'Alpha');
@@ -174,7 +174,7 @@ describe('workspaces in shared settings', () => {
   test('searches and switches settings without changing the active chat workspace', async () => {
     const { user, list, update, close } = setup();
     await selectWorkspace(user, 'Alpha');
-    expect(useServerDataStore.getState().activeWorkspace?.id).toBe('b');
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('b');
     expect(list).toHaveBeenLastCalledWith('a', true);
     await user.click(screen.getByRole('combobox', { name: 'Session order' }));
     await user.click(screen.getByRole('option', { name: 'Untagged first' }));
@@ -184,7 +184,7 @@ describe('workspaces in shared settings', () => {
     })));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled());
     expect(close).not.toHaveBeenCalled();
-    expect(useServerDataStore.getState().activeWorkspace?.id).toBe('b');
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('b');
   });
 
   test('keeps drafts isolated across workspace and section switches', async () => {
@@ -303,7 +303,7 @@ describe('workspaces in shared settings', () => {
     setup();
     act(() => useServerDataStore.setState({ workspaces: [useServerDataStore.getState().workspaces[0]!] }));
     expect(await screen.findByRole('combobox', { name: 'Select workspace' })).toHaveTextContent('Alpha');
-    act(() => useServerDataStore.setState({ workspaces: [], activeWorkspace: null }));
+    act(() => useServerDataStore.setState({ workspaces: [], activeWorkspaceId: null }));
     expect(screen.getByText(/No workspaces on this server yet/)).toBeInTheDocument();
   });
 
@@ -331,6 +331,6 @@ describe('workspaces in shared settings', () => {
     await user.click(context.getByRole('combobox', { name: 'Select workspace' }));
     await user.click(screen.getByRole('option', { name: /Alpha/ }));
     expect(context.getByRole('combobox', { name: 'Select workspace' })).toHaveTextContent('Alpha');
-    expect(useServerDataStore.getState().activeWorkspace?.id).toBe('b');
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('b');
   });
 });

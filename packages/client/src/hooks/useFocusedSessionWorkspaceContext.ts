@@ -13,8 +13,8 @@ import { useServerDataStore } from '@/stores/serverDataStore';
  * 1. Reads `focusedSessionId` from `sessionBoardStore`.
  * 2. Resolves the session from `sessionStore.sessions`.
  * 3. Resolves its workspace from `serverDataStore.workspaces`.
- * 4. If it differs from `activeWorkspace`, calls `setActiveWorkspace` directly.
- * 5. Persists the workspace ID to `localStorage.activeWorkspaceId`.
+ * 4. If it differs from `activeWorkspaceId`, calls `setActiveWorkspaceId`,
+ *    which also remembers it across reloads.
  *
  * It does NOT:
  * - Clear the board.
@@ -38,9 +38,8 @@ export function useFocusedSessionWorkspaceContext(): void {
     if (!targetWorkspace) return;
 
     const store = useServerDataStore.getState();
-    if (store.activeWorkspace?.id !== targetWorkspace.id) {
-      store.setActiveWorkspace(targetWorkspace);
-      localStorage.setItem('activeWorkspaceId', targetWorkspace.id);
+    if (store.activeWorkspaceId !== targetWorkspace.id) {
+      store.setActiveWorkspaceId(targetWorkspace.id);
     }
   }, [focusedSessionId, sessions, workspaces]);
 }

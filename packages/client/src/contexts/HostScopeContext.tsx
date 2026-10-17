@@ -4,7 +4,7 @@ import type { Agent, ModelWithStatus, Preconfig, PromptInfo, SavedServer, Sessio
 import { fetchCriticalServerData, fetchSecondaryServerData } from '@/lib/fetchServerData';
 import { resolveHostUrl } from '@/lib/hostRoutes';
 import { useForeignSessionsStore } from '@/stores/foreignSessionsStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
 
 /**
@@ -39,7 +39,7 @@ export function useHostScope(): HostScope | null {
 /** Reads pane server data from the pane's machine. */
 export function useScopedServerData<T>(selector: (data: ScopedServerData) => T): T {
   const scope = useContext(HostScopeContext);
-  const local = useServerDataStore((state) => selector(state));
+  const local = useServerDataStore((state) => selector({ ...state, activeWorkspace: selectActiveWorkspace(state) }));
   return scope ? selector(scope.data) : local;
 }
 

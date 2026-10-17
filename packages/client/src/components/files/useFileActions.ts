@@ -5,7 +5,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { basename } from '@/lib/path';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { buildDocId, useFileEditorStore } from '@/stores/fileEditorStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import {
   docMatchesDeleteTarget,
@@ -368,7 +368,7 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
   );
 
   const copyPath = useCallback((rel: string, absolute?: boolean) => {
-    const workspacePath = useServerDataStore.getState().activeWorkspace?.path;
+    const workspacePath = selectActiveWorkspace(useServerDataStore.getState())?.path;
     const text = absolute ? joinCopyAbsolutePath(workspacePath, rel) : rel;
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       void navigator.clipboard.writeText(text).catch(() => {});

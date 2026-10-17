@@ -9,9 +9,10 @@ vi.mock('@/stores/uiStore', () => ({
   ),
 }));
 
-vi.mock('@/stores/serverDataStore', () => ({
+vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
+  selectActiveWorkspace: (await importOriginal<typeof import('@/stores/serverDataStore')>()).selectActiveWorkspace,
   useServerDataStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ activeWorkspace: { id: 'ws-1', name: 'test' } }),
+    selector({ workspaces: [{ id: 'ws-1', name: 'test' }], activeWorkspaceId: 'ws-1' }),
   ),
 }));
 

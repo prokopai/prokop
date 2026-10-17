@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { STORAGE_KEYS } from '@/lib/storage';
 import type {
   Workspace,
   Preconfig,
@@ -11,7 +12,8 @@ import type {
 interface ServerDataState {
   serverId: string | null;
   workspaces: Workspace[];
-  activeWorkspace: Workspace | null;
+  /** The workspace itself lives in `workspaces`; read it with selectActiveWorkspace. */
+  activeWorkspaceId: string | null;
   preconfigs: Preconfig[];
   prompts: PromptInfo[];
   models: ModelWithStatus[];
@@ -50,14 +52,15 @@ interface ServerDataActions {
   updateProviders: (providers: ProviderStatus[]) => void;
   updateAgents: (agents: Agent[]) => void;
   setWorkspaces: (workspaces: Workspace[]) => void;
-  setActiveWorkspace: (workspace: Workspace | null) => void;
+  /** Also remembered across reloads (localStorage). */
+  setActiveWorkspaceId: (workspaceId: string | null) => void;
   clearAll: () => void;
 }
 
 export const useServerDataStore = create<ServerDataState & ServerDataActions>((set) => ({
   serverId: null,
   workspaces: [],
-  activeWorkspace: null,
+  activeWorkspaceId: null,
   preconfigs: [],
   prompts: [],
   models: [],
@@ -97,12 +100,16 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
   updateProviders: (providers) => set({ providers }),
   updateAgents: (agents) => set({ agents }),
   setWorkspaces: (workspaces) => set({ workspaces }),
-  setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
+  setActiveWorkspaceId: (workspaceId) => {
+    if (workspaceId) localStorage.setItem(STORAGE_KEYS.ACTIVE_WORKSPACE_ID, workspaceId);
+    else localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKSPACE_ID);
+    set({ activeWorkspaceId: workspaceId });
+  },
 
   clearAll: () => set({
     serverId: null,
     workspaces: [],
-    activeWorkspace: null,
+    activeWorkspaceId: null,
     preconfigs: [],
     prompts: [],
     models: [],
@@ -112,3 +119,10 @@ export const useServerDataStore = create<ServerDataState & ServerDataActions>((s
     agents: [],
   }),
 }));
+
+/** The active workspace, as the same object `workspaces` holds (renames and activity apply to both). */
+export function selectActiveWorkspace(state: Pick<ServerDataState, 'workspaces' | 'activeWorkspaceId'>): Workspace | null {
+  return state.activeWorkspaceId
+    ? state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) ?? null
+    : null;
+}

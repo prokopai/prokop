@@ -69,7 +69,7 @@ export function hydrateStores(options: HydrateStoresOptions = {}): void {
     providers: createProviderList(),
     agents: [],
   });
-  serverDataStore.setActiveWorkspace(workspace);
+  serverDataStore.setActiveWorkspaceId(workspace.id);
 
   // --- Session Store ---
   const sessionStore = useSessionStore.getState();

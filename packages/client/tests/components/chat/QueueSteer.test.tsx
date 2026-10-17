@@ -20,7 +20,7 @@ const running = { id: 's1', workspaceId: 'w', title: 'Running', status: 'active'
 const queued: QueuedMessage = { id: 'q1', sessionId: 's1', content: 'use tabs', position: 0, createdAt: 1 };
 
 beforeEach(() => {
-  useServerDataStore.setState({ serverId: 'studio', activeWorkspace: workspace, workspaces: [workspace] });
+  useServerDataStore.setState({ serverId: 'studio', activeWorkspaceId: workspace.id, workspaces: [workspace] });
   useSessionStore.setState({ ...useSessionStore.getInitialState(), sessions: [running] });
   useSessionContentStore.setState({ ...useSessionContentStore.getInitialState(),
     queuedMessages: { s1: [queued, { ...queued, id: 'q2', content: 'then run tests', position: 1 }] } });

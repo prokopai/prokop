@@ -64,12 +64,12 @@ export function StoreHydrator({ children }: StoreHydratorProps) {
     if (pendingWorkspaceId) {
       const saved = workspaces.find(w => w.id === pendingWorkspaceId);
       if (saved) {
-        useServerDataStore.getState().setActiveWorkspace(saved);
+        useServerDataStore.getState().setActiveWorkspaceId(saved.id);
       } else if (defaultWorkspace) {
-        useServerDataStore.getState().setActiveWorkspace(defaultWorkspace);
+        useServerDataStore.getState().setActiveWorkspaceId(defaultWorkspace.id);
       }
     } else if (defaultWorkspace) {
-      useServerDataStore.getState().setActiveWorkspace(defaultWorkspace);
+      useServerDataStore.getState().setActiveWorkspaceId(defaultWorkspace.id);
     }
   }, [data, serverId]);
 

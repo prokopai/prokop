@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import type { Workspace, ModelWithStatus, ProviderStatus } from '@prokopai/sdk';
 
 const mockWorkspace: Workspace = {
@@ -38,7 +38,7 @@ describe('serverDataStore', () => {
     });
 
     test('starts with null activeWorkspace', () => {
-      expect(useServerDataStore.getState().activeWorkspace).toBeNull();
+      expect(selectActiveWorkspace(useServerDataStore.getState())).toBeNull();
     });
 
     test('starts with default model', () => {
@@ -116,14 +116,15 @@ describe('serverDataStore', () => {
 
   describe('setActiveWorkspace', () => {
     test('sets active workspace', () => {
-      useServerDataStore.getState().setActiveWorkspace(mockWorkspace);
-      expect(useServerDataStore.getState().activeWorkspace).toEqual(mockWorkspace);
+      useServerDataStore.getState().setWorkspaces([mockWorkspace]);
+      useServerDataStore.getState().setActiveWorkspaceId(mockWorkspace.id);
+      expect(selectActiveWorkspace(useServerDataStore.getState())).toEqual(mockWorkspace);
     });
 
     test('clears active workspace with null', () => {
-      useServerDataStore.getState().setActiveWorkspace(mockWorkspace);
-      useServerDataStore.getState().setActiveWorkspace(null);
-      expect(useServerDataStore.getState().activeWorkspace).toBeNull();
+      useServerDataStore.getState().setActiveWorkspaceId(mockWorkspace.id);
+      useServerDataStore.getState().setActiveWorkspaceId(null);
+      expect(selectActiveWorkspace(useServerDataStore.getState())).toBeNull();
     });
   });
 
@@ -139,14 +140,14 @@ describe('serverDataStore', () => {
         providers: [mockProvider],
         agents: [],
       });
-      useServerDataStore.getState().setActiveWorkspace(mockWorkspace);
+      useServerDataStore.getState().setActiveWorkspaceId(mockWorkspace.id);
 
       useServerDataStore.getState().clearAll();
 
       const state = useServerDataStore.getState();
       expect(state.serverId).toBeNull();
       expect(state.workspaces).toEqual([]);
-      expect(state.activeWorkspace).toBeNull();
+      expect(state.activeWorkspaceId).toBeNull();
       expect(state.preconfigs).toEqual([]);
       expect(state.prompts).toEqual([]);
       expect(state.models).toEqual([]);

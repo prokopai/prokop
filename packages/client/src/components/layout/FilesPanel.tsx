@@ -29,7 +29,7 @@ import { useWorkspaceViewStore, type RepositoryViewId } from '@/stores/workspace
 import { useDockStore } from '@/stores/dockStore';
 import { useSessionChatLayoutStore as useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useUIStore, type DefaultFileOpenMode } from '@/stores/uiStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
@@ -115,7 +115,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
     const setFilesPanelRootPinned = useChatLayoutStore((s) => s.setFilesPanelRootPinned);
     const setWorkbenchSurface = useChatLayoutStore((s) => s.setWorkbenchSurface);
     const setMobileSurface = useChatLayoutStore((s) => s.setMobileSurface);
-    const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+    const activeWorkspace = useServerDataStore(selectActiveWorkspace);
     const workspaceId = activeWorkspace?.id;
     const focusedSessionId = useSessionBoardStore((s) => s.focusedSessionId);
     const focusedSession = useSessionStore((s) => (
@@ -203,9 +203,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
             store.setWorkspaces(
               store.workspaces.map((w) => (w.id === updatedWorkspace.id ? updatedWorkspace : w)),
             );
-            if (store.activeWorkspace?.id === updatedWorkspace.id) {
-              store.setActiveWorkspace(updatedWorkspace);
-            }
           })
           .catch(logFailure('workspace')),
         refreshGitStatus(sdkClient, workspaceId, isMainRoot ? undefined : selectedRoot).catch(logFailure('Git status')),

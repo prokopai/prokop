@@ -26,7 +26,7 @@ import { useSessionStore, type ResumeSessionOptions } from '@/stores/sessionStor
 import { evictToBudget } from '@/stores/sessionContentStore';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
 import { useCompletionStore } from '@/stores/completionStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -221,7 +221,7 @@ export function useServerSessionManager({
     defaultModel: s.defaultModel,
   })));
 
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
   const models = storeModels as ModelInfo[];
   const defaultModel = storeDefaultModel;
 
@@ -482,8 +482,7 @@ export function useServerSessionManager({
     const data = await http.post<{ workspace: Workspace }>('/workspaces', { name, path, isVirtual });
     const workspace = data.workspace;
     useServerDataStore.getState().setWorkspaces([...useServerDataStore.getState().workspaces, workspace]);
-    useServerDataStore.getState().setActiveWorkspace(workspace);
-    localStorage.setItem('activeWorkspaceId', workspace.id);
+    useServerDataStore.getState().setActiveWorkspaceId(workspace.id);
     queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
     navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
     return workspace;
@@ -494,8 +493,7 @@ export function useServerSessionManager({
   const [isUpdatingWorkspace, setIsUpdatingWorkspace] = useState<Record<string, boolean>>({});
 
   const selectWorkspace = useCallback((workspace: Workspace) => {
-    useServerDataStore.getState().setActiveWorkspace(workspace);
-    localStorage.setItem('activeWorkspaceId', workspace.id);
+    useServerDataStore.getState().setActiveWorkspaceId(workspace.id);
     useSessionBoardStore.getState().clearBoard();
     navigate({ to: '/server/$serverId/workspace', params: { serverId: _serverId } });
   }, [navigate, _serverId]);
@@ -537,16 +535,11 @@ export function useServerSessionManager({
 
     const currentWorkspaces = useServerDataStore.getState().workspaces;
     useServerDataStore.getState().setWorkspaces(currentWorkspaces.filter(w => w.id !== id));
-    const currentActive = useServerDataStore.getState().activeWorkspace;
+    const currentActive = selectActiveWorkspace(useServerDataStore.getState());
     if (currentActive?.id === id) {
       const remaining = currentWorkspaces.filter(w => w.id !== id);
       const newActive = remaining[0] || null;
-      useServerDataStore.getState().setActiveWorkspace(newActive);
-      if (newActive) {
-        localStorage.setItem('activeWorkspaceId', newActive.id);
-      } else {
-        localStorage.removeItem('activeWorkspaceId');
-      }
+      useServerDataStore.getState().setActiveWorkspaceId(newActive?.id ?? null);
     }
 
     queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
@@ -566,10 +559,6 @@ export function useServerSessionManager({
       useServerDataStore.getState().setWorkspaces(
         currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
       );
-
-      if (useServerDataStore.getState().activeWorkspace?.id === id) {
-        useServerDataStore.getState().setActiveWorkspace(updatedWorkspace);
-      }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
     } catch (err: unknown) {
@@ -594,10 +583,6 @@ export function useServerSessionManager({
       useServerDataStore.getState().setWorkspaces(
         currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
       );
-
-      if (useServerDataStore.getState().activeWorkspace?.id === id) {
-        useServerDataStore.getState().setActiveWorkspace(updatedWorkspace);
-      }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all });
       queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -624,10 +609,6 @@ export function useServerSessionManager({
       useServerDataStore.getState().setWorkspaces(
         currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
       );
-
-      if (useServerDataStore.getState().activeWorkspace?.id === id) {
-        useServerDataStore.getState().setActiveWorkspace(updatedWorkspace);
-      }
       toast.success('Workspace paths updated');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -651,10 +632,6 @@ export function useServerSessionManager({
       useServerDataStore.getState().setWorkspaces(
         currentWorkspaces.map(w => w.id === id ? updatedWorkspace : w),
       );
-
-      if (useServerDataStore.getState().activeWorkspace?.id === id) {
-        useServerDataStore.getState().setActiveWorkspace(updatedWorkspace);
-      }
       toast.success('Workspace settings saved');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -852,7 +829,7 @@ export function useServerSessionManager({
     activeWorkspace,
     streamingSessionIds,
     primaryPreconfigs,
-    setActiveWorkspace: (ws: Workspace | null) => useServerDataStore.getState().setActiveWorkspace(ws),
+    setActiveWorkspace: (ws: Workspace | null) => useServerDataStore.getState().setActiveWorkspaceId(ws?.id ?? null),
     removePendingAskRequest,
     removePendingPermissionRequest: removePendingPermissionAskRequest,
     clearPendingAskRequestsBySessionId,

@@ -26,13 +26,13 @@ const client = {
 beforeEach(() => {
   discover.mockReset().mockResolvedValue({ connections: [], branch: 'main' });
   list.mockReset().mockResolvedValue({ items: [], nextPage: null, accountId: 'viewer' });
-  useServerDataStore.setState({ workspaces: [workspace], activeWorkspace: workspace });
+  useServerDataStore.setState({ workspaces: [workspace], activeWorkspaceId: workspace.id });
   useSessionStore.setState({ sessions: [] });
   useSessionBoardStore.setState({ focusedSessionId: null });
 });
 afterEach(() => {
   cleanup();
-  useServerDataStore.setState({ workspaces: [], activeWorkspace: null });
+  useServerDataStore.setState({ workspaces: [], activeWorkspaceId: null });
 });
 
 test('empty discovery identifies the checkout and gives a visible refresh outcome', async () => {
@@ -72,7 +72,7 @@ test('switching to a same-named workspace discovers its own repository', async (
   const { rerender } = render(view('old'));
   await screen.findByText('No GitHub or Azure DevOps remote was found in this checkout.');
   const current: Workspace = { ...workspace, id: 'current', path: '/projects/current' };
-  useServerDataStore.setState({ workspaces: [workspace, current], activeWorkspace: current });
+  useServerDataStore.setState({ workspaces: [workspace, current], activeWorkspaceId: current.id });
   discover.mockResolvedValue({
     branch: 'main',
     connections: [

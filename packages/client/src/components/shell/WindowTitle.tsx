@@ -4,7 +4,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useForeignSessionsStore } from '@/stores/foreignSessionsStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useAskStore } from '@/stores/askStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { getWorkspaceDisplayName } from '@/lib/workspaceKind';
 
 export const APP_TITLE = 'Prokop';
@@ -34,7 +34,7 @@ export function WindowTitle() {
   const stopping = useConnectionStore((s) => (focusedId ? s.stoppingSessionIds.has(focusedId) : false));
   const waiting = useAskStore((s) => s.pendingRequests.length > 0);
   const workspaceName = useServerDataStore((s) => {
-    const workspace = s.workspaces.find((w) => w.id === shown?.workspaceId) ?? s.activeWorkspace;
+    const workspace = s.workspaces.find((w) => w.id === shown?.workspaceId) ?? selectActiveWorkspace(s);
     return workspace ? getWorkspaceDisplayName(workspace, s.agents) : null;
   });
 

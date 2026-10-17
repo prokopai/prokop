@@ -25,7 +25,6 @@ export function WorkspacesPanel({ workspace, section, sdkClient, drafts, setDraf
       const store = useServerDataStore.getState();
       if (store.serverId !== serverId) return;
       store.setWorkspaces(store.workspaces.map(item => item.id === id ? updated : item));
-      if (store.activeWorkspace?.id === id) store.setActiveWorkspace(updated);
       // A response for one workspace must never clear another workspace's draft,
       // or edits made while this request was in flight.
       if (submittedDraft) setDrafts(current => {

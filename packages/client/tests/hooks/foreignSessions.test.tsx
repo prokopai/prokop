@@ -45,7 +45,7 @@ function commands(activeClient: ProkopaiClient) {
 
 beforeEach(() => {
   localStorage.clear();
-  useServerDataStore.setState({ serverId: 'studio', activeWorkspace: workspace, workspaces: [workspace] });
+  useServerDataStore.setState({ serverId: 'studio', activeWorkspaceId: workspace.id, workspaces: [workspace] });
   useSessionStore.setState({ ...useSessionStore.getInitialState(), sessions: [local] });
   useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
   useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
@@ -87,7 +87,7 @@ describe('sessions from another machine', () => {
     expect(pool.client!.sessions.resume).toHaveBeenCalledWith('remote-1');
     expect(active.sessions.resume).not.toHaveBeenCalled();
     expect(useSessionBoardStore.getState().openSessionIds).toEqual(['remote-1']);
-    expect(useServerDataStore.getState().activeWorkspace?.id).toBe('w-local');
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('w-local');
   });
 
   test('foreign tabs survive route sync and keep their machine in the view id', () => {

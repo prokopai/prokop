@@ -77,7 +77,7 @@ export function withSessionStore(overrides: SessionStoreDefaults = {}) {
 interface ServerDataStoreDefaults {
   serverId?: string | null;
   workspaces?: ServerDataStoreState['workspaces'];
-  activeWorkspace?: ServerDataStoreState['activeWorkspace'];
+  activeWorkspaceId?: ServerDataStoreState['activeWorkspaceId'];
   preconfigs?: ServerDataStoreState['preconfigs'];
   prompts?: ServerDataStoreState['prompts'];
   models?: ServerDataStoreState['models'];
@@ -91,7 +91,7 @@ const defaultServerDataState = (): ServerDataStoreDefaults => {
   return {
     serverId: 'mock-server-id',
     workspaces: [workspace],
-    activeWorkspace: workspace,
+    activeWorkspaceId: workspace.id,
     preconfigs: createPreconfigList(),
     prompts: [],
     models: createModelList(),

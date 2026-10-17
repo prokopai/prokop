@@ -3,7 +3,7 @@ import type { ProkopaiClient, Workspace } from '@prokopai/sdk';
 import { loadWorkspaceOrder, sortWorkspaces, WORKSPACE_ORDER_KEY } from '@/lib/workspaceOrder';
 import { refreshWorkspaceActivity } from '@/lib/refreshWorkspaceActivity';
 import { handleWorkspaceActivity } from '@/handlers/serverMessage/workspaceActivity';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 
 const workspace = (id: string, name: string, day: number, activity?: number): Workspace => ({
@@ -13,7 +13,7 @@ const workspace = (id: string, name: string, day: number, activity?: number): Wo
 const items = [workspace('a', 'Zulu', 1, 300), workspace('b', 'alpha', 2, 100), workspace('c', 'Beta', 3)];
 beforeEach(() => {
   localStorage.clear();
-  useServerDataStore.setState({ serverId: 'server', workspaces: items, activeWorkspace: items[0] });
+  useServerDataStore.setState({ serverId: 'server', workspaces: items, activeWorkspaceId: items[0].id });
   useUIStore.setState({ workspaceOrder: 'newest' });
 });
 
@@ -37,11 +37,11 @@ test('preference persists with a safe default for malformed values', () => {
 
 test('activity patches the active workspace, permits deletion resets and rejects malformed input', () => {
   handleWorkspaceActivity('a', 500);
-  expect(useServerDataStore.getState().activeWorkspace?.lastConversationAt).toBe(500);
+  expect(selectActiveWorkspace(useServerDataStore.getState())?.lastConversationAt).toBe(500);
   for (const value of [undefined, '600', NaN, Infinity, -1]) handleWorkspaceActivity('a', value);
   expect(useServerDataStore.getState().workspaces[0].lastConversationAt).toBe(500);
   handleWorkspaceActivity('a', null);
-  expect(useServerDataStore.getState().activeWorkspace?.lastConversationAt).toBeNull();
+  expect(selectActiveWorkspace(useServerDataStore.getState())?.lastConversationAt).toBeNull();
 });
 
 test('reconnect refresh preserves incoming events and refreshes untouched activity', async () => {

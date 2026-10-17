@@ -89,7 +89,7 @@ export function ConfigurationDialog({
       : storedSection;
   const setSection = useUIStore((s) => s.setConfigurationSection);
   // The dialog mounts on open, capturing the workspace it was opened from.
-  const [workspaceId, setWorkspaceId] = useState(() => useServerDataStore.getState().activeWorkspace?.id ?? null);
+  const [workspaceId, setWorkspaceId] = useState(() => useServerDataStore.getState().activeWorkspaceId ?? null);
   const [workspaceDrafts, setWorkspaceDrafts] = useState<Record<string, WorkspaceSettingsDraft>>({});
   const [agentDraft, setAgentDraft] = useState<AgentEditorDraft | null>(null);
   const updateVersion = useServerUpdate();

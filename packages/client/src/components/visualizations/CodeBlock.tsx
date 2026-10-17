@@ -3,7 +3,7 @@ import { Check, AlertCircle, ChevronDown, ChevronRight, ExternalLink, Copy } fro
 import { File as PierreFile } from '@pierre/diffs/react';
 import type { SelectedLineRange } from '@pierre/diffs/react';
 import { useUIStore } from '@/stores/uiStore';
-import { useServerDataStore } from '@/stores/serverDataStore';
+import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { pathBasename } from '@/lib/platform';
 import { toWorkspaceFileTarget } from '@/lib/path';
@@ -39,7 +39,7 @@ export const CodeBlock: FC<CodeBlockProps> = memo(({
   );
   const [copied, setCopied] = useState(false);
   const openFilePreview = useUIStore((s) => s.openFilePreview);
-  const activeWorkspace = useServerDataStore((s) => s.activeWorkspace);
+  const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const { resolvedMode } = useTheme();
 

@@ -77,7 +77,7 @@ describe('individual session tabs', () => {
     useFileEditorStore.setState(useFileEditorStore.getInitialState());
     useAskStore.setState({ pendingRequests: [] });
     useConnectionStore.setState({ connected: false, streamingSessionIds: new Set() });
-    useServerDataStore.setState({ serverId: 'server', agents: [], activeWorkspace: { id: 'workspace' } as Workspace, workspaces: [{ id: 'workspace', name: 'Project' } as Workspace] });
+    useServerDataStore.setState({ serverId: 'server', agents: [], activeWorkspaceId: 'workspace', workspaces: [{ id: 'workspace', name: 'Project' } as Workspace] });
     const sessions = Array.from({ length: 12 }, (_, index) => ({ id: `s${index}`, workspaceId: 'workspace', title: `Session ${index}` }) as Session);
     useSessionStore.setState({ sessions });
     useSessionBoardStore.getState().hydrateFromRoute('s0', sessions.map((session) => session.id));
@@ -249,7 +249,7 @@ describe('tabs from another machine', () => {
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     useAskStore.setState({ pendingRequests: [] });
     useConnectionStore.setState({ connected: false, streamingSessionIds: new Set(['remote']) });
-    useServerDataStore.setState({ serverId: 'server', agents: [], activeWorkspace: { id: 'workspace' } as Workspace, workspaces: [{ id: 'workspace', name: 'Project' } as Workspace] });
+    useServerDataStore.setState({ serverId: 'server', agents: [], activeWorkspaceId: 'workspace', workspaces: [{ id: 'workspace', name: 'Project' } as Workspace] });
     useForeignSessionsStore.setState({ byId: {} });
     useForeignSessionsStore.getState().add('laptop', { id: 'remote', workspaceId: 'w-remote', title: 'Deploy' } as Session);
     useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
