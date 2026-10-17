@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from './database';
 import type {
+  NotificationEventType,
   PushSubscriptionRecord,
   NotificationPreferences,
   WebPushSubscriptionInput,
@@ -206,10 +207,11 @@ export function getPushSubscriptionForDispatch(
  * Used by the dispatch service to determine recipients.
  */
 export function listEnabledSubscriptionsForEvent(
-  eventType: 'session_completed' | 'session_failed' | 'permission_required',
+  eventType: NotificationEventType,
 ): PushSubscriptionRow[] {
   const db = getDatabase();
-  const column = eventType === 'permission_required'
+  // Approvals and questions share one preference: both wait for your answer.
+  const column = eventType === 'permission_required' || eventType === 'question_asked'
     ? 'notify_permission'
     : 'notify_completion';
 

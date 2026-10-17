@@ -121,7 +121,7 @@ function bindInteraction(
       },
       getSessionAutoApproveSeverity: async () => session?.autoApproveSeverity,
       getPermissionTimeoutMs: () => 5000,
-      notifyPermissionRequired: async (requestId: string, rootSessionId: string) => {
+      notifyAnswerRequired: async (requestId: string, rootSessionId: string) => {
         state.notifications.push({ requestId, rootSessionId });
       },
     },

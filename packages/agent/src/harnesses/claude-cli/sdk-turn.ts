@@ -3,6 +3,7 @@ import type { ClaudeImage } from './images';
 import { claudeCliVersion } from './version';
 import { parseClaudeUsage, type ClaudeTurnUsage } from './usage';
 import { sessionTempEnvironment } from '@prokopai/core/infrastructure/filesystem/session-temp';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { HTML_RENDER_TOOL_NAME } from '@prokopai/sdk';
 import { claudeWorkspaceToolName } from './mcp-tools';
@@ -151,7 +152,9 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       return input.canUseTool(name, value, context);
     },
     // The native permission engine may auto-allow reads. Gate every invocation before it reaches that engine.
-    hooks: { PreToolUse: [{ hooks: [async (event, _id, context) => {
+    // The hook waits for the human, so it outlives the permission timeout (the CLI default is 10 minutes,
+    // after which it abandons the call while the ask would still be shown); Jean2's own timer denies first.
+    hooks: { PreToolUse: [{ timeout: Math.ceil(getPermissionTimeoutMs() / 1000) + 30, hooks: [async (event, _id, context) => {
       if (event.hook_event_name !== 'PreToolUse') return { continue: false };
       if (streamClosed) return { hookSpecificOutput: { hookEventName: 'PreToolUse',
         permissionDecision: 'deny', permissionDecisionReason: 'Claude stream has ended' } };

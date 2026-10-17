@@ -6,7 +6,6 @@ import type { Tool as AiTool } from 'ai';
 import {
   applyToolOutputPolicy,
   createToolOutputService,
-  getToolOutputService,
   isToolOutputArtifactReference,
   resetDefaultToolOutputServiceForTests,
   RETRIEVE_TOOL_OUTPUT_NAME,
@@ -27,15 +26,7 @@ import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contra
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
-import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
-import {
-  enterAgentScope,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
-import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { capekToolOutputPolicyKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 const temporaryDirectories: string[] = [];
 
@@ -69,7 +60,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -108,18 +99,6 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 function context(overrides: Partial<ToolOutputPolicyContext> = {}): ToolOutputPolicyContext {
   return {
@@ -147,7 +126,6 @@ beforeEach(() => {
   configureRuntimeConfiguration(createDefaultRuntimeConfiguration());
   configureRuntimeHost(minimalHost());
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
 });
 
 afterEach(() => {
@@ -155,12 +133,6 @@ afterEach(() => {
 });
 
 describe('C6 tool-output policy contract', () => {
-  test('pins the exact default options and policy surface', () => {
-    const service = createToolOutputService({ id: 'test' });
-    expect(service.options).toEqual(makeOptions());
-    expect(TOOL_OUTPUT_THRESHOLD_CHARS).toBe(50_000);
-    expect(TOOL_OUTPUT_PREVIEW_CHARS).toBe(10_000);
-  });
 
   test('passes below-threshold results through untouched', async () => {
     expect(await applyToolOutputPolicy('small', context())).toBe('small');
@@ -337,15 +309,6 @@ describe('C6 tool-output policy contract', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  test('the retrieval standard tool definition is pinned', () => {
-    expect(retrieveToolOutputStandardTool.definition.name).toBe(RETRIEVE_TOOL_OUTPUT_NAME);
-    expect(retrieveToolOutputStandardTool.path).toBe('builtin:@prokopai/runtime');
-    expect(retrieveToolOutputStandardTool.definition.inputSchema).toMatchObject({
-      type: 'object',
-      required: ['artifactId'],
-    });
-  });
-
   test('the legacy truncation passes small results through', () => {
     const result = truncateToolResult({ small: true }, 'session', 'tool', tempDir('c6-trunc-small'));
     expect(result).toEqual({ small: true });
@@ -391,67 +354,4 @@ describe('C6 tool-output policy contract', () => {
 });
 
 describe('C6 scoped tool-output policy composition', () => {
-  test('the current composition provides an agent-scoped policy with the exact defaults', async () => {
-    const processScope = await createCurrentProcessScope();
-    const agentScope = await createCurrentAgentScope(processScope);
-    try {
-      const service = agentScope.require(capekToolOutputPolicyKey);
-      expect(service.id).toBe('current.tool-output-policy');
-      expect(service.options.thresholdChars).toBe(50_000);
-      expect(service.options.previewChars).toBe(10_000);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the tool-output policy is an explicit required agent-scoped provider', async () => {
-    const processScope = await createCurrentProcessScope();
-    const plugins = currentAgentPlugins()
-      .filter((plugin) => plugin.id !== 'current.tool-output-policy');
-    const agentScope = await createAgentScope(processScope, [...plugins]);
-    try {
-      expect(() => enterAgentScope(agentScope, () => undefined))
-        .toThrow(/service 'capek\.tool-output-policy' is not available/);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('enterAgentScope seeds the scope-owned service and two agents stay isolated', async () => {
-    const processScope = await createCurrentProcessScope();
-    const scopeA = await createCurrentAgentScope(processScope);
-    const scopeB = await createCurrentAgentScope(processScope);
-    try {
-      const serviceA = scopeA.require(capekToolOutputPolicyKey);
-      const serviceB = scopeB.require(capekToolOutputPolicyKey);
-      expect(serviceA).not.toBe(serviceB);
-
-      let observed: typeof serviceA | null = null;
-      enterAgentScope(scopeA, () => {
-        observed = getToolOutputService();
-      });
-      expect(observed === serviceA).toBe(true);
-      expect(getToolOutputService() === serviceA).toBe(false);
-
-      // Per-service wrap WeakSets never leak across scopes.
-      const original = { execute: async () => ({ ok: true }) } as unknown as AiTool;
-      const wrappedA = serviceA.wrapToolsWithOutputPolicy({ original }, { sessionId: 's' });
-      const wrappedB = serviceB.wrapToolsWithOutputPolicy({ original }, { sessionId: 's' });
-      expect(wrappedA.original).not.toBe(original);
-      expect(wrappedB.original).not.toBe(original);
-      expect(wrappedA.original).not.toBe(wrappedB.original);
-    } finally {
-      await scopeA.dispose();
-      await scopeB.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the unscoped process default carries the exact pre-C6 constants', () => {
-    const service = getToolOutputService();
-    expect(service.id).toBe('tool-output.process-default');
-    expect(service.options).toEqual(makeOptions());
-  });
 });

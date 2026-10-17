@@ -75,7 +75,7 @@ describe('server-owned engine boundaries', () => {
   });
 
   test('execution consumes contributed domains without importing their implementations', () => {
-    const forbidden = ['goals', 'subagent', 'workflow', 'scheduler', 'composition/plugins'].map(dir => resolve(prokopRoot, dir));
+    const forbidden = ['goals', 'subagent', 'composition/plugins'].map(dir => resolve(prokopRoot, dir));
     forbidden.push(resolve(agentRoot, 'harnesses/shared'));
     const violations = importsUnder(resolve(prokopRoot, 'execution')).filter(imp => {
       if (imp.file === 'harnesses/prokop/execution/chat-handler.ts' && imp.specifier === '#agent/harnesses/prokop/goals/service') return false;

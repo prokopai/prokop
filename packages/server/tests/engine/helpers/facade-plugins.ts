@@ -17,7 +17,6 @@ import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contra
 import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
 import type { WorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import type { WorkspacePolicyOptions } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
-import { getSchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { getSessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createContextSectionsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
 import { loadedToolsPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/loaded-tools';
@@ -39,7 +38,6 @@ import {
   workspaceToolDiscoveryValuePlugin,
   installedToolRegistryValuePlugin,
   providerRegistryValuePlugin,
-  schedulerHostValuePlugin,
   sessionSearchHostValuePlugin,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/value-plugins';
 
@@ -47,7 +45,6 @@ export const FACADE_PROCESS_PLUGIN_IDS = [
   'facade.provider-registry',
   'facade.installed-tool-registry',
   'facade.session-search-host',
-  'facade.scheduler-host',
 ] as const;
 
 export function facadeProcessPlugins(): readonly RuntimePlugin<unknown>[] {
@@ -55,7 +52,6 @@ export function facadeProcessPlugins(): readonly RuntimePlugin<unknown>[] {
     providerRegistryValuePlugin('facade.provider-registry'),
     installedToolRegistryValuePlugin('facade.installed-tool-registry'),
     sessionSearchHostValuePlugin('facade.session-search-host', getSessionSearchHost()),
-    schedulerHostValuePlugin('facade.scheduler-host', getSchedulerHost()),
   ];
 }
 

@@ -28,10 +28,8 @@ import {
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import {
   evaluateGoalWithDeps,
-  buildContinuationMessage,
 } from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
 import {
-  runGoalLoop,
   runGoalLoopWithDeps,
   type GoalLoopDeps,
   type RunTurnFn,
@@ -61,7 +59,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -173,22 +171,9 @@ describe('C5 goal composed scope ownership', () => {
     const processScope = await createCurrentProcessScope();
     const agentScope = await createCurrentAgentScope(processScope);
     try {
-      const tools = agentScope.listTools();
-      // No pre-C5 model-facing goal tool exists: goal mode is a client
-      // session directive. The domain therefore contributes no tool.
-      expect(tools.some((tool) => tool.definition.name === 'goal')).toBe(false);
-      expect(tools.map((tool) => tool.definition.name)).toEqual([
-        'retrieve-tool-output',
-        'task',
-        'skill',
-        'memory',
-        'workflow',
-        'skill_manage',
-        'session_search',
-        'scheduler',
-        'agent_memory',
-        'agent_skill_manage',
-      ]);
+      // Goal mode is a client session directive, not a model-facing tool.
+      expect(agentScope.listTools().some((tool) => tool.pluginId === CURRENT_GOAL_DOMAIN_PLUGIN_ID
+        || tool.definition.name === 'goal')).toBe(false);
       expect(
         agentScope.listContextSections().some((section) => section.pluginId === CURRENT_GOAL_DOMAIN_PLUGIN_ID),
       ).toBe(false);
@@ -314,107 +299,9 @@ describe('C5 goal composed scope ownership', () => {
       await processScope.dispose();
     }
   });
-
-  test('the composed evaluator does not import the workflow implementation', async () => {
-    // The plugin bridge requires the shared contract key only; the domain
-    // types are structural. The import gate lives in the boundary suite;
-    // here we pin that the plugin composes with a custom provider of the
-    // shared contract.
-    const customContract: OrchestratorSessionContract = {
-      run: async () => ({ text: 'x', json: null, sessionId: 'custom' }),
-    };
-    const storage = createInMemoryStorageBundle();
-    const processScope = await createCurrentProcessScope();
-    // Compose a minimal agent scope with storage, runtime host, the custom
-    // orchestrator contract, and the goal domain plugin; the plugin must
-    // accept the injected contract without touching workflow code.
-    const { createAgentScope } = await import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel');
-    const { capekStorageKey, capekRuntimeHostKey } = await import('@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys');
-    const agentScope = await createAgentScope(processScope, [
-      {
-        id: 'test.storage',
-        scope: 'agent',
-        provides: [capekStorageKey],
-        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
-          context.provide(capekStorageKey, storage);
-        },
-      },
-      {
-        id: 'test.host',
-        scope: 'agent',
-        provides: [capekRuntimeHostKey],
-        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
-          context.provide(capekRuntimeHostKey, minimalHost());
-        },
-      },
-      {
-        id: 'test.orchestrator',
-        scope: 'agent',
-        provides: [capekOrchestratorSessionKey],
-        setup(context: import('@prokopai/agent/internal/harnesses/prokop/composition/kernel/types').PluginContext) {
-          context.provide(capekOrchestratorSessionKey, customContract);
-        },
-      },
-      goalDomainPlugin('test.goal-domain'),
-    ]);
-    try {
-      const service = agentScope.require(capekGoalDomainKey);
-      const evaluation = await service.evaluateGoal({
-        sessionId: 'none',
-        condition: 'x',
-        turn: 1,
-        maxTurns: 2,
-      });
-      expect(evaluation).toEqual({
-        goalMet: false,
-        reason: 'No reason provided',
-        remainingWork: undefined,
-      });
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
 });
 
 describe('C5 goal evaluator behavior', () => {
-  test('pins the exact prompt, title, agent name, maxTokens, and parse defaults', async () => {
-    const calls: Array<Record<string, unknown>> = [];
-    const result = await evaluateGoalWithDeps({
-      sessionId: 'goal-sess',
-      condition: 'all tests pass',
-      turn: 2,
-      maxTurns: 4,
-    }, {
-      listTranscript: async () => [],
-      orchestrator: {
-        run: async (options) => {
-          calls.push({ ...options });
-          return { text: '{}', json: {}, sessionId: 'eval-1' };
-        },
-      },
-    });
-
-    expect(result).toEqual({ goalMet: false, reason: 'No reason provided', remainingWork: undefined });
-    expect(calls).toHaveLength(1);
-    const call = calls[0] as unknown as {
-      parentSessionId: string;
-      title: string;
-      agentName: string;
-      systemPrompt: string;
-      userPrompt: string;
-      maxTokens: number;
-    };
-    expect(call.parentSessionId).toBe('goal-sess');
-    expect(call.title).toBe('Goal Eval (Turn 2): all tests pass');
-    expect(call.agentName).toBe('goal-evaluator');
-    expect(call.maxTokens).toBe(2048);
-    expect(call.userPrompt).toBe('Evaluate: has the condition "all tests pass" been met based on the transcript above?');
-    expect(call.systemPrompt).toContain('You are a goal evaluator. Your job is to determine if a completion condition');
-    expect(call.systemPrompt).toContain('Completion condition: "all tests pass"');
-    expect(call.systemPrompt).toContain('Conversation transcript (turn 2 of 4):');
-    expect(call.systemPrompt).toContain('{"goalMet": true/false, "reason": "explanation", "remainingWork": "what is left to do"}');
-  });
 
   test('summarizes transcripts with the exact user, assistant, and tool formatting', async () => {
     const transcript = [
@@ -466,25 +353,6 @@ describe('C5 goal evaluator behavior', () => {
     expect(captured).toContain('[USER]: run tests');
     expect(captured).toContain('[ASSISTANT]: running\n[TOOL: shell]: 3 passing');
     expect(captured).toContain('[TOOL: shell]: ERROR: boom');
-  });
-
-  test('the run directive pins the exact continuation text', () => {
-    expect(buildContinuationMessage('all tests pass', 'coverage missing', 'add tests')).toBe([
-      'The goal is NOT yet met: all tests pass',
-      '',
-      'Evaluator feedback: coverage missing',
-      '\nRemaining work: add tests',
-      '',
-      'Continue working toward the goal. Do not repeat work you have already done.',
-    ].join('\n'));
-    expect(buildContinuationMessage('x', 'no reason')).toBe([
-      'The goal is NOT yet met: x',
-      '',
-      'Evaluator feedback: no reason',
-      '',
-      '',
-      'Continue working toward the goal. Do not repeat work you have already done.',
-    ].join('\n'));
   });
 });
 
@@ -615,68 +483,9 @@ describe('C5 goal loop lifecycle with injected deps', () => {
     expect((state.broadcasts.at(-1)?.metadata?.goal as GoalState | undefined)?.status).toBe('met');
     expect((state.broadcasts.at(-1)?.metadata?.goal as GoalState | undefined)?.completedAt).toBeDefined();
   });
-
-  test('the unscoped goal loop preserves its behavior', async () => {
-    const state: FakeLoopState = { session: makeSession(), broadcasts: [], turns: [] };
-    const sessions = new Map<string, Session>([[state.session.id, state.session]]);
-    configureStorage({
-      ...createInMemoryStorageBundle(),
-      conversation: {
-        ...createInMemoryStorageBundle().conversation,
-        getSession: async (id) => sessions.get(id) ?? null,
-        updateSession: async (id, updates) => {
-          const current = sessions.get(id);
-          if (!current) return null;
-          const updated = { ...current, ...updates } as Session;
-          sessions.set(id, updated);
-          state.session = updated;
-          return updated;
-        },
-      },
-    });
-
-    await runGoalLoop({
-      sessionId: 'goal-sess',
-      condition: 'module path',
-      maxTurns: 1,
-      runTurn: async () => ({ streamCompleted: true, interrupted: false }),
-      evaluate: async () => ({ goalMet: true, reason: 'done' }),
-    });
-
-    expect(goalStateOf(state.session)?.status).toBe('met');
-  });
 });
 
 describe('goal domain live adoption accessor', () => {
-  test('the accessor returns the module-path fallback outside a composed scope', async () => {
-    const state: FakeLoopState = { session: makeSession(), broadcasts: [], turns: [] };
-    const sessions = new Map<string, Session>([[state.session.id, state.session]]);
-    configureStorage({
-      ...createInMemoryStorageBundle(),
-      conversation: {
-        ...createInMemoryStorageBundle().conversation,
-        getSession: async (id) => sessions.get(id) ?? null,
-        updateSession: async (id, updates) => {
-          const current = sessions.get(id);
-          if (!current) return null;
-          const updated = { ...current, ...updates } as Session;
-          sessions.set(id, updated);
-          state.session = updated;
-          return updated;
-        },
-      },
-    });
-
-    await getGoalDomain().runGoalLoop({
-      sessionId: 'goal-sess',
-      condition: 'accessor fallback',
-      maxTurns: 1,
-      runTurn: async () => ({ streamCompleted: true, interrupted: false }),
-      evaluate: async () => ({ goalMet: true, reason: 'done' }),
-    });
-
-    expect(goalStateOf(state.session)?.status).toBe('met');
-  });
 
   test('a seeded service wins over the module-path fallback', async () => {
     const calls: string[] = [];

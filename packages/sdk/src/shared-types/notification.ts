@@ -1,7 +1,7 @@
 /**
  * Event types that can produce a system notification.
  */
-export type NotificationEventType = 'session_completed' | 'session_failed' | 'permission_required';
+export type NotificationEventType = 'session_completed' | 'session_failed' | 'permission_required' | 'question_asked';
 
 export type TerminalNotificationStatus = 'completed' | 'error';
 

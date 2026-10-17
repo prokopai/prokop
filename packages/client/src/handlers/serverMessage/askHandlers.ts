@@ -23,12 +23,13 @@ export function handleAskRequest(
     : ask.type === 'client_capability' ? 'client' 
     : 'human';
 
-  // Play permission sound when the request will be shown to the user.
-  // Uses canonical dedup key (requestId for permission asks, toolCallId as fallback)
-  // to ensure the sound plays only once per unique permission, even when the same
-  // permission surfaces across a subagent session tree.
+  // Play the attention sound when an approval or question will be shown to the
+  // user; client capability asks are answered by a connected client (the
+  // browser extension), not by you. Uses canonical dedup key (requestId for
+  // permission asks, toolCallId as fallback) to ensure the sound plays only
+  // once per unique ask, even when it surfaces across a subagent session tree.
   const maybePlayPermissionSound = () => {
-    if (ask.type !== 'permission') return;
+    if (target === 'client') return;
     const {
       sessionsRef,
       notifiedToolCallIdsRef,

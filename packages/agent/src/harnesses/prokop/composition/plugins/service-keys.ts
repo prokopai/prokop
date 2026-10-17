@@ -6,8 +6,8 @@
  * record"). Ownership rules:
  *
  * - Values that differ across simultaneous facade agents are agent-scoped.
- * - Values that are process-global today (registries, host-installed search
- *   and scheduler) are process-scoped.
+ * - Values that are process-global today (registries, the host-installed search
+ *   host) are process-scoped.
  * - No current seam is run-scoped; run services belong to C7.
  */
 
@@ -28,7 +28,6 @@ import type { ToolOutputArtifactService } from '#agent/harnesses/prokop/tool-out
 import type { ConnectableProvider, ConnectOptions, ConnectResult, ModelFactoryOptions, ModelFactoryResult } from '@prokopai/core/infrastructure/providers/types';
 import type { BroadcastFn, BroadcastSessionFn, RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import type { SchedulerHost } from '#agent/harnesses/prokop/scheduler/host';
 import type { SessionSearchHost } from '#agent/harnesses/shared/session-search/host';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import type { ToolRegistryResolver } from '@prokopai/core/infrastructure/tools/registry';
@@ -74,11 +73,6 @@ export const capekInstalledToolRegistryKey = serviceKey<InstalledToolRegistryCon
 
 export const capekSessionSearchHostKey = serviceKey<SessionSearchHost>(
   'capek.session-search-host',
-  'process',
-);
-
-export const capekSchedulerHostKey = serviceKey<SchedulerHost>(
-  'capek.scheduler-host',
   'process',
 );
 
@@ -140,12 +134,9 @@ export const capekAgentDriverKey = serviceKey<AgentDriver<DefaultDriverInput<unk
 );
 
 /**
- * C5 shared optional-domain model-turn service contract. The workflow and
- * goals slices both run short visible model turns (decomposer, synthesizer,
- * goal evaluator) through this contract; the workflow slice named it and
- * `plugins/orchestrator-session.ts` provides the current implementation
- * (`workflow/orchestrator-session.ts`), so the goals slice consumes the
- * same service without owning workflow code.
+ * Model-turn service contract for the goal evaluator's short visible model
+ * turn. `plugins/orchestrator-session.ts` provides the implementation
+ * (`goals/orchestrator-session.ts`).
  */
 export interface OrchestratorSessionContractOptions {
   parentSessionId: string;
@@ -266,7 +257,6 @@ export const C2_SERVICE_KEYS = [
   capekProviderRegistryKey,
   capekInstalledToolRegistryKey,
   capekSessionSearchHostKey,
-  capekSchedulerHostKey,
 ] as const;
 
 /** Keys a composed agent scope must resolve before seeding accessors. */
@@ -291,7 +281,6 @@ export const C2_PROCESS_KEYS = [
   capekProviderRegistryKey,
   capekInstalledToolRegistryKey,
   capekSessionSearchHostKey,
-  capekSchedulerHostKey,
 ] as const;
 
 /** Agent-scoped goal evaluation and loop (`goal-domain.ts`); here so scope entry does not load the evaluator. */

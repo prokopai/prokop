@@ -87,7 +87,7 @@ export function createStandaloneHost(options: StandaloneHostOptions): RuntimeHos
       createGrantFromOptions: async () => null as PermissionGrant | null,
       getSessionAutoApproveSeverity: async () => undefined as AutoApproveSeverity | undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: {
       emit: () => {},

@@ -19,9 +19,13 @@
  *      `sudo`/`doas` prefixes are analyzed recursively and their concerns
  *      union into the finding.
  *
- * Fail-closed defaults: an operand that cannot be resolved (`$VAR`, globs
- * beyond a static prefix) makes a destructive command catastrophic, because
- * full mode auto-runs everything except catastrophic findings.
+ * Each segment is judged by its real command (structure.ts skips prefixes
+ * and wrappers like `FOO=1`, `time`, `then`, `(`), and `$VAR` operands the
+ * script itself surely set resolve to their value (variables.ts).
+ *
+ * Fail-closed defaults: an operand that cannot be resolved (other `$VAR`s,
+ * globs beyond a static prefix) makes a destructive command catastrophic,
+ * because full mode auto-runs everything except catastrophic findings.
  */
 
 import { lstatSync } from 'node:fs';
@@ -30,6 +34,8 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { effectivePath, isWithinRoot } from '../paths';
 import type { Concern, Finding, Highlight } from '../concerns';
 import { unwrapShellCommand } from './shell-wrapper';
+import { segmentStructure, type CommandWord, type SegmentStructure, type Span } from './structure';
+import { expandWords, ScriptVariables, type KnownVariables } from './variables';
 import {
   CATASTROPHIC_BASES,
   containsScreenedToken,
@@ -265,11 +271,9 @@ interface Segment {
   tokens: Token[];
   /** This segment is the target of a pipe (`a | this`). */
   pipedInto: boolean;
-}
-
-interface Span {
-  start: number;
-  end: number;
+  /** Operators around the segment; null at the script's start or end. */
+  before: string | null;
+  after: string | null;
 }
 
 function segmentSpan(segment: Segment): Span {
@@ -279,17 +283,20 @@ function segmentSpan(segment: Segment): Span {
 function splitSegments(tokens: Token[]): Segment[] {
   const segments: Segment[] = [];
   let current: Token[] = [];
-  let pipedInto = false;
+  let before: string | null = null;
+  const close = (after: string | null): void => {
+    if (current.length > 0) segments.push({ tokens: current, pipedInto: before === '|', before, after });
+    current = [];
+  };
   for (const token of tokens) {
     if (token.kind === 'operator' && SEGMENT_OPERATORS.has(token.text)) {
-      if (current.length > 0) segments.push({ tokens: current, pipedInto });
-      current = [];
-      pipedInto = token.text === '|';
+      close(token.text);
+      before = token.text;
       continue;
     }
     current.push(token);
   }
-  if (current.length > 0) segments.push({ tokens: current, pipedInto });
+  close(null);
   return segments;
 }
 
@@ -402,12 +409,6 @@ function baseNameOf(word: string): string {
   return word.replace(/.*\//, '').toLowerCase();
 }
 
-interface CommandWord extends Span {
-  text: string;
-  redirect: 'none' | 'write' | 'read';
-  quoted: boolean;
-}
-
 /** Where xargs' own options end: the command it runs, and the files it reads
  * its items from. No command means xargs runs `echo`. */
 function parseXargs(words: readonly CommandWord[]): { command: number | null; argFiles: CommandWord[] } {
@@ -462,13 +463,18 @@ function collectWords(tokens: Token[]): CommandWord[] {
       continue;
     }
     inHereString = false;
+    // A `$` inside single quotes is literal text, never an expansion.
+    const literalDollar = token.kind === 'single' && text.includes('$');
     if (token.joined && pending === 'none' && words.length) {
-      words[words.length - 1]!.text += text;
-      words[words.length - 1]!.end = token.end;
+      const previous = words[words.length - 1]!;
+      previous.text += text;
+      previous.end = token.end;
+      if (literalDollar) previous.literalDollar = true;
       continue;
     }
     words.push({ text, redirect: pending === 'descriptor' ? 'write' : pending,
       quoted: token.kind === 'single' || token.kind === 'double',
+      ...(literalDollar ? { literalDollar } : {}),
       start: token.start, end: token.end });
     pending = 'none';
   }
@@ -492,10 +498,12 @@ function analyzeSegment(
   ctx: CommandAnalyzeContext,
   cwdAtStart: string,
   depth: number,
-): SegmentResult & { nextCwd: string | null } {
+  known: KnownVariables,
+): SegmentResult & { nextCwd: string | null; structure: SegmentStructure; words: CommandWord[] } {
   const result = emptyResult();
   let nextCwd: string | null = null;
-  const words = collectWords(segment.tokens);
+  const words = expandWords(collectWords(segment.tokens), known);
+  const structure = segmentStructure(words.filter(word => word.redirect === 'none'));
   const span = segmentSpan(segment);
   const mark = (at: Span, reason: string): void => {
     result.highlights.push({ start: at.start, end: at.end, reason });
@@ -526,12 +534,13 @@ function analyzeSegment(
           : [];
       for (const { body, offset } of bodies) {
         if (!body.trim()) continue;
-        absorb(analyzeCommand(body, ctx, cwdAtStart, depth + 1), 'in substitution: ', offset);
+        absorb(analyzeCommand(body, ctx, cwdAtStart, depth + 1, known), 'in substitution: ', offset);
       }
     }
   }
 
-  const commandWords = words.filter(word => word.redirect === 'none');
+  // The command after any prefixes and wrappers (`FOO=1`, `time`, `then`, `(`).
+  const commandWords = structure.words;
   const firstWord = commandWords[0];
   if (!firstWord && !words.some(word => word.redirect !== 'none')) {
     // A segment made only of substitutions: we cannot see the command.
@@ -539,7 +548,7 @@ function analyzeSegment(
       result.concerns.add('opaque');
       result.evidence.push('command substitution in command position');
     }
-    return { ...result, nextCwd };
+    return { ...result, nextCwd, structure, words };
   }
 
   const base = baseNameOf(firstWord?.text ?? ':');
@@ -592,7 +601,7 @@ function analyzeSegment(
     ? { start: commandWords[xargs.command]!.start, end: commandWords.at(-1)!.end }
     : span;
   if (xargs?.command != null && depth < MAX_RECURSION_DEPTH) {
-    absorb(analyzeCommand(source.slice(xargsCommand.start, xargsCommand.end), ctx, cwdAtStart, depth + 1),
+    absorb(analyzeCommand(source.slice(xargsCommand.start, xargsCommand.end), ctx, cwdAtStart, depth + 1, known),
       'under xargs: ', xargsCommand.start);
     result.concerns.add('opaque');
     result.evidence.push('xargs appends piped input as operands');
@@ -791,7 +800,7 @@ function analyzeSegment(
     result.evidence.push('command substitution hides the effective operand');
   }
 
-  return { ...result, nextCwd };
+  return { ...result, nextCwd, structure, words };
 }
 
 function gitSubcommand(base: string, args: readonly string[]): string | undefined {
@@ -819,6 +828,8 @@ export function analyzeCommand(
   ctx: CommandAnalyzeContext,
   initialCwd?: string,
   depth = 0,
+  /** Variables the enclosing script set (a substitution sees them). */
+  inheritedVariables?: KnownVariables,
 ): Finding {
   const concerns = new Set<Concern>();
   const evidence: string[] = [];
@@ -835,8 +846,17 @@ export function analyzeCommand(
   const shift = unwrapped === command ? 0 : command.indexOf(unwrapped);
 
   let cwd = initialCwd ?? ctx.cwd;
+  const variables = new ScriptVariables(inheritedVariables);
+  // A subshell restores the directory it started in; nesting marks code
+  // that may not run (or runs in a subshell), so its assignments are not trusted.
+  const cwdStack: string[] = [];
+  let nesting = 0;
   for (const segment of splitSegments(tokenize(unwrapped))) {
-    const result = analyzeSegment(segment, unwrapped, ctx, cwd, depth);
+    const result = analyzeSegment(segment, unwrapped, ctx, cwd, depth, variables.visible(segment.before));
+    const { structure } = result;
+    for (let opened = 0; opened < structure.subshellOpens; opened += 1) cwdStack.push(cwd);
+    nesting += structure.compoundOpens + structure.subshellOpens;
+    variables.record(structure, result.words, { before: segment.before, after: segment.after, nested: nesting > 0 });
     for (const concern of result.concerns) concerns.add(concern);
     if (result.catastrophic) catastrophic = true;
     evidence.push(...result.evidence);
@@ -846,7 +866,19 @@ export function analyzeCommand(
         : { ...highlight, start: highlight.start + shift, end: highlight.end + shift };
       highlights.set(`${mapped.start}:${mapped.end}:${mapped.reason}`, mapped);
     }
-    if (result.nextCwd !== null) cwd = result.nextCwd;
+    // Pipeline stages and background jobs run in subshells.
+    const ownShell = !segment.pipedInto && segment.after !== '|' && segment.after !== '&';
+    if (result.nextCwd !== null && ownShell) cwd = result.nextCwd;
+    for (let closed = 0; closed < structure.subshellCloses; closed += 1) {
+      const restored = cwdStack.pop();
+      if (restored !== undefined) cwd = restored;
+    }
+    nesting -= structure.compoundCloses + structure.subshellCloses;
+    if (nesting < 0) {
+      // More closers than openers: the structure is not what it seems.
+      nesting = 0;
+      variables.forgetAll();
+    }
   }
 
   return {

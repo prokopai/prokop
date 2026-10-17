@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import type { ScheduledJob, Session, Workspace } from '@prokopai/sdk/types';
+import type { Session, Workspace } from '@prokopai/sdk/types';
 import {
   configureSessionSearchHost,
   executeSessionSearchTool,
   type SessionSearchHost,
 } from '@prokopai/agent/internal/harnesses/shared/session-search/index';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
-import { executeSchedulerTool } from '@prokopai/agent/internal/harnesses/prokop/scheduler/scheduler-tool';
 
 const workspace: Workspace = {
   id: 'workspace-1',
@@ -60,50 +58,8 @@ function searchHost(overrides: Partial<SessionSearchHost> = {}): SessionSearchHo
   };
 }
 
-function scheduledJob(id = 'job-1'): ScheduledJob {
-  return {
-    harness: 'prokop',
-    id,
-    workspaceId: workspace.id,
-    name: 'Daily task',
-    prompt: 'Run the task',
-    scheduleKind: 'daily',
-    scheduleConfig: { type: 'daily', time: '09:00' },
-    scheduleDisplay: 'Daily at 09:00',
-    state: 'active',
-    repeatLimit: null,
-    runCount: 0,
-    nextRunAt: null,
-    lastRunAt: null,
-    lastRunSessionId: null,
-    lastError: null,
-    reuseSession: false,
-    includeHistory: false,
-    preconfigId: null,
-    originSessionId: 'current',
-    autoApproveSeverity: null,
-    notificationsEnabled: false,
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-  };
-}
-
-function schedulerHost(overrides: Partial<SchedulerHost> = {}): SchedulerHost {
-  const job = scheduledJob();
-  return {
-    create: () => job,
-    get: () => job,
-    list: () => [job],
-    update: () => job,
-    delete: () => true,
-    trigger: () => {},
-    ...overrides,
-  };
-}
-
 afterEach(() => {
   configureSessionSearchHost();
-  configureSchedulerHost();
 });
 
 describe('session search host seam', () => {
@@ -217,98 +173,3 @@ describe('session search host seam', () => {
   });
 });
 
-describe('scheduler host seam', () => {
-  test('keeps list read-only', async () => {
-    let asked = false;
-    configureSchedulerHost(schedulerHost());
-
-    const result = await executeSchedulerTool(
-      { action: 'list' },
-      workspace.id,
-      'current',
-      'high',
-      async () => {
-        asked = true;
-        return false;
-      },
-    );
-
-    expect(asked).toBe(false);
-    expect(result.jobs).toHaveLength(1);
-  });
-
-  test('stops mutating actions after permission denial', async () => {
-    configureSchedulerHost(schedulerHost());
-    const result = await executeSchedulerTool(
-      { action: 'remove', jobId: 'job-1' },
-      workspace.id,
-      'current',
-      'medium',
-      async () => false,
-    );
-
-    expect(result).toEqual({
-      success: false,
-      action: 'remove',
-      title: 'Permission denied',
-      error: 'USER_REJECTION',
-    });
-  });
-
-  test('rejects cross-workspace job mutations', async () => {
-    let deleted = false;
-    const foreign = scheduledJob('foreign-job');
-    foreign.workspaceId = 'other-workspace';
-    configureSchedulerHost(schedulerHost({
-      get: () => foreign,
-      delete() {
-        deleted = true;
-        return true;
-      },
-    }));
-
-    const result = await executeSchedulerTool(
-      { action: 'remove', jobId: foreign.id },
-      workspace.id,
-      'current',
-      'none',
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('workspace');
-    expect(deleted).toBe(false);
-  });
-
-  test('delegates create and immediate trigger to the host', async () => {
-    let created = false;
-    let triggered = false;
-    const job = scheduledJob();
-    configureSchedulerHost(schedulerHost({
-      create(_workspaceId, input) {
-        created = input.originSessionId === 'current';
-        return job;
-      },
-      trigger() {
-        triggered = true;
-      },
-    }));
-
-    const createResult = await executeSchedulerTool(
-      { action: 'create', name: 'Daily task', prompt: 'Run', schedule: { type: 'daily', time: '09:00' } },
-      workspace.id,
-      'current',
-      'none',
-    );
-    const triggerResult = await executeSchedulerTool(
-      { action: 'trigger', jobId: job.id },
-      workspace.id,
-      'current',
-      'none',
-    );
-
-    expect(createResult.success).toBe(true);
-    expect(created).toBe(true);
-    expect(triggerResult.success).toBe(true);
-    expect(triggered).toBe(true);
-  });
-});

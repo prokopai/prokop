@@ -12,8 +12,6 @@ import {
   type AskBroadcastFn,
 } from '#agent/harnesses/prokop/permission/ask-user-api';
 import { interruptManager } from '#agent/harnesses/prokop/execution/interrupt';
-import type { WorkflowInput } from '@prokopai/sdk/types';
-import type { PermissionRiskLevel } from '@prokopai/sdk/tool';
 import type { ToolMap } from '#agent/harnesses/prokop/execution/tool-builders/types';
 
 export interface WorkspaceToolsOptions {
@@ -21,10 +19,6 @@ export interface WorkspaceToolsOptions {
   workspacePath: string;
   rootSessionId: string;
   sessionId: string;
-  canSpawn: boolean;
-  canSpawnSubagents?: boolean | string[] | null;
-  allowSelfAsSubagent?: boolean;
-  allowedSubagentIds?: string[];
   broadcastFn?: AskBroadcastFn;
   agentId?: string | null;
   allowedSkills?: string[] | null;
@@ -37,9 +31,6 @@ export async function buildWorkspaceTools(options: WorkspaceToolsOptions): Promi
     workspacePath,
     rootSessionId,
     sessionId,
-    canSpawn,
-    canSpawnSubagents,
-    allowSelfAsSubagent,
     broadcastFn,
     agentId,
     allowedSkills,
@@ -51,10 +42,9 @@ export async function buildWorkspaceTools(options: WorkspaceToolsOptions): Promi
   if (!workspace) return tools;
 
   // The generic contributed-domain-tool payload map is resolved once and
-  // shared by the skill, memory, workflow, skill_manage, session_search,
-  // and scheduler builders: null means the unscoped path (registered
-  // fallbacks may apply), an empty map means a composed scope without
-  // domain payloads (fallbacks disabled).
+  // shared by the skill, memory, skill_manage and session_search builders:
+  // null means the unscoped path (registered fallbacks may apply), an empty
+  // map means a composed scope without domain payloads (fallbacks disabled).
   const scopedDomainPayloads = getContributedDomainToolPayloads();
   const domainPayload = (name: string): DomainToolPayload | null =>
     scopedDomainPayloads === null
@@ -118,58 +108,6 @@ export async function buildWorkspaceTools(options: WorkspaceToolsOptions): Promi
     });
   }
 
-  // ── Workflow tool ─────────────────────────────────────────────
-  // Same generic domain seam as session_search and scheduler: the domain
-  // payload owns the depth gate (isEnabled) and the dynamic definition
-  // (allowed leaf agent list); the workspace settings gate stays here, and
-  // the allowed-subagent list is captured at build time from the resolved
-  // definition exactly like pre-C5.
-  const workflowPayload = domainPayload('workflow');
-  const workflowSettings = workspace.settings?.workflow;
-  if (workflowPayload && workflowSettings?.enabled && canSpawn && await workflowPayload.isEnabled?.(workspaceId, sessionId) === true) {
-    const workflowDefinition = await workflowPayload.resolveDefinition?.(sessionId, {
-      canSpawnSubagents,
-      allowSelfAsSubagent,
-    });
-    if (workflowDefinition) {
-      tools['workflow'] = tool({
-        description: workflowDefinition.description,
-        inputSchema: jsonSchema(workflowDefinition.inputSchema),
-        execute: async (args: Record<string, unknown>, { toolCallId }: { toolCallId: string }) => {
-          const toolAbortController = interruptManager.registerToolExecution(sessionId, toolCallId);
-          try {
-            const workflowInput = {
-              prompt: args.prompt as string,
-              ...(args.description ? { description: args.description as string } : {}),
-              ...(args.subtasks ? { subtasks: args.subtasks as WorkflowInput['subtasks'] } : {}),
-              ...(args.leafPreconfigId ? { leafPreconfigId: args.leafPreconfigId as string } : {}),
-              ...(args.outputSchema ? { outputSchema: args.outputSchema as Record<string, unknown> } : {}),
-            } as WorkflowInput;
-
-            return await workflowPayload.execute(
-              workflowInput as unknown as Record<string, unknown>,
-              {
-              workspaceId,
-              sessionId,
-              ask: broadcastFn
-                ? (ask: import('@prokopai/sdk/tool').Ask) =>
-                  createAskApi(sessionId, toolCallId, workflowPayload.name, broadcastFn, workspaceId, rootSessionId)(ask)
-                : async () => {
-                  throw new Error('Cannot ask user: no broadcast channel available');
-                },
-              agentId,
-              workspacePath,
-              abortSignal: toolAbortController.signal,
-              allowedSubagentIds: workflowDefinition.allowedSubagentIds,
-            });
-          } finally {
-            interruptManager.unregisterToolExecution(sessionId, toolCallId);
-          }
-        },
-      });
-    }
-  }
-
   // ── Skill management tool ─────────────────────────────────
   const skillManagePayload = domainPayload('skill_manage');
   const skillSettings = workspace.settings?.skills;
@@ -230,41 +168,6 @@ export async function buildWorkspaceTools(options: WorkspaceToolsOptions): Promi
             },
           );
           return mergeDomainToolVisualization(sessionSearchPayload, args, result);
-        } finally {
-          interruptManager.unregisterToolExecution(sessionId, toolCallId);
-          await rejectPendingAsksByToolCallId(toolCallId);
-        }
-      },
-    });
-  }
-
-  // ── Scheduler tool ────────────────────────────────────────
-  // Same generic domain seam as session_search: the domain payload owns the
-  // workspace settings gate plus the current-session scheduled-job recursion
-  // gate (isEnabled) and the executor; the permission risk is captured here
-  // at build time exactly like pre-C5 and passed through the execution
-  // context.
-  const schedulerPayload = domainPayload('scheduler');
-  if (schedulerPayload && await schedulerPayload.isEnabled?.(workspaceId, sessionId) === true) {
-    const schedulingRisk: PermissionRiskLevel = workspace.settings?.scheduling?.permissionRisk ?? 'none';
-    tools['scheduler'] = tool({
-      description: schedulerPayload.description,
-      inputSchema: jsonSchema(schedulerPayload.inputSchema as Record<string, unknown>),
-      execute: async (args: Record<string, unknown>, { toolCallId }: { toolCallId: string }) => {
-        const _toolAbortController = interruptManager.registerToolExecution(sessionId, toolCallId);
-        try {
-          const askApi = createAskApiOrThrow(sessionId, toolCallId, schedulerPayload.name, broadcastFn, workspaceId, rootSessionId);
-          const result = await schedulerPayload.execute(
-            args,
-            {
-              workspaceId,
-              sessionId,
-              ask: (ask: import('@prokopai/sdk/tool').Ask) => askApi(ask),
-              agentId,
-              permissionRisk: schedulingRisk,
-            },
-          );
-          return mergeDomainToolVisualization(schedulerPayload, args, result);
         } finally {
           interruptManager.unregisterToolExecution(sessionId, toolCallId);
           await rejectPendingAsksByToolCallId(toolCallId);

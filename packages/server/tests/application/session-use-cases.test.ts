@@ -13,6 +13,17 @@ import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery
 import type { SessionRepositoryPort, PendingAskPort, AskAuthorityPort, PendingAskRecord } from '@prokopai/core/application/ports/session';
 import type { SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import type { ControllerGatePort, ControllerGateRejection, SessionControlPort } from '@/application/ports/control';
+import { setupTestDatabase, resetTestDatabase } from '#tests/db';
+import { createProkopAskAuthorityPort } from '@prokopai/agent/internal/harnesses/prokop/bindings/ask-authority';
+import { seedSession, seedWorkspaceWithSession } from '#tests/seed';
+import {
+  cleanupAllPendingAsks,
+  createPendingAsk,
+  expirePermissionRequest,
+  listAllPendingAsks,
+  listPendingRequestsByRootSession,
+  resolvePermissionRequestByRequestId,
+} from '@/infrastructure/sqlite/pending-asks';
 
 type Origin = string;
 const origin: Origin = 'conn-1';
@@ -1064,6 +1075,74 @@ describe('application session use cases', () => {
           authority: { visibilityScope: 'controller_only', resolutionMode: 'controller_only' },
         }],
       });
+    });
+
+    test('reconnecting shows only unanswered prompts, with a subagent prompt under its root session', async () => {
+      setupTestDatabase();
+      try {
+        const { workspaceId, sessionId: rootId } = seedWorkspaceWithSession();
+        const childId = seedSession(workspaceId, { parentId: rootId }).id;
+        const ask = { type: 'permission', question: 'Allow?', resource: 'shell-command' } as const;
+        const record = (requestId: string, sessionId: string) => ({
+          requestId, sessionId, rootSessionId: rootId, workspaceId, toolCallId: `tc-${requestId}`,
+          toolName: 'shell', ask, status: 'pending' as const, isPermission: true, createdAt: Date.now(),
+        });
+        createPendingAsk(record('child-open', childId));
+        createPendingAsk(record('root-open', rootId));
+        createPendingAsk(record('answered', childId));
+        resolvePermissionRequestByRequestId('answered', 'approved', { type: 'permission', grant: 'once' });
+        expirePermissionRequest(createPendingAsk(record('timed-out', childId)));
+        createPendingAsk({ ...record('stale', childId), createdAt: Date.now() - 2 * 60 * 60 * 1000 });
+
+        for (const resumed of [rootId, childId]) {
+          const spy = makeSpy();
+          const app = createSessionLifecycleApplication(makeDeps({
+            repository: makeRepository({ getSession: () => makeSession({ id: resumed }) }),
+            pendingAsks: { cleanupAllPendingAsks, listPendingRequestsByRootSession, listAllPendingAsks },
+            askAuthority: { ...makeAskAuthority(), timeoutMs: 60 * 60 * 1000 },
+          }));
+          await app.resume(makeWire(spy), origin, resumed);
+          const sync = spy.sent.find((m) => m.type === 'ask.pending_sync') as
+            { requests: Array<{ requestId: string; sessionId: string; _originSessionId?: string }> };
+          const shown = Object.fromEntries(sync.requests.map(r => [r.requestId, r]));
+          expect(Object.keys(shown).sort()).toEqual(['child-open', 'root-open']);
+          expect(shown['child-open']).toMatchObject({ sessionId: rootId, _originSessionId: childId });
+          expect(shown['root-open']).toMatchObject({ sessionId: rootId });
+          expect(shown['root-open']._originSessionId).toBeUndefined();
+        }
+      } finally {
+        resetTestDatabase();
+      }
+    });
+
+    test('reconnecting keeps a prompt that is still within its own timeout', async () => {
+      setupTestDatabase();
+      try {
+        const { workspaceId, sessionId } = seedWorkspaceWithSession();
+        const minutes = (count: number) => count * 60 * 1000;
+        const ask = { type: 'permission', question: 'Allow?', resource: 'shell-command' } as const;
+        const record = (requestId: string, createdAgo: number, expiresIn: number | undefined) => ({
+          requestId, sessionId, rootSessionId: sessionId, workspaceId, toolCallId: `tc-${requestId}`,
+          toolName: 'shell', ask, status: 'pending' as const, isPermission: true,
+          createdAt: Date.now() - createdAgo,
+          ...(expiresIn === undefined ? {} : { expiresAt: Date.now() + expiresIn }),
+        });
+        // The phone reopened 8 minutes after the prompt; it waits 30.
+        createPendingAsk(record('waiting', minutes(8), minutes(22)));
+        createPendingAsk(record('past-own-expiry', minutes(8), -1000));
+        createPendingAsk(record('legacy-no-expiry', minutes(31), undefined));
+
+        const spy = makeSpy();
+        await createSessionLifecycleApplication(makeDeps({
+          repository: makeRepository({ getSession: () => makeSession({ id: sessionId }) }),
+          pendingAsks: { cleanupAllPendingAsks, listPendingRequestsByRootSession, listAllPendingAsks },
+          askAuthority: createProkopAskAuthorityPort(),
+        })).resume(makeWire(spy), origin, sessionId);
+        const sync = spy.sent.find((m) => m.type === 'ask.pending_sync') as { requests: Array<{ requestId: string }> };
+        expect(sync.requests.map(r => r.requestId)).toEqual(['waiting']);
+      } finally {
+        resetTestDatabase();
+      }
     });
 
     test('resume leaves compaction and tool state alone while the session runs (a compaction counts as running)', async () => {

@@ -91,7 +91,7 @@ describe('NotificationsPanel', () => {
     await user.click(chatToggle);
     expect(useUIStore.getState().chatFinishSoundEnabled).toBe(false);
 
-    const permissionToggle = screen.getByRole('switch', { name: 'Permission request sound' });
+    const permissionToggle = screen.getByRole('switch', { name: 'Approval and question sound' });
     await user.click(permissionToggle);
     expect(useUIStore.getState().permissionSoundEnabled).toBe(false);
   });

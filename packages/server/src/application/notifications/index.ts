@@ -16,6 +16,7 @@ import {
   isPendingAskStatus,
   permissionEventId,
   PUSH_DISPATCH_DELAY_MS,
+  questionEventId,
   PUSH_TTL_SECONDS,
   RETRY_NEXT_ATTEMPT_MS,
   shouldExhaustRetries,
@@ -50,8 +51,8 @@ export interface NotificationsApplication {
   dispatch(input: { eventId: string; eventType: NotificationEventType; sessionId: string }): Promise<void>;
   notifyTerminalMessage(message: AssistantMessage, sessionId: string): void;
   acknowledgePendingNotification(eventId: string, sessionId: string, clientId: string): boolean;
-  dispatchPendingPermissionNotification(requestId: string, rootSessionId: string): Promise<void>;
-  notifyPermissionRequired(requestId: string, rootSessionId: string): void;
+  dispatchPendingAnswerNotification(requestId: string, rootSessionId: string): Promise<void>;
+  notifyAnswerRequired(requestId: string, rootSessionId: string): void;
   runRetryTick(): Promise<void>;
   cleanup(now: number): number;
 }
@@ -61,7 +62,7 @@ export function createNotificationsApplication(
 ): NotificationsApplication {
   const pendingTerminalDispatches = new Map<string, PendingNotificationDispatch>();
 
-  async function dispatchPendingPermissionNotification(
+  async function dispatchPendingAnswerNotification(
     requestId: string,
     rootSessionId: string,
   ): Promise<void> {
@@ -75,11 +76,9 @@ export function createNotificationsApplication(
       return;
     }
 
-    await dispatch({
-      eventId: permissionEventId(requestId),
-      eventType: 'permission_required',
-      sessionId: rootSessionId,
-    });
+    await dispatch(pending.isPermission
+      ? { eventId: permissionEventId(requestId), eventType: 'permission_required', sessionId: rootSessionId }
+      : { eventId: questionEventId(requestId), eventType: 'question_asked', sessionId: rootSessionId });
   }
 
   function buildPayload(
@@ -349,11 +348,11 @@ export function createNotificationsApplication(
       return true;
     },
 
-    dispatchPendingPermissionNotification,
+    dispatchPendingAnswerNotification,
 
-    notifyPermissionRequired(requestId, rootSessionId) {
+    notifyAnswerRequired(requestId, rootSessionId) {
       setTimeout(() => {
-        dispatchPendingPermissionNotification(requestId, rootSessionId).catch((err: unknown) => {
+        dispatchPendingAnswerNotification(requestId, rootSessionId).catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[web-push] Permission dispatch failed: ${msg}`);
         });

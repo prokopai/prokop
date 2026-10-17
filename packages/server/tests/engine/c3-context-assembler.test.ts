@@ -50,7 +50,6 @@ import { resetProviders } from '@prokopai/core/infrastructure/providers/registry
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
 import type { SandboxControlEvent, SandboxHistoryEntry } from '@prokopai/core/infrastructure/sandbox/types';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
@@ -82,7 +81,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -121,18 +120,6 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 function configureEnvironment(): void {
   setDefaultContextAssembler(fixedBuilderContextAssembler);
@@ -143,7 +130,6 @@ function configureEnvironment(): void {
   configureAgentSource();
   configureInstructionSource();
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
   configureWorkspaceToolDiscovery();
 }
 

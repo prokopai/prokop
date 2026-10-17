@@ -52,6 +52,14 @@ describe('shell permission card', () => {
     expect(screen.queryByText('under xargs: rm with a destructive flag')).toBeNull();
   });
 
+  test('marks use the card color: red for Full access concerns, amber for outside the workspace', () => {
+    const red = renderAsk(shellAsk()).container.querySelector('pre mark')!;
+    expect(red.className).toContain('bg-destructive/20');
+    cleanup();
+    const amber = renderAsk(shellAsk({ concerns: ['escape'], risk: 'medium' })).container.querySelector('pre mark')!;
+    expect(amber.className).toContain('bg-warning/20');
+  });
+
   test('stages without a highlight recede', () => {
     const { container } = renderAsk(shellAsk());
     const lines = [...container.querySelectorAll('pre > div')];

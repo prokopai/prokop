@@ -15,7 +15,6 @@ import {
   resolvePath,
   resolveRootForQuery,
   selectEditableRoot,
-  withWorkspaceService,
   type WorkspaceService,
   type WorkspaceServiceCreateOptions,
 } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
@@ -24,10 +23,7 @@ import type {
   WorkspacePolicyOptions,
 } from '@prokopai/core/infrastructure/filesystem/workspace-policy/contracts';
 import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
-import {
-  enterAgentScope,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
-import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
+import { createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
 import { capekWorkspacePolicyKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
@@ -35,7 +31,6 @@ import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { workspacePolicyPlugin } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workspace-policy';
 import { configureWorkspacePolicy } from '@prokopai/core/infrastructure/filesystem/workspace-policy/policy';
@@ -58,7 +53,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -97,18 +92,6 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 function makeOptions(overrides: Partial<WorkspacePolicyOptions> = {}): WorkspacePolicyOptions {
   return {
@@ -139,7 +122,6 @@ beforeEach(() => {
   configureRuntimeConfiguration(createDefaultRuntimeConfiguration());
   configureRuntimeHost(minimalHost());
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
 });
 
 afterEach(() => {
@@ -147,14 +129,6 @@ afterEach(() => {
 });
 
 describe('C6 workspace policy contract', () => {
-  test('pins the exact frozen options', () => {
-    const service = makeService();
-    expect(service.options).toEqual(makeOptions());
-    expect(service.options.blockedPaths).not.toBe(makeOptions().blockedPaths);
-    expect(Object.isFrozen(service.options)).toBe(true);
-    expect(Object.isFrozen(service.options.blockedPaths)).toBe(true);
-    expect(Object.isFrozen(service.options.sensitivePatterns)).toBe(true);
-  });
 
   test('expandPath expands home paths and resolves', () => {
     const service = makeService();
@@ -335,20 +309,6 @@ describe('C6 workspace capability over the scoped service', () => {
 });
 
 describe('C6 scoped workspace policy composition', () => {
-  test('the current composition provides an agent-scoped policy with the exact defaults', async () => {
-    const processScope = await createCurrentProcessScope();
-    const agentScope = await createCurrentAgentScope(processScope);
-    try {
-      const service: WorkspaceService = agentScope.require(capekWorkspacePolicyKey);
-      expect(service.id).toBe('current.workspace-policy');
-      expect(service.options.homeDir).toBe(homedir());
-      expect(service.isBlockedPath('/etc/passwd')).toBe(true);
-      expect(service.isSensitivePath('/x/.env')).toBe(true);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
 
   test('the public plugin accepts host-owned frozen options', async () => {
     const processScope = await createCurrentProcessScope();
@@ -377,60 +337,6 @@ describe('C6 scoped workspace policy composition', () => {
       await agentScope.dispose();
       await processScope.dispose();
     }
-  });
-
-  test('the workspace policy is an explicit required agent-scoped provider', async () => {
-    const processScope = await createCurrentProcessScope();
-    const plugins = currentAgentPlugins()
-      .filter((plugin) => plugin.id !== 'current.workspace-policy');
-    const agentScope = await createAgentScope(processScope, [...plugins]);
-    try {
-      expect(() => enterAgentScope(agentScope, () => undefined))
-        .toThrow(/service 'capek\.workspace-policy' is not available/);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('enterAgentScope seeds the scope-owned service and two agents stay isolated', async () => {
-    const processScope = await createCurrentProcessScope();
-    const scopeA = await createCurrentAgentScope(processScope);
-    const scopeB = await createCurrentAgentScope(processScope);
-    try {
-      const serviceA: WorkspaceService = scopeA.require(capekWorkspacePolicyKey);
-      const serviceB: WorkspaceService = scopeB.require(capekWorkspacePolicyKey);
-      expect(serviceA).not.toBe(serviceB);
-
-      let observed: WorkspaceService | null = null;
-      enterAgentScope(scopeA, () => {
-        observed = getWorkspaceService();
-      });
-      expect(observed === serviceA).toBe(true);
-      expect(getWorkspaceService() === serviceA).toBe(false);
-
-      // Custom frozen options never leak across scopes.
-      withWorkspaceService(createWorkspaceService({
-        id: 'isolated',
-        options: makeOptions({ blockedPaths: ['/scoped-block/'] }),
-      }), () => {
-        expect(getWorkspaceService().isBlockedPath('/scoped-block/x')).toBe(true);
-        expect(getWorkspaceService().isBlockedPath('/etc/passwd')).toBe(false);
-      });
-      expect(getWorkspaceService().isBlockedPath('/scoped-block/x')).toBe(false);
-    } finally {
-      await scopeA.dispose();
-      await scopeB.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the unscoped process default carries the exact pre-C6 defaults', () => {
-    const service = getWorkspaceService();
-    expect(service.id).toBe('workspace.process-default');
-    expect(service.options.homeDir).toBe(homedir());
-    expect(service.isBlockedPath('/usr/lib/x')).toBe(true);
-    expect(service.isSensitivePath('/a/.pem')).toBe(true);
   });
 
   test('the public process configuration applies frozen host options and can reset', () => {

@@ -74,10 +74,6 @@ export async function buildAiSdkTools(
   // Resolve execution scopes for capability filtering (separate from ask-routing root)
   const executionScopes = await resolveToolExecutionScopes(sessionId);
 
-  const canSpawn = canSpawnSubagents === true
-    || (Array.isArray(canSpawnSubagents) && canSpawnSubagents.length > 0);
-  const allowedSubagentIds = Array.isArray(canSpawnSubagents) ? canSpawnSubagents : undefined;
-
   // Resolve agent directory for skills
   const agentDir = agentId ? await getAgentDirectory(agentId) : undefined;
   const agentSkillsDir = agentDir ? join(agentDir, 'skills') : undefined;
@@ -101,17 +97,13 @@ export async function buildAiSdkTools(
   });
   const tools: ToolMap = { ...externalTools };
 
-  // Phase 2: Workspace-gated tools (memory, workflow, skills, search, scheduler)
+  // Phase 2: Workspace-gated tools (memory, skills, session search)
   if (workspaceId && workspacePath) {
     const workspaceTools = await buildWorkspaceTools({
       workspaceId,
       workspacePath,
       rootSessionId,
       sessionId,
-      canSpawn,
-      canSpawnSubagents,
-      allowSelfAsSubagent,
-      allowedSubagentIds,
       broadcastFn,
       agentId,
       allowedSkills,

@@ -449,7 +449,7 @@ describe('web-push dispatch service', () => {
       });
 
       const app = getProkopNotificationsApplication();
-      await app.dispatchPendingPermissionNotification(requestIdOff, sessionOff.id);
+      await app.dispatchPendingAnswerNotification(requestIdOff, sessionOff.id);
 
       // No delivery row should have been created for the off-session
       const subs = listEnabledSubscriptionsForEvent('permission_required');
@@ -487,7 +487,7 @@ describe('web-push dispatch service', () => {
         createdAt: Date.now(),
       });
 
-      await app.dispatchPendingPermissionNotification(requestIdOn, sessionOn.id);
+      await app.dispatchPendingAnswerNotification(requestIdOn, sessionOn.id);
 
       // A delivery row should have been reserved by the server
       const onDelivery = reserveDelivery({

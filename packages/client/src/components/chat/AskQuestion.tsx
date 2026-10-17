@@ -470,13 +470,14 @@ function SubQuestionView({
 // --- PermissionAskView ---
 
 /** Permissions v2 concern chips (docs/plans/unified-permissions.md), shown
- * when an ask has no command highlights to carry its reasons: amber for the
- * high-severity concerns, neutral for the informational ones; red is
- * reserved for the catastrophic floor. */
+ * when an ask has no command highlights to carry its reasons. Each concern
+ * wears the color of the permission mode that lets it run without asking:
+ * outside workspace is Extended (amber), secrets and destructive are Full
+ * access (red); complex commands run in every mode. */
 const CONCERN_CHIPS: Record<PermissionAskConcern, { label: string; className: string }> = {
-  destructive: { label: 'Destructive', className: 'text-warning' },
-  sensitive: { label: 'Secrets', className: 'text-warning' },
-  escape: { label: 'Outside workspace', className: 'text-muted-foreground' },
+  destructive: { label: 'Destructive', className: 'text-destructive' },
+  sensitive: { label: 'Secrets', className: 'text-destructive' },
+  escape: { label: 'Outside workspace', className: 'text-warning' },
   opaque: { label: 'Complex command', className: 'text-muted-foreground' },
 };
 
@@ -490,15 +491,10 @@ const PERMISSION_SEVERITY_STYLES = {
   critical: { icon: ShieldAlert, borderClass: 'border-destructive/50 bg-destructive/10', iconClass: 'text-destructive' },
 } as const;
 
-/** Classified destructive or sensitive asks: the alert shield on amber, so red
- *  stays reserved for the catastrophic floor. */
-const ELEVATED_PERMISSION_STYLE = {
-  icon: ShieldAlert, borderClass: 'border-warning/40 bg-warning/5', iconClass: 'text-warning',
-} as const;
-
 /** Card severity for a permission ask. Classified asks (permissions v2)
- *  derive severity from their concerns — mirroring the server's single
- *  riskOfConcerns mapping — because some ask builders pin a hard-coded legacy
+ *  derive severity from their concerns, in the color of the mode that would
+ *  run them without asking (Extended amber, Full access red; catastrophic
+ *  asks in every mode, in the strongest red), because some ask builders pin a hard-coded legacy
  *  risk that disagrees with the classification (codex approvals pin
  *  'critical'; several file tools pin 'medium'). Legacy asks without concern
  *  fields keep the authored risk; unknown risk keeps the historical amber so
@@ -508,7 +504,7 @@ function permissionSeverityStyle(ask: PermissionAsk) {
   if (details) {
     if (details.catastrophic) return PERMISSION_SEVERITY_STYLES.critical;
     if (details.concerns.includes('sensitive') || details.concerns.includes('destructive')) {
-      return ELEVATED_PERMISSION_STYLE;
+      return PERMISSION_SEVERITY_STYLES.high;
     }
     if (details.concerns.includes('escape')) return PERMISSION_SEVERITY_STYLES.medium;
     return PERMISSION_SEVERITY_STYLES.low;
@@ -552,15 +548,16 @@ function ShellCommandView({
   command,
   highlights,
   segments,
-  catastrophic,
+  red,
 }: {
   command: string;
   highlights: readonly PermissionAskHighlight[];
   segments: readonly PermissionAskSpan[];
-  catastrophic: boolean;
+  /** Marks follow the card: red when only Full access (or nothing) runs it. */
+  red: boolean;
 }) {
   const marks = highlights.filter(highlight => highlight.end <= command.length);
-  const markClass = catastrophic ? 'bg-destructive/20 decoration-destructive' : 'bg-warning/20 decoration-warning';
+  const markClass = red ? 'bg-destructive/20 decoration-destructive' : 'bg-warning/20 decoration-warning';
   const reasons = [...new Map(marks.map(({ start, end, reason }) => {
     const text = command.slice(start, end).trim();
     return [`${text}\0${reason}`, { text, reason }] as const;
@@ -775,7 +772,8 @@ function PermissionAskView({
           command={command}
           highlights={highlights}
           segments={details?.commandSegments ?? []}
-          catastrophic={details?.catastrophic ?? false}
+          red={details != null && (details.catastrophic
+            || details.concerns.includes('sensitive') || details.concerns.includes('destructive'))}
         />
       )}
       {renderFilePaths()}

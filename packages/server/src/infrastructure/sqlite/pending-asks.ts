@@ -316,6 +316,11 @@ export function expireOldPermissionRequests(maxAgeMs: number): number {
 // Legacy Cleanup
 // =============================================================================
 
+/**
+ * With `maxAgeMs`: expires pending asks whose own expiry passed (asks without
+ * one expire once older than `maxAgeMs`) and deletes old answered rows.
+ * Without it: deletes every row (startup, when no waiter survives).
+ */
 export function cleanupAllPendingAsks(maxAgeMs?: number): number {
   const db = getDatabase();
 
@@ -326,8 +331,9 @@ export function cleanupAllPendingAsks(maxAgeMs?: number): number {
     const expireResult = db.run(
       `UPDATE pending_asks
        SET status = 'expired', resolved_at = ?
-       WHERE status = 'pending' AND created_at < ?`,
-      [now, cutoff],
+       WHERE status = 'pending'
+         AND (expires_at < ? OR (expires_at IS NULL AND created_at < ?))`,
+      [now, now, cutoff],
     );
 
     const deleteTerminalResult = db.run(

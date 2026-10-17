@@ -50,7 +50,6 @@ import { getToolOutputArtifactPage } from '@prokopai/core/infrastructure/storage
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import {
@@ -83,7 +82,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -122,25 +121,12 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 beforeEach(() => {
   configureStorage(createInMemoryStorageBundle());
   configureRuntimeConfiguration(createDefaultRuntimeConfiguration());
   configureRuntimeHost(minimalHost());
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
 });
 
 afterEach(() => {
@@ -251,7 +237,7 @@ function configureInteractionHost(state: InteractionState): void {
       },
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 5000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
   };
   configureRuntimeHost(host);
@@ -454,11 +440,11 @@ describe('C6 mandatory invariants below configurable policy', () => {
         (record) => record.toolCallId === 'delete-call',
       )!.requestId;
 
-      // A valid-shaped workspace approval resolves (the response shape is
-      // valid), but the runtime persists only the canonical buildGrantParams
-      // output, so the out-of-policy scope creates no grant.
+      // A valid-shaped workspace approval resolves the request, but the scope
+      // was not offered, so it is denied (like the Claude and Codex
+      // harnesses) and creates no grant.
       expect(await resolveAsk('delete-call', { type: 'permission', grant: 'workspace' }, requestId)).toBe(true);
-      expect(await pending).toBe(true);
+      expect(await pending).toBe(false);
     });
 
     expect(state.grants).toHaveLength(0);

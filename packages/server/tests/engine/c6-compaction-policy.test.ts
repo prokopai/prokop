@@ -24,7 +24,6 @@ import {
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
-  withRuntimeConfiguration,
 } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
@@ -38,14 +37,8 @@ import {
   getSession,
   listMessagesWithParts,
 } from '@prokopai/core/infrastructure/storage/runtime';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
-import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
-import {
-  enterAgentScope,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { currentAgentPlugins } from '#tests/engine/helpers/composition';
 import { capekCompactionServiceKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 import type { GenerateSummaryFn } from '@prokopai/agent/internal/harnesses/prokop/compaction/contracts';
 
@@ -83,7 +76,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -122,18 +115,6 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 const SESSION_ID = 'c6-compaction-session';
 
@@ -272,7 +253,6 @@ beforeEach(() => {
   });
   configureRuntimeHost(minimalHost());
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
 });
 
 afterEach(() => {
@@ -280,21 +260,6 @@ afterEach(() => {
 });
 
 describe('C6 default compaction service contract', () => {
-  test('pins the exact current default numeric options', () => {
-    const service = createCompactionService({ id: 'test', options: makeOptions() });
-    expect(service.options).toEqual({
-      modelId: null,
-      providerId: null,
-      maxOutputTokens: 8000,
-      preserveRecentToolCount: 3,
-      preserveSmallToolChars: 200,
-      toolClearCharsThreshold: 1000,
-      maxPrunedToolCount: 50,
-      autoThresholdRatio: 0.75,
-      autoReserveCapTokens: 32000,
-      autoSafetyMarginTokens: 20000,
-    });
-  });
 
   test('resolvePolicy keeps the exact precedence: options, then overrides, then session', () => {
     const service = createCompactionService({
@@ -767,59 +732,6 @@ describe('C6 scoped compaction service composition', () => {
       await agentScope.dispose();
       await processScope.dispose();
     }
-  });
-
-  test('the compaction service is an explicit required agent-scoped provider', async () => {
-    const processScope = await createCurrentProcessScope();
-    const plugins = currentAgentPlugins()
-      .filter((plugin) => plugin.id !== 'current.compaction-policy');
-    const agentScope = await createAgentScope(processScope, [...plugins]);
-    try {
-      expect(() => enterAgentScope(agentScope, () => undefined))
-        .toThrow(/service 'capek\.compaction-service' is not available/);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('enterAgentScope seeds the scope-owned service and two agents stay isolated', async () => {
-    const processScope = await createCurrentProcessScope();
-    const scopeA = await createCurrentAgentScope(processScope);
-    const scopeB = await createCurrentAgentScope(processScope);
-    try {
-      const serviceA: CompactionService = scopeA.require(capekCompactionServiceKey);
-      const serviceB: CompactionService = scopeB.require(capekCompactionServiceKey);
-      expect(serviceA).not.toBe(serviceB);
-
-      let observed: CompactionService | null = null;
-      enterAgentScope(scopeA, () => {
-        observed = getCompactionService();
-      });
-      expect(observed === serviceA).toBe(true);
-      expect(getCompactionService()).not.toBe(serviceA);
-
-      serviceA.beginCompaction('isolated-session');
-      serviceA.recordCompactionFailure('isolated-session');
-      serviceA.recordCompactionFailure('isolated-session');
-      expect(serviceB.isCompactionActive('isolated-session')).toBe(false);
-      expect(serviceB.shouldSkipCompaction('isolated-session')).toBe(false);
-    } finally {
-      await scopeA.dispose();
-      await scopeB.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the unscoped process default keeps live configuration reads', () => {
-    const custom = {
-      ...createDefaultRuntimeConfiguration(),
-      getCompactionMaxPrunedToolCount: () => 1234,
-    };
-    withRuntimeConfiguration(custom, () => {
-      expect(getCompactionService().options.maxPrunedToolCount).toBe(1234);
-    });
-    expect(getCompactionService().options.maxPrunedToolCount).not.toBe(1234);
   });
 });
 

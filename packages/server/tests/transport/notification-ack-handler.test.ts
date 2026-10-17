@@ -39,8 +39,8 @@ function makeNotifications(spy: AckSpy, result: boolean): NotificationsApplicati
       spy.acks.push({ eventId, sessionId, clientId });
       return result;
     },
-    dispatchPendingPermissionNotification: async () => {},
-    notifyPermissionRequired: () => {},
+    dispatchPendingAnswerNotification: async () => {},
+    notifyAnswerRequired: () => {},
     runRetryTick: async () => {},
     cleanup: () => 0,
   };

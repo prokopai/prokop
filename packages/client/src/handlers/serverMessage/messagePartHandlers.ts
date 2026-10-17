@@ -4,7 +4,6 @@ import type { SessionHandlersContext, SessionUsage } from './types';
 import { handleFilesChanged } from './fileHandlers';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { queryClient } from '@/components/providers/QueryProvider';
 import { toast } from 'sonner';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
@@ -12,12 +11,6 @@ import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { usePendingSendStore } from '@/stores/pendingSendStore';
 
 export const STREAM_FLUSH_INTERVAL_MS = 75;
-
-const SCHEDULER_TOOLS = new Set(['scheduler']);
-
-function invalidateSchedulerQueries(): void {
-  queryClient.invalidateQueries({ queryKey: ['scheduledJobs'] });
-}
 
 export function handleMessageCreated(
   msg: { type: 'message.created'; message: Message },
@@ -251,14 +244,6 @@ export function handlePartUpdated(
       // server files.changed broadcast covers every other writer.
       const workspaceId = ctx.sessionsRef.current.find(s => s.id === sessionId)?.workspaceId;
       if (workspaceId) handleFilesChanged(workspaceId);
-    }
-    if (
-      SCHEDULER_TOOLS.has(toolPart.name) &&
-      (toolPart.state.status === 'completed' ||
-        toolPart.state.status === 'error' ||
-        toolPart.state.status === 'interrupted')
-    ) {
-      invalidateSchedulerQueries();
     }
   }
 }

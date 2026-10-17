@@ -37,6 +37,8 @@ mock.module('@prokopai/core/infrastructure/tools/registry', () => ({
 const adapter = await import('@/adapters/prokop/runtime-host/tool-source');
 const { builtinTools } = await import('@prokopai/agent/internal/harnesses/prokop/tools/index');
 const { getBuiltinToolsPort, installBuiltinToolsPort } = await import('@prokopai/core/application/ports/builtin-tools');
+const { resetDomainToolFallbacksForTests } = await import('@prokopai/core/infrastructure/tools/domain-tool-source');
+const { configureProkopRuntimeDefaults } = await import('@prokopai/agent/internal/harnesses/prokop/bindings/runtime-defaults');
 
 let savedToolsPathEnv: string | undefined;
 
@@ -74,6 +76,15 @@ describe('Čapek workspace tool discovery adapter', () => {
     } finally {
       installBuiltinToolsPort(previousPort);
     }
+  });
+
+  test('lists exactly the feature tools a Prokop agent can use, not removed ones', async () => {
+    resetDomainToolFallbacksForTests();
+    configureProkopRuntimeDefaults();
+    const tools = await adapter.prokopToolCatalog.listTools();
+    expect(tools.filter((tool) => tool.source === 'domain').map((tool) => tool.name)).toEqual([
+      'agent_memory', 'agent_skill_manage', 'memory', 'session_search', 'skill', 'skill_manage', 'task',
+    ]);
   });
 
   test('without an installed port the catalog lists no built-in entries', async () => {

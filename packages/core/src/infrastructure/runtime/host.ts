@@ -71,7 +71,7 @@ export interface InteractionHost {
    * default provider fails closed (never auto-approves) when it is absent. */
   getSessionAutoApproveSeverity?(sessionId: string): Promise<AutoApproveSeverity | undefined>;
   getPermissionTimeoutMs(): number;
-  notifyPermissionRequired(requestId: string, rootSessionId: string): Promise<void>;
+  notifyAnswerRequired(requestId: string, rootSessionId: string): Promise<void>;
 }
 
 export interface DeliveryHost {

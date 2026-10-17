@@ -44,7 +44,7 @@ export const prokopInteractionBindings: ProkopCompatibilityBindings['interaction
     return session ? severityFromMode(session.permissionMode ?? 'standard') : undefined;
   },
   getPermissionTimeoutMs,
-  notifyPermissionRequired: async (requestId: string, rootSessionId: string) => {
-    getProkopNotificationsApplication().notifyPermissionRequired(requestId, rootSessionId);
+  notifyAnswerRequired: async (requestId: string, rootSessionId: string) => {
+    getProkopNotificationsApplication().notifyAnswerRequired(requestId, rootSessionId);
   },
 };

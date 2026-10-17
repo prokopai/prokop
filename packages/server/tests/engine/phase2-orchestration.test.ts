@@ -17,11 +17,8 @@ import { getSubagentResumeError } from '@prokopai/agent/internal/harnesses/proko
 import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
 import { evaluateGoal } from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
 import { runGoalLoop } from '@prokopai/agent/internal/harnesses/prokop/goals/loop';
-import { executeWorkflow } from '@prokopai/agent/internal/harnesses/prokop/workflow/execution';
 import { handleChat } from '@prokopai/agent/internal/harnesses/prokop/execution/chat-handler';
-import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/workflow/orchestrator-session';
-import { decomposeTask } from '@prokopai/agent/internal/harnesses/prokop/workflow/decomposer';
-import { synthesizeResults } from '@prokopai/agent/internal/harnesses/prokop/workflow/synthesizer';
+import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/goals/orchestrator-session';
 import {
   configureRuntimeHost,
   type RuntimeHost,
@@ -29,11 +26,9 @@ import {
 import { setDefaultContextAssembler } from '@prokopai/agent/internal/harnesses/prokop/context/assembler';
 import { fixedBuilderContextAssembler } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
 import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
-import { installSchedulerToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
 import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
 import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
 import { installTaskToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
-import { installWorkflowToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
 import type { StreamChatEvent } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
 import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import type { ChatOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/agent';
@@ -172,7 +167,7 @@ function bindRuntime(
       createGrantFromOptions: () => null,
       getSessionAutoApproveSeverity: () => undefined,
       getPermissionTimeoutMs: () => 1000,
-      notifyPermissionRequired: () => {},
+      notifyAnswerRequired: () => {},
     },
     delivery: {
       emit: ({ audience, event }: RuntimeDelivery) => {
@@ -203,9 +198,7 @@ function bindRuntime(
   // as the process default at module load; the test setup owns it now.
   setDefaultContextAssembler(fixedBuilderContextAssembler);
   installSessionSearchToolFallback();
-  installSchedulerToolFallback();
   installTaskToolFallback();
-  installWorkflowToolFallback();
   installMemoryToolFallback();
   installSkillsToolFallback();
   configureRuntimeConfiguration({
@@ -451,39 +444,6 @@ describe.serial('Phase 2 orchestration contracts', () => {
     expect(evaluations).toBe(0);
   });
 
-  test('sanitizes decomposed targets and returns structured synthesis', async () => {
-    const state = createState();
-    bindRuntime(state);
-    const subtasks = await decomposeTask({
-      prompt: 'analyze',
-      parentSessionId: 'root',
-      runOrchestrator: async () => ({
-        text: '{}',
-        json: { subtasks: [
-          { prompt: 'valid', preconfigId: 'research' },
-          { prompt: 'invalid', preconfigId: 'invented' },
-        ] },
-        sessionId: 'decomposer',
-      }),
-    });
-    expect(subtasks.map((subtask) => subtask.preconfigId)).toEqual(['research', 'research']);
-
-    const synthesis = await synthesizeResults({
-      originalPrompt: 'analyze',
-      parentSessionId: 'root',
-      leafResults: [{ index: 0, text: 'finding' }],
-      outputSchema: { type: 'object', properties: { answer: { type: 'string' } } },
-      runOrchestrator: async (options) => {
-        expect(options.systemPrompt).toContain('finding');
-        return { text: '{"answer":"done"}', json: { answer: 'done' }, sessionId: 'synthesizer' };
-      },
-    });
-    expect(synthesis).toEqual({
-      text: '{"answer":"done"}',
-      structuredResult: { answer: 'done' },
-    });
-  });
-
   test('records completed and error terminal subagent statuses', async () => {
     const completedState = createState();
     bindRuntime(completedState);
@@ -553,78 +513,6 @@ describe.serial('Phase 2 orchestration contracts', () => {
     expect(receivedSignal).toBe(abortController.signal);
     expect(result.error).toContain('child aborted');
     expect(state.sessions.get(result.task_id)?.subagentStatus).toBe('interrupted');
-  });
-
-  test('executes workflow fan-out and synthesis outcomes', async () => {
-    const state = createState();
-    bindRuntime(state);
-    const result = await executeWorkflow({
-      prompt: 'analyze',
-      subtasks: [
-        { prompt: 'first', preconfigId: 'research' },
-        { prompt: 'second', preconfigId: 'research' },
-      ],
-    }, {
-      sessionId: 'root',
-      allowedSubagentIds: ['research'],
-      executeLeaf: async (input) => ({
-        task_id: input.prompt,
-        result: `result:${input.prompt}`,
-      }),
-      synthesize: async ({ leafResults }) => ({
-        text: leafResults.map((leaf) => leaf.text).join('|'),
-      }),
-    });
-    expect(result.error).toBeUndefined();
-    expect(result.subtaskCount).toBe(2);
-    expect(result.result).toContain('result:first|result:second');
-
-    const allFailed = await executeWorkflow({
-      prompt: 'analyze',
-      subtasks: [{ prompt: 'first', preconfigId: 'research' }],
-    }, {
-      sessionId: 'root',
-      allowedSubagentIds: ['research'],
-      executeLeaf: async () => ({ task_id: 'failed', result: '', error: 'leaf failed' }),
-      synthesize: async () => ({ text: 'unused' }),
-    });
-    expect(allFailed.error).toContain('All 1 sub-agent(s) failed');
-  });
-
-  test('reports interrupted workflows before all-failed and stops scheduling new leaves', async () => {
-    const state = createState();
-    bindRuntime(state);
-    const abortController = new AbortController();
-    const started: string[] = [];
-    let releaseFirstBatch: (() => void) | undefined;
-    const firstBatchReleased = new Promise<void>((resolve) => {
-      releaseFirstBatch = resolve;
-    });
-    let firstBatchStarted = 0;
-
-    const workflowPromise = executeWorkflow({
-      prompt: 'analyze',
-      subtasks: Array.from({ length: 7 }, (_, index) => ({ prompt: `task-${index}`, preconfigId: 'research' })),
-    }, {
-      sessionId: 'root',
-      allowedSubagentIds: ['research'],
-      abortSignal: abortController.signal,
-      executeLeaf: async (input) => {
-        started.push(input.prompt);
-        firstBatchStarted++;
-        if (firstBatchStarted === 5) {
-          abortController.abort();
-          releaseFirstBatch?.();
-        }
-        await firstBatchReleased;
-        return { task_id: input.prompt, result: '', error: 'cancelled leaf' };
-      },
-      synthesize: async () => ({ text: 'must not run' }),
-    });
-
-    const result = await workflowPromise;
-    expect(started).toHaveLength(5);
-    expect(result.error).toBe('Workflow was interrupted');
   });
 
   test('persists user content before delivery and terminal messages before notification', async () => {

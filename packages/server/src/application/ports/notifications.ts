@@ -1,4 +1,5 @@
 import type {
+  NotificationEventType,
   NotificationPreferences,
   PushSubscriptionRecord,
   Session,
@@ -82,7 +83,7 @@ export interface NotificationStorePort {
   updatePreferences(id: string, preferences: NotificationPreferences): PushSubscriptionRecord | null;
   deleteSubscription(id: string): boolean;
   listEnabledForEvent(
-    eventType: 'session_completed' | 'session_failed' | 'permission_required',
+    eventType: NotificationEventType,
   ): NotificationSubscriptionRow[];
   getForDispatch(
     id: string,
@@ -100,6 +101,8 @@ export interface NotificationStorePort {
 
 export interface PendingAskLookup {
   status: string;
+  /** False for questions: they push as `question_asked`. */
+  isPermission: boolean;
 }
 
 export interface NotificationsApplicationDeps {

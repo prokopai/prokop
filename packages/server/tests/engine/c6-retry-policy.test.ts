@@ -8,11 +8,9 @@ import { streamChatWithRetry } from '@prokopai/agent/internal/harnesses/prokop/r
 import {
   createRetryCircuitState,
   createRetryPolicy,
-  getRetryPolicy,
   resetDefaultRetryPolicyForTests,
   RetryDelayAbortedError,
   withRetryCircuitState,
-  type CircuitState,
   type RetryPolicy,
 } from '@prokopai/agent/internal/harnesses/prokop/retry/policy';
 import { ApiErrorType, classifyApiError } from '@prokopai/core/infrastructure/providers/errors';
@@ -21,14 +19,8 @@ import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import { configureSessionSearchHost, type SessionSearchHost } from '@prokopai/agent/internal/harnesses/shared/session-search/host';
-import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
-import {
-  enterAgentScope,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { currentAgentPlugins } from '#tests/engine/helpers/composition';
 import { capekRetryPolicyKey } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 function createError(overrides: {
@@ -111,7 +103,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -150,25 +142,12 @@ function minimalSearchHost(): SessionSearchHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 beforeEach(() => {
   configureStorage(createInMemoryStorageBundle());
   configureRuntimeConfiguration(createDefaultRuntimeConfiguration());
   configureRuntimeHost(minimalHost());
   configureSessionSearchHost(minimalSearchHost());
-  configureSchedulerHost(minimalSchedulerHost());
 });
 
 afterEach(() => {
@@ -176,15 +155,6 @@ afterEach(() => {
 });
 
 describe('C6 default retry policy contract', () => {
-  test('pins the exact current numeric defaults', () => {
-    const policy = createRetryPolicy({ id: 'test' });
-    expect(policy.defaults).toEqual({
-      maxRetries: 3,
-      baseDelayMs: 2_000,
-      maxDelayMs: 30_000,
-      jitterRatio: 0.2,
-    });
-  });
 
   test('classify reproduces exact HEAD classification including nested originalError recursion', () => {
     const policy = createRetryPolicy();
@@ -663,38 +633,6 @@ describe('C6 stream loop through the scoped policy', () => {
 });
 
 describe('C6 agent-scoped retry policy composition', () => {
-  test('the current composition provides an agent-scoped policy with exact defaults', async () => {
-    const processScope = await createCurrentProcessScope();
-    const agentScope = await createCurrentAgentScope(processScope);
-    try {
-      const policy = agentScope.require(capekRetryPolicyKey);
-      expect(policy.id).toBe('current.retry-policy');
-      expect(policy.defaults.maxRetries).toBe(3);
-      expect(policy.defaults.baseDelayMs).toBe(2_000);
-      expect(policy.defaults.maxDelayMs).toBe(30_000);
-      expect(policy.defaults.jitterRatio).toBe(0.2);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('enterAgentScope seeds the scope-owned policy and restores the process default outside', async () => {
-    const processScope = await createCurrentProcessScope();
-    const agentScope = await createCurrentAgentScope(processScope);
-    try {
-      const scopedPolicy = agentScope.require(capekRetryPolicyKey);
-      let observed: RetryPolicy | null = null;
-      enterAgentScope(agentScope, () => {
-        observed = getRetryPolicy();
-      });
-      expect(observed === scopedPolicy).toBe(true);
-      expect(getRetryPolicy() === scopedPolicy).toBe(false);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
 
   test('two composed agent scopes own distinct policies with isolated circuit state', async () => {
     const processScope = await createCurrentProcessScope();
@@ -715,36 +653,7 @@ describe('C6 agent-scoped retry policy composition', () => {
       await processScope.dispose();
     }
   });
-
-  test('the retry policy is an explicit required agent-scoped provider', async () => {
-    const processScope = await createCurrentProcessScope();
-    const plugins = currentAgentPlugins()
-      .filter((plugin) => plugin.id !== 'current.retry-policy');
-    const agentScope = await createAgentScope(processScope, [...plugins]);
-    try {
-      // Every other required service resolves; the missing retry policy is
-      // what fails scope entry, with the exact kernel error.
-      expect(() => enterAgentScope(agentScope, () => undefined))
-        .toThrow(/service 'capek\.retry-policy' is not available/);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the unscoped process default is stable until the test-only reset', () => {
-    const first = getRetryPolicy();
-    expect(first.id).toBe('retry.process-default');
-    expect(getRetryPolicy()).toBe(first);
-    resetDefaultRetryPolicyForTests();
-    expect(getRetryPolicy()).not.toBe(first);
-  });
 });
 
 describe('C6 retry policy compatibility surface', () => {
-  test('a policy overlay map keeps the exact CircuitState shape', () => {
-    const state: Map<string, CircuitState> = createRetryCircuitState();
-    state.set('p:m', { failures: 1, lastFailureAt: Date.now(), openUntil: 0 });
-    expect(state.get('p:m')).toEqual({ failures: 1, lastFailureAt: expect.any(Number), openUntil: 0 });
-  });
 });

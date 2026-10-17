@@ -5,7 +5,7 @@ import { classifyClaudeTool } from './tool-policy';
 import { CLAUDE_QUESTION_TOOL, claudeQuestionAnswers, claudeQuestionAsk, parseClaudeQuestions,
   type ClaudeQuestion } from './questions';
 import { sessionPermissionRoots } from '#agent/harnesses/shared/permission-roots';
-import { notifyHarnessPermissionRequired } from '#agent/harnesses/shared/notifications';
+import { notifyHarnessAnswerRequired } from '#agent/harnesses/shared/notifications';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { harnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
@@ -150,9 +150,8 @@ export class ClaudeApprovals {
           toolCallId, toolName: `claude-cli:${toolName}`, requestId, authority: AUTHORITY,
           ask: deliveredAsk });
         if (signal.aborted || options.signal.aborted) abort();
-        // Questions surface in the attention feed without a permission push,
-        // like the Prokop question tool.
-        else if (!question) void notifyHarnessPermissionRequired(requestId, sessionId);
+        // Approvals and questions both wait for you: the push names which.
+        else void notifyHarnessAnswerRequired(requestId, sessionId);
       } catch { abort(); }
     });
   }

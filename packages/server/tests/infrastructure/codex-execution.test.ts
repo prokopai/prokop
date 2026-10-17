@@ -2442,7 +2442,7 @@ test('Codex pushes a permission ask and the finished reply through the notificat
   const permissions: Array<[string, string]> = [];
   installHarnessNotificationPort({
     notifyTerminalMessage: (message, sessionId) => { terminal.push({ status: message.status!, sessionId }); },
-    notifyPermissionRequired: (requestId, rootSessionId) => { permissions.push([requestId, rootSessionId]); },
+    notifyAnswerRequired: (requestId, rootSessionId) => { permissions.push([requestId, rootSessionId]); },
   });
   try {
     const processes: ReturnType<typeof fakeCodex>[] = [];
@@ -2468,7 +2468,7 @@ test('Codex pushes a permission ask and the finished reply through the notificat
     await turn;
     expect(terminal).toEqual([{ status: 'completed', sessionId: 's' }]);
   } finally {
-    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
+    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyAnswerRequired: () => {} });
   }
 });
 

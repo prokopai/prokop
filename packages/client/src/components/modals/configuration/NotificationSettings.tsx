@@ -147,7 +147,7 @@ export function NotificationSettings() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="size-4 text-muted-foreground" />
-                <span className="text-sm">Permission requests</span>
+                <span className="text-sm">Approvals and questions</span>
               </div>
               <Switch
                 checked={notifyPermission}
@@ -155,7 +155,7 @@ export function NotificationSettings() {
                   completion: notifyCompletion,
                   permission: !notifyPermission,
                 })}
-                aria-label="Permission request notification"
+                aria-label="Approval and question notification"
               />
             </div>
           </>

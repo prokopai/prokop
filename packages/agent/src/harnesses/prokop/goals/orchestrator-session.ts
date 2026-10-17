@@ -20,13 +20,10 @@ import { getModelWithMetadata } from '@prokopai/core/infrastructure/providers/mo
 import { extractJsonFromText } from '#agent/harnesses/prokop/execution/structured-output';
 
 /**
- * Workflow domain: the shared workflow/goals orchestrator model-turn
- * service implementation. Moved verbatim from `core/workflow-orchestrator-
- * session.ts`; the named contract (`capek.orchestrator-session`) lives in
- * `plugins/service-keys.ts` and `plugins/orchestrator-session.ts` provides
- * this implementation, so the goals slice consumes the same contract
- * without owning workflow code. The two core edges below
- * (model-utils, structured-output) stay until C7.
+ * The goals orchestrator model-turn implementation: one headless model turn
+ * the goal evaluator runs. The named contract (`capek.orchestrator-session`)
+ * lives in `plugins/service-keys.ts` and `plugins/orchestrator-session.ts`
+ * provides this implementation.
  */
 
 export interface OrchestratorSessionOptions {
@@ -80,7 +77,7 @@ export async function runOrchestratorSession(options: OrchestratorSessionOptions
     autoApproveSeverity: await getWorkspaceAutoApproveSeverity(parentSession?.workspaceId || ''),
   });
   broadcastSessCreated(session);
-  console.log(`[workflow:${agentName}] Session created`, { sessionId: session.id, modelId, providerId });
+  console.log(`[orchestrator:${agentName}] Session created`, { sessionId: session.id, modelId, providerId });
 
   try {
     const userMsgId = randomUUID();
@@ -97,7 +94,7 @@ export async function runOrchestratorSession(options: OrchestratorSessionOptions
       systemPrompt,
       sessionId: parentSessionId,
     });
-    console.log(`[workflow:${agentName}] Calling streamText...`);
+    console.log(`[orchestrator:${agentName}] Calling streamText...`);
     const stream = streamText({
       model,
       system: useProviderInstructions ? undefined : systemPrompt,
@@ -108,7 +105,7 @@ export async function runOrchestratorSession(options: OrchestratorSessionOptions
     });
     const text = await stream.text;
     const streamUsage = await stream.usage;
-    console.log(`[workflow:${agentName}] streamText returned`, { textLength: text?.length });
+    console.log(`[orchestrator:${agentName}] streamText returned`, { textLength: text?.length });
     const assistantMsgId = randomUUID();
     const assistantTextPart: TextPart = { id: randomUUID(), messageId: assistantMsgId, createdAt: Date.now(), type: 'text', text };
     const parsedJson = extractJsonFromText(text);
@@ -142,7 +139,7 @@ export async function runOrchestratorSession(options: OrchestratorSessionOptions
     return { text, json: parsedJson, sessionId: session.id };
   } catch (err) {
     const errAny = err as Record<string, unknown>;
-    console.error(`[workflow:${agentName}] FAILED`, {
+    console.error(`[orchestrator:${agentName}] FAILED`, {
       message: err instanceof Error ? err.message : String(err),
       name: err instanceof Error ? err.name : undefined,
       statusCode: errAny?.statusCode ?? errAny?.status,

@@ -28,12 +28,15 @@ import type {
   PermissionRuntimeService,
   RequestPermissionParams,
 } from '#agent/harnesses/prokop/permission/contracts';
+import type { AskPermissionResponse } from '@prokopai/sdk/types';
 import {
   buildGrantParams,
-  buildPermissionKey,
   getActiveAskPermissionPolicy,
   getAskPermissionPolicy,
+  isCatastrophicAsk,
+  isGrantScopeOffered,
   isPermissionApproved,
+  permissionKeyForAsk,
   isValidPermissionResponse,
   resolveAskAuthority,
   extractResolutionValue,
@@ -144,12 +147,16 @@ export function createPermissionRuntimeService(
           ask: request,
           broadcastFn,
           workspaceId,
-          timeoutMs: activeProvider().askTimeoutMs,
         });
       }
 
       const askId = `${toolCallId}#${++askCounter}`;
       const authority = resolveAskAuthority(request);
+      // A question waits for a person as long as an approval does and pushes
+      // a notification; a client capability ask is answered by a connected
+      // client (the browser extension) and keeps the short ask timeout.
+      const forPerson = request.type !== 'client_capability';
+      const timeoutMs = forPerson ? activeProvider().permissionTimeoutMs : activeProvider().askTimeoutMs;
 
       return new Promise<unknown>((resolve, reject) => {
         broadcastFn({
@@ -173,18 +180,22 @@ export function createPermissionRuntimeService(
         });
 
         void (async () => {
+          const createdAt = Date.now();
           await interaction().createPendingAsk({
             sessionId,
+            rootSessionId,
             toolCallId,
             toolName,
             ask: request,
-            createdAt: Date.now(),
+            createdAt,
+            expiresAt: createdAt + timeoutMs,
             requestId: askId,
             status: 'pending',
             isPermission: false,
             workspaceId,
           });
           if (!pendingAsks.has(askId)) return;
+          if (forPerson) await interaction().notifyAnswerRequired(askId, rootSessionId ?? sessionId);
 
           const timerId = setTimeout(() => {
             if (!pendingAsks.has(askId)) return;
@@ -197,7 +208,7 @@ export function createPermissionRuntimeService(
               toolCallId,
             });
             reject(new Error('User did not respond in time'));
-          }, activeProvider().askTimeoutMs);
+          }, timeoutMs);
           askTimers.set(askId, timerId);
         })().catch(reject);
       });
@@ -351,12 +362,13 @@ export function createPermissionRuntimeService(
     const isPermissionAsk = ask.type === 'permission';
     const provider = activeProvider();
 
-    if (isPermissionAsk && workspaceId) {
+    if (isPermissionAsk && workspaceId && !isCatastrophicAsk(ask)) {
       const permAsk = ask as import('@prokopai/sdk/tool').PermissionAsk;
       const effectiveRootSessionId = rootSessionId ?? sessionId;
 
       if (permAsk.intents && permAsk.intents.length > 0) {
         for (const intent of permAsk.intents) {
+          if (intent.persistable === false) continue;
           for (const target of intent.targets) {
             const matchResult = await interaction().matchGrant({
               workspaceId,
@@ -371,16 +383,12 @@ export function createPermissionRuntimeService(
         }
       }
 
-      const permissionKey = buildPermissionKey(
-        toolName,
-        permAsk.resource ?? 'file',
-        permAsk.patterns,
-      );
       const matchResult = await interaction().matchGrant({
         workspaceId,
         toolName,
         resource: permAsk.resource ?? 'file',
-        permissionKey,
+        action: permAsk.action,
+        permissionKey: permissionKeyForAsk(toolName, permAsk),
         rootSessionId: effectiveRootSessionId,
       });
       if (matchResult.matched) return true;
@@ -405,7 +413,7 @@ export function createPermissionRuntimeService(
     });
 
     if (isPermissionAsk) {
-      await interaction().notifyPermissionRequired(requestId, rootSessionId ?? sessionId);
+      await interaction().notifyAnswerRequired(requestId, rootSessionId ?? sessionId);
     }
 
     broadcastFn({
@@ -451,8 +459,12 @@ export function createPermissionRuntimeService(
   async function resolvePermission(requestId: string, response: unknown): Promise<boolean> {
     const waiter = waiters.get(requestId);
     // Mandatory validation from the module-level validator, never from
-    // provider advice.
-    const approved = isPermissionApproved(response);
+    // provider advice. A scope the ask did not offer fails closed.
+    const offered = async (): Promise<boolean> => {
+      const record = await interaction().getPermissionRequestByRequestId(requestId);
+      return !!record && isGrantScopeOffered(record.ask, (response as AskPermissionResponse).grant);
+    };
+    const approved = isPermissionApproved(response) && await offered();
 
     if (!waiter) {
       const record = await interaction().getPermissionRequestByRequestId(requestId);

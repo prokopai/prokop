@@ -361,3 +361,112 @@ describe('analysis never fails the permission request', () => {
     expect(decide('full', classified.finding)).toBe('ask');
   });
 });
+
+describe('variables set earlier in the same script', () => {
+  test('a path built from a variable is judged by its value', () => {
+    expect(standardDecision('ROOT=/ws; cat "$ROOT/README.md" && ls "${ROOT}/src"')).toBe('auto');
+    expect(concernsOf('ROOT=/ws && cat $ROOT/a.txt')).toEqual([]);
+    expect(concernsOf('export OUT=/ws/out\nls $OUT')).toEqual([]);
+    expect(concernsOf('A=/ws; B=$A/sub; cat $B/file')).toEqual([]);
+    expect(concernsOf('X=/ws/pkg; cd $X && cat package.json')).toEqual([]);
+  });
+
+  test('a delete target from a known variable is destructive, not catastrophic', () => {
+    expect(isCatastrophic('BUILD=/ws/build; rm -rf "$BUILD"')).toBe(false);
+    expect(concernsOf('BUILD=/ws/build; rm -rf "$BUILD"')).toEqual(['destructive']);
+  });
+
+  test('the value can also reveal danger', () => {
+    expect(concernsOf('D=/etc; cat $D/hosts')).toEqual(['escape']);
+    expect(concernsOf('K=~/.ssh; cat "$K/id_rsa"')).toEqual(['escape', 'sensitive']);
+    expect(isCatastrophic('T=/; rm -rf $T')).toBe(true);
+    expect(isCatastrophic('C=rm; $C -rf /')).toBe(true);
+    expect(concernsOf('D=/etc; echo "$(cat $D/hosts)"')).toContain('escape');
+  });
+
+  test('stays unknown unless the assignment surely ran with that value', () => {
+    for (const command of [
+      'rm -rf $FROM_ENVIRONMENT/x',
+      'test -d /ws || X=/ws/a; rm -rf $X',
+      'cd /ws && X=/ws/a; rm -rf $X',
+      'X=/etc\nif true; then\nX=/ws/a\nfi\nrm -rf $X',
+      'X=/ws/a; for X in /etc /ws; do rm -rf $X; done',
+      'X=/ws/a; read X; rm -rf $X',
+      'X=/ws/a; unset X; rm -rf $X/',
+      'X=/ws/a; eval "$Y"; rm -rf $X',
+      'X=/ws/a rm -rf $X',
+      'X=/ws/a | true; rm -rf $X',
+      'X=/ws/a; (X=/etc); rm -rf $X',
+      'X=/ws/a; (X=/etc; rm -rf $X)',
+      'X=/ws/a; (X=/etc && rm -rf $X)',
+      'X=/ws/a; declare -n R=X; R=/etc; rm -rf $X',
+      'X=/ws/a; IFS=/; rm -rf $X',
+      'X=/ws/a; f() { X=/etc; }; f; rm -rf $X',
+      'X=/ws/a; X[0]=/etc; rm -rf $X',
+      'X=/ws/a; printf -v X /etc; rm -rf $X',
+      'X=; : ${X:=/etc}; rm -rf $X',
+      'X=/ws/a; echo $((X=1)); rm -rf $X',
+      "X=/ws/a; trap 'X=/etc' DEBUG; rm -rf $X",
+      'X=/ws/a && X=/etc || true; rm -rf $X',
+      'X=/ws/a; X+=/../../etc; rm -rf $X',
+      'X=/ws/a; ((X=5)); rm -rf $X',
+      'X=/ws/a; while read X; do rm -rf $X; done',
+      'X=/ws/a; { X=/etc; }; rm -rf $X',
+    ]) expect(isCatastrophic(command), command).toBe(true);
+  });
+
+  test('only simple values and expansions resolve', () => {
+    for (const command of [
+      'X="/ws/a /"; rm -rf $X',
+      'X=$(pwd); rm -rf $X',
+      'X=/ws/a; rm -rf ${X:-/}',
+      "X=/ws/a; rm -rf '$X'",
+      "X='/ws/*'; rm -rf $X/..",
+    ]) expect(isCatastrophic(command), command).toBe(true);
+  });
+
+  test('a child shell sees only exported variables', () => {
+    expect(isCatastrophic("X=/ws/a; sh -c 'rm -rf $X'")).toBe(true);
+  });
+});
+
+describe('prefixes and wrappers never hide the command', () => {
+  test('the catastrophic floor holds behind any prefix', () => {
+    for (const command of [
+      'FOO=1 rm -rf /',
+      'env rm -rf /',
+      'env -i FOO=1 rm -rf /',
+      'nohup rm -rf /',
+      'command rm -rf /',
+      'builtin command rm -rf /',
+      'timeout -s KILL 5 rm -rf /',
+      'nice -n 5 rm -rf /',
+      'time -p rm -rf /',
+      'stdbuf -o0 rm -rf /',
+      'exec rm -rf /',
+      '! rm -rf /',
+      'if rm -rf /; then echo; fi',
+      'if true; then rm -rf /; fi',
+      'while true; do rm -rf ~; done',
+      'case x in x) rm -rf / ;; esac',
+      'case x in a) echo ;; b) rm -rf / ;; esac',
+      '{ rm -rf /; }',
+      '(rm -rf /)',
+      '( rm -rf / )',
+      'cleanup() { rm -rf /; }; cleanup',
+    ]) expect(isCatastrophic(command), command).toBe(true);
+  });
+
+  test('wrapped commands keep their concerns', () => {
+    expect(concernsOf('FOO=1 cat ~/.ssh/id_rsa')).toEqual(['escape', 'sensitive']);
+    expect(concernsOf('env NODE_ENV=test bun test')).toEqual([]);
+    expect(concernsOf('timeout 60 bun test')).toEqual([]);
+  });
+
+  test('a cd inside a subshell or pipeline stage does not move later commands', () => {
+    const outside: CommandAnalyzeContext = { roots: ['/ws'], cwd: '/etc', home: '/Users/cherry' };
+    expect(analyzeCommand('(cd /ws/a); cat passwd', outside).concerns).toContain('escape');
+    expect(analyzeCommand('cd /ws/a | true; cat passwd', outside).concerns).toContain('escape');
+    expect(analyzeCommand('(cd /etc && cat passwd)', ctx).concerns).toContain('escape');
+  });
+});

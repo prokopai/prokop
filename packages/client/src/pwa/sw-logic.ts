@@ -1,7 +1,7 @@
 // Pure functions extracted from the service worker for testability.
 // These are imported by sw.ts and used inside event handlers.
 
-export type PushEventType = 'session_completed' | 'session_failed' | 'permission_required';
+export type PushEventType = 'session_completed' | 'session_failed' | 'permission_required' | 'question_asked';
 
 export interface ProkopaiPushPayloadV1 {
   version: 1;
@@ -17,6 +17,7 @@ export const NOTIFICATION_COPY: Record<PushEventType, { title: string; body: str
   session_completed: { title: 'Prokopai', body: 'Prokopai finished a session' },
   session_failed: { title: 'Prokopai', body: 'Prokopai session failed' },
   permission_required: { title: 'Prokopai', body: 'Prokopai needs your approval' },
+  question_asked: { title: 'Prokopai', body: 'Prokopai has a question for you' },
 };
 
 export function isProkopaiPushPayload(data: unknown): data is ProkopaiPushPayloadV1 {

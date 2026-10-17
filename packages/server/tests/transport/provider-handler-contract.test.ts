@@ -46,8 +46,8 @@ function makeNotifications(): NotificationsApplication {
     dispatch: async () => {},
     notifyTerminalMessage: () => {},
     acknowledgePendingNotification: () => false,
-    dispatchPendingPermissionNotification: async () => {},
-    notifyPermissionRequired: () => {},
+    dispatchPendingAnswerNotification: async () => {},
+    notifyAnswerRequired: () => {},
     runRetryTick: async () => {},
     cleanup: () => 0,
   };

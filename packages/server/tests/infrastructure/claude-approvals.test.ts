@@ -249,7 +249,7 @@ test('unclassified SDK tools run without a risk ask, with or without a controlle
 test('an ask waits for an offline controller and can be answered after reconnecting', async () => {
   const pushed: string[] = [];
   installHarnessNotificationPort({ notifyTerminalMessage: () => {},
-    notifyPermissionRequired: (requestId) => { pushed.push(requestId); } });
+    notifyAnswerRequired: (requestId) => { pushed.push(requestId); } });
   try {
     const approvals = new ClaudeApprovals(() => 2000);
     const { requests, delivery } = fixture();
@@ -277,14 +277,14 @@ test('an ask waits for an offline controller and can be answered after reconnect
     expect(await approvals.resolve(requests[1]!.toolCallId, { type: 'permission', grant: 'once' }, requests[1]!.requestId)).toBe(true);
     expect(await retry).toMatchObject({ behavior: 'allow' });
   } finally {
-    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
+    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyAnswerRequired: () => {} });
   }
 });
 
 test('a waiting ask pushes a permission notification, except in learning review sessions', async () => {
   const pushed: Array<[string, string]> = [];
   installHarnessNotificationPort({ notifyTerminalMessage: () => {},
-    notifyPermissionRequired: (requestId, rootSessionId) => { pushed.push([requestId, rootSessionId]); } });
+    notifyAnswerRequired: (requestId, rootSessionId) => { pushed.push([requestId, rootSessionId]); } });
   try {
     const approvals = new ClaudeApprovals(() => 2000);
     const { requests, delivery } = fixture();
@@ -304,7 +304,7 @@ test('a waiting ask pushes a permission notification, except in learning review 
     await approvals.resolve(requests[1]!.toolCallId, { type: 'permission', grant: 'once' }, requests[1]!.requestId);
     await learning;
   } finally {
-    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
+    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyAnswerRequired: () => {} });
   }
 });
 

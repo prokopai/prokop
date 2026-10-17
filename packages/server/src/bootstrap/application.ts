@@ -177,7 +177,7 @@ export function createWiredAgentsApplication(): AgentsApplication {
 export function createWiredApplication(existingAgents?: AgentsApplication): WiredApplication {
   installBrowserRequestsPort(browserService);
   installBrowserClientsPort(createBrowserClientsPort((requestId, sessionId) =>
-    getProkopNotificationsApplication().notifyPermissionRequired(requestId, sessionId)));
+    getProkopNotificationsApplication().notifyAnswerRequired(requestId, sessionId)));
   setMcpChangeListener(path => {
     if (path === null) {
       broadcastEvent({ type: 'mcp.changed', workspaceId: null });

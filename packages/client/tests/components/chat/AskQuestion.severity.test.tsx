@@ -46,18 +46,25 @@ describe('permission card severity chrome (classified asks)', () => {
     expect(classes).toContain('border-destructive/50');
   });
 
-  test('sensitive or destructive concerns read amber, keeping red for catastrophic', () => {
+  test('secrets and destructive asks read red, the color of Full access that runs them', () => {
     for (const concerns of [['sensitive'], ['destructive'], ['destructive', 'escape']]) {
       const classes = cardClasses(classifiedRequest(concerns));
-      expect(classes).toContain('bg-warning/5');
-      expect(classes).toContain('border-warning/40');
-      expect(classes).not.toContain('destructive');
+      expect(classes).toContain('bg-destructive/5');
+      expect(classes).toContain('border-destructive/30');
+      expect(classes).not.toContain('warning');
     }
   });
 
-  test('escape-only reads amber, matching the server riskOfConcerns mapping', () => {
+  test('outside-workspace asks read amber, the color of Extended that runs them', () => {
     const classes = cardClasses(classifiedRequest(['escape']));
     expect(classes).toContain('bg-warning/5');
+    expect(classes).not.toContain('destructive');
+  });
+
+  test('concern chips use the same mode colors', () => {
+    const { getByText } = render(<AskQuestion request={classifiedRequest(['sensitive', 'escape'])} onRespond={() => {}} />);
+    expect(getByText('Secrets').className).toContain('text-destructive');
+    expect(getByText('Outside workspace').className).toContain('text-warning');
   });
 
   test('clean or opaque-only findings read low severity', () => {

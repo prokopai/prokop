@@ -400,7 +400,7 @@ test('Edit after stopping a later reply forks at the last completed turn', async
 
 test('finished and stopped Claude replies reach the notification port once each', async () => {
   const terminal: string[] = [];
-  installHarnessNotificationPort({ notifyPermissionRequired: () => {},
+  installHarnessNotificationPort({ notifyAnswerRequired: () => {},
     notifyTerminalMessage: (message, sessionId) => { terminal.push(`${sessionId}:${message.status}`); } });
   try {
     const f = fixture();
@@ -410,7 +410,7 @@ test('finished and stopped Claude replies reach the notification port once each'
     // The notification policy drops `interrupted`; the harness reports every terminal reply.
     expect(terminal).toEqual(['session:completed', 'session:interrupted']);
   } finally {
-    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyPermissionRequired: () => {} });
+    installHarnessNotificationPort({ notifyTerminalMessage: () => {}, notifyAnswerRequired: () => {} });
   }
 });
 

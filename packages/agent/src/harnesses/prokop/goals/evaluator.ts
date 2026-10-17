@@ -1,7 +1,7 @@
 import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import type { GoalEvaluation, MessageWithParts, TextPart, ToolPart } from '@prokopai/sdk/types';
 import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
-import { runOrchestratorSession } from '#agent/harnesses/prokop/workflow/orchestrator-session';
+import { runOrchestratorSession } from '#agent/harnesses/prokop/goals/orchestrator-session';
 
 /**
  * Goal domain: the goal evaluator model turn. Moved byte-for-byte from
@@ -9,8 +9,8 @@ import { runOrchestratorSession } from '#agent/harnesses/prokop/workflow/orchest
  * path (module storage plus the pinned core orchestrator-session
  * compatibility forwarder), and `evaluateGoalWithDeps` runs against the
  * injected transcript listing and orchestrator turn contract captured by
- * the goal domain plugin. The composed path never imports workflow
- * implementation code: the plugin bridges the shared
+ * the goal domain plugin. The composed path never imports the orchestrator
+ * implementation: the plugin bridges the shared
  * `capek.orchestrator-session` contract into these structural types.
  */
 
@@ -82,7 +82,7 @@ async function buildTranscriptSummary(
 }
 
 /** Structural copy of the shared orchestrator-session contract result. The
- * goal domain never imports workflow implementation code; the plugin
+ * goal domain never imports the orchestrator implementation; the plugin
  * bridges the named `capek.orchestrator-session` contract into this shape. */
 export interface GoalOrchestratorTurnOptions {
   parentSessionId: string;

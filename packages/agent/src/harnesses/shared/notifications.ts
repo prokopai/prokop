@@ -20,12 +20,12 @@ export async function notifyHarnessTurnFinished(message: Message | null | undefi
   }
 }
 
-/** Push for a permission ask the controller must answer. */
-export async function notifyHarnessPermissionRequired(requestId: string, rootSessionId: string): Promise<void> {
+/** Push for an approval or question the controller must answer. */
+export async function notifyHarnessAnswerRequired(requestId: string, rootSessionId: string): Promise<void> {
   try {
     if (await isLearningRun(rootSessionId)) return;
-    getHarnessNotificationPort()?.notifyPermissionRequired(requestId, rootSessionId);
+    getHarnessNotificationPort()?.notifyAnswerRequired(requestId, rootSessionId);
   } catch (error: unknown) {
-    console.warn('[harness] Permission notification failed:', error instanceof Error ? error.message : 'unknown error');
+    console.warn('[harness] Answer notification failed:', error instanceof Error ? error.message : 'unknown error');
   }
 }

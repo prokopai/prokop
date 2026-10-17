@@ -31,6 +31,10 @@ export function permissionEventId(requestId: string): string {
   return `permission:${requestId}`;
 }
 
+export function questionEventId(requestId: string): string {
+  return `question:${requestId}`;
+}
+
 // ── Payload construction ─────────────────────────────────────
 
 /** Subscription fields the payload builders need; the domain never imports
@@ -74,7 +78,7 @@ export function buildRetryPushPayloadV1(
   subscription: PushPayloadSubscription,
 ): ProkopaiPushPayloadV1 {
   const route = `/server/${subscription.client_server_id}/workspace/session/${
-    delivery.event_id.includes('permission:') ? '' : delivery.event_id
+    /^(?:permission|question):/.test(delivery.event_id) ? '' : delivery.event_id
   }`;
   return {
     version: 1,

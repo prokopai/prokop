@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from 'bun:test';
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { runClaudeTurn } from '@prokopai/agent/internal/harnesses/claude-cli/sdk-turn';
+import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 
 function event(value: unknown): SDKMessage { return value as SDKMessage; }
 
@@ -23,6 +24,23 @@ test('Claude temp environment is per turn and leaves the host environment intact
     })) { /* Consume only fake events. */ }
   }
   expect(process.env.TMPDIR).toBe(hostTemp);
+});
+
+test('Claude keeps waiting for a permission answer as long as the prompt is shown', async () => {
+  let hookTimeoutSeconds: number | undefined;
+  for await (const _item of runClaudeTurn({ ...base,
+    canUseTool: async () => ({ behavior: 'deny', message: 'denied' }),
+    start: (_prompt, options) => {
+      hookTimeoutSeconds = options.hooks?.PreToolUse?.[0]?.timeout;
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'done' });
+      }
+      return stream();
+    },
+  })) { /* Consume only fake events. */ }
+  // Without it the CLI abandons the call after its 10 minute hook default.
+  expect(hookTimeoutSeconds! * 1000).toBeGreaterThan(getPermissionTimeoutMs());
 });
 
 test('Claude chat sends its local user UUID as the native prompt UUID', async () => {

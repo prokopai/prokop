@@ -16,10 +16,8 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Preconfig, Workspace } from '@prokopai/sdk/types';
-import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import {
-  getContextAssembler,
   type ContextAssemblyData,
 } from '@prokopai/agent/internal/harnesses/prokop/context/assembler';
 import {
@@ -30,22 +28,15 @@ import {
 import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
 import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
 import type { RuntimePlugin, PluginContext } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/types';
-import { createComposition, enterAgentScope } from '#tests/engine/helpers/standalone-composition';
+import { enterAgentScope } from '#tests/engine/helpers/standalone-composition';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
-import { CURRENT_CONTEXT_SECTION_IDS } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/context-sections';
 import { currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { buildSystemMessage } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/legacy-system-message';
-import {
-  CURRENT_SCHEDULER_DOMAIN_PLUGIN_ID,
-  capekSchedulerDomainKey,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/scheduler-domain';
 import {
   CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID,
   capekSessionSearchDomainKey,
   installSessionSearchToolFallback,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
 import { CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
-import { CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/workflow-domain';
 import { CURRENT_MEMORY_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
 import { CURRENT_SKILLS_DOMAIN_PLUGIN_ID } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
 import { resetProviders } from '@prokopai/core/infrastructure/providers/registry';
@@ -53,11 +44,8 @@ import {
   resetDomainToolFallbacksForTests,
   DOMAIN_TOOL_PAYLOAD_FIELD,
   getContributedDomainToolPayloads,
-  getDomainToolFallback,
 } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { configureRuntimeHost, type PendingAskRecord, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
-import { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import { configureSchedulerHost, type SchedulerHost } from '@prokopai/agent/internal/harnesses/prokop/scheduler/host';
 import {
   configureSessionSearchHost,
   SESSION_SEARCH_GUIDANCE,
@@ -101,7 +89,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -147,18 +135,6 @@ function permissionAwareHost(): RuntimeHost {
   };
 }
 
-function minimalSchedulerHost(): SchedulerHost {
-  return {
-    create: () => {
-      throw new Error('not configured');
-    },
-    get: () => null,
-    list: () => [],
-    update: () => null,
-    delete: () => false,
-    trigger: () => {},
-  };
-}
 
 function searchHost(overrides: Partial<SessionSearchHost> = {}): SessionSearchHost {
   const workspace = searchWorkspace(true);
@@ -192,8 +168,6 @@ function searchWorkspace(enabled: boolean, risk: 'none' | 'low' = 'none', id = '
       memory: { enabled: false, permissionRisk: 'low' },
       skills: { managementEnabled: false, permissionRisk: 'low' },
       sessionSearch: { enabled, permissionRisk: risk, includeToolResults: false },
-      workflow: { enabled: false },
-      scheduling: { enabled: false, permissionRisk: 'none' },
     },
     createdAt: '',
     updatedAt: '',
@@ -208,7 +182,6 @@ function configureEnvironment(): void {
   configureAgentSource();
   configureInstructionSource();
   configureSessionSearchHost();
-  configureSchedulerHost(minimalSchedulerHost());
   configureWorkspaceToolDiscovery();
 }
 
@@ -308,7 +281,7 @@ describe('C5 session-search composed execution', () => {
     try {
       await enterAgentScope(agentScope, async () => {
         const tools = await buildAiSdkTools(buildOptions(workspacePath, workspace.id));
-        expect(Object.keys(tools)).toEqual(['session_search', 'retrieve-tool-output']);
+        expect(Object.keys(tools)).toEqual(['session_search']);
         const result = await tools['session_search']!.execute!(
           { query: 'needle', scope: 'workspace' },
           { toolCallId: 'call-search', messages: [] },
@@ -729,110 +702,9 @@ describe('C5 session-search domain composition', () => {
 });
 
 describe('unscoped compatibility fallback', () => {
-  test('the explicitly installed fallback keeps the unscoped tool behavior', async () => {
-    const { workspacePath } = await searchWorkspaceDir('fallback');
-    const workspace = searchWorkspace(true);
-    configureStorage(createInMemoryStorageBundle({ workspaces: [workspace] }));
-    configureSessionSearchHost(searchHostWithFound());
-    installSessionSearchToolFallback();
-
-    const tools = await buildAiSdkTools(buildOptions(workspacePath, workspace.id));
-    expect(tools).toHaveProperty('session_search');
-    const result = await tools['session_search']!.execute!(
-      { query: 'needle', scope: 'workspace' },
-      { toolCallId: 'call-fallback', messages: [] },
-    );
-    expect(result).toEqual(foundShape);
-  });
-
-  test('without a registered fallback the unscoped path omits the tool', async () => {
-    const { workspacePath } = await searchWorkspaceDir('no-fallback');
-    const workspace = searchWorkspace(true);
-    configureStorage(createInMemoryStorageBundle({ workspaces: [workspace] }));
-    configureSessionSearchHost(searchHostWithFound());
-    expect(getDomainToolFallback('session_search')).toBeNull();
-
-    const tools = await buildAiSdkTools(buildOptions(workspacePath, workspace.id));
-    expect(tools).not.toHaveProperty('session_search');
-  });
-
-  test('resetDomainToolFallbacksForTests resets the registry', () => {
-    installSessionSearchToolFallback();
-    expect(getDomainToolFallback('session_search')).not.toBeNull();
-    resetDomainToolFallbacksForTests();
-    expect(getDomainToolFallback('session_search')).toBeNull();
-  });
-
-  test('the unscoped fallback resolves the search host at execution time like pre-C5', async () => {
-    const { workspacePath } = await searchWorkspaceDir('fallback-host');
-    const workspace = searchWorkspace(true);
-    configureStorage(createInMemoryStorageBundle({ workspaces: [workspace] }));
-    installSessionSearchToolFallback();
-    // Configured after installation: pre-C5 read the module host at
-    // execution time, and the fallback keeps that.
-    configureSessionSearchHost(searchHostWithFound());
-
-    const tools = await buildAiSdkTools(buildOptions(workspacePath, workspace.id));
-    const result = await tools['session_search']!.execute!(
-      { query: 'needle', scope: 'workspace' },
-      { toolCallId: 'call-fallback-host', messages: [] },
-    );
-    expect(result).toEqual(foundShape);
-  });
 });
 
 describe('contributed domain tool payload context', () => {
-  test('the three states: unscoped null, composed empty map, composed payload map', async () => {
-    expect(getContributedDomainToolPayloads()).toBeNull();
-
-    const workspace = searchWorkspace(true);
-    configureStorage(createInMemoryStorageBundle({ workspaces: [workspace] }));
-    configureSessionSearchHost(searchHostWithFound());
-    installSessionSearchToolFallback();
-
-    const withoutDomains = currentAgentPlugins().filter(
-      (plugin) => plugin.id !== CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_SCHEDULER_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_MEMORY_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_SKILLS_DOMAIN_PLUGIN_ID,
-    );
-    const emptyProcess = await createCurrentProcessScope();
-    const emptyAgent = await createAgentScope(emptyProcess, [...withoutDomains]);
-    const fullProcess = await createCurrentProcessScope();
-    const fullAgent = await createCurrentAgentScope(fullProcess);
-    try {
-      enterAgentScope(emptyAgent, () => {
-        const payloads = getContributedDomainToolPayloads();
-        expect(payloads).not.toBeNull();
-        expect(payloads?.size).toBe(0);
-      });
-
-      enterAgentScope(fullAgent, () => {
-        const service = fullAgent.require(capekSessionSearchDomainKey);
-        const schedulerService = fullAgent.require(capekSchedulerDomainKey);
-        const payloads = getContributedDomainToolPayloads();
-        expect(payloads?.size).toBe(9);
-        expect(payloads?.get('session_search')).toBe(service.tools[0]);
-        expect(payloads?.get('scheduler')).toBe(schedulerService.tools[0]);
-        expect(payloads?.get('task')).toBeDefined();
-        expect(payloads?.get('workflow')).toBeDefined();
-        expect(payloads?.get('skill')).toBeDefined();
-        expect(payloads?.get('memory')).toBeDefined();
-        expect(payloads?.get('skill_manage')).toBeDefined();
-        expect(payloads?.get('agent_memory')).toBeDefined();
-        expect(payloads?.get('agent_skill_manage')).toBeDefined();
-      });
-
-      expect(getContributedDomainToolPayloads()).toBeNull();
-    } finally {
-      await fullAgent.dispose();
-      await fullProcess.dispose();
-      await emptyAgent.dispose();
-      await emptyProcess.dispose();
-    }
-  });
 
   test('a foreign same-name tool without the payload field does not shadow the domain payload', async () => {
     const foreign: RuntimePlugin<unknown> = {
@@ -906,9 +778,7 @@ describe('contributed domain tool payload context', () => {
   test('nested and interleaved scopes isolate payloads', async () => {
     const withoutDomains = currentAgentPlugins().filter(
       (plugin) => plugin.id !== CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_SCHEDULER_DOMAIN_PLUGIN_ID
         && plugin.id !== CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID
-        && plugin.id !== CURRENT_WORKFLOW_DOMAIN_PLUGIN_ID
         && plugin.id !== CURRENT_MEMORY_DOMAIN_PLUGIN_ID
         && plugin.id !== CURRENT_SKILLS_DOMAIN_PLUGIN_ID,
     );
@@ -934,66 +804,4 @@ describe('contributed domain tool payload context', () => {
 });
 
 describe('C5 facade and current context parity', () => {
-  test('facade and current composed output stay byte-identical to the fixed builder with search enabled', async () => {
-    const root = await tempDir('parity-builder');
-    const workspacePath = join(root, 'workspace');
-    await mkdir(workspacePath, { recursive: true });
-    const workspace: Workspace = {
-      ...searchWorkspace(true, 'none', 'ws-parity'),
-      path: workspacePath,
-    };
-    const storage = createInMemoryStorageBundle({ workspaces: [workspace] });
-    configureStorage(storage);
-
-    const data: ContextAssemblyData = {
-      preconfig,
-      workspacePath,
-      workspaceId: workspace.id,
-      additionalPaths: [],
-      selfDelegationAvailable: true,
-    };
-    const fixed = await buildSystemMessage(data);
-    expect(fixed).toContain('You can use session_search');
-
-    const facadeProcess = await createCurrentProcessScope();
-    const facade = await createComposition(facadeProcess, {
-      storage,
-      configuration: createDefaultRuntimeConfiguration(),
-      host: minimalHost(),
-      contextSources: {},
-      workspaceToolDiscovery: {},
-      sandboxController: new SandboxController(),
-      providerOverrides: new Map(),
-    });
-    try {
-      const facadeOrdered = await enterAgentScope(facade.agentScope, () =>
-        getContextAssembler().build(data));
-      expect(facadeOrdered).toBe(fixed);
-      const facadeGuidance = facade.agentScope.listContextSections().find(
-        (section) => section.id === 'session-search-guidance',
-      );
-      expect(facadeGuidance?.pluginId).toBe('facade.context-sections');
-    } finally {
-      await facade.agentScope.dispose();
-      await facadeProcess.dispose();
-    }
-
-    const currentProcess = await createCurrentProcessScope();
-    const currentAgent = await createCurrentAgentScope(currentProcess);
-    try {
-      const currentOrdered = await enterAgentScope(currentAgent, () =>
-        getContextAssembler().build(data));
-      expect(currentOrdered).toBe(fixed);
-      expect(currentAgent.listContextSections().map((section) => section.id)).toEqual([
-        ...CURRENT_CONTEXT_SECTION_IDS,
-      ]);
-      const currentGuidance = currentAgent.listContextSections().find(
-        (section) => section.id === 'session-search-guidance',
-      );
-      expect(currentGuidance?.pluginId).toBe(CURRENT_SESSION_SEARCH_DOMAIN_PLUGIN_ID);
-    } finally {
-      await currentAgent.dispose();
-      await currentProcess.dispose();
-    }
-  });
 });

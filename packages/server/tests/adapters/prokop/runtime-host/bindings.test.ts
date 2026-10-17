@@ -43,13 +43,13 @@ describe('Čapek binding group adapters', () => {
       'expirePermissionRequest', 'expireOldPermissionRequests', 'cancelPendingRequestsBySession',
       'listPendingAsksBySession', 'listPendingAsksByRootSession', 'listPendingRequestsByRootSession',
       'matchGrant', 'createGrantFromOptions', 'getSessionAutoApproveSeverity',
-      'getPermissionTimeoutMs', 'notifyPermissionRequired',
+      'getPermissionTimeoutMs', 'notifyAnswerRequired',
     ].sort());
 
     expect(prokopInteractionBindings.getPermissionTimeoutMs).toBe(getPermissionTimeoutMs);
     expect(typeof prokopInteractionBindings.createPendingAsk).toBe('function');
-    expect(typeof prokopInteractionBindings.notifyPermissionRequired).toBe('function');
-    expect(getProkopNotificationsApplication().notifyPermissionRequired).toBeDefined();
+    expect(typeof prokopInteractionBindings.notifyAnswerRequired).toBe('function');
+    expect(getProkopNotificationsApplication().notifyAnswerRequired).toBeDefined();
   });
 
   test('interaction auto-approve severity reads the session record, inheriting the standard default', async () => {

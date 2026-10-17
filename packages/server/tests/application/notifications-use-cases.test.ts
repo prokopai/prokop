@@ -149,7 +149,9 @@ function makeDeps(state: FakeState, overrides: Partial<NotificationsApplicationD
       ? ({ id: 'sess-1', parentId: null, metadata: null } as Session)
       : null),
     canNotifyForSession: () => true,
-    getPendingAsk: (requestId) => (requestId === 'pending-req' ? { status: 'pending' } : { status: 'resolved' }),
+    getPendingAsk: (requestId) => (requestId === 'pending-req' ? { status: 'pending', isPermission: true }
+      : requestId === 'question-req' ? { status: 'pending', isPermission: false }
+        : { status: 'resolved', isPermission: true }),
     permissionTimeoutMs: () => 1_800_000,
     getControllerClientId: () => null,
     ...overrides,
@@ -381,28 +383,39 @@ describe('notifications application use cases', () => {
   test('permission notifications dispatch only for still-pending asks in eligible sessions', async () => {
     const application = makeApplication(state);
 
-    await application.dispatchPendingPermissionNotification('resolved-req', 'sess-1');
+    await application.dispatchPendingAnswerNotification('resolved-req', 'sess-1');
     expect(state.log.some((entry) => entry.startsWith('reserve:permission:'))).toBe(false);
 
-    await application.dispatchPendingPermissionNotification('pending-req', 'sess-1');
+    await application.dispatchPendingAnswerNotification('pending-req', 'sess-1');
     expect(state.log.some((entry) => entry.startsWith('reserve:permission:pending-req:'))).toBe(true);
 
     const ineligible = createNotificationsApplication(makeDeps(state, {
       canNotifyForSession: () => false,
     }));
     state.deliveries.clear();
-    await ineligible.dispatchPendingPermissionNotification('pending-req', 'sess-1');
+    await ineligible.dispatchPendingAnswerNotification('pending-req', 'sess-1');
     expect(state.log.filter((entry) => entry.startsWith('reserve:permission:pending-req:')).length).toBe(1);
   });
 
-  test('notifyPermissionRequired works when the method is destructured', async () => {
+  test('a waiting question pushes "has a question", an approval "needs your approval"', async () => {
+    const application = makeApplication(state);
+    await application.dispatchPendingAnswerNotification('question-req', 'sess-1');
+    await application.dispatchPendingAnswerNotification('pending-req', 'sess-1');
+    const types = state.sent.map((sent) => (JSON.parse(sent.payload) as { type: string; eventId: string }));
+    expect(types.map(({ type, eventId }) => `${type} ${eventId}`)).toEqual(expect.arrayContaining([
+      'question_asked question:question-req',
+      'permission_required permission:pending-req',
+    ]));
+  });
+
+  test('notifyAnswerRequired works when the method is destructured', async () => {
     const timers = patchTimers();
     try {
       const application = makeApplication(state);
-      const { notifyPermissionRequired } = application;
+      const { notifyAnswerRequired } = application;
 
       // Destructured invocation must not depend on `this`.
-      notifyPermissionRequired('pending-req', 'sess-1');
+      notifyAnswerRequired('pending-req', 'sess-1');
 
       expect(timers.timeouts).toEqual([{ callback: expect.any(Function), delay: 3000 }]);
       timers.timeouts[0].callback();

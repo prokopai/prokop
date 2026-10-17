@@ -14,6 +14,7 @@
  *   consults those overrides for mandatory decisions.
  */
 import { resolveAskAuthority } from '@prokopai/core/domains/permissions/ask-authority';
+import { readAskConcerns } from '@prokopai/core/domains/permissions/ask';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Ask } from '@prokopai/sdk/tool';
@@ -85,6 +86,35 @@ export function buildPermissionKey(
   return toolName;
 }
 
+/** What a remembered approval of this ask covers. Shell asks key on the exact
+ * command and working directory and file asks on the exact paths, action and
+ * concerns, like the Claude and Codex harnesses; feature asks (memory,
+ * scheduler, session search) on their declared key or resource. */
+export function permissionKeyForAsk(toolName: string, ask: PermissionAsk): string {
+  const metadata = ask.metadata as Record<string, unknown> | undefined;
+  const resource = ask.resource ?? 'file';
+  if (resource === 'shell-command' && typeof metadata?.command === 'string') {
+    return JSON.stringify([typeof metadata.cwd === 'string' ? metadata.cwd : null, metadata.command]);
+  }
+  if (ask.paths && ask.paths.length > 0) {
+    const concerns = readAskConcerns(ask)?.concerns ?? [];
+    return JSON.stringify([ask.action ?? null, [...concerns].sort(), [...ask.paths].sort()]);
+  }
+  if (typeof metadata?.permissionKey === 'string') return metadata.permissionKey;
+  return buildPermissionKey(toolName, resource, ask.patterns);
+}
+
+/** True when the ask offered this grant scope (asks without a list offer all). */
+export function isGrantScopeOffered(ask: Ask, grant: AskPermissionResponse['grant']): boolean {
+  const offered = ask.type === 'permission' ? (ask as PermissionAsk).allowedScopes : undefined;
+  return (offered ?? VALID_GRANT_SCOPES).includes(grant as GrantScope);
+}
+
+/** Catastrophic asks are decided by a human every time; no grant covers them. */
+export function isCatastrophicAsk(ask: Ask): boolean {
+  return ask.type === 'permission' && readAskConcerns(ask as PermissionAsk)?.catastrophic === true;
+}
+
 export function isDangerousShellIdentity(identity: string | undefined): boolean {
   if (!identity) return false;
   const lower = identity.toLowerCase();
@@ -109,8 +139,10 @@ export function buildGrantParams(
   let grantScope: GrantScope = response.grant;
   const boundRootSessionId = record.rootSessionId ?? record.sessionId;
 
-  if (permAsk.intents && permAsk.intents.length > 0) {
-    const intent: PermissionIntent = permAsk.intents[0];
+  // A non-persistable intent's targets are too broad to remember (the
+  // terminal tool's "terminal"); it falls back to the exact-command key below.
+  const intent: PermissionIntent | undefined = permAsk.intents?.[0];
+  if (intent && intent.persistable !== false) {
     if (!intent.allowedScopes.includes(grantScope) || grantScope === 'once') return [];
     const duration = response.duration || (grantScope === 'session' ? 30 * 60 * 1000 : undefined);
 
@@ -132,22 +164,24 @@ export function buildGrantParams(
     }));
   }
 
+  if (!isGrantScopeOffered(permAsk, grantScope) || isCatastrophicAsk(permAsk)) return [];
   const metadata = permAsk.metadata as Record<string, unknown> | undefined;
   const identity = typeof metadata?.baseCommand === 'string' ? metadata.baseCommand : undefined;
   if (permAsk.resource === 'shell-command' && isDangerousShellIdentity(identity)) {
     grantScope = 'once';
   }
   const duration = response.duration || (grantScope === 'session' ? 30 * 60 * 1000 : undefined);
+  const permissionKey = permissionKeyForAsk(record.toolName, permAsk);
   return [{
     workspaceId: record.workspaceId,
     toolName: record.toolName,
     resource: permAsk.resource ?? 'file',
     action: permAsk.action,
-    permissionKey: buildPermissionKey(record.toolName, permAsk.resource ?? 'file', permAsk.patterns),
+    permissionKey,
     grantOptions: {
       scope: grantScope,
-      matcher: (permAsk.resource ?? 'file') === 'shell-command' ? 'shell-command' : 'exact',
-      patterns: permAsk.patterns,
+      matcher: 'exact',
+      patterns: [permissionKey],
       action: permAsk.action,
       duration: grantScope === 'session' ? duration : undefined,
       description: permAsk.question,

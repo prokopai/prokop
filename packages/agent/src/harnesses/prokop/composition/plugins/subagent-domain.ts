@@ -31,7 +31,6 @@ import {
   getSubagentToolDefinition,
   type GetSubagentToolDefinitionOptions,
   type SubagentInput,
-  type SubagentOutput,
   type SubagentServiceBroadcasts,
   type SubagentServiceDeps,
   type SubagentServiceSessionAccess,
@@ -54,7 +53,7 @@ import {
 
 export const CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID = 'current.subagent-domain';
 export const SUBAGENT_TOOL_CONTRIBUTION_ID = 'subagent.task';
-/** Before session-search (700) and scheduler (750) so the contributed tool
+/** Before session-search (700) so the contributed tool
  * order keeps `task` ahead of the workspace-gated domain tools, matching
  * the pre-C5 buildAiSdkTools phase-1 placement. */
 export const SUBAGENT_TOOL_CONTRIBUTION_ORDER = 650;
@@ -65,13 +64,6 @@ export interface SubagentDomainService {
   /** Depth gate shared by the task tool payload. */
   canSpawnSubagent(sessionId: string): Promise<boolean>;
   resolveTargets(options: ResolveSubagentTargetsOptions): Promise<Preconfig[]>;
-  /** Composed leaf execution for other C5 domains (workflow): runs the task
-   * execution path over this domain's scope-captured deps, never module
-   * globals. */
-  execute(input: SubagentInput): Promise<SubagentOutput>;
-  /** Scope-captured subagent preconfig listing for other C5 domains
-   * (workflow decomposition). */
-  listSubagents(): Promise<Preconfig[]>;
   /** Whether the current session may delegate to a fresh instance of its own
    * preconfig: task tool visible + allowSelfAsSubagent + the resolved target
    * list contains the current preconfig. Mirrors the pre-C5 agent.ts
@@ -94,8 +86,8 @@ function deliver(host: RuntimeHost, delivery: RuntimeDelivery): void {
   host.delivery.emit(delivery);
 }
 
-/** Runtime-host delivery projection shared by the C5 domain plugins
- * (subagent, workflow) that route leaf events through the captured host. */
+/** Runtime-host delivery projection the subagent domain routes child
+ * session events through. */
 export function broadcastsFromHost(host: RuntimeHost): SubagentServiceBroadcasts {
   return {
     event: (event) => deliver(host, { event, audience: { scope: 'global' } }),
@@ -242,8 +234,6 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
           }),
         ],
         canSpawnSubagent: async (sessionId) => canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession),
-        execute: (input) => executeSubagentWithDeps(input, serviceDeps),
-        listSubagents: listSubagentPreconfigsScoped,
         resolveTargets: (options) => resolveEffectiveSubagentTargets(options, {
           getSession: sessionAccess.getSession,
           listPreconfigs: listSubagentPreconfigsScoped,

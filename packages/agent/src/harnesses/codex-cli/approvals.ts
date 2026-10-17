@@ -8,7 +8,7 @@ import {
   shouldAutoApproveAsk,
 } from '@prokopai/core/domains/permissions';
 import { sessionPermissionRoots } from '#agent/harnesses/shared/permission-roots';
-import { notifyHarnessPermissionRequired } from '#agent/harnesses/shared/notifications';
+import { notifyHarnessAnswerRequired } from '#agent/harnesses/shared/notifications';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import { getPermissionTimeoutMs } from '@prokopai/core/infrastructure/runtime/environment';
 import { harnessAsks } from '@prokopai/core/infrastructure/runtime/harness-asks';
@@ -99,7 +99,7 @@ export class CodexApprovals {
         delivery.sendToAskTargets(controllerSessionId, AUTHORITY, { type: 'ask.request',
           sessionId: controllerSessionId, toolCallId, toolName, requestId, authority: AUTHORITY,
           ask: deliveredAsk });
-        void notifyHarnessPermissionRequired(requestId, controllerSessionId);
+        void notifyHarnessAnswerRequired(requestId, controllerSessionId);
       } catch {
         this.settle(requestId, DECLINE, 'expired');
       }

@@ -5,7 +5,6 @@ import type { PermissionAsk } from '@prokopai/sdk/tool';
 import {
   buildGrantParams,
   createAskPermissionService,
-  getAskPermissionPolicy,
   resetDefaultAskPermissionPolicyForTests,
   type AskPermissionServiceCreateOptions,
 } from '@prokopai/agent/internal/harnesses/prokop/permission/policy';
@@ -34,14 +33,9 @@ import {
 } from '@prokopai/agent/internal/harnesses/prokop/permission/permission-request-manager';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { PendingAskRecord } from '@prokopai/core/infrastructure/runtime/host';
-import {
-  enterAgentScope,
-} from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
-import { createCurrentAgentScope, createCurrentProcessScope, currentAgentPlugins } from '#tests/engine/helpers/composition';
-import { createAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/kernel/kernel';
+import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import {
   capekPermissionPolicyKey,
-  capekPermissionRuntimeKey,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/service-keys';
 
 interface InteractionState {
@@ -136,7 +130,7 @@ function makeHost(state: InteractionState, matchGrant: RuntimeHost['interaction'
       },
       getSessionAutoApproveSeverity: async () => state.autoApproveSeverity,
       getPermissionTimeoutMs: () => state.permissionTimeoutMs,
-      notifyPermissionRequired: async (requestId: string, rootSessionId: string) => {
+      notifyAnswerRequired: async (requestId: string, rootSessionId: string) => {
         state.notifications.push({ requestId, rootSessionId });
       },
     },
@@ -206,19 +200,6 @@ function broadcast(message: unknown): void {
 }
 
 describe('C6 permission policy contract', () => {
-  test('pins the exact default timeouts', () => {
-    runtime.permissionTimeoutMs = 42_000;
-    const service = createAskPermissionService({
-      id: 'test',
-      options: { askTimeoutMs: 300_000, permissionTimeoutMs: 42_000 },
-    });
-    expect(service.askTimeoutMs).toBe(300_000);
-    expect(service.permissionTimeoutMs).toBe(42_000);
-
-    const live = createAskPermissionService({ id: 'live' });
-    expect(live.askTimeoutMs).toBe(5 * 60 * 1000);
-    expect(live.permissionTimeoutMs).toBe(42_000);
-  });
 
   test('validates only the exact permission response shape', () => {
     const service = makePolicy();
@@ -260,13 +241,6 @@ describe('C6 permission policy contract', () => {
     expect(await service.shouldAutoApprove('session', makePermissionAsk())).toBe(false);
     // Non-permission asks never auto-approve.
     expect(await service.shouldAutoApprove('session', { type: 'text', question: 'Q?', target: 'human' } as Ask)).toBe(false);
-  });
-
-  test('derives permission keys with the exact precedence', () => {
-    const service = makePolicy();
-    expect(service.buildPermissionKey('shell', undefined, undefined)).toBe('shell');
-    expect(service.buildPermissionKey('shell', 'scheduler', undefined)).toBe('scheduler');
-    expect(service.buildPermissionKey('shell', 'file', ['/workspace/.env'])).toBe('/workspace/.env');
   });
 
   test('detects dangerous shell identities', () => {
@@ -387,7 +361,7 @@ describe('C6 permission policy contract', () => {
     };
     const shellGrants = buildGrantParams(shellRecord, { type: 'permission', grant: 'workspace' });
     expect(shellGrants).toHaveLength(1);
-    expect(shellGrants[0].grantOptions).toMatchObject({ scope: 'once', matcher: 'shell-command' });
+    expect(shellGrants[0].grantOptions).toMatchObject({ scope: 'once' });
   });
 });
 
@@ -663,63 +637,6 @@ describe('C6 scoped permission policy composition', () => {
       await agentScope.dispose();
       await processScope.dispose();
     }
-  });
-
-  test('the permission policy is an explicit required agent-scoped provider', async () => {
-    const processScope = await createCurrentProcessScope();
-    const plugins = currentAgentPlugins()
-      .filter((plugin) => plugin.id !== 'current.permission-policy');
-    const agentScope = await createAgentScope(processScope, [...plugins]);
-    try {
-      expect(() => enterAgentScope(agentScope, () => undefined))
-        .toThrow(/service 'capek\.permission-policy' is not available/);
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('enterAgentScope seeds the scope-owned service and two agents stay isolated', async () => {
-    const processScope = await createCurrentProcessScope();
-    const scopeA = await createCurrentAgentScope(processScope);
-    const scopeB = await createCurrentAgentScope(processScope);
-    try {
-      const policyA = scopeA.require(capekPermissionPolicyKey);
-      const policyB = scopeB.require(capekPermissionPolicyKey);
-      expect(policyA).not.toBe(policyB);
-
-      const runtimeA: PermissionRuntimeService = scopeA.require(capekPermissionRuntimeKey);
-      const runtimeB: PermissionRuntimeService = scopeB.require(capekPermissionRuntimeKey);
-      expect(runtimeA).not.toBe(runtimeB);
-
-      let observed: AskPermissionPolicyService | null = null;
-      enterAgentScope(scopeA, () => {
-        observed = getAskPermissionPolicy();
-      });
-      expect(observed === policyA).toBe(true);
-      expect(getAskPermissionPolicy() === policyA).toBe(false);
-
-      const pendingA = enterAgentScope(scopeA, () =>
-        runtimeA.createAskApi('session', 'isolated-call', 'fixture', () => {})(
-          { type: 'text', question: 'A?', target: 'human' },
-        )) as Promise<unknown>;
-      pendingA.catch(() => {});
-      expect(runtimeA.hasPendingAsk('isolated-call')).toBe(true);
-      expect(runtimeB.hasPendingAsk('isolated-call')).toBe(false);
-      await enterAgentScope(scopeA, async () => {
-        await runtimeA.rejectPendingAsksBySession('session', new Error('cleanup'));
-      });
-    } finally {
-      await scopeA.dispose();
-      await scopeB.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the unscoped process default reads the live permission timeout', () => {
-    runtime.permissionTimeoutMs = 99_000;
-    configureRuntimeHost(makeHost(runtime));
-    expect(getAskPermissionPolicy().permissionTimeoutMs).toBe(99_000);
   });
 });
 

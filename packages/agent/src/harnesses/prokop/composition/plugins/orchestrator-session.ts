@@ -1,18 +1,15 @@
 import type { RuntimePlugin, PluginContext } from '#agent/harnesses/prokop/composition/kernel/types';
-import { runOrchestratorSession } from '#agent/harnesses/prokop/workflow/orchestrator-session';
+import { runOrchestratorSession } from '#agent/harnesses/prokop/goals/orchestrator-session';
 import {
   capekOrchestratorSessionKey,
   type OrchestratorSessionContract,
 } from '#agent/harnesses/prokop/composition/plugins/service-keys';
 
 /**
- * C5 provider for the shared workflow/goals orchestrator model-turn
- * contract (`capek.orchestrator-session`). Wraps the current implementation
- * at `workflow/orchestrator-session.ts` with its exact function identity, so
- * the workflow domain plugin and, next slice, the goals domain plugin
- * consume the same named service without owning workflow code. The provider
- * is a composition bridge; its workflow-domain import is pinned by the
- * `plugins-no-workflow-ownership` boundary rule.
+ * Provider for the goals orchestrator model-turn contract
+ * (`capek.orchestrator-session`). Wraps the implementation at
+ * `goals/orchestrator-session.ts` with its exact function identity, so the
+ * goal evaluator consumes the named service instead of importing it.
  */
 export function orchestratorSessionProviderPlugin(id: string): RuntimePlugin<unknown> {
   return {

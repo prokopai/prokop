@@ -66,7 +66,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -262,7 +262,7 @@ describe('C5 subagent composed scope ownership', () => {
         sessionId: 'sess-root',
         canSpawnSubagents: true,
       }));
-      expect(Object.keys(built)).toEqual(['task', 'retrieve-tool-output']);
+      expect(Object.keys(built)).toEqual(['task']);
       const description = String((built.task as { description?: string })?.description ?? '');
       expect(description).toContain('- explore: Research tasks');
       expect(description).toContain('- research: Deep research');
@@ -290,7 +290,7 @@ describe('C5 subagent composed scope ownership', () => {
           sessionId: 'child-2',
           canSpawnSubagents: true,
         });
-        expect(Object.keys(tools)).toEqual(['retrieve-tool-output']);
+        expect(Object.keys(tools)).toEqual([]);
       });
       expect(await agentScope.require(capekSubagentDomainKey).canSpawnSubagent('child-2')).toBe(false);
       expect(await agentScope.require(capekSubagentDomainKey).canSpawnSubagent('root')).toBe(true);
@@ -298,37 +298,6 @@ describe('C5 subagent composed scope ownership', () => {
       await agentScope.dispose();
       await processScope.dispose();
     }
-  });
-
-  test('the unscoped fallback path keeps the pre-C5 build order and the dynamic definition from module accessors', async () => {
-    configureStorage(createInMemoryStorageBundle());
-    createSession(makeSession({ id: 'sess-root', preconfigId: 'agent-x' }));
-
-    const tools = await buildAiSdkTools({
-      toolNames: ['ext'],
-      workspacePath: undefined,
-      workspaceId: undefined,
-      sessionId: 'sess-root',
-      canSpawnSubagents: true,
-    });
-    expect(Object.keys(tools)).toEqual(['task', 'retrieve-tool-output']);
-    const description = String((tools.task as { description?: string })?.description ?? '');
-    expect(description).toContain('- explore: Research tasks');
-    expect(description).toContain('- research: Deep research');
-  });
-
-  test('the unscoped fallback omits the task tool when spawning is disabled', async () => {
-    configureStorage(createInMemoryStorageBundle());
-    createSession(makeSession({ id: 'sess-root' }));
-
-    const tools = await buildAiSdkTools({
-      toolNames: [],
-      workspacePath: undefined,
-      workspaceId: undefined,
-      sessionId: 'sess-root',
-      canSpawnSubagents: false,
-    });
-    expect(Object.keys(tools)).toEqual(['retrieve-tool-output']);
   });
 });
 

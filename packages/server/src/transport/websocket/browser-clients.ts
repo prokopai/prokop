@@ -6,7 +6,7 @@ import { broadcastToSessionEvent, sendToAskTargetsEvent, sendToConnectionEvent }
 
 /** The browser bridge's view of the WebSocket clients. Push notifications come from the caller. */
 export function createBrowserClientsPort(
-  notifyPermissionRequired: BrowserClientsPort['notifyPermissionRequired'],
+  notifyAnswerRequired: BrowserClientsPort['notifyAnswerRequired'],
 ): BrowserClientsPort {
   return {
     clients: () => getAllClients().values(),
@@ -18,6 +18,6 @@ export function createBrowserClientsPort(
     sendToConnection: (connectionId, message) => sendToConnectionEvent(connectionId as ConnectionId, message),
     broadcastToSession: broadcastToSessionEvent,
     sendToAskTargets: sendToAskTargetsEvent,
-    notifyPermissionRequired,
+    notifyAnswerRequired,
   };
 }

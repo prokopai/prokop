@@ -40,7 +40,6 @@ import { configureStorage } from '@prokopai/core/infrastructure/storage/runtime'
 import { createInMemoryStorageBundle } from '@prokopai/core/infrastructure/storage/memory';
 import { configureWorkspaceToolDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
 import { MEMORY_GUIDANCE } from '@prokopai/agent/internal/harnesses/shared/memory/registry';
-import { SKILL_MANAGE_GUIDANCE } from '@prokopai/agent/internal/harnesses/shared/skills/skill-manage-tool';
 
 const roots: string[] = [];
 
@@ -68,7 +67,7 @@ function minimalHost(): RuntimeHost {
       createGrantFromOptions: async () => null,
       getSessionAutoApproveSeverity: async () => undefined,
       getPermissionTimeoutMs: () => 30 * 60 * 1000,
-      notifyPermissionRequired: async () => {},
+      notifyAnswerRequired: async () => {},
     },
     delivery: { emit: () => {} },
     titles: {
@@ -180,7 +179,7 @@ describe('C5 memory and skills composed scope ownership', () => {
         allowedSkills: null,
         agentId: null,
       }));
-      expect(Object.keys(tools)).toEqual(['memory', 'retrieve-tool-output']);
+      expect(Object.keys(tools)).toEqual(['memory']);
       expect(tools).not.toHaveProperty('skill_manage');
 
       // Context section ownership is pinned through the contribution
@@ -226,7 +225,7 @@ describe('C5 memory and skills composed scope ownership', () => {
         allowedSkills: null,
         agentId: null,
       }));
-      expect(Object.keys(disabled)).toEqual(['retrieve-tool-output']);
+      expect(Object.keys(disabled)).toEqual([]);
 
       configureStorage(createInMemoryStorageBundle({ workspaces: [workspaceWith({ memory: true, skillsManage: true })] }));
       const scope2Process = await createCurrentProcessScope();
@@ -243,7 +242,7 @@ describe('C5 memory and skills composed scope ownership', () => {
         }));
         // skill needs at least one available skill; none seeded, so it is
         // omitted exactly like pre-C5.
-        expect(Object.keys(enabled)).toEqual(['memory', 'skill_manage', 'retrieve-tool-output']);
+        expect(Object.keys(enabled)).toEqual(['memory', 'skill_manage']);
       } finally {
         await scope2.dispose();
         await scope2Process.dispose();
@@ -273,7 +272,7 @@ describe('C5 memory and skills composed scope ownership', () => {
         allowedSkills: ['demo'],
         agentId: null,
       }));
-      expect(Object.keys(allowed)).toEqual(['skill', 'skill_manage', 'retrieve-tool-output']);
+      expect(Object.keys(allowed)).toEqual(['skill', 'skill_manage']);
       const description = String((allowed.skill as { description?: string })?.description ?? '');
       expect(description).toContain('- **demo**: Demo skill');
 
@@ -286,7 +285,7 @@ describe('C5 memory and skills composed scope ownership', () => {
         allowedSkills: ['other'],
         agentId: null,
       }));
-      expect(Object.keys(filtered)).toEqual(['skill_manage', 'retrieve-tool-output']);
+      expect(Object.keys(filtered)).toEqual(['skill_manage']);
     } finally {
       await agentScope.dispose();
       await processScope.dispose();
@@ -317,7 +316,7 @@ describe('C5 memory and skills composed scope ownership', () => {
       // tool's dynamic definition resolves to null and it is omitted;
       // agent_memory and agent_skill_manage still build from the agent
       // directory exactly like pre-C5.
-      expect(Object.keys(tools)).toEqual(['agent_memory', 'agent_skill_manage', 'retrieve-tool-output']);
+      expect(Object.keys(tools)).toEqual(['agent_memory', 'agent_skill_manage']);
 
       const memoryResult = await tools['agent_memory']!.execute!(
         { action: 'add', target: 'memory', content: 'lesson' },
@@ -353,64 +352,16 @@ describe('C5 memory and skills composed scope ownership', () => {
           capabilities,
         }));
 
-      expect(Object.keys(await build(undefined))).toEqual(['agent_memory', 'agent_skill_manage', 'retrieve-tool-output']);
-      expect(Object.keys(await build(null))).toEqual(['agent_memory', 'agent_skill_manage', 'retrieve-tool-output']);
-      expect(Object.keys(await build({}))).toEqual(['agent_memory', 'agent_skill_manage', 'retrieve-tool-output']);
-      expect(Object.keys(await build({ memory: false }))).toEqual(['agent_skill_manage', 'retrieve-tool-output']);
-      expect(Object.keys(await build({ skills: false }))).toEqual(['agent_memory', 'retrieve-tool-output']);
-      expect(Object.keys(await build({ memory: false, skills: false }))).toEqual(['retrieve-tool-output']);
+      expect(Object.keys(await build(undefined))).toEqual(['agent_memory', 'agent_skill_manage']);
+      expect(Object.keys(await build(null))).toEqual(['agent_memory', 'agent_skill_manage']);
+      expect(Object.keys(await build({}))).toEqual(['agent_memory', 'agent_skill_manage']);
+      expect(Object.keys(await build({ memory: false }))).toEqual(['agent_skill_manage']);
+      expect(Object.keys(await build({ skills: false }))).toEqual(['agent_memory']);
+      expect(Object.keys(await build({ memory: false, skills: false }))).toEqual([]);
     } finally {
       await agentScope.dispose();
       await processScope.dispose();
     }
-  });
-
-  test('the explicitly installed fallbacks keep the unscoped memory and skills tools byte-compatible', async () => {
-    const workspacePath = join(await tempDir('fallback'), 'workspace');
-    await mkdir(join(workspacePath, '.capek'), { recursive: true });
-    const skillDir = join(workspacePath, '.agents', 'skills', 'demo');
-    await mkdir(skillDir, { recursive: true });
-    await writeFile(join(skillDir, 'SKILL.md'), '---\nname: demo\ndescription: Demo skill\n---\nbody\n');
-    configureStorage(createInMemoryStorageBundle({ workspaces: [workspaceWith({ memory: true, skillsManage: true })] }));
-
-    const enabled = await buildAiSdkTools({
-      toolNames: [],
-      workspacePath,
-      workspaceId: 'ws-ms',
-      sessionId: 'root',
-      canSpawnSubagents: true,
-      allowedSkills: ['demo'],
-      agentId: null,
-    });
-    expect(Object.keys(enabled)).toEqual(['skill', 'memory', 'skill_manage', 'retrieve-tool-output']);
-
-    resetDomainToolFallbacksForTests();
-    const cleared = await buildAiSdkTools({
-      toolNames: [],
-      workspacePath,
-      workspaceId: 'ws-ms',
-      sessionId: 'root',
-      canSpawnSubagents: true,
-      allowedSkills: ['demo'],
-      agentId: null,
-    });
-    expect(Object.keys(cleared)).toEqual(['retrieve-tool-output']);
-
-    installMemoryToolFallback();
-    installSkillsToolFallback();
-    const restored = await buildAiSdkTools({
-      toolNames: [],
-      workspacePath,
-      workspaceId: 'ws-ms',
-      sessionId: 'root',
-      canSpawnSubagents: true,
-      allowedSkills: ['demo'],
-      agentId: null,
-    });
-    expect(Object.keys(restored)).toEqual(['skill', 'memory', 'skill_manage', 'retrieve-tool-output']);
-
-    const guidance = SKILL_MANAGE_GUIDANCE;
-    expect(guidance).toContain('skill_manage');
   });
 
   test('the composed memory tool executes against the workspace path captured by the builder', async () => {

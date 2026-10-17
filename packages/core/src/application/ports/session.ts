@@ -250,7 +250,9 @@ export interface PendingAskPort {
  * Capek until S4; the adapter fulfills this port with the compat entrypoints.
  */
 export interface AskAuthorityPort {
-  timeoutMs: number;
+  /** Longest time an ask waits for a person; reconnect cleanup expires
+   * older asks that carry no expiry of their own. */
+  readonly timeoutMs: number;
   /** Who may see and answer a stored ask. */
   authorityOf(ask: PendingAskRecord['ask']): AskAuthority;
 }

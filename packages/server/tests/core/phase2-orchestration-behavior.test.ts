@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { AssistantMessage, Preconfig, ServerMessage } from '@prokopai/sdk';
 import type { ServerWebSocket } from 'bun';
-import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/workflow/orchestrator-session';
+import { runOrchestratorSession } from '@prokopai/agent/internal/harnesses/prokop/goals/orchestrator-session';
 import { executeChildSession } from '@prokopai/agent/internal/harnesses/prokop/subagent/child-session';
 import { handleChat, handleSessionEditMessage } from '@/transport/websocket/chat-handler';
 import { handleInterruptSession } from '@/transport/websocket/handlers/session-lifecycle';

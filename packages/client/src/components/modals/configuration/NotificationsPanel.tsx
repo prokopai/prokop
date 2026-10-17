@@ -41,12 +41,12 @@ export function NotificationsPanel() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BellRing className="size-4 text-muted-foreground" />
-              <span className="text-sm">Permission requests</span>
+              <span className="text-sm">Approvals and questions</span>
             </div>
             <Switch
               checked={permissionSoundEnabled}
               onCheckedChange={setPermissionSoundEnabled}
-              aria-label="Permission request sound"
+              aria-label="Approval and question sound"
             />
           </div>
         </div>

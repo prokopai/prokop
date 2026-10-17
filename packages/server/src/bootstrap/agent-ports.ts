@@ -40,8 +40,8 @@ const localHarnessNotifications: HarnessNotificationPort = {
   notifyWorktreeChanged: worktreeId => worktreeListener?.(worktreeId),
   notifyTerminalMessage: (message: Parameters<HarnessNotificationPort['notifyTerminalMessage']>[0], sessionId: string) =>
     getProkopNotificationsApplication().notifyTerminalMessage(message, sessionId),
-  notifyPermissionRequired: (requestId: string, rootSessionId: string) =>
-    getProkopNotificationsApplication().notifyPermissionRequired(requestId, rootSessionId),
+  notifyAnswerRequired: (requestId: string, rootSessionId: string) =>
+    getProkopNotificationsApplication().notifyAnswerRequired(requestId, rootSessionId),
 };
 
 /**

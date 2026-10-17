@@ -27,7 +27,7 @@ export interface BrowserClientsPort {
   sendToConnection(connectionId: string, message: ServerMessage): void;
   broadcastToSession(sessionId: string, message: ServerMessage): void;
   sendToAskTargets(sessionId: string, authority: AskAuthority, message: ServerMessage): void;
-  notifyPermissionRequired(requestId: string, sessionId: string): void;
+  notifyAnswerRequired(requestId: string, sessionId: string): void;
 }
 let clients: BrowserClientsPort | null = null;
 export function installBrowserClientsPort(port: BrowserClientsPort): void { clients = port; }

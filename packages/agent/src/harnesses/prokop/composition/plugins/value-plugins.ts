@@ -21,7 +21,6 @@ import {
 import type { ConnectableProvider } from '@prokopai/core/infrastructure/providers/types';
 import type { RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import type { SandboxController } from '@prokopai/core/infrastructure/sandbox/controller';
-import type { SchedulerHost } from '#agent/harnesses/prokop/scheduler/host';
 import type { SessionSearchHost } from '#agent/harnesses/shared/session-search/host';
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import {
@@ -43,7 +42,6 @@ import {
   capekRuntimeConfigurationKey,
   capekRuntimeHostKey,
   capekSandboxControllerKey,
-  capekSchedulerHostKey,
   capekSessionSearchHostKey,
   capekStorageKey,
   capekToolResolverKey,
@@ -143,8 +141,4 @@ export function installedToolRegistryValuePlugin(id: string): RuntimePlugin<unkn
 
 export function sessionSearchHostValuePlugin(id: string, host: SessionSearchHost): RuntimePlugin<unknown> {
   return valuePlugin(id, capekSessionSearchHostKey, host);
-}
-
-export function schedulerHostValuePlugin(id: string, host: SchedulerHost): RuntimePlugin<unknown> {
-  return valuePlugin(id, capekSchedulerHostKey, host);
 }

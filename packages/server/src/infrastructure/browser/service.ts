@@ -153,7 +153,7 @@ export class BrowserService implements BrowserRequestsPort {
         if (connectionId) browserClients().sendToConnection(connectionId, message);
         else {
           browserClients().sendToAskTargets(sessionId, authority, message);
-          browserClients().notifyPermissionRequired(requestId, sessionId);
+          browserClients().notifyAnswerRequired(requestId, sessionId);
         }
       } catch (error: unknown) { finish(undefined, error instanceof Error ? error : new Error('Browser request delivery failed')); }
     });
