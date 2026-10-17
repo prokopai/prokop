@@ -304,8 +304,18 @@ export interface NotificationAcknowledgeMessage {
 // Heartbeat Messages
 // =============================================================================
 
+/** Answers the server's `ping`. */
 export interface PongMessage {
   type: 'pong';
+}
+
+/**
+ * Asks the server to answer at once. Sent when the page returns to the
+ * foreground: a socket the OS cut in the background still reports open, and
+ * only a reply proves it is alive.
+ */
+export interface ClientPingMessage {
+  type: 'ping';
 }
 
 // =============================================================================
@@ -388,6 +398,7 @@ export type ClientMessage =
   | SessionControlReleaseMessage
   | NotificationAcknowledgeMessage
   | PongMessage
+  | ClientPingMessage
   | GitStatusSubscribeMessage
   | GitStatusUnsubscribeMessage
   | GitStatusRefreshMessage

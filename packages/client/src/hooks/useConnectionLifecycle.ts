@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { ACCESS_REVOKED_CLOSE_CODE, PairingError, ProkopaiClient, HttpClient } from '@prokopai/sdk';
+import { useCallback, useEffect, useState, type RefObject } from 'react';
+import { ACCESS_REVOKED_CLOSE_CODE, PairingError, ProkopaiClient } from '@prokopai/sdk';
 import type { ClientDescriptor } from '@prokopai/sdk';
 import type { SessionHandlersContext } from '@/handlers/serverMessage';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -27,7 +27,8 @@ export interface ConnectionLifecycleParams {
   handleLogout: () => void;
   /** This device's pairing was revoked or expired; the server route shows pairing again. */
   handleAccessLost: () => void;
-  clientRef?: RefObject<ProkopaiClient | null>;
+  /** Owned by the caller so the connection outlives this hook's renders. */
+  clientRef: RefObject<ProkopaiClient | null>;
 }
 
 export interface ConnectionLifecycleReturn {
@@ -42,10 +43,8 @@ export function useConnectionLifecycle({
   handlerContextRef,
   handleLogout,
   handleAccessLost,
-  clientRef: externalClientRef,
+  clientRef,
 }: ConnectionLifecycleParams): ConnectionLifecycleReturn {
-  const internalClientRef = useRef<ProkopaiClient | null>(null);
-  const clientRef = externalClientRef ?? internalClientRef;
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [clientDescriptor, setClientDescriptor] = useState<ClientDescriptor | null>(null);
 
@@ -75,12 +74,10 @@ export function useConnectionLifecycle({
     }
 
     let cancelled = false;
-    const controller = new AbortController();
     let unsubscribeAccessRequests: (() => void) | null = null;
     let ownedClient: ProkopaiClient | null = null;
     const cancelAttempt = () => {
       cancelled = true;
-      controller.abort();
       if (ownedClient) {
         void ownedClient.dispose().catch((error: unknown) => console.error('Connection disposal failed:', error));
         if (clientRef.current === ownedClient) clientRef.current = null;
@@ -181,8 +178,15 @@ export function useConnectionLifecycle({
       client.connect().catch((err: unknown) => {
         if (cancelled || clientRef.current !== client) return;
         console.error('Connection failed:', err);
-        // The socket ticket is refused once a device is revoked or its pairing expires.
+        // The socket ticket request is the credential check: it is refused once
+        // a device is revoked or its pairing expires. An auth error stops
+        // automatic retries; the server route then shows the pairing screen.
         if (err instanceof PairingError && err.status === 401) {
+          useConnectionStore.setState({
+            authError: 'This device is no longer paired with this server.',
+            connectionTimedOut: true,
+            nextRetryIn: 0,
+          });
           handleAccessLost();
           return;
         }
@@ -190,32 +194,9 @@ export function useConnectionLifecycle({
       });
     };
 
-    // Pre-flight auth verification: check token validity via HTTP before
-    // opening a WebSocket. This lets us surface "invalid token" immediately
-    // instead of entering the retry loop with a bad token.
-    HttpClient.verifyToken(serverUrl, apiToken ?? undefined, { signal: controller.signal }).then((isValid) => {
-      if (cancelled) return;
-
-      if (!isValid) {
-        // Stops automatic retries; the server route then shows the pairing screen.
-        useConnectionStore.setState({
-          authError: 'Authentication failed. Your token may be invalid or expired.',
-          connectionTimedOut: true,
-          nextRetryIn: 0,
-        });
-        handleAccessLost();
-        return;
-      }
-
-      createAndConnectClient();
-    }).catch(() => {
-      // Network error during pre-flight: fall through to the WebSocket attempt.
-      // The server may be reachable via WS but not HTTP (e.g., proxy issues),
-      // or this could be a temporary network hiccup. Let the supervisor retry
-      // logic handle it.
-      if (cancelled) return;
-      createAndConnectClient();
-    });
+    // No HTTP preflight: the route loader already authenticated this token, and
+    // every extra round trip is paid on a cold cellular radio at each reconnect.
+    createAndConnectClient();
 
     // Connection watchdog, backoff, online/visibility listeners, and stale-op
     // cleanup live in the supervisor module, outside React.

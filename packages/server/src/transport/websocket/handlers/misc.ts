@@ -17,6 +17,7 @@ import type {
   AskAuthority,
   NotificationAcknowledgeMessage,
   PongMessage,
+  ClientPingMessage,
 } from '@prokopai/sdk';
 
 export function handleClientRegister(
@@ -36,6 +37,19 @@ export function handlePong(
   if (clientData) {
     clientData.missedPings = 0;
   }
+}
+
+/** A client back in the foreground proving its socket is alive; the reply settles its probe. */
+export function handlePing(
+  ctx: RouterContext<ConnectionId>,
+  ws: ConnectionId,
+  _msg: ClientPingMessage,
+): void {
+  const clientData = ctx.clients.get(ws);
+  if (clientData) {
+    clientData.missedPings = 0;
+  }
+  ctx.send(ws, { type: 'pong' });
 }
 
 export function handleNotificationAcknowledge(

@@ -24,6 +24,7 @@ import { handleProviderConnect, handleProviderDisconnect } from '@/transport/web
 import {
   handleClientRegister,
   handlePong,
+  handlePing,
   handleNotificationAcknowledge,
   handleAskResponse,
   handleSandboxRespond,
@@ -98,6 +99,7 @@ const handlers: Record<string, Handler> = {
   'provider.disconnect': cast(handleProviderDisconnect),
   'notification.acknowledge': cast(handleNotificationAcknowledge),
   'pong': cast(handlePong),
+  'ping': cast(handlePing),
   'ask.response': cast(handleAskResponse),
   'sandbox.respond': cast(handleSandboxRespond),
   'git.status.subscribe': cast(handleGitStatusSubscribe),

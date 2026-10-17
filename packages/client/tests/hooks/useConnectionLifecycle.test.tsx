@@ -1,6 +1,5 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { HttpClient } from '@prokopai/sdk';
 import { useConnectionLifecycle } from '@/hooks/useConnectionLifecycle';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
@@ -28,8 +27,17 @@ class FakeSocket {
   open(): void { this.readyState = 1; this.onopen?.(); }
 }
 const latest = () => FakeSocket.instances.at(-1)!;
-// Several microtasks: preflight, then the socket-ticket fetch and its JSON body.
+// Several microtasks: the socket-ticket fetch and its JSON body.
 const flush = async () => { await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); }); };
+const ticket = (value = 'ticket-1') => Response.json({ ticket: value, expiresAt: 0 });
+const isTicketRequest = (input: unknown) => String(input).includes('/api/auth/ws-ticket');
+/** The ticket request gets `onTicket`; other HTTP calls (the access overview check) get an empty reply. */
+function fetchWith(onTicket: () => Promise<Response>) {
+  const mock = vi.fn((input: unknown) => isTicketRequest(input) ? onTicket() : Promise.resolve(Response.json({})));
+  const ticketCalls = () => mock.mock.calls.filter((call) => isTicketRequest(call[0]));
+  vi.stubGlobal('fetch', mock);
+  return { ticketCalls };
+}
 const handleAccessLost = vi.fn();
 function mount() {
   return renderHook(() => useConnectionLifecycle({
@@ -39,6 +47,7 @@ function mount() {
     handlerContextRef: { current: null },
     handleLogout: vi.fn(),
     handleAccessLost,
+    clientRef: { current: null },
   }));
 }
 
@@ -65,7 +74,6 @@ afterEach(() => {
 
 describe('connection lifecycle', () => {
   test('shutdown reconnects immediately and restores subscriptions without replaying mutations', async () => {
-    vi.spyOn(HttpClient, 'verifyToken').mockResolvedValue(true);
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
     useSessionBoardStore.setState({ openSessionIds: ['session-1'], focusedSessionId: 'session-1' });
     const hook = mount();
@@ -85,60 +93,80 @@ describe('connection lifecycle', () => {
     hook.unmount();
   });
 
-  test('manual retry aborts preflight and ignores its late completion', async () => {
-    let resolveOld!: (valid: boolean) => void;
-    let oldSignal: AbortSignal | undefined;
-    vi.spyOn(HttpClient, 'verifyToken')
-      .mockImplementationOnce((_url, _token, options) => {
-        oldSignal = options?.signal;
-        return new Promise(resolve => { resolveOld = resolve; });
-      })
-      .mockResolvedValue(true);
+  test('the socket opens straight after the ticket, with no separate auth round trip', async () => {
+    const fetchMock = vi.fn((input: unknown) => Promise.resolve(isTicketRequest(input) ? ticket() : Response.json({})));
+    vi.stubGlobal('fetch', fetchMock);
     const hook = mount();
     await flush();
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls).toContain('http://test/api/auth/ws-ticket');
+    expect(urls).not.toContain('http://test/api/auth/verify');
+    expect(FakeSocket.instances).toHaveLength(1);
+    hook.unmount();
+  });
+
+  test('manual retry replaces a pending ticket request and ignores its late completion', async () => {
+    let resolveOld!: (response: Response) => void;
+    let first = true;
+    fetchWith(() => {
+      if (!first) return Promise.resolve(ticket('ticket-2'));
+      first = false;
+      return new Promise<Response>(resolve => { resolveOld = resolve; });
+    });
+    const hook = mount();
+    await flush();
+    expect(FakeSocket.instances).toHaveLength(0);
     act(() => hook.result.current.retry());
     await flush();
-    expect(oldSignal?.aborted).toBe(true);
-    await act(async () => resolveOld(true));
+    expect(FakeSocket.instances).toHaveLength(1);
+    await act(async () => { resolveOld(ticket()); });
+    await flush();
     expect(FakeSocket.instances).toHaveLength(1);
     hook.unmount();
   });
 
-  test('watchdog aborts stuck preflight and replaces the attempt', async () => {
-    let oldSignal: AbortSignal | undefined;
-    vi.spyOn(HttpClient, 'verifyToken')
-      .mockImplementationOnce((_url, _token, options) => {
-        oldSignal = options?.signal;
-        return new Promise(() => {});
-      })
-      .mockResolvedValue(true);
+  test('watchdog replaces an attempt stuck on the ticket request', async () => {
+    let first = true;
+    fetchWith(() => {
+      if (!first) return Promise.resolve(ticket());
+      first = false;
+      return new Promise<Response>(() => {});
+    });
     const hook = mount();
     await flush();
+    expect(FakeSocket.instances).toHaveLength(0);
     await act(async () => { await vi.advanceTimersByTimeAsync(10_001); });
     await flush();
-    expect(oldSignal?.aborted).toBe(true);
     expect(FakeSocket.instances).toHaveLength(1);
     hook.unmount();
   });
 
-  test('invalid credentials stop automatic retries and do not open a socket', async () => {
-    const verify = vi.spyOn(HttpClient, 'verifyToken').mockResolvedValue(false);
+  test('a refused ticket stops automatic retries and asks to pair again', async () => {
+    const { ticketCalls } = fetchWith(async () => new Response(JSON.stringify({ message: 'Access revoked' }), { status: 401 }));
     const hook = mount();
     await flush();
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    expect(verify).toHaveBeenCalledTimes(1);
+    expect(ticketCalls()).toHaveLength(1);
     expect(FakeSocket.instances).toHaveLength(0);
-    expect(useConnectionStore.getState().authError).toContain('Authentication failed');
+    expect(useConnectionStore.getState().authError).toContain('no longer paired');
     expect(handleAccessLost).toHaveBeenCalledTimes(1);
     hook.unmount();
   });
 
-  test('temporary preflight failure attempts WebSocket without an auth error', async () => {
-    vi.spyOn(HttpClient, 'verifyToken').mockRejectedValue(new Error('HTTP 503'));
+  test('a failed ticket request retries without an auth error', async () => {
+    let first = true;
+    fetchWith(() => {
+      if (!first) return Promise.resolve(ticket());
+      first = false;
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
     const hook = mount();
     await flush();
-    expect(FakeSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(0);
     expect(useConnectionStore.getState().authError).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    await flush();
+    expect(FakeSocket.instances).toHaveLength(1);
     hook.unmount();
   });
 });

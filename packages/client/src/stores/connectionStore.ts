@@ -6,6 +6,11 @@ interface ConnectionState {
   connectionTimedOut: boolean;
   retryCount: number;
   nextRetryIn: number;
+  /**
+   * The drop was found when the page returned to the foreground, so the user
+   * is looking at the screen: show the reconnect status at once.
+   */
+  foregroundRecovery: boolean;
   streamingSessionIds: Set<string>;
   interruptedSessions: Set<string>;
   /**
@@ -41,6 +46,7 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   connectionTimedOut: false,
   retryCount: 0,
   nextRetryIn: 0,
+  foregroundRecovery: false,
   streamingSessionIds: new Set<string>(),
   interruptedSessions: new Set<string>(),
   stoppingSessionIds: new Set<string>(),
@@ -62,6 +68,7 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
     connectionTimedOut: false,
     retryCount: 0,
     nextRetryIn: 0,
+    foregroundRecovery: false,
     streamingSessionIds: new Set<string>(),
     interruptedSessions: new Set<string>(),
     stoppingSessionIds: new Set<string>(),

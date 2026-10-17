@@ -85,6 +85,17 @@ describe('transport message router dispatch', () => {
     expect(clients.get(connectionId)?.missedPings).toBe(0);
   });
 
+  test('ping is answered with pong and counts as a heartbeat', async () => {
+    const { ctx, clients, sent } = makeContext();
+    const connectionId = registerClient('client-a');
+    clients.set(connectionId, { sessionIds: new Set(), missedPings: 2 });
+
+    await handleClientMessage(ctx, connectionId, { type: 'ping' });
+
+    expect(sent).toEqual([{ type: 'pong' }]);
+    expect(clients.get(connectionId)?.missedPings).toBe(0);
+  });
+
   test('claim dispatches to the controller registry and broadcasts control updates', async () => {
     const { ctx, broadcastToSession } = makeContext();
     const connectionId = registerClient('controller');

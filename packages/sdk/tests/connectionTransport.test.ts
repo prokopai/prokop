@@ -69,6 +69,33 @@ describe('connection transport', () => {
     expect(latest().onopen).toBeNull();
   });
 
+  test('probe passes when the server answers and closes a socket that stays silent', async () => {
+    const value = transport();
+    const forwarded: string[] = [];
+    let closed = 0;
+    value.onMessage = (message) => forwarded.push(message.type);
+    value.onClose = () => closed++;
+    const connecting = value.connect();
+    latest().open();
+    await connecting;
+
+    const alive = value.probeConnection(50);
+    const again = value.probeConnection(50);
+    expect(latest().sent).toEqual(['{"type":"ping"}']);
+    latest().onmessage?.({ data: '{"type":"pong"}' } as MessageEvent);
+    expect(await alive).toBe(true);
+    expect(await again).toBe(true);
+    expect(forwarded).toEqual([]);
+    expect(closed).toBe(0);
+
+    const dead = value.probeConnection(50);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    expect(await dead).toBe(false);
+    expect(value.connected).toBe(false);
+    expect(closed).toBe(1);
+    expect(await value.probeConnection(50)).toBe(false);
+  });
+
   test('foreground freshness uses elapsed time and messages refresh the deadline', async () => {
     const now = spyOn(Date, 'now');
     try {

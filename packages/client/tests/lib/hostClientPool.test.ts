@@ -11,6 +11,7 @@ const sdk = vi.hoisted(() => {
     connected = false;
     sessions = { resume: vi.fn() };
     dispose = vi.fn(async () => {});
+    probeConnection = vi.fn(async () => true);
     config: unknown;
     static nextConnect: (() => Promise<void>) | null = null;
     constructor(config: unknown) {
@@ -141,6 +142,35 @@ describe('host client pool', () => {
 
     expect(useSessionBoardStore.getState().openSessionIds).toEqual([]);
     expect(useForeignSessionsStore.getState().byId['remote-1']).toBeUndefined();
+  });
+
+  test('foreground return probes the connection and a silent one reconnects at once', async () => {
+    useForeignSessionsStore.getState().add('laptop', session('remote-1'));
+    useSessionBoardStore.setState({ openSessionIds: ['remote-1'], focusedSessionId: 'remote-1' });
+    acquireHostClient(laptop);
+    await flush();
+    const first = sdk.instances[0]!;
+    expect(first.sessions.resume).toHaveBeenCalledTimes(1);
+
+    // Alive: nothing changes.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    expect(first.probeConnection).toHaveBeenCalledTimes(1);
+    expect(sdk.instances).toHaveLength(1);
+
+    // Dead: the transport closes the socket, the loop reconnects without a backoff wait.
+    first.probeConnection.mockImplementation(async () => {
+      first.connected = false;
+      first.emit('disconnected', { code: 1000 });
+      return false;
+    });
+    window.dispatchEvent(new Event('online'));
+    await flush();
+    await flush();
+    expect(first.dispose).toHaveBeenCalled();
+    expect(sdk.instances).toHaveLength(2);
+    expect(sdk.instances[1]!.sessions.resume).toHaveBeenCalledWith('remote-1');
+    expect(useHostClientStore.getState().status.laptop).toBe('connected');
   });
 
   test('a cross-site refusal also counts as not paired', async () => {

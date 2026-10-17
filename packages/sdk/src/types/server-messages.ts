@@ -434,7 +434,8 @@ export function routeServerMessage(
       emitter.emit('error', msg.code, msg.message, msg.sessionId);
       break;
     case 'ping':
-      // Handled at transport level — no event emission
+    case 'pong':
+      // Handled at transport level, no event emission
       return;
     default: {
       const _exhaustive: never = msg;

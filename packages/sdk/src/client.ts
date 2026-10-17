@@ -126,8 +126,9 @@ export class ProkopaiClient extends TypedEventEmitter<SdkEventMap> {
     this._state = 'disconnected';
   }
 
-  checkConnectionFreshness(): boolean {
-    return this.transport.checkConnectionFreshness();
+  /** Resolves true when the server answers now; a silent socket is closed and `disconnected` fires. */
+  probeConnection(): Promise<boolean> {
+    return this.transport.probeConnection();
   }
 
   get state(): ConnectionState {

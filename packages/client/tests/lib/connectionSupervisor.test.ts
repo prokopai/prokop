@@ -4,12 +4,14 @@ import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { startConnectionSupervisor, stopConnectionSupervisor, markConnectionAttempt } from '@/lib/connectionSupervisor';
 import type { ProkopaiClient } from '@prokopai/sdk';
 
-const freshness = vi.fn(() => false);
-const clientRef = { current: { checkConnectionFreshness: freshness } as unknown as ProkopaiClient };
+const probe = vi.fn(async () => true);
+const client = { connected: false, probeConnection: probe };
+const clientRef = { current: client as unknown as ProkopaiClient };
 function start(requestReconnect = vi.fn(), cancelAttempt = vi.fn(), invalidateAllQueries = vi.fn()) {
   startConnectionSupervisor({ serverUrl: () => 'http://test', clientRef, requestReconnect, cancelAttempt, invalidateAllQueries });
   return { requestReconnect, cancelAttempt, invalidateAllQueries };
 }
+const settle = () => vi.advanceTimersByTimeAsync(0);
 
 describe('connectionSupervisor', () => {
   beforeEach(() => {
@@ -17,7 +19,8 @@ describe('connectionSupervisor', () => {
     stopConnectionSupervisor();
     useConnectionStore.getState().resetConnection();
     usePendingOperationsStore.setState({ operations: [] });
-    freshness.mockReset().mockReturnValue(false);
+    client.connected = false;
+    probe.mockReset().mockResolvedValue(true);
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
   });
@@ -65,30 +68,80 @@ describe('connectionSupervisor', () => {
     window.dispatchEvent(new Event('online'));
     vi.advanceTimersByTime(30_000);
     expect(requestReconnect).toHaveBeenCalledTimes(1);
+    expect(useConnectionStore.getState().foregroundRecovery).toBe(true);
   });
 
-  test('foreground does not replace an active attempt or fresh connection', () => {
-    const { requestReconnect } = start();
+  test('foreground keeps a young visible attempt and a connection that answers', async () => {
+    const { requestReconnect, cancelAttempt } = start();
     markConnectionAttempt();
     window.dispatchEvent(new Event('online'));
     expect(requestReconnect).not.toHaveBeenCalled();
+    expect(cancelAttempt).not.toHaveBeenCalled();
     useConnectionStore.getState().setConnected(true);
-    freshness.mockReturnValue(true);
+    client.connected = true;
     document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
+    expect(probe).toHaveBeenCalledTimes(1);
     expect(requestReconnect).not.toHaveBeenCalled();
+    expect(useConnectionStore.getState().foregroundRecovery).toBe(false);
   });
 
-  test('stale foreground check coalesces its close event with immediate recovery', () => {
+  test('foreground replaces an attempt that began while hidden', () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    const { requestReconnect, cancelAttempt } = start();
+    markConnectionAttempt();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(cancelAttempt).toHaveBeenCalledTimes(1);
+    expect(requestReconnect).toHaveBeenCalledTimes(1);
+    expect(useConnectionStore.getState()).toMatchObject({ retryCount: 0, foregroundRecovery: true });
+  });
+
+  test('foreground replaces an attempt older than a second', () => {
+    const { requestReconnect, cancelAttempt } = start();
+    markConnectionAttempt();
+    vi.advanceTimersByTime(1_500);
+    window.dispatchEvent(new Event('online'));
+    expect(cancelAttempt).toHaveBeenCalledTimes(1);
+    expect(requestReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  test('a silent socket on foreground return reconnects at once without a second attempt', async () => {
     const { requestReconnect } = start();
     useConnectionStore.getState().setConnected(true);
-    freshness.mockImplementation(() => {
+    client.connected = true;
+    // The transport closes the socket on a failed probe; the lifecycle then reports the drop.
+    probe.mockImplementation(async () => {
+      client.connected = false;
       useConnectionStore.setState({ connected: false, connectionTimedOut: true });
       return false;
     });
     document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
     vi.advanceTimersByTime(30_000);
     expect(requestReconnect).toHaveBeenCalledTimes(1);
-    expect(useConnectionStore.getState().retryCount).toBe(0);
+    expect(useConnectionStore.getState()).toMatchObject({ retryCount: 0, foregroundRecovery: true });
+    useConnectionStore.getState().setConnected(true);
+    expect(useConnectionStore.getState().foregroundRecovery).toBe(false);
+  });
+
+  test('a network change probes the live connection', async () => {
+    const connection = new EventTarget();
+    Object.defineProperty(navigator, 'connection', { value: connection, configurable: true });
+    try {
+      start();
+      useConnectionStore.getState().setConnected(true);
+      client.connected = true;
+      connection.dispatchEvent(new Event('change'));
+      await settle();
+      expect(probe).toHaveBeenCalledTimes(1);
+      stopConnectionSupervisor();
+      connection.dispatchEvent(new Event('change'));
+      await settle();
+      expect(probe).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(navigator, 'connection', { value: undefined, configurable: true });
+    }
   });
 
   test('a new attempt clears stale authentication and connected state', () => {

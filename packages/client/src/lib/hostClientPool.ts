@@ -170,6 +170,24 @@ interface PoolEntry {
 const entries = new Map<string, PoolEntry>();
 const MAX_BACKOFF_MS = 30_000;
 
+/** Sleeps between attempts; coming online or back to the foreground ends the wait early. */
+function waitForRetry(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener('online', done);
+      document.removeEventListener('visibilitychange', onVisibility);
+      resolve();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') done();
+    };
+    const timer = setTimeout(done, ms);
+    window.addEventListener('online', done);
+    document.addEventListener('visibilitychange', onVisibility);
+  });
+}
+
 function setStatus(serverId: string, status: HostClientStatus): void {
   useHostClientStore.setState((state) => ({ status: { ...state.status, [serverId]: status } }));
 }
@@ -190,6 +208,13 @@ function start(server: SavedServer): () => void {
   let unsubscribe: (() => void) | null = null;
   // Ends the wait for the current connection (stop, or a failed connect).
   const pending: { wake: (() => void) | null } = { wake: null };
+  // A socket the phone cut in the background still reports open; make it answer
+  // or close, so the loop reconnects at once instead of after the heartbeat.
+  const probe = () => {
+    if (document.visibilityState === 'visible') void client?.probeConnection();
+  };
+  window.addEventListener('online', probe);
+  document.addEventListener('visibilitychange', probe);
 
   const teardown = () => {
     unsubscribe?.();
@@ -242,12 +267,15 @@ function start(server: SavedServer): () => void {
       if (stopped) return;
       setStatus(server.id, 'offline');
       failures++;
-      await new Promise((resolve) => setTimeout(resolve, Math.min(1000 * 2 ** Math.min(failures, 5), MAX_BACKOFF_MS)));
+      // The first retry is immediate, like the active machine's; later ones back off.
+      await waitForRetry(failures === 1 ? 0 : Math.min(1000 * 2 ** Math.min(failures - 1, 5), MAX_BACKOFF_MS));
     }
   })();
 
   return () => {
     stopped = true;
+    window.removeEventListener('online', probe);
+    document.removeEventListener('visibilitychange', probe);
     pending.wake?.();
     teardown();
   };

@@ -468,6 +468,11 @@ export interface PingMessage {
   type: 'ping';
 }
 
+/** Reply to a client `ping`; settles the client's liveness probe. */
+export interface ServerPongMessage {
+  type: 'pong';
+}
+
 export type ServerMessage =
   | ClientRegisteredMessage
   | ClientRejectedMessage
@@ -515,7 +520,7 @@ export type ServerMessage =
   | AskTimedOutMessage
   | AskResponseRejectedMessage
   | AskPendingSyncMessage
-  | PingMessage | WorktreeUpdatedMessage | WorktreeDeletedMessage | GitChangedMessage | PullRequestChangedMessage | LearningChangedMessage | McpChangedMessage | WorkspaceConversationActivityMessage | FilesChangedMessage | GitStatusMessage | FileTreeMessage | SchedulerChangedMessage | AccessChangedMessage;
+  | PingMessage | ServerPongMessage | WorktreeUpdatedMessage | WorktreeDeletedMessage | GitChangedMessage | PullRequestChangedMessage | LearningChangedMessage | McpChangedMessage | WorkspaceConversationActivityMessage | FilesChangedMessage | GitStatusMessage | FileTreeMessage | SchedulerChangedMessage | AccessChangedMessage;
 
 export interface WorktreeUpdatedMessage {
   type: 'worktree.updated';

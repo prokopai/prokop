@@ -20,8 +20,11 @@ export class WebSocketTransport {
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
   private lastMessageAt = 0;
   private static readonly HEARTBEAT_TIMEOUT_MS = 90_000;
+  private static readonly PROBE_TIMEOUT_MS = 3_000;
   /** Bumped whenever a socket is released, so a slow ticket fetch cannot revive a replaced attempt. */
   private attempt = 0;
+  private probeWaiters: Array<(alive: boolean) => void> = [];
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
 
   onOpen: (() => void) | null = null;
   onMessage: ((message: ServerMessage) => void) | null = null;
@@ -70,10 +73,12 @@ export class WebSocketTransport {
         try {
           const message = JSON.parse(String(event.data)) as ServerMessage;
           this.resetHeartbeat();
+          this.settleProbe(true);
           if (message.type === 'ping') {
-            this.send({ type: 'pong' } as unknown as ClientMessage);
+            this.send({ type: 'pong' });
             return;
           }
+          if (message.type === 'pong') return;
           this.onMessage?.(message);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
@@ -124,7 +129,41 @@ export class WebSocketTransport {
     return this._ws;
   }
 
-  /** Also checked on foreground return, when browser timers may have been suspended. */
+  /**
+   * Proves the socket is alive right now. A phone cuts the connection in the
+   * background while the socket still reports open; the last server ping may
+   * be recent, so elapsed time says nothing. The server answers `ping` at
+   * once; a socket that stays silent is closed so the caller can reconnect.
+   * Concurrent probes share one round trip.
+   */
+  probeConnection(timeoutMs = WebSocketTransport.PROBE_TIMEOUT_MS): Promise<boolean> {
+    if (!this.connected) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      this.probeWaiters.push(resolve);
+      if (this.probeTimer !== null) return;
+      const ws = this._ws;
+      this.probeTimer = setTimeout(() => {
+        this.probeTimer = null;
+        if (this._ws === ws) this.closeSocket(1000, 'Liveness probe timeout', true);
+      }, timeoutMs);
+      try {
+        this.send({ type: 'ping' });
+      } catch {
+        this.closeSocket(1000, 'Liveness probe failed', true);
+      }
+    });
+  }
+
+  private settleProbe(alive: boolean): void {
+    if (this.probeTimer !== null) clearTimeout(this.probeTimer);
+    this.probeTimer = null;
+    if (this.probeWaiters.length === 0) return;
+    const waiters = this.probeWaiters;
+    this.probeWaiters = [];
+    for (const waiter of waiters) waiter(alive);
+  }
+
+  /** The heartbeat timer's check: no message for too long closes the socket. */
   checkConnectionFreshness(): boolean {
     if (!this.connected) return false;
     if (Date.now() - this.lastMessageAt >= WebSocketTransport.HEARTBEAT_TIMEOUT_MS) {
@@ -156,6 +195,7 @@ export class WebSocketTransport {
     this.clearConnectionTimer();
     if (this.heartbeatTimer !== null) clearTimeout(this.heartbeatTimer);
     this.heartbeatTimer = null;
+    this.settleProbe(false);
     this.rejectConnect?.(new ConnectionError(reason));
     this.rejectConnect = null;
     if (ws) {
