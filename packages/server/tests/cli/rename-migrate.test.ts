@@ -13,24 +13,25 @@ import { Paths, PROKOPAI_DIR_NAME, LEGACY_JEAN2_DIR_NAME } from '@prokopai/core/
 // (it only acts on the actual home).
 describe('prokop legacy data migration', () => {
   let dataDir: string;
-  const savedDbPath = process.env.PROKOPAI_DATABASE_PATH;
-  const savedLegacyDbPath = process.env.JEAN2_DATABASE_PATH;
+  // The migration refuses to run under path overrides and clears them when it
+  // succeeds. The preload sets PROKOPAI_DATA_DIR, so each test clears the
+  // overrides while Paths points at its scratch dir, and restores them after.
+  const pathKeys = ['PROKOPAI_DATA_DIR', 'JEAN2_DATA_DIR', 'PROKOPAI_DATABASE_PATH', 'JEAN2_DATABASE_PATH'];
+  let savedPaths: Record<string, string | undefined> = {};
 
   beforeEach(() => {
     dataDir = mkdtempSync(join(tmpdir(), 'prokopai-migrate-'));
     Paths.configure({ dataDir });
-    // Pin the db path to the scratch dir: other suites may leave
-    // JEAN2_DATABASE_PATH set, which would redirect the workspace-path step.
-    delete process.env.PROKOPAI_DATABASE_PATH;
-    delete process.env.JEAN2_DATABASE_PATH;
+    savedPaths = Object.fromEntries(pathKeys.map(key => [key, process.env[key]]));
+    for (const key of pathKeys) delete process.env[key];
   });
 
   afterEach(() => {
     Paths.reset();
-    if (savedDbPath === undefined) delete process.env.PROKOPAI_DATABASE_PATH;
-    else process.env.PROKOPAI_DATABASE_PATH = savedDbPath;
-    if (savedLegacyDbPath === undefined) delete process.env.JEAN2_DATABASE_PATH;
-    else process.env.JEAN2_DATABASE_PATH = savedLegacyDbPath;
+    for (const key of pathKeys) {
+      if (savedPaths[key] === undefined) delete process.env[key];
+      else process.env[key] = savedPaths[key];
+    }
     rmSync(dataDir, { recursive: true, force: true });
   });
 

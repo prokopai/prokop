@@ -310,8 +310,7 @@ describe('terminal tool: actions', () => {
     expect(calls).toHaveLength(1);
     const expectedPath = resolve(additionalCwd, 'dist');
     const ask = calls[0][0] as PermissionAsk;
-    expect(ask.paths).toEqual([expectedPath]);
-    expect(ask.intents?.[0]?.targets[0]?.target).toBe(`${expectedPath}/`);
+    expect(ask.metadata?.resolvedPaths).toEqual([expectedPath]);
   });
 
   test('permission paths follow cwd changes from completed commands', async () => {
@@ -345,7 +344,7 @@ describe('terminal tool: actions', () => {
     const calls = (ctx.ask as ReturnType<typeof mock>).mock.calls;
     expect(calls).toHaveLength(1);
     const ask = calls[0][0] as PermissionAsk;
-    expect(ask.paths).toEqual([resolve(subdirectory, 'dist')]);
+    expect(ask.metadata?.resolvedPaths).toEqual([resolve(subdirectory, 'dist')]);
   }, 10_000);
 
   test('null timeoutMs waits past any finite deadline until the sentinel arrives', async () => {

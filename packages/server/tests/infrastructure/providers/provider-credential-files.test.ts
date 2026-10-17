@@ -13,8 +13,8 @@ import {
   setProviderCredential,
 } from '@/infrastructure/providers/provider-credential-files';
 
-const ENV_KEY = 'PROKOPAI_LLM_OPENAI_API_KEY';
-const LEGACY_ENV_KEY = 'JEAN2_LLM_OPENAI_API_KEY';
+const ENV_KEY = 'PROKOPAI_LLM_DEEPSEEK_API_KEY';
+const LEGACY_ENV_KEY = 'JEAN2_LLM_DEEPSEEK_API_KEY';
 
 interface SavedEnvValue {
   value: string | undefined;
@@ -58,20 +58,20 @@ describe('provider credential files', () => {
   });
 
   test('clearing a file credential removes its runtime value and configured status', async () => {
-    await setProviderCredential('openai', 'sk-test');
+    await setProviderCredential('deepseek', 'sk-test');
 
     expect(getProkopEnvValue(ENV_KEY)).toBe('sk-test');
-    expect(listProviderCredentials().providers.find(({ provider }) => provider === 'openai')).toEqual({
-      provider: 'openai',
+    expect(listProviderCredentials().providers.find(({ provider }) => provider === 'deepseek')).toEqual({
+      provider: 'deepseek',
       configured: true,
     });
 
-    await clearProviderCredential('openai');
+    await clearProviderCredential('deepseek');
 
     expect(getProkopEnvValue(ENV_KEY)).toBeUndefined();
     expect(process.env[ENV_KEY]).toBeUndefined();
-    expect(listProviderCredentials().providers.find(({ provider }) => provider === 'openai')).toEqual({
-      provider: 'openai',
+    expect(listProviderCredentials().providers.find(({ provider }) => provider === 'deepseek')).toEqual({
+      provider: 'deepseek',
       configured: false,
     });
     expect(await readFile(join(testDir, '.env'), 'utf-8')).not.toContain(ENV_KEY);
