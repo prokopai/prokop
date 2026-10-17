@@ -3,7 +3,7 @@
  * Uses the generalized OAuth manager for PKCE + authorization code flow.
  */
 import type { ProviderStatus } from '@prokopai/sdk';
-import { CODEX_OAUTH_DUMMY_KEY, codexProviderDescriptor } from '@prokopai/core/infrastructure/providers/codex-access';
+import { codexProviderDescriptor } from '@prokopai/core/infrastructure/providers/codex-access';
 import { registerProvider } from '@prokopai/core/infrastructure/providers/registry';
 import type { ConnectableProvider, TokenResponse } from '@prokopai/core/infrastructure/providers/types';
 import { codexAccounts } from './codex-accounts';
@@ -12,9 +12,7 @@ import {
   registerOAuthConfig,
   initiateOAuthFlow,
   refreshTokens,
-  getDefaultRedirectUri,
 } from '@/infrastructure/oauth/oauth-manager';
-const OAUTH_DUMMY_KEY = CODEX_OAUTH_DUMMY_KEY;
 
 // Register Codex OAuth config with the generalized manager
 registerOAuthConfig('codex', {
@@ -31,8 +29,6 @@ registerOAuthConfig('codex', {
 });
 
 export const codexAccountRuntime = new CodexAccountRuntime(codexAccounts, token => refreshTokens('codex', token));
-
-export { OAUTH_DUMMY_KEY, getDefaultRedirectUri as CODEX_REDIRECT_URI };
 
 const codexProvider: ConnectableProvider = {
   descriptor: codexProviderDescriptor,

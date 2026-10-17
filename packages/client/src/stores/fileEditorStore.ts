@@ -394,19 +394,3 @@ export const useFileEditorStore = create<FileEditorStore>((baseSet) => {
     },
   };
 });
-
-/**
- * Whether any open doc for the given server/workspace exists.
- * Uses getState() so callers can check without subscribing to the docs record.
- */
-export function hasOpenDocsForScope(serverId: string, workspaceId: string): boolean {
-  const { docs, openDocIds } = useFileEditorStore.getState();
-  return openDocIds.some((id) => {
-    const doc = docs[id];
-    return (
-      !!doc &&
-      doc.identity.serverId === serverId &&
-      doc.identity.workspaceId === workspaceId
-    );
-  });
-}

@@ -126,7 +126,7 @@ Prokop is built and maintained by one developer and used for real daily work. It
 
 [Getting Started](https://prokopai.dev/get-started) · [How-to guides](https://prokopai.dev/how-to) · [Client and mobile](https://prokopai.dev/docs/client) · [Workspaces and sessions](https://prokopai.dev/docs/workspaces) · [Configuration](https://prokopai.dev/docs/configuration) · [CLI](https://prokopai.dev/docs/cli) · [Tools](https://prokopai.dev/docs/tools) · [Security](https://prokopai.dev/docs/security)
 
-Working on Prokop itself: `bun install`, then `bun run test`. The built-in runtime lives in `packages/server/src/harnesses/prokop`.
+Working on Prokop itself: `bun install`, then `bun run test`. The built-in runtime lives in `packages/agent/src/harnesses/prokop`.
 
 ## License
 

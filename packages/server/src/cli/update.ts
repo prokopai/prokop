@@ -15,12 +15,6 @@ export interface UpdateOptions {
   noRestart?: boolean;
 }
 
-export interface UpdateCheckResult {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-}
-
 export interface UpdateResult {
   success: boolean;
   error?: string;
@@ -87,30 +81,6 @@ export async function fetchLatestVersion(): Promise<string> {
   }
 
   return version;
-}
-
-export async function checkForUpdate(): Promise<UpdateCheckResult> {
-  console.log('info: Fetching latest version...');
-
-  const latestVersion = await fetchLatestVersion();
-  const currentVersion = VERSION;
-
-  console.log(`info: Current version: ${currentVersion}`);
-  console.log(`info: Latest version: ${latestVersion}`);
-
-  const updateAvailable = currentVersion !== latestVersion;
-
-  if (updateAvailable) {
-    console.log('info: Update available!');
-  } else {
-    console.log('info: Already up to date');
-  }
-
-  return {
-    currentVersion,
-    latestVersion,
-    updateAvailable,
-  };
 }
 
 export async function downloadBinary(url: string, destPath: string): Promise<void> {

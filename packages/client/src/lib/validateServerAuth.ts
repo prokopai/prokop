@@ -90,12 +90,6 @@ export async function discoverServerNoAuth(
   return { available: false, url: normalizeServerUrl(candidates[0]) };
 }
 
-export function checkLocalhostNoAuth(
-  signal?: AbortSignal,
-): Promise<ServerDiscoverResult> {
-  return probeServerNoAuth(LOCALHOST_CHECK_URL, signal);
-}
-
 /**
  * Checks that a server answers before saving it. Machines that require
  * pairing are fine: opening them shows the pairing screen.

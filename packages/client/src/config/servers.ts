@@ -106,19 +106,6 @@ export function getOrCreateServer(
 }
 
 /**
- * Replace ALL saved servers with exactly one server.
- * Used by VSCode mode to enforce a single-server model where
- * the server is always the one from VSCode settings.
- */
-export function setSingleServer(server: SavedServer): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.SERVERS, JSON.stringify([server]));
-  } catch (error) {
-    console.error('Error setting single server in localStorage:', error);
-  }
-}
-
-/**
  * Update an existing server
  * Merges updates with existing server data
  */

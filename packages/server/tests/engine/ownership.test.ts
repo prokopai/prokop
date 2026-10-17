@@ -33,8 +33,10 @@ describe('server-owned engine boundaries', () => {
     expect(existsSync(resolve(repositoryRoot, 'packages/runtime/package.json'))).toBe(false);
     const manifest = JSON.parse(readFileSync(resolve(repositoryRoot, 'packages/server/package.json'), 'utf8'));
     expect(manifest.dependencies['@prokopai/runtime']).toBeUndefined();
+    // Provider adapters live in the runtime core; the host declares only what it imports itself.
+    const core = JSON.parse(readFileSync(resolve(repositoryRoot, 'packages/core/package.json'), 'utf8'));
     for (const dependency of ['ai', '@ai-sdk/anthropic', '@ai-sdk/openai', '@ai-sdk/openai-compatible', '@openrouter/ai-sdk-provider']) {
-      expect(typeof manifest.dependencies[dependency]).toBe('string');
+      expect(typeof core.dependencies[dependency]).toBe('string');
     }
     const retired = ['@prokopai', 'runtime'].join('/');
     const imports = scanDirectory(resolve(repositoryRoot, 'packages')).flatMap(file => parseImports(file.sourceText, file.path));

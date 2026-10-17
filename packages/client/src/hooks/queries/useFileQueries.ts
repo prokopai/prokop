@@ -5,41 +5,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { retainGitStatus } from '@/lib/rootFeedSubscriptions';
 import { newerGitStatus } from '@/handlers/serverMessage/gitHandlers';
 
-const FILE_BROWSE_STALE_TIME_MS = 10_000;
 const FILE_CONTENT_STALE_TIME_MS = 5_000;
-
-export function useFileBrowseQuery(
-  sdkClient: ProkopaiClient | null,
-  workspaceId: string | undefined,
-  path?: string,
-  opts?: { showHidden?: boolean; root?: string },
-  enabledOverride?: boolean,
-) {
-  return useQuery({
-    queryKey: queryKeys.files.browse(workspaceId ?? '', path, opts),
-    queryFn: ({ signal }) => sdkClient!.http.files.browse(workspaceId!, path, { ...opts, signal }),
-    enabled: !!sdkClient && !!workspaceId && (enabledOverride ?? true),
-    staleTime: FILE_BROWSE_STALE_TIME_MS,
-  });
-}
-
-export function useFileSearchQuery(
-  sdkClient: ProkopaiClient | null,
-  workspaceId: string | undefined,
-  query: string,
-  root?: string,
-) {
-  return useQuery({
-    queryKey: queryKeys.files.search(workspaceId ?? '', query, root),
-    queryFn: ({ signal }) => sdkClient!.http.files.search(
-      workspaceId!,
-      query,
-      { showHidden: true, root, limit: 50, signal },
-    ),
-    enabled: !!sdkClient && !!workspaceId && query.length >= 2,
-    staleTime: FILE_BROWSE_STALE_TIME_MS,
-  });
-}
 
 export function useFileBrowseFsQuery(
   sdkClient: ProkopaiClient | null,

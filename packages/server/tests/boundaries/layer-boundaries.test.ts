@@ -39,8 +39,6 @@ const layerDirs = [bootstrapDir, transportDir, applicationDir, domainsDir, infra
 const infrastructureSqliteDir = resolve(infrastructureDir, 'sqlite');
 const prokopToolsDir = resolve(prokopHarnessDir, 'tools');
 
-const capekInternalPrefix = '@prokopai/runtime/' + 'internal/';
-
 const honoMatchers: SpecifierMatcher[] = [
   { exact: 'hono' },
   { prefix: 'hono/' },
@@ -276,13 +274,6 @@ const globalBaselineRules: DependencyRule[] = [
     rationale: 'The store compatibility directory is removed. Server source must import actual owners.',
     appliesTo: [serverSourceRoot],
     forbiddenSpecifiers: [{ exact: '@/store' }, { prefix: '@/store/' }],
-    exceptions: {},
-  },
-  {
-    name: 'no-direct-capek-internals',
-    rationale: 'Public runtime subpaths are the contract; retired internal paths must not be reintroduced.',
-    appliesTo: [serverSourceRoot, serverTestsRoot],
-    forbiddenSpecifiers: [{ prefix: capekInternalPrefix }],
     exceptions: {},
   },
 ];

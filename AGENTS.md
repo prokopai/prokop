@@ -9,7 +9,8 @@ Prokop is an AI agent monorepo built with TypeScript and Bun.
 - **Runtime and package manager**: Bun
 - **Workspaces**: `packages/*`
 - **Server**: Hono backend in `packages/server` (`@prokopai/server`), with HTTP, WebSocket, terminal, SQLite, MCP, scheduling, permissions, and product-specific domain logic
-- **Agent engine**: Built into `packages/server/src/harnesses/prokop`, including execution, composition, compaction, retry, goals, workflows, and subagents. Shared memory, skills, and session search live in `harnesses/shared`; provider, tool, storage, and sandbox implementations live in server infrastructure.
+- **Agent engine**: `packages/agent` (`@prokopai/agent`). The Prokop harness lives in `src/harnesses/prokop` (execution, composition, compaction, retry, goals, workflows, subagents, built-in tools); the Claude Code and Codex CLI drivers live beside it. Shared memory, skills, and session search live in `src/harnesses/shared`. Harnesses reach the host only through ports.
+- **Runtime core**: `packages/core` (`@prokopai/core`). Ports, domains, provider adapters, tool registry, storage contracts, sandbox, and paths shared by the host and the agent. Loaded by the server in one process.
 - **Shared contracts**: SDK types (`@prokopai/sdk/types`) and tool interfaces (`@prokopai/sdk/tool`)
 - **Tool authoring contracts**: `@prokopai/sdk/tool`
 - **Client**: React 19, Vite 8, TanStack Router, TanStack Query, Zustand, shadcn/ui, Tailwind CSS v4, Storybook, and PWA support in `packages/client` (`@prokopai/client`)
@@ -22,7 +23,7 @@ Prokop is an AI agent monorepo built with TypeScript and Bun.
 
 Keep changes in the package that owns the behavior.
 
-- `server/src/harnesses/prokop` owns Prokop execution and composition. Shared services and other harnesses must not import its internals. Keep execution separate from HTTP, WebSocket, and UI concerns.
+- `packages/agent/src/harnesses/prokop` owns Prokop execution and composition. Shared services and other harnesses must not import its internals. Keep execution separate from HTTP, WebSocket, and UI concerns. Server code imports the agent only through `@prokopai/agent` and `@prokopai/core` public subpaths; `tests/boundaries/layer-boundaries.test.ts` enforces this.
 - `@prokopai/sdk/types` and `@prokopai/sdk/tool` own shared data and tool contracts. These lightweight entrypoints must not import client transports or server implementations.
 - `@prokopai/server` is the Prokop host. It composes the runtime, supplies storage and product adapters, and owns HTTP, WebSocket, CLI, MCP, SQLite, scheduling, notifications, permissions, and workspace behavior.
 - `@prokopai/sdk` owns product-facing REST and WebSocket contracts. Keep shared contracts in its lightweight types/tool modules.
@@ -197,7 +198,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 
 ### AI SDK and Providers
 
-- Vercel AI SDK adapters and provider registration live in `server/src/infrastructure/providers`; model execution lives in `harnesses/prokop`.
+- Vercel AI SDK adapters and the provider registry live in `packages/core/src/infrastructure/providers`; OAuth-backed provider accounts live in `packages/server/src/infrastructure/providers`; model execution lives in `packages/agent/src/harnesses/prokop`.
 - Current provider integrations include OpenAI, DeepSeek, OpenRouter, MiniMax, and Zhipu.
 - Prokop-specific provider accounts, credentials, and OAuth wiring live in the server adapters, application services, and provider-account domain.
 
@@ -205,8 +206,8 @@ import { useSessionStore } from '@/stores/sessionStore';
 
 The sandbox CLI in `packages/sandbox-cli` intercepts LLM calls through `/api/sandbox` so end-to-end flows can be tested without live model calls.
 
-- Sandbox controller and provider: `packages/server/src/infrastructure/sandbox/`
-- Server composition adapter: `packages/server/src/harnesses/prokop/host/sandbox.ts`
+- Sandbox controller and provider: `packages/core/src/infrastructure/sandbox/`
+- Prokop harness binding: `packages/agent/src/harnesses/prokop/bindings/sandbox.ts`
 - HTTP routes: `packages/server/src/transport/http/routes/sandbox.ts`
 
 ## Project Structure
@@ -220,15 +221,26 @@ packages/
       bootstrap/         # Application and runtime composition
       cli/               # CLI commands and update tooling
       config/            # Models, credentials, schemas, and tool environment
-      domains/           # Agents, controllers, notifications, providers, scheduling, tools, workspaces
-      harnesses/prokop/ # Execution, composition, context, host bindings, tools, and learning
-      harnesses/shared/ # Memory, skills, session search, and shared harness helpers
+      domains/           # Controllers, learning, MCP, notifications, provider accounts, scheduling, sessions, workspaces
       infrastructure/    # Daemon, filesystem, MCP, OAuth, providers, runtime, scheduling, and SQLite
       transport/http/    # Hono app, middleware, and REST routes
       transport/terminal/ # Terminal framing and managers
       transport/websocket/ # WebSocket routing, delivery, handlers, and registries
       cli.ts             # Compiled `prokop` CLI entry
       index.ts           # Server entry
+
+  agent/                 # @prokopai/agent harnesses, loaded lazily by the server
+    src/
+      harnesses/prokop/  # Execution, composition, context, bindings, tools, goals, and learning
+      harnesses/claude-cli/ # Claude Code driver
+      harnesses/codex-cli/  # Codex CLI driver
+      harnesses/shared/  # Memory, skills, session search, and shared harness helpers
+
+  core/                  # @prokopai/core runtime core shared by host and agent
+    src/
+      application/       # Agent and session application ports
+      domains/           # Agents, attachments, permissions, sessions
+      infrastructure/    # Providers, tools, storage contracts, sandbox, MCP, runtime paths
 
   client/                # @prokopai/client React web client and PWA
     src/
@@ -263,7 +275,7 @@ changelogs/              # Client, SDK, server, and tool release notes
 install/                 # install-prokopai.sh and install-prokopai.ps1
 ```
 
-Built-in tools live in `packages/server/src/harnesses/prokop/tools/`. External tools are prepared outside this repository and placed under `~/.prokopai/tools/<tool-name>/` as `tool.js` or `tool.ts` modules implementing the `@prokopai/sdk/tool` contract. Prokop does not install, update, build, or release external tools.
+Built-in tools live in `packages/agent/src/harnesses/prokop/tools/`. External tools are prepared outside this repository and placed under `~/.prokopai/tools/<tool-name>/` as `tool.js` or `tool.ts` modules implementing the `@prokopai/sdk/tool` contract. Prokop does not install, update, build, or release external tools.
 
 ## Working Practices
 

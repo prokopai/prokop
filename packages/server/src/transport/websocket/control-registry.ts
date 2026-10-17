@@ -69,11 +69,6 @@ export function isControlled(sessionId: string): boolean {
   return record?.status === 'controlled' && record.controllerClientId !== null;
 }
 
-export function isController(sessionId: string, clientId: string): boolean {
-  const record = controlBySessionId.get(sessionId);
-  return record?.controllerClientId === clientId && record?.status === 'controlled';
-}
-
 // Participant management
 
 export function addParticipant(sessionId: string, connectionId: ConnectionId, clientId: string): void {

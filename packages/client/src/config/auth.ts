@@ -87,17 +87,6 @@ export function setStoredServerUrl(url: string): void {
 }
 
 /**
- * Clear stored server URL from localStorage
- */
-export function clearStoredServerUrl(): void {
-  try {
-    localStorage.removeItem(SERVER_URL_KEY);
-  } catch (error) {
-    console.error('Error clearing server URL from localStorage:', error);
-  }
-}
-
-/**
  * Check if token is stored
  */
 export function hasStoredToken(): boolean {

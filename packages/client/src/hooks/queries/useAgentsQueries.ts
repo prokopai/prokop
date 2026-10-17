@@ -24,17 +24,6 @@ async function syncAgentResourcesToStoreAndCache(
   queryClient.setQueryData(queryKeys.config.agents, agentsData);
 }
 
-export function usePromoteAgent(sdkClient: ProkopaiClient | null) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      sdkClient!.http.agents.promote(id),
-    onSuccess: async () => {
-      if (sdkClient) await syncAgentResourcesToStoreAndCache(sdkClient, queryClient);
-    },
-  });
-}
-
 export function useDemoteAgent(sdkClient: ProkopaiClient | null) {
   const queryClient = useQueryClient();
   return useMutation({

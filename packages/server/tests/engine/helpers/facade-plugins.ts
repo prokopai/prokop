@@ -41,12 +41,6 @@ import {
   sessionSearchHostValuePlugin,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/value-plugins';
 
-export const FACADE_PROCESS_PLUGIN_IDS = [
-  'facade.provider-registry',
-  'facade.installed-tool-registry',
-  'facade.session-search-host',
-] as const;
-
 export function facadeProcessPlugins(): readonly RuntimePlugin<unknown>[] {
   return [
     providerRegistryValuePlugin('facade.provider-registry'),
@@ -79,24 +73,6 @@ export interface FacadeScopeValues {
   sandboxController: SandboxController;
   providerOverrides: ReadonlyMap<string, ConnectableProvider>;
 }
-
-export const FACADE_AGENT_PLUGIN_IDS = [
-  'facade.storage',
-  'facade.runtime-configuration',
-  'facade.runtime-host',
-  'facade.agent-driver',
-  'facade.retry-policy',
-  'facade.compaction-policy',
-  'facade.permission-policy',
-  'facade.workspace-policy',
-  'facade.tool-output-policy',
-  'facade.context-sources',
-  'facade.context-sections',
-  'facade.workspace-tool-discovery',
-  'facade.tool-resolver',
-  'facade.sandbox-controller',
-  'facade.provider-overrides',
-] as const;
 
 export function createFacadeAgentPlugins(values: FacadeScopeValues): readonly RuntimePlugin<unknown>[] {
   return [
