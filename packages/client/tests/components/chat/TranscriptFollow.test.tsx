@@ -116,6 +116,21 @@ test('dragging the scrollbar up leaves follow mode', () => {
   expect(onAutoScrollChange).toHaveBeenLastCalledWith(false);
 });
 
+test('watches window mouse moves only while the button is held', () => {
+  const add = vi.spyOn(window, 'addEventListener');
+  const remove = vi.spyOn(window, 'removeEventListener');
+  const mouseListeners = (spy: typeof add) => spy.mock.calls.filter(([type]) => type === 'mousemove' || type === 'mouseup').length;
+  render(transcript());
+  expect(mouseListeners(add)).toBe(0);
+
+  fireEvent.mouseDown(list.element!);
+  expect(mouseListeners(add)).toBe(2);
+  fireEvent.mouseUp(window);
+  expect(mouseListeners(remove)).toBe(2);
+  add.mockRestore();
+  remove.mockRestore();
+});
+
 test('a wheel up stops following before the browser scrolls, so a stream cannot pull it back', () => {
   const onAutoScrollChange = vi.fn();
   render(transcript({ onAutoScrollChange }));

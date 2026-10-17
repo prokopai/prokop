@@ -184,7 +184,6 @@ export function useTranscriptFollow({
     // scrolls, so a fast stream never gets a frame to pull the view back.
     // Everything else only marks the moment and handleScroll decides from
     // the resulting movement (scrollbar drags, selection, find in page).
-    let pointerHeld = false;
     let touchY: number | null = null;
     const canScrollUp = (target: EventTarget | null) =>
       scrollEl.scrollTop > 0 && !nestedScrollerTakesWheelUp(target, scrollEl);
@@ -222,18 +221,22 @@ export function useTranscriptFollow({
       }
     };
 
-    const onMouseDown = () => {
-      pointerHeld = true;
+    // Scrollbar drags and text selection that auto-scrolls both hold the
+    // button; window listeners exist only while it is held, so open panes
+    // do not each watch every mouse move in the app.
+    const onMouseMove = () => {
       markUserScrollInput();
     };
 
-    // Scrollbar drags and text selection that auto-scrolls both hold the button.
-    const onMouseMove = () => {
-      if (pointerHeld) markUserScrollInput();
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     };
 
-    const onMouseUp = () => {
-      pointerHeld = false;
+    const onMouseDown = () => {
+      markUserScrollInput();
+      window.addEventListener('mousemove', onMouseMove, { passive: true });
+      window.addEventListener('mouseup', onMouseUp, { passive: true });
     };
 
     scrollEl.addEventListener('wheel', onWheel, { passive: true });
@@ -241,8 +244,6 @@ export function useTranscriptFollow({
     scrollEl.addEventListener('touchmove', onTouchMove, { passive: true });
     scrollEl.addEventListener('keydown', onKeyDown, { passive: true });
     scrollEl.addEventListener('mousedown', onMouseDown, { passive: true });
-    window.addEventListener('mousemove', onMouseMove, { passive: true });
-    window.addEventListener('mouseup', onMouseUp, { passive: true });
 
     return () => {
       scrollEl.removeEventListener('wheel', onWheel);
@@ -250,8 +251,7 @@ export function useTranscriptFollow({
       scrollEl.removeEventListener('touchmove', onTouchMove);
       scrollEl.removeEventListener('keydown', onKeyDown);
       scrollEl.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      onMouseUp();
     };
   }, [setFollowing]);
 
