@@ -48,7 +48,7 @@ export class ModelsConfigInvalidError extends Error {
   }
 }
 
-let configCache: { databasePath: string; toolsPath: string; port: number; host: string } | null = null;
+let configCache: { databasePath: string; toolsPath: string } | null = null;
 
 let modelsCache: ModelsConfig | null = null;
 
@@ -96,7 +96,7 @@ function loadModelsConfig(): ModelsConfig {
   }
 }
 
-function loadConfig(): { databasePath: string; toolsPath: string; port: number; host: string } {
+function loadConfig(): { databasePath: string; toolsPath: string } {
   if (configCache) {
     return configCache;
   }
@@ -113,8 +113,6 @@ function loadConfig(): { databasePath: string; toolsPath: string; port: number; 
     configCache = {
       databasePath: config.databasePath || getDefaultDatabasePath(),
       toolsPath: config.toolsPath || getToolsDir(),
-      port: config.port || 8742,
-      host: config.host || '127.0.0.1',
     };
     return configCache;
   } catch {
@@ -286,11 +284,10 @@ export function getMaxOutputTokens(modelId?: string): number {
 }
 
 // Config interface for init
+/** config.json. Port and host come from the environment (`PROKOPAI_PORT`, `PROKOPAI_HOST`). */
 export interface ProkopConfig {
   databasePath: string;
   toolsPath: string;
-  port: number;
-  host: string;
   initializedAt: string;
 }
 
