@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { ProviderCredentialsPanel } from '../ProviderCredentialsPanel';
 import { OAuthProvidersPanel } from '../OAuthProvidersPanel';
 import { ModelEditorForm } from './ModelEditorForm';
@@ -188,7 +188,7 @@ export function ProviderCard({
         )}
       </CollapsibleContent>
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={deleteModelTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteModelTarget(null); }}
         title="Delete Model"
@@ -197,6 +197,7 @@ export function ProviderCard({
         variant="destructive"
         onConfirm={handleDeleteModel}
         loading={deletingModel}
+        closeOnConfirm={false}
       />
     </Collapsible>
   );

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { toast } from 'sonner';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { usePromptsQuery, useCreatePrompt, useUpdatePrompt, useDeletePrompt } from '@/hooks/queries';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { SettingsEditorHeader, SettingsEmpty, SettingsError, SettingsListRow, SettingsLoading } from './SettingsPrimitives';
+import { useSettingsEditor } from './useSettingsEditor';
 
 interface PanelProps {
   sdkClient: ProkopaiClient | null;
@@ -24,73 +24,30 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
   const updatePromptMut = useUpdatePrompt(sdkClient);
   const deletePromptMut = useDeletePrompt(sdkClient);
   const prompts: PromptInfo[] = promptsData?.prompts ?? [];
-  const [error, setError] = useState<string | null>(null);
-
-  const [editingPrompt, setEditingPrompt] = useState<PromptInfo | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
   const [editName, setEditName] = useState('');
   const [editContent, setEditContent] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const editor = useSettingsEditor<PromptInfo, string>({
+    load: (prompt) => {
+      setEditName(prompt?.name ?? '');
+      setEditContent(prompt?.content ?? '# New Prompt\n\n');
+    },
+    save: async (prompt) => {
+      if (!editName.trim()) return false;
+      if (prompt) await updatePromptMut.mutateAsync({ name: prompt.name, body: { content: editContent } });
+      else await createPromptMut.mutateAsync({ name: editName.trim(), content: editContent });
+    },
+    remove: (name) => deletePromptMut.mutateAsync(name),
+    saveError: 'Failed to save prompt',
+    deleteError: 'Failed to delete prompt',
+  });
+  const { isCreating, error, deleteTarget, setDeleteTarget } = editor;
 
-  const handleCreate = () => {
-    setIsCreating(true);
-    setEditingPrompt(null);
-    setEditName('');
-    setEditContent('# New Prompt\n\n');
-  };
-
-  const handleEdit = (prompt: PromptInfo) => {
-    setEditingPrompt(prompt);
-    setIsCreating(false);
-    setEditName(prompt.name);
-    setEditContent(prompt.content);
-  };
-
-  const handleSave = async () => {
-    if (!editName.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      if (isCreating) {
-        await createPromptMut.mutateAsync({ name: editName.trim(), content: editContent });
-      } else if (editingPrompt) {
-        await updatePromptMut.mutateAsync({ name: editingPrompt.name, body: { content: editContent } });
-      }
-      setIsCreating(false);
-      setEditingPrompt(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save prompt');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deletePromptMut.mutateAsync(deleteTarget);
-      setDeleteTarget(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete prompt';
-      setError(message);
-      toast.error('Failed to delete prompt', { description: message });
-    }
-  };
-
-  const handleCancel = () => {
-    setIsCreating(false);
-    setEditingPrompt(null);
-    setEditName('');
-    setEditContent('');
-  };
-
-  if (isCreating || editingPrompt) {
+  if (editor.isOpen) {
     return (
       <div className="p-3 sm:p-4 space-y-4">
-        <SettingsEditorHeader title={isCreating ? 'New prompt' : 'Edit prompt'} onBack={handleCancel}
-          backLabel="Back to prompts" onSave={handleSave} saving={saving} canSave={!!editName.trim()} />
+        <SettingsEditorHeader title={isCreating ? 'New prompt' : 'Edit prompt'} onBack={editor.cancel}
+          backLabel="Back to prompts" onSave={editor.save} saving={editor.saving} canSave={!!editName.trim()} />
 
         {error && <SettingsError>{error}</SettingsError>}
 
@@ -126,7 +83,7 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
         <p className="text-sm text-muted-foreground">
           {prompts.length} prompt{prompts.length !== 1 ? 's' : ''}
         </p>
-        <Button size="sm" onClick={handleCreate}>
+        <Button size="sm" onClick={editor.startCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Prompt
         </Button>
@@ -143,7 +100,7 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
               key={prompt.name}
               title={prompt.name}
               description={prompt.description}
-              onOpen={() => handleEdit(prompt)}
+              onOpen={() => editor.startEdit(prompt)}
               actions={(
                 <Button
                   size="icon-xs"
@@ -160,15 +117,16 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
         </div>
       )}
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title="Delete Prompt"
         description={`Are you sure you want to delete the prompt "${deleteTarget}"? This cannot be undone.`}
         confirmLabel="Delete"
         variant="destructive"
-        onConfirm={handleDelete}
+        onConfirm={editor.confirmDelete}
         loading={deletePromptMut.isPending}
+        closeOnConfirm={false}
       />
     </div>
   );

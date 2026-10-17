@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useServerDataStore } from '@/stores/serverDataStore';
@@ -931,7 +931,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
           </Dialog>
         )}
 
-        <ConfirmDialog
+        <ConfirmationDialog
           open={discardOpen}
           onOpenChange={setDiscardOpen}
           title="Discard changes?"
@@ -1028,7 +1028,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         </div>
       )}
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title="Delete Agent"
@@ -1037,9 +1037,10 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleting}
+        closeOnConfirm={false}
       />
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={demoteTarget !== null}
         onOpenChange={(open) => { if (!open) setDemoteTarget(null); }}
         title="Remove personal files"
@@ -1048,6 +1049,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         variant="destructive"
         onConfirm={handleDemote}
         loading={demoting}
+        closeOnConfirm={false}
       />
     </div>
   );

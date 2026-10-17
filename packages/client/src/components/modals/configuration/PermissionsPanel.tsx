@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PermissionListItem } from '../PermissionListItem';
-import { ConfirmDialog } from '../ConfirmDialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { SettingsEmpty } from './SettingsPrimitives';
 
 const MODE_OPTIONS: { value: PermissionMode; label: string; icon: typeof ShieldCheck }[] = [
@@ -131,7 +131,7 @@ export function PermissionsPanel({
         )}
       </div>
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={showRevokeAllConfirm}
         onOpenChange={setShowRevokeAllConfirm}
         title="Revoke All Permissions"

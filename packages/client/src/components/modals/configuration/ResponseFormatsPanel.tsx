@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
 import type { ProkopaiClient, ResponseFormat } from '@prokopai/sdk';
 import { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from '@/hooks/queries';
 import { Plus, Trash2, GripVertical, Code, Eye, ChevronRight } from 'lucide-react';
@@ -7,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { SettingsEditorHeader, SettingsEmpty, SettingsError, SettingsListRow, SettingsLoading } from './SettingsPrimitives';
+import { useSettingsEditor } from './useSettingsEditor';
 
 interface PanelProps {
   sdkClient: ProkopaiClient | null;
@@ -508,45 +508,54 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
   const updateMut = useUpdateResponseFormat(sdkClient);
   const deleteMut = useDeleteResponseFormat(sdkClient);
   const formats: ResponseFormat[] = formatsData?.formats ?? [];
-  const [error, setError] = useState<string | null>(null);
-
-  const [editingFormat, setEditingFormat] = useState<ResponseFormat | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [saving, setSaving] = useState(false);
 
   const [rawMode, setRawMode] = useState(false);
   const [editSchema, setEditSchema] = useState('');
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [fields, setFields] = useState<FieldDef[]>([]);
 
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-
-  const handleCreate = () => {
-    setIsCreating(true);
-    setEditingFormat(null);
-    setEditName('');
-    setEditDescription('');
-    setRawMode(false);
-    setFields([]);
-    setEditSchema(JSON.stringify({ type: 'object', properties: {}, required: [], additionalProperties: false }, null, 2));
-    setSchemaError(null);
-    setError(null);
-  };
-
-  const handleEdit = (format: ResponseFormat) => {
-    setEditingFormat(format);
-    setIsCreating(false);
-    setEditName(format.name);
-    setEditDescription(format.description ?? '');
-    setRawMode(false);
-    const parsedFields = schemaToFields(format.schema as Record<string, unknown>);
-    setFields(parsedFields);
-    setEditSchema(JSON.stringify(format.schema, null, 2));
-    setSchemaError(null);
-    setError(null);
-  };
+  const editor = useSettingsEditor<ResponseFormat, { id: string; name: string }>({
+    load: (format) => {
+      setEditName(format?.name ?? '');
+      setEditDescription(format?.description ?? '');
+      setRawMode(false);
+      setFields(format ? schemaToFields(format.schema as Record<string, unknown>) : []);
+      setEditSchema(JSON.stringify(
+        format?.schema ?? { type: 'object', properties: {}, required: [], additionalProperties: false },
+        null,
+        2,
+      ));
+      setSchemaError(null);
+    },
+    save: async (format) => {
+      if (!editName.trim()) return false;
+      let parsedSchema: Record<string, unknown>;
+      try {
+        parsedSchema = JSON.parse(editSchema);
+      } catch {
+        setSchemaError('Invalid JSON - please fix before saving');
+        return false;
+      }
+      const validation = validateJsonSchema(parsedSchema);
+      if (!validation.valid) {
+        setSchemaError(validation.error ?? null);
+        return false;
+      }
+      const body = {
+        name: editName.trim(),
+        schema: parsedSchema,
+        ...(editDescription.trim() ? { description: editDescription.trim() } : {}),
+      };
+      if (format) await updateMut.mutateAsync({ id: format.id, body });
+      else await createMut.mutateAsync(body);
+    },
+    remove: (target) => deleteMut.mutateAsync(target.id),
+    saveError: 'Failed to save',
+    deleteError: 'Failed to delete response format',
+  });
+  const { isCreating, error, deleteTarget, setDeleteTarget } = editor;
 
   const syncFieldsToRaw = useCallback((newFields: FieldDef[]) => {
     const schema = fieldsToSchema(newFields);
@@ -607,76 +616,11 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
     syncRawToFields(value);
   };
 
-  const handleSave = async () => {
-    if (!editName.trim()) return;
-    let parsedSchema: Record<string, unknown>;
-    try {
-      parsedSchema = JSON.parse(editSchema);
-    } catch {
-      setSchemaError('Invalid JSON - please fix before saving');
-      return;
-    }
-    const validation = validateJsonSchema(parsedSchema);
-    if (!validation.valid) {
-      setSchemaError(validation.error ?? null);
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    try {
-      if (isCreating) {
-        await createMut.mutateAsync({
-          name: editName.trim(),
-          schema: parsedSchema,
-          ...(editDescription.trim() ? { description: editDescription.trim() } : {}),
-        });
-      } else if (editingFormat) {
-        await updateMut.mutateAsync({
-          id: editingFormat.id,
-          body: {
-            name: editName.trim(),
-            schema: parsedSchema,
-            ...(editDescription.trim() ? { description: editDescription.trim() } : {}),
-          },
-        });
-      }
-      setIsCreating(false);
-      setEditingFormat(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteMut.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete';
-      setError(message);
-      toast.error('Failed to delete response format', { description: message });
-    }
-  };
-
-  const handleCancel = () => {
-    setIsCreating(false);
-    setEditingFormat(null);
-    setEditName('');
-    setEditDescription('');
-    setEditSchema('');
-    setFields([]);
-    setSchemaError(null);
-  };
-
-  if (isCreating || editingFormat) {
+  if (editor.isOpen) {
     return (
       <div className="p-3 sm:p-4 space-y-4">
-        <SettingsEditorHeader title={isCreating ? 'New format' : 'Edit format'} onBack={handleCancel}
-          backLabel="Back to formats" onSave={handleSave} saving={saving} canSave={!!editName.trim()} />
+        <SettingsEditorHeader title={isCreating ? 'New format' : 'Edit format'} onBack={editor.cancel}
+          backLabel="Back to formats" onSave={editor.save} saving={editor.saving} canSave={!!editName.trim()} />
 
         {error && <SettingsError>{error}</SettingsError>}
 
@@ -770,7 +714,7 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
         <p className="text-sm text-muted-foreground">
           {formats.length} format{formats.length !== 1 ? 's' : ''}
         </p>
-        <Button size="sm" onClick={handleCreate}>
+        <Button size="sm" onClick={editor.startCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Format
         </Button>
@@ -795,7 +739,7 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
                 title={format.name}
                 description={format.description}
                 meta={`${propCount} propert${propCount !== 1 ? 'ies' : 'y'}`}
-                onOpen={() => handleEdit(format)}
+                onOpen={() => editor.startEdit(format)}
                 actions={(
                   <Button
                     size="icon-xs"
@@ -813,15 +757,16 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
         </div>
       )}
 
-      <ConfirmDialog
+      <ConfirmationDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title="Delete Response Format"
         description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         variant="destructive"
-        onConfirm={handleDelete}
+        onConfirm={editor.confirmDelete}
         loading={deleteMut.isPending}
+        closeOnConfirm={false}
       />
     </div>
   );

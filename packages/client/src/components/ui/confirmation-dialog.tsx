@@ -20,6 +20,12 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   variant?: 'default' | 'destructive';
   loading?: boolean;
+  /**
+   * Close as soon as Confirm is pressed (default). Pass false when confirming
+   * starts a request: the dialog stays open showing `loading`, and the caller
+   * closes it when the request succeeds.
+   */
+  closeOnConfirm?: boolean;
 }
 
 export function ConfirmationDialog({
@@ -32,10 +38,11 @@ export function ConfirmationDialog({
   onConfirm,
   variant = 'default',
   loading = false,
+  closeOnConfirm = true,
 }: ConfirmationDialogProps) {
   const handleConfirm = () => {
     onConfirm();
-    if (!loading) {
+    if (closeOnConfirm && !loading) {
       onOpenChange(false);
     }
   };
