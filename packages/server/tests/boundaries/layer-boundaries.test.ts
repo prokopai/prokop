@@ -1278,8 +1278,7 @@ describe('server layer boundaries', () => {
         // harness state from the sessions domain, and signals the attention
         // feed when running state changes (same directory, no domain logic).
         // Row mapping also fills defaults: the session variant from the models
-        // config and the permission mode from the workspace. Known smell (one
-        // workspace read per row); moving it out is tracked in the cleanup plan.
+        // config and the permission mode from the workspace (cached per workspace).
         expect(specifiers).toEqual([
           './attention-signals',
           './workspaces',
