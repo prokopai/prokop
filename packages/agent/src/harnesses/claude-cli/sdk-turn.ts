@@ -26,6 +26,11 @@ export type ClaudeTurnEvent = (
   | { type: 'steer-started'; id: string }
   /** The CLI dropped a steered message; it never reached the model. */
   | { type: 'steer-cancelled'; id: string }
+  /** The reply is done and only backgrounded Bash keeps the process alive. */
+  | { type: 'background-wait'; tasks: number }
+  /** A backgrounded Bash task settled after the reply; the CLI may follow up on its own. */
+  | { type: 'task-finished'; taskId: string; toolUseId?: string; status: 'completed' | 'failed' | 'stopped';
+    summary: string; outputFile: string }
 ) & { parentToolUseId?: string };
 
 export interface ClaudeSteerInput {
@@ -259,6 +264,7 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   const agentTasks = new Map<string, string>();
   // Non-agent task IDs (local_bash and others), and whether each is backgrounded.
   const otherTasks = new Map<string, boolean>();
+  const otherTaskTools = new Map<string, string>();
   let taskWaitTimer: ReturnType<typeof setTimeout> | undefined;
   let taskWaitExpired = false;
   const streamedText = new Map<string, string>();
@@ -354,6 +360,7 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       yield { type: 'child-start', id: message.tool_use_id, background: message.is_backgrounded === true };
     } else if (message.type === 'system' && message.subtype === 'task_started' && message.task_id) {
       otherTasks.set(message.task_id, message.is_backgrounded === true);
+      if (typeof message.tool_use_id === 'string' && message.tool_use_id) otherTaskTools.set(message.task_id, message.tool_use_id);
     }
     if (message.type === 'system' && message.subtype === 'task_updated'
       && message.patch.is_backgrounded === true) {
@@ -366,7 +373,20 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
       }
     }
     if (message.type === 'system' && message.subtype === 'task_notification') {
-      if (otherTasks.delete(message.task_id)) releaseIfSettled();
+      const backgroundedTask = otherTasks.get(message.task_id) === true;
+      const toolUseId = otherTaskTools.get(message.task_id);
+      otherTaskTools.delete(message.task_id);
+      if (otherTasks.delete(message.task_id)) {
+        // Settled inside the turn, the CLI feeds the model itself. After the
+        // reply it is news the host must deliver.
+        if (finished && backgroundedTask) {
+          yield { type: 'task-finished', taskId: message.task_id, ...(toolUseId ? { toolUseId } : {}),
+            status: message.status === 'completed' ? 'completed' : message.status === 'failed' ? 'failed' : 'stopped',
+            summary: typeof message.summary === 'string' ? message.summary : '',
+            outputFile: typeof message.output_file === 'string' ? message.output_file : '' };
+        }
+        releaseIfSettled();
+      }
       const agentId = agentTasks.get(message.task_id);
       if (agentId) {
         agentTasks.delete(message.task_id);
@@ -452,6 +472,10 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
         finally { if (timeout) clearTimeout(timeout); }
       }
       releaseIfSettled();
+      // Nothing but backgrounded Bash holds the process: the host can end its turn now.
+      if (!released && backgroundAgents.size === 0 && pendingSteers.size === 0 && backgroundTasksPending()) {
+        yield { type: 'background-wait', tasks: [...otherTasks.values()].filter(Boolean).length };
+      }
     }
     }
     if (!sawResult || !finished) throw new Error('Claude CLI exited without a terminal result');

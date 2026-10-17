@@ -282,7 +282,7 @@ export function createInMemoryMessageQueueStore(options: { attachments?: Attachm
   const records = new Map<string, QueuedMessage>();
   let id = 0;
   return {
-    async addMessage(sessionId, content, attachments) {
+    async addMessage(sessionId, content, attachments, steer) {
       const position = Math.max(-1, ...[...records.values()]
         .filter(record => record.sessionId === sessionId)
         .map(record => record.position)) + 1;
@@ -305,6 +305,7 @@ export function createInMemoryMessageQueueStore(options: { attachments?: Attachm
         position,
         createdAt: Date.now(),
         ...(enriched ? { attachments: enriched } : {}),
+        ...(steer ? { steer: true as const } : {}),
       };
       records.set(message.id, copy(message));
       return copy(message);

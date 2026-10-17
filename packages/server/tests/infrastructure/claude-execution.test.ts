@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, spyOn, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setupTestDatabase, resetTestDatabase } from '#tests/db';
 import { seedWorkspace } from '#tests/seed';
@@ -1370,4 +1370,147 @@ test('a steer the Claude CLI drops stays queued and is sent after the turn', asy
   expect(transcriptOf('session')).toEqual(['user:indent the file', 'assistant(completed):reply 1',
     'user:use tabs', 'assistant(completed):reply 2']);
   expect(listQueuedMessages('session')).toEqual([]);
+});
+
+// ── Background Bash continuation ─────────────────────────────────
+
+async function waitUntil(condition: () => boolean, timeoutMs = 3000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error('condition not met in time');
+    await Bun.sleep(10);
+  }
+}
+
+function backgroundBashStream(options: Options, prompt: AsyncIterable<SDKUserMessage>, phases: {
+  outputFile: string;
+  /** Resolves once the host turn is done and the test wants the command to settle. */
+  released: Promise<void>;
+  /** Runs between the first result and the task notification, with the input reader. */
+  between?: (reader: AsyncIterator<SDKUserMessage>, id: string) => AsyncGenerator<SDKMessage>;
+}): AsyncIterable<SDKMessage> {
+  async function* messages(): AsyncGenerator<SDKMessage> {
+    const reader = prompt[Symbol.asyncIterator]();
+    await reader.next();
+    const id = options.sessionId!;
+    yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+    yield { type: 'assistant', session_id: id, parent_tool_use_id: null, message: { content: [
+      { type: 'text', text: 'checks running' },
+      { type: 'tool_use', name: 'Bash', id: 'tool-bash', input: { command: 'bun test', run_in_background: true } },
+    ] } } as SDKMessage;
+    yield { type: 'system', subtype: 'task_started', session_id: id, task_id: 'bash-1', task_type: 'local_bash',
+      tool_use_id: 'tool-bash', is_backgrounded: true } as SDKMessage;
+    yield { type: 'user', session_id: id, parent_tool_use_id: null, message: {
+      content: [{ type: 'tool_result', tool_use_id: 'tool-bash', content: 'running in background' }] } } as SDKMessage;
+    yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'checks running' } as SDKMessage;
+    const aborted = new Promise<void>(resolve => options.abortController?.signal.addEventListener('abort', () => resolve(), { once: true }));
+    await Promise.race([phases.released, aborted]);
+    if (options.abortController?.signal.aborted) return;
+    if (phases.between) yield* phases.between(reader, id);
+    yield { type: 'system', subtype: 'task_notification', session_id: id, task_id: 'bash-1', tool_use_id: 'tool-bash',
+      status: 'completed', output_file: phases.outputFile, summary: 'tests passed' } as SDKMessage;
+    yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+    yield { type: 'assistant', session_id: id, parent_tool_use_id: null,
+      message: { content: [{ type: 'text', text: 'all green' }] } } as SDKMessage;
+    yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'all green',
+      queued_turn_count: 0 } as SDKMessage;
+    // The settled task lets the harness close stdin, which ends the process.
+    await reader.next();
+  }
+  return messages();
+}
+
+test('a background Bash command ends the host turn at the reply and reports back as a note and a new reply', async () => {
+  const { wire, events } = wireFixture();
+  const outputFile = join(dataDir, 'bash-1.out');
+  writeFileSync(outputFile, 'line one\nall green\n');
+  let release!: () => void;
+  const released = new Promise<void>(resolve => { release = resolve; });
+  const calls: Options[] = [];
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    calls.push(options);
+    if (typeof prompt === 'string') throw new Error('Expected streaming input');
+    return backgroundBashStream(options, prompt, { outputFile, released });
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'run the checks');
+
+  // The reply is complete and the session idle while the command still runs.
+  expect(transcriptOf('session')).toEqual(['user:run the checks', 'assistant(completed):checks running|tool']);
+  expect(getSession('session')?.runningAt).toBeNull();
+  expect(exec.isSessionActive('session')).toBe(true);
+  const firstReply = listMessagesWithParts('session')[1]!.message;
+  const completion = (events as Array<{ type: string; message?: { id: string; status?: string }; continues?: true }>)
+    .find(event => event.type === 'message.updated' && event.message?.id === firstReply.id && event.message.status === 'completed');
+  expect(completion?.continues).toBeUndefined();
+
+  release();
+  await waitUntil(() => !exec.isSessionActive('session'));
+  const entries = listMessagesWithParts('session');
+  expect(entries.map(entry => `${entry.message.role}:${entry.message.role === 'assistant' ? entry.message.status : ''}`))
+    .toEqual(['user:', 'assistant:completed', 'user:', 'assistant:completed']);
+  const note = entries[2]!.parts.find(part => part.type === 'text')!.text;
+  expect(note).toContain('Background command finished: `bun test`');
+  expect(note).toContain('tests passed');
+  expect(note).toContain(`Full output: ${outputFile}`);
+  expect(note).toContain('<prokop_context>');
+  expect(note).toContain('line one\nall green');
+  expect(entries[3]!.parts.find(part => part.type === 'text')).toMatchObject({ text: 'all green' });
+  expect(calls).toHaveLength(1);
+  expect(getSession('session')?.runningAt).toBeNull();
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
+  expect(listQueuedMessages('session')).toEqual([]);
+});
+
+test('a message sent during a continuation runs as the next turn in the same process', async () => {
+  const { wire, events } = wireFixture();
+  const outputFile = join(dataDir, 'bash-1.out');
+  writeFileSync(outputFile, 'ok\n');
+  let release!: () => void;
+  const released = new Promise<void>(resolve => { release = resolve; });
+  const calls: Options[] = [];
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    calls.push(options);
+    if (typeof prompt === 'string') throw new Error('Expected streaming input');
+    return backgroundBashStream(options, prompt, { outputFile, released, between: async function* (reader, id) {
+      const steer = (await reader.next()).value as SDKUserMessage;
+      expect(steer).toMatchObject({ priority: 'next', message: { content: [{ type: 'text', text: 'also lint' }] } });
+      yield { type: 'command_lifecycle', command_uuid: steer.uuid, state: 'started', session_id: id } as unknown as SDKMessage;
+      yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+      yield { type: 'assistant', session_id: id, parent_tool_use_id: null,
+        message: { content: [{ type: 'text', text: 'also linted' }] } } as SDKMessage;
+      yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'also linted',
+        queued_turn_count: 0 } as SDKMessage;
+    } });
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'run the checks');
+  expect(exec.isSessionActive('session')).toBe(true);
+
+  await exec.sendMessage(wire, 'origin', 'session', 'also lint');
+  expect(calls).toHaveLength(1);
+  expect(events).toContainEqual(expect.objectContaining({ type: 'queue.added', sessionId: 'session' }));
+  release();
+  await waitUntil(() => !exec.isSessionActive('session'));
+  const entries = listMessagesWithParts('session');
+  expect(entries.map(entry => `${entry.message.role}:${entry.parts.filter(part => part.type === 'text').map(part => part.text)[0]?.slice(0, 20) ?? ''}`))
+    .toEqual(['user:run the checks', 'assistant:checks running', 'user:also lint', 'assistant:also linted',
+      'user:Background command f', 'assistant:all green']);
+  expect(entries.every(entry => entry.message.role !== 'assistant' || entry.message.status === 'completed')).toBe(true);
+  expect(listQueuedMessages('session')).toEqual([]);
+  expect(getSession('session')?.runningAt).toBeNull();
+});
+
+test('Stop during a continuation keeps the completed reply and frees the session', async () => {
+  const { wire } = wireFixture();
+  const released = new Promise<void>(() => {});
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    if (typeof prompt === 'string') throw new Error('Expected streaming input');
+    return backgroundBashStream(options, prompt, { outputFile: join(dataDir, 'none.out'), released });
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'run the checks');
+  expect(exec.isSessionActive('session')).toBe(true);
+  await exec.interruptSession('session');
+  await waitUntil(() => !exec.isSessionActive('session'));
+  expect(transcriptOf('session')).toEqual(['user:run the checks', 'assistant(completed):checks running|tool']);
+  expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
+  expect(getSession('session')?.runningAt).toBeNull();
 });

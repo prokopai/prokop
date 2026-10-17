@@ -8,7 +8,7 @@ import {
   startClaudeRollbackIntent,
 } from './native-state';
 import {
-  createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, listMessagesWithParts,
+  addMessageToQueue, createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, listMessagesWithParts,
   transitionToolToCompleted, transitionToolToError, transitionToolToInterrupted, updateMessage, updatePart, updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
@@ -16,7 +16,9 @@ import { getClaudeModelSelection } from './models';
 import { claudeCliVersion } from './version';
 import { StreamingTextWriter } from '#agent/harnesses/shared/streaming-text';
 import { describeError, logHarness, StderrTail } from '#agent/harnesses/shared/diagnostics';
-import { runClaudeTurn, type ClaudeSteerInput } from './sdk-turn';
+import { runClaudeTurn, type ClaudeSteerInput, type ClaudeTurnEvent } from './sdk-turn';
+import { readFile } from 'node:fs/promises';
+import { joinContextEnvelope, type TerminalContextReference } from '@prokopai/sdk';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '#agent/harnesses/shared/steering';
 import { readClaudeGoalVerdict } from './goal-transcript';
 import { runClaudeCompact } from './compact';
@@ -69,6 +71,8 @@ interface ClaudeSteerRun {
 
 export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): QueuedCliExecution {
   const active = new Map<string, AbortController>();
+  // Sessions whose host turn ended while the CLI process still runs backgrounded Bash.
+  const continuations = new Set<string>();
   const steerable = new Map<string, ClaudeSteerRun>();
   function dispatchSteers(sessionId: string): Promise<void> {
     const run = steerable.get(sessionId);
@@ -208,7 +212,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       throw error;
     } finally { rollingBack.delete(sessionId); }
   }
-  return withCliMessageQueue({
+  const execution: QueuedCliExecution = withCliMessageQueue({
     isSessionActive: id => active.has(id) || rollingBack.has(id),
     steer: async (_wire, sessionId) => dispatchSteers(sessionId),
     async interruptSession(id) {
@@ -242,7 +246,25 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         return reject('Claude goal requires reconciliation; do not send in this session');
       }
       const resubmit = resubmitting.get(sessionId);
+      if (continuations.has(sessionId) && active.has(sessionId)) {
+        // The reply is done but the CLI process still owns the session for its
+        // background commands. The message joins that process as its next turn;
+        // a drain never gets here, and its row stays queued for later.
+        if (queued) return;
+        if (goalCondition !== undefined || resubmit) return reject('Claude CLI turn already running');
+        const row = await addMessageToQueue(sessionId, content, attachments, true);
+        wire.actor.attachOriginToSession(origin, sessionId);
+        wire.delivery.send(origin, { type: 'queue.added', sessionId, message: row });
+        await dispatchSteers(sessionId);
+        return;
+      }
       if (rollingBack.has(sessionId) || active.has(sessionId)) return reject('Claude CLI turn already running');
+      // The host turn can end before the CLI process does (background Bash);
+      // `early` resolves the send while `run` carries on as the continuation.
+      let hostTurnDone = false;
+      let resolveEarly: ((value: 'drainable') => void) | null = null;
+      const early = new Promise<'drainable'>(resolve => { resolveEarly = resolve; });
+      const run = async (): Promise<'drainable' | void> => {
       // Claimed before the first await so a concurrent send or rollback is refused.
       const controller = new AbortController();
       active.set(sessionId, controller);
@@ -288,6 +310,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       let ownedNativeId: string | null = null;
       let drainable = false;
       let terminalResult = false;
+      // The current assistant message is still streaming.
+      let replyOpen = false;
       const startedAt = Date.now();
       const stderr = new StderrTail();
       const steers = new Map<string, DispatchedSteer>();
@@ -378,6 +402,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         assistant = await createMessage(streamingAssistant(sessionId, {
           modelId: selection.model, providerId: 'claude-cli', agent: session.agentId })) as AssistantMessage;
         wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
+        replyOpen = true;
         let result: string | null = null;
         let goalActivated = false;
         let goalCleared = false;
@@ -403,6 +428,70 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'part.updated', sessionId, part: updated });
           }
           openSegment = { part: { ...openSegment.part, text: next }, text: next };
+        };
+        /** Completes the open reply: text, context, usage, and the finish notification. */
+        const finishReply = async (): Promise<void> => {
+          if (!assistant || !replyOpen) return;
+          await settleOpenSegment();
+          if (segments.length === 0 && result) await saveText(result);
+          await settleOpenSegment();
+          openSegment = null;
+          const contextUpdated = await patchSessionMetadata(sessionId, { claudeContext: contextUsage });
+          if (contextUpdated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: contextUpdated });
+          const completed = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now(),
+            ...(usage ? { tokens: { prompt: usage.prompt + usage.cacheRead + usage.cacheWrite,
+              completion: usage.completion }, cost: usage.cost } : {}) });
+          replyOpen = false;
+          if (completed) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completed });
+          if (usage) {
+            // The meter reads `claudeUsage`; the session token fields are Prokop's context usage.
+            const updated = await patchSessionMetadata(sessionId, {
+              claudeUsage: { last: usage, contextWindow: usage.contextWindow },
+            });
+            if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
+          }
+          await notifyHarnessTurnFinished(completed);
+        };
+        /** A reply the CLI starts on its own after the host turn ended (a background command settled). */
+        const openFollowUp = async (): Promise<void> => {
+          assistant = await createMessage(streamingAssistant(sessionId, {
+            modelId: selection.model, providerId: 'claude-cli', agent: session.agentId })) as AssistantMessage;
+          wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
+          segments.length = 0;
+          openSegment = null;
+          result = null;
+          usage = null;
+          contextUsage = null;
+          replyOpen = true;
+          await persistCliSessionRunning(wire, sessionId, true);
+        };
+        /** The settled command becomes a prompt with its output as a terminal chip, like a Prokop shell completion. */
+        const recordTaskNote = async (event: Extract<ClaudeTurnEvent, { type: 'task-finished' }>): Promise<void> => {
+          const part = event.toolUseId ? await getToolPartByCallId(sessionId, `claude-tool:${nativeId}:${event.toolUseId}`) : null;
+          const input = part?.state.input as Record<string, unknown> | undefined;
+          const command = typeof input?.command === 'string' ? input.command : '';
+          let tail = '';
+          if (event.outputFile) {
+            try {
+              const text = await readFile(event.outputFile, 'utf8');
+              tail = text.length > 16_384 ? text.slice(-16_384).replace(/^[^\n]*\n/, '') : text;
+            } catch { /* the CLI owns the file; it may be gone */ }
+          }
+          const label = (command || event.summary || 'background command').replace(/\s+/g, ' ').trim().slice(0, 60);
+          const id = `claude-${event.taskId}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40);
+          const outcome = event.status === 'completed' ? 'finished' : event.status === 'failed' ? 'failed' : 'was stopped';
+          const reference: TerminalContextReference = { kind: 'terminal', id, label,
+            text: tail.trimEnd() || event.summary || '(no output)' };
+          const lines = [
+            `Background command ${outcome}: \`${label}\` [${label}](#context-${id})`,
+            ...(event.summary ? [event.summary] : []),
+            ...(event.outputFile ? [`Full output: ${event.outputFile}`] : []),
+          ];
+          const note = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
+          const text = await createPart({ id: crypto.randomUUID(), messageId: note.id, type: 'text',
+            text: joinContextEnvelope(lines.join('\n'), [reference]), createdAt: nextCreatedAt() }, sessionId);
+          wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: note });
+          wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part: text });
         };
         const handoffBrief = await getHandoffBrief(sessionId);
         for await (const event of runClaudeTurn({ cwd: root, prompt: content, images: imageData,
@@ -441,21 +530,26 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             if (!steer) continue;
             steers.delete(event.id);
             // The steered message follows everything streamed so far; the rest of the turn answers it.
-            await settleOpenSegment();
-            openSegment = null;
-            if (segments.length === 0 && result) {
-              await saveText(result);
+            if (replyOpen) {
               await settleOpenSegment();
               openSegment = null;
+              if (segments.length === 0 && result) {
+                await saveText(result);
+                await settleOpenSegment();
+                openSegment = null;
+              }
+              const answered = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now() });
+              if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered, continues: true });
             }
-            const answered = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now() });
-            if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered, continues: true });
             const steered = await commitSteer(wire.delivery, sessionId, steer);
             assistant = await createMessage(streamingAssistant(sessionId, {
               modelId: selection.model, providerId: 'claude-cli', agent: session.agentId,
               createdAt: Math.max(Date.now(), steered.createdAt + 1) })) as AssistantMessage;
             wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
             segments.length = 0;
+            openSegment = null;
+            replyOpen = true;
+            if (hostTurnDone) await persistCliSessionRunning(wire, sessionId, true);
             // The answer to the steered message ends with its own result; usage stays cumulative.
             result = null;
             logHarness('claude-cli', 'steer started', { sessionId, queueId: steer.queued.id }, 'info');
@@ -465,6 +559,25 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             // The row stays queued and drains after this turn. Keeping the record
             // stops a re-send in this turn and still records a late start.
             if (steers.has(event.id)) logHarness('claude-cli', 'steer dropped by CLI', { sessionId }, 'info');
+            continue;
+          }
+          if (event.type === 'background-wait') {
+            if (hostTurnDone || goalCondition !== undefined || controller.signal.aborted) continue;
+            // The reply is done and only backgrounded Bash keeps the process alive. The host
+            // turn ends here; this loop carries on as the session's continuation.
+            await finishReply();
+            await children.close('interrupted');
+            if (resubmit) await deleteClaudeRollbackIntent(undefined, sessionId);
+            hostTurnDone = true;
+            drainable = true;
+            continuations.add(sessionId);
+            logHarness('claude-cli', 'turn completed, background commands continue',
+              { sessionId, tasks: event.tasks, durationMs: Date.now() - startedAt }, 'info');
+            resolveEarly?.('drainable');
+            continue;
+          }
+          if (event.type === 'task-finished') {
+            if (hostTurnDone) await recordTaskNote(event);
             continue;
           }
           if (event.type === 'child-start') {
@@ -487,6 +600,10 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           if (event.parentToolUseId) {
             await children.receive(event);
             continue;
+          }
+          if (hostTurnDone && !replyOpen
+            && (event.type === 'text-delta' || event.type === 'text-final' || event.type === 'tool-start')) {
+            await openFollowUp();
           }
           if (event.type === 'compact-boundary') {
             const updated = await patchSessionMetadata(sessionId, {
@@ -540,6 +657,17 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           if (event.type === 'result') {
             terminalResult = true;
             if (!event.success) throw new Error(event.error ? `Claude CLI turn failed: ${event.error}` : 'Claude CLI turn failed');
+            if (hostTurnDone) {
+              // A follow-up reply of the continuation ends with its own result.
+              if (!replyOpen && event.text) await openFollowUp();
+              if (replyOpen) {
+                result = event.text;
+                usage = event.usage;
+                await finishReply();
+                await persistCliSessionRunning(wire, sessionId, false);
+              }
+              continue;
+            }
             // Later SDK turns can finish background work; they do not replace the user's reply.
             if (result === null) {
               result = event.text;
@@ -551,6 +679,12 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
         }
         await settleOpenSegment();
+        if (hostTurnDone) {
+          // The continuation ended: its background commands settled or the wait cap passed.
+          if (replyOpen) throw new Error('Claude CLI turn result is missing');
+          logHarness('claude-cli', 'continuation ended', { sessionId, durationMs: Date.now() - startedAt }, 'info');
+          return 'drainable';
+        }
         if (result === null) throw new Error('Claude CLI turn result is missing');
         if (goalCondition !== undefined && !controller.signal.aborted) {
           // CLI 2.1.274 persists evaluator verdicts as goal_status attachments, but
@@ -572,26 +706,12 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
         }
         if (controller.signal.aborted) throw new Error('Claude turn interrupted');
-        if (segments.length === 0 && result) await saveText(result);
         await children.close('interrupted');
-        const contextUpdated = await patchSessionMetadata(sessionId, { claudeContext: contextUsage });
-        if (contextUpdated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: contextUpdated });
-        const completed = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now(),
-          ...(usage ? { tokens: { prompt: usage.prompt + usage.cacheRead + usage.cacheWrite,
-            completion: usage.completion }, cost: usage.cost } : {}) });
-        if (completed) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: completed });
-        if (usage) {
-          // The meter reads `claudeUsage`; the session token fields are Prokop's context usage.
-          const updated = await patchSessionMetadata(sessionId, {
-            claudeUsage: { last: usage, contextWindow: usage.contextWindow },
-          });
-          if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-        }
+        await finishReply();
         await storeTransaction(async (tx) => {
           await releaseClaudeBinding(tx, sessionId);
           if (resubmit) await deleteClaudeRollbackIntent(tx, sessionId);
         });
-        await notifyHarnessTurnFinished(completed);
         drainable = true;
         logHarness('claude-cli', 'turn completed', { sessionId, durationMs: Date.now() - startedAt }, 'info');
       } catch (error) {
@@ -610,7 +730,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
         }
-        if (assistant) {
+        if (assistant && replyOpen) {
           const updated = await updateMessage(assistant.id, { status: controller.signal.aborted ? 'interrupted' : 'error',
             ...(controller.signal.aborted ? {} : { error: error instanceof Error ? error.message : 'Claude CLI turn failed' }),
             completedAt: Date.now() });
@@ -640,8 +760,21 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         active.delete(sessionId);
         if (steerable.get(sessionId)?.dispatched === steers) steerable.delete(sessionId);
         if (resubmit) resubmitting.delete(sessionId);
+        if (continuations.delete(sessionId)) {
+          try { await persistCliSessionRunning(wire, sessionId, false); } catch { /* presentation state only */ }
+          // Steers the CLI never started and anything queued meanwhile go out as ordinary turns.
+          void execution.drainQueue?.(wire, origin, sessionId).catch((error: unknown) => {
+            logHarness('claude-cli', 'drain after continuation failed', { sessionId, ...describeError(error) });
+          });
+        }
       }
       if (drainable) return 'drainable';
+      };
+      const body = run().catch((error: unknown) => {
+        if (!hostTurnDone) throw error;
+        logHarness('claude-cli', 'continuation failed', { sessionId, ...describeError(error) });
+      });
+      return Promise.race([body, early]);
     },
     async revert(input) {
       try {
@@ -773,4 +906,5 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       }
     },
   }, 'claude-cli', persistCliSessionRunning);
+  return execution;
 }

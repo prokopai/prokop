@@ -148,7 +148,8 @@ export interface ToolOutputArtifactStore {
 }
 
 export interface MessageQueueStore {
-  addMessage(sessionId: string, content: string, attachments?: Array<{ id: string; kind: string }>): Promise<QueuedMessage>;
+  /** `steer` marks the row for delivery into the running turn at its next safe point. */
+  addMessage(sessionId: string, content: string, attachments?: Array<{ id: string; kind: string }>, steer?: boolean): Promise<QueuedMessage>;
   peek(sessionId: string): Promise<QueuedMessage | null>;
   /** The oldest message marked for delivery into the running turn. */
   peekSteer(sessionId: string): Promise<QueuedMessage | null>;

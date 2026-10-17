@@ -542,6 +542,9 @@ test('keeps input open for background Bash until its notification and admits the
   })) collected.push(item);
   expect(collected).toEqual([
     { type: 'result', text: 'checks running', success: true, usage: null },
+    // Only backgrounded Bash holds the process: the host may end its turn.
+    { type: 'background-wait', tasks: 1 },
+    { type: 'task-finished', taskId: 'bash-1', toolUseId: 'tool-bash', status: 'completed', summary: '', outputFile: '' },
     { type: 'text-final', text: 'typecheck passed', streamed: '' },
     { type: 'result', text: 'typecheck passed', success: true, usage: null },
   ]);
