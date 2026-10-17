@@ -1,5 +1,6 @@
 import type { Hono } from 'hono';
 import { validate } from './validate';
+import { BadRequestError, HttpError } from '@/application/http-errors';
 import type { ToolsHttpApplication } from '@/application/tools';
 import { setToolEnvSchema } from './schemas';
 
@@ -19,7 +20,7 @@ export function registerToolRoutes(app: Hono, application: ToolsHttpApplication)
   app.get('/api/tools/env', async (c) => {
     const result = await application.listEnv();
     if (result.kind === 'failed') {
-      return c.json({ error: 'Failed to list tool env vars', message: result.message }, 500);
+      throw new HttpError(500, `Failed to list tool env vars: ${result.message}`, 'internal_error');
     }
     return c.json(result.status);
   });
@@ -34,10 +35,10 @@ export function registerToolRoutes(app: Hono, application: ToolsHttpApplication)
 
       const result = await application.setEnv(key, value);
       if (result.kind === 'invalid') {
-        return c.json({ error: 'Bad Request', message: result.message }, 400);
+        throw new BadRequestError(result.message);
       }
       if (result.kind === 'failed') {
-        return c.json({ error: 'Internal Server Error', message: result.message }, 500);
+        throw new HttpError(500, result.message, 'internal_error');
       }
       return c.json({ envVar: result.envVar });
     },
@@ -48,10 +49,10 @@ export function registerToolRoutes(app: Hono, application: ToolsHttpApplication)
     const key = c.req.param('key');
     const result = await application.clearEnv(key);
     if (result.kind === 'invalid') {
-      return c.json({ error: 'Bad Request', message: result.message }, 400);
+      throw new BadRequestError(result.message);
     }
     if (result.kind === 'failed') {
-      return c.json({ error: 'Internal Server Error', message: result.message }, 500);
+      throw new HttpError(500, result.message, 'internal_error');
     }
     return c.json({ envVar: result.envVar });
   });

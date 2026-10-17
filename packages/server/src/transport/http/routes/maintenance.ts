@@ -1,37 +1,36 @@
 import type { Hono } from 'hono';
 import type { MaintenanceApplication } from '@/application/ports/maintenance';
+import { HttpError } from '@/application/http-errors';
+
+function failed(action: string, err: unknown): HttpError {
+  return new HttpError(500, `${action} failed: ${err instanceof Error ? err.message : String(err)}`, 'internal_error');
+}
 
 export function registerMaintenanceRoutes(app: Hono, maintenance: MaintenanceApplication): void {
   // GET /api/maintenance/db-stats - Database size and page statistics
   app.get('/api/maintenance/db-stats', (c) => {
     try {
-      const result = maintenance.vacuum({ dryRun: true });
-      return c.json(result);
+      return c.json(maintenance.vacuum({ dryRun: true }));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: 'Database stats failed', message }, 500);
+      throw failed('Database stats', err);
     }
   });
 
   // POST /api/maintenance/vacuum - Reclaim free space in the database
   app.post('/api/maintenance/vacuum', (c) => {
     try {
-      const result = maintenance.vacuum();
-      return c.json({ success: true, ...result });
+      return c.json({ success: true, ...maintenance.vacuum() });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: 'Vacuum failed', message }, 500);
+      throw failed('Vacuum', err);
     }
   });
 
   // POST /api/maintenance/cleanup - Remove orphaned data
   app.post('/api/maintenance/cleanup', (c) => {
     try {
-      const stats = maintenance.cleanup();
-      return c.json({ success: true, stats });
+      return c.json({ success: true, stats: maintenance.cleanup() });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: 'Cleanup failed', message }, 500);
+      throw failed('Cleanup', err);
     }
   });
 }

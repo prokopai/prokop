@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import { validate } from './validate';
+import { UnauthorizedError } from '@/application/http-errors';
 import { isAdminPrincipal, type DeviceAccessService } from '@/application/device-access/service';
 import { getRequestPrincipal, requireAdmin } from '@/transport/http/middleware/auth';
 
@@ -158,7 +159,7 @@ export function registerDeviceAccessRoutes(
   /** POST /api/auth/ws-ticket - short-lived single-use ticket so tokens stay out of socket URLs. */
   app.post('/api/auth/ws-ticket', (c) => {
     const principal = getRequestPrincipal(c);
-    if (!principal) return c.json({ error: 'Unauthorized' }, 401);
+    if (!principal) throw new UnauthorizedError('Unauthorized');
     return c.json(deviceAccess.issueSocketTicket(principal));
   });
 }

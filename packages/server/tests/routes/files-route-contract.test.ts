@@ -515,7 +515,7 @@ describe('files route contract (S5 filesystem isolation)', () => {
     const failed = await filesApp(application).request('/api/fs/browse?path=/missing');
     expect(failed.status).toBe(400);
     expect(await failed.json()).toEqual({
-      error: 'Bad Request',
+      error: 'bad_request',
       message: 'Cannot access path',
     });
   });

@@ -393,7 +393,7 @@ export function registerFileRoutes(app: Hono, files: FilesApplication): void {
       const listed = await files.listDirectoryOnly(resolvedPath);
       return c.json({ files: listed, currentPath: resolvedPath, mode: 'browse', isRoot });
     } catch (_err: unknown) {
-      return c.json({ error: 'Bad Request', message: 'Cannot access path' }, 400);
+      throw new BadRequestError('Cannot access path');
     }
   });
 
@@ -410,7 +410,7 @@ export function registerFileRoutes(app: Hono, files: FilesApplication): void {
       const listed = await files.listDirectoryOnly(parent);
       return c.json({ files: listed, currentPath: resolve(parent), mode: 'browse', isRoot });
     } catch (_err: unknown) {
-      return c.json({ error: 'Bad Request', message: 'Cannot access path' }, 400);
+      throw new BadRequestError('Cannot access path');
     }
   });
 

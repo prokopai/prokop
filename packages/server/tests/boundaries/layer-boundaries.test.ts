@@ -1643,6 +1643,7 @@ describe('server layer boundaries', () => {
     const allowedSpecifiers = [
       'hono',
       '@/application/tools',
+      '@/application/http-errors',
       './validate',
       './schemas',
     ];

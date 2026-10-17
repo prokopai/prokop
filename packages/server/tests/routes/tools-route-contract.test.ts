@@ -88,7 +88,7 @@ describe('tools route contract', () => {
     }));
     const res = await app.request('/api/tools/env');
     expect(res.status).toBe(500);
-    expect(await json(res)).toEqual({ error: 'Failed to list tool env vars', message: 'env read failed' });
+    expect(await json(res)).toEqual({ error: 'internal_error', message: 'Failed to list tool env vars: env read failed' });
   });
 
   test('PUT /api/tools/env/:key returns the env var and passes the raw value', async () => {
@@ -120,7 +120,7 @@ describe('tools route contract', () => {
       body: JSON.stringify({ value: 'v' }),
     });
     expect(invalidRes.status).toBe(400);
-    expect(await json(invalidRes)).toEqual({ error: 'Bad Request', message: 'key must be valid' });
+    expect(await json(invalidRes)).toEqual({ error: 'bad_request', message: 'key must be valid' });
 
     const failed = makeApp(makeFakeApplication({
       setEnv: async () => ({ kind: 'failed', message: 'write failed' }),
@@ -131,7 +131,7 @@ describe('tools route contract', () => {
       body: JSON.stringify({ value: 'v' }),
     });
     expect(failedRes.status).toBe(500);
-    expect(await json(failedRes)).toEqual({ error: 'Internal Server Error', message: 'write failed' });
+    expect(await json(failedRes)).toEqual({ error: 'internal_error', message: 'write failed' });
   });
 
   test('PUT /api/tools/env/:key returns 400 for invalid bodies', async () => {
@@ -169,14 +169,14 @@ describe('tools route contract', () => {
     }));
     const invalidRes = await invalid.request('/api/tools/env/X', { method: 'DELETE' });
     expect(invalidRes.status).toBe(400);
-    expect(await json(invalidRes)).toEqual({ error: 'Bad Request', message: 'key must be valid' });
+    expect(await json(invalidRes)).toEqual({ error: 'bad_request', message: 'key must be valid' });
 
     const failed = makeApp(makeFakeApplication({
       clearEnv: async () => ({ kind: 'failed', message: 'write failed' }),
     }));
     const failedRes = await failed.request('/api/tools/env/X', { method: 'DELETE' });
     expect(failedRes.status).toBe(500);
-    expect(await json(failedRes)).toEqual({ error: 'Internal Server Error', message: 'write failed' });
+    expect(await json(failedRes)).toEqual({ error: 'internal_error', message: 'write failed' });
   });
 
   test('GET /api/tools/:name returns the tool and the exact 404 body', async () => {
