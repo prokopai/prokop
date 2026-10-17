@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- **No approval for reading Claude's own command output**: When Claude ran a command in the background, reading its output file (kept under `/tmp/claude-<user>`) asked for an outside-workspace approval, although Claude itself asked for that read. That folder is now readable without an approval when it is your own private folder; writing there still asks.
+
 - **Notifications reach every device, and only when you are not already looking**: A push used to go only to the device that first opened the session, so a run started at the desk never buzzed your phone, and one started on the phone buzzed it even while you read the result at the desk. Every enabled device is now notified, and whichever device shows the finish, approval or question to you cancels the push for all of them. A focused window with nothing touched for two minutes (a locked screen, a display asleep) no longer counts as looking. Approvals and questions you already have on screen no longer push either.
 
 - **Sounds play on time or not at all**: After a page load, the first finish or approval sound waited for your next click and then played, sometimes minutes later. Sounds are now ready after your first input on the page, and a sound that cannot play within three seconds is dropped instead of played late.

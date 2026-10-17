@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync, type Stats } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Session } from '@prokopai/sdk';
@@ -29,12 +29,37 @@ export function harnessSkillRoots(home: string = homedir(), env: NodeJS.ProcessE
 }
 
 /**
+ * Claude Code keeps the output of its background commands in
+ * `/tmp/claude-<uid>/<project>/<session>/tasks/*.output` and tells the model
+ * to read them from there. Readable, so following that instruction is not an
+ * outside-workspace ask. `/tmp` is shared, so the folder only counts when it
+ * is a real directory owned by this user that nobody else can write: a
+ * planted symlink there must not become a read root.
+ */
+export function claudeTaskOutputRoot(
+  uid: number | undefined = process.getuid?.(),
+  platform: NodeJS.Platform = process.platform,
+  stat: (path: string) => Stats = (path) => lstatSync(path),
+): string | null {
+  if (platform === 'win32' || uid === undefined) return null;
+  const directory = join('/tmp', `claude-${uid}`);
+  try {
+    const info = stat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== uid || (info.mode & 0o022) !== 0) return null;
+  } catch {
+    return null;
+  }
+  return directory;
+}
+
+/**
  * The one definition of "allowed paths" for native harness permission
  * checks, matching the Prokop tool host (harnesses/prokop/host/workspace.ts):
  * additional paths are workspace roots except in managed worktree sessions,
- * and the agent directory (skills, home, memory files), uploads and the
- * harness skill folders are readable without an outside-workspace ask. Paths are symlink-resolved so
- * they compare against the classifiers' effective paths.
+ * and the agent directory (skills, home, memory files), uploads, the harness
+ * skill folders and Claude Code's task output folder are readable without an
+ * outside-workspace ask. Paths are symlink-resolved so they compare against
+ * the classifiers' effective paths.
  */
 export async function sessionPermissionRoots(
   session: Pick<Session, 'id' | 'workspaceId' | 'workspaceRootId' | 'agentId'>,
@@ -46,6 +71,6 @@ export async function sessionPermissionRoots(
     [...new Set(paths.filter((path): path is string => !!path && existsSync(path)).map(effectivePath))];
   return {
     roots: [effectivePath(root), ensureSessionTempDir(session.id), ...existing(additional)],
-    readRoots: existing([agentDir, getUploadDir(), ...harnessSkillRoots()]),
+    readRoots: existing([agentDir, getUploadDir(), ...harnessSkillRoots(), claudeTaskOutputRoot()]),
   };
 }
