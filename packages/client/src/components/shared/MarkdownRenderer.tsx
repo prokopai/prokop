@@ -15,6 +15,7 @@ import { localFileLinkPath } from '@/lib/fileLinks';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { MermaidDiagram } from './MermaidDiagram';
 import { MarkdownFileLinkContext } from './markdownFileLinks';
+import { rehypeStreamReveal } from './markdownStreamReveal';
 
 const CODE_THEME_DARK = themes.oneDark;
 const CODE_THEME_LIGHT = themes.oneLight;
@@ -181,6 +182,11 @@ export interface MarkdownRendererProps {
   allowHtml?: boolean;
   /** Replace individual element renderers, e.g. to sanitize links in untrusted content. */
   overrides?: Components;
+  /**
+   * Live streamed text: source offsets where each recent flush started, oldest
+   * first. Words from those flushes fade in (see markdownStreamReveal).
+   */
+  revealBatches?: readonly number[];
 }
 
 type ComponentProps<T extends ElementType> = ComponentPropsWithoutRef<T>;
@@ -220,7 +226,7 @@ const REMARK_PLUGINS: NonNullable<Options['remarkPlugins']> = [remarkGfm, [remar
 const REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [[rehypeKatex, { throwOnError: false, strict: 'ignore' }]];
 const HTML_REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [rehypeRaw, rehypeSanitize, ...REHYPE_PLUGINS];
 
-export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, allowHtml = false, overrides }: MarkdownRendererProps) {
+export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, allowHtml = false, overrides, revealBatches }: MarkdownRendererProps) {
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === 'dark';
 
@@ -331,11 +337,17 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     ...overrides,
   }), [inverted, codeTheme, overrides, resolvedMode]);
 
+  const basePlugins = allowHtml ? HTML_REHYPE_PLUGINS : REHYPE_PLUGINS;
+  const rehypePlugins = useMemo<NonNullable<Options['rehypePlugins']>>(
+    () => revealBatches === undefined ? basePlugins : [...basePlugins, [rehypeStreamReveal, { batchStarts: revealBatches }]],
+    [basePlugins, revealBatches],
+  );
+
   return (
     <div className={cn('w-full markdown-render overflow-x-auto break-words', className)}>
       <ReactMarkdown
         remarkPlugins={REMARK_PLUGINS}
-        rehypePlugins={allowHtml ? HTML_REHYPE_PLUGINS : REHYPE_PLUGINS}
+        rehypePlugins={rehypePlugins}
         components={components}
       >
         {children}

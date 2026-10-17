@@ -67,6 +67,18 @@
   50% { opacity: 0; }
 }
 
+/* Streamed words fade in once, staggered per store flush (markdownStreamReveal).
+   Keep the duration within STREAM_REVEAL_GENERATIONS flushes. */
+.stream-in {
+  animation: fade-in 150ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-in {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

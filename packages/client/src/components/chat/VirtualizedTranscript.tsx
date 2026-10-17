@@ -25,6 +25,13 @@ import { ToolCall } from './ToolCall';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 import { MarkdownFileLinkContext } from '@/components/shared/markdownFileLinks';
+import {
+  assignRevealDelays,
+  isRevealWhitespace,
+  revealBatch,
+  splitRevealTokens,
+  STREAM_REVEAL_GENERATIONS,
+} from '@/components/shared/markdownStreamReveal';
 import { useFileLinkOpener } from '@/hooks/useContextFileOpener';
 import { StructuredResponse } from '@/components/visualizations';
 import { splitStreamingText } from './streamingText';
@@ -226,115 +233,89 @@ function CompactionDivider({ part }: { part: CompactionPart }) {
 // tree (which would pop the already-visible text).
 const STREAMED_PART_IDS = new Set<string>();
 
-const MIN_REVEAL_CPS = 12;
-// Backlog drains within this window while a part is the live tail. Short on
-// purpose: smoothing only polishes chunk-to-chunk cadence; it must not queue
-// visible text behind the stream (web UIs like ChatGPT use ~150-250ms).
-const ACTIVE_CATCHUP_S = 0.22;
-// A single flush bigger than this reveals all but the last BURST_SNAP_CHARS
-// instantly: reasoning dumps after provider-side buffering would otherwise
-// type out for seconds while later parts wait below.
-const BURST_SNAP_CHARS = 400;
-
 const StreamBlock = memo(function StreamBlock({ block }: { block: string }) {
   return <MarkdownRenderer>{block}</MarkdownRenderer>;
 });
 
+const NO_REVEAL_BATCHES: readonly number[] = [];
+
 /**
- * Reveals `text` at a steady character rate via rAF instead of jumping per
- * network flush. Only a message's live tail part animates (`active`); when
- * `active` goes false — a successor part was created or the message completed
- * — the remainder flushes instantly, so later content never renders while
- * earlier text is still typing. Mounts snapped (no replay); arrivals drain
- * within a small catch-up window. Same renderer for tail and blocks, so a
- * block graduating from tail to stable is pixel-identical (no typography pop).
+ * Offsets in `text` where each of the last few changes started, oldest
+ * first: the words that arrived in those flushes are still fading in. A
+ * mount starts with nothing to reveal (no replay), and a re-render without
+ * new text keeps the same batches, so running fades continue.
  */
-function useRevealedLength(text: string, active: boolean): number {
-  const [revealed, setRevealed] = useState(() => text.length);
-  const revealedRef = useRef(revealed);
-  const targetRef = useRef(text.length);
-
-  useEffect(() => {
-    targetRef.current = text.length;
-
-    if (targetRef.current < revealedRef.current) {
-      // Text replaced wholesale (edit/revert): snap to it.
-      revealedRef.current = targetRef.current;
-      setRevealed(targetRef.current);
-      return;
-    }
-    if (targetRef.current === revealedRef.current) return;
-
-    if (!active) {
-      // Part no longer animating: flush what is left instead of typing it.
-      revealedRef.current = targetRef.current;
-      setRevealed(targetRef.current);
-      return;
-    }
-
-    if (targetRef.current - revealedRef.current > BURST_SNAP_CHARS) {
-      // Burst cap: reveal everything but the last BURST_SNAP_CHARS at once;
-      // only that remainder keeps animating.
-      revealedRef.current = targetRef.current - BURST_SNAP_CHARS;
-      setRevealed(revealedRef.current);
-    }
-
-    let raf = 0;
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = Math.max(0, (now - last) / 1000);
-      last = now;
-      const backlog = targetRef.current - revealedRef.current;
-      if (backlog <= 0) return;
-      const rate = Math.max(MIN_REVEAL_CPS, backlog / ACTIVE_CATCHUP_S);
-      const next = Math.min(
-        targetRef.current,
-        revealedRef.current + Math.max(1, Math.round(rate * dt)),
-      );
-      revealedRef.current = next;
-      setRevealed(next);
-      if (next < targetRef.current) {
-        raf = requestAnimationFrame(step);
-      }
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [text, active]);
-
-  return Math.min(revealed, text.length);
+function useRevealBatches(text: string): readonly number[] {
+  const [state, setState] = useState({ text, batches: NO_REVEAL_BATCHES });
+  if (state.text !== text) {
+    const start = Math.min(state.text.length, text.length);
+    setState({
+      text,
+      batches: [...state.batches.filter((batch) => batch < start), start].slice(-STREAM_REVEAL_GENERATIONS),
+    });
+  }
+  return state.batches;
 }
 
+/**
+ * Streamed text renders once per store flush, never per frame. Finished
+ * blocks are memoized and never re-parse; only the growing tail does, and its
+ * newest words fade in through CSS. Same renderer for tail and blocks, so a
+ * block graduating from the tail is pixel-identical (no typography pop).
+ */
 function StreamingText({ text, active }: { text: string; active: boolean }) {
-  const revealed = useRevealedLength(text, active);
+  const batches = useRevealBatches(text);
   // Frozen first-render flag: a fresh mount of already-complete text skips the
   // block split and renders once (identical visuals, single parse).
   const [mountedInactive] = useState(!active);
 
-  if (!active && mountedInactive && revealed >= text.length) {
+  if (!active && mountedInactive) {
     return <MarkdownRenderer>{text}</MarkdownRenderer>;
   }
 
-  const visible = text.slice(0, revealed);
-  const { blocks, tail } = splitStreamingText(visible);
+  const { blocks, tail } = splitStreamingText(text);
+  const tailStart = text.length - tail.length;
+  // Only the live tail part fades; a part that stopped streaming renders settled.
+  const tailBatches = active ? batches.map((batch) => batch - tailStart) : undefined;
 
   return (
     <div className="min-w-0">
       {blocks.map((block, index) => (
         <StreamBlock key={`${index}:${block.length}`} block={block} />
       ))}
-      {tail && <MarkdownRenderer>{tail}</MarkdownRenderer>}
+      {tail && <MarkdownRenderer revealBatches={tailBatches}>{tail}</MarkdownRenderer>}
     </div>
   );
 }
 
 /**
- * Reasoning streams through the same reveal cadence as text. It renders as a
- * plain text node (no markdown), so the reveal is the only thing needed to
- * avoid word-chunk jumps between 75ms store flushes.
+ * Reasoning is plain text. Earlier paragraphs render as one text node; the
+ * current one wraps each word so its newest words can fade in.
  */
 function StreamingReasoning({ text, active }: { text: string; active: boolean }) {
-  const revealed = useRevealedLength(text, active);
-  return <>{text.slice(0, revealed)}</>;
+  const batches = useRevealBatches(text);
+  if (!active) return <>{text}</>;
+  const paragraphStart = text.lastIndexOf('\n\n') + 1;
+  let position = paragraphStart;
+  const tokens = splitRevealTokens(text.slice(paragraphStart)).map((token) => {
+    const offset = position;
+    position += token.length;
+    return { token, batch: isRevealWhitespace(token) ? null : revealBatch(offset, batches) };
+  });
+  const reveal = assignRevealDelays(tokens.flatMap(({ batch }) => batch === null ? [] : [batch]));
+  let wordIndex = 0;
+  return (
+    <>
+      {text.slice(0, paragraphStart)}
+      {tokens.map(({ token, batch }, index) => {
+        if (batch === null) return token;
+        const { delayMs } = reveal[wordIndex++];
+        return batch < 0
+          ? <span key={index}>{token}</span>
+          : <span key={index} className="stream-in" style={{ animationDelay: `${delayMs}ms` }}>{token}</span>;
+      })}
+    </>
+  );
 }
 
 const MessageParts = memo(function MessageParts({
