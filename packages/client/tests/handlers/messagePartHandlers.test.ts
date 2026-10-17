@@ -22,7 +22,7 @@ vi.mock('@/stores/pendingOperationsStore', () => ({
 
 import { handleMessageUpdated, handlePartUpdated } from '@/handlers/serverMessage/messagePartHandlers';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 
 function getInvalidatedKeys(): readonly (readonly unknown[])[] {
   return mockInvalidate.mock.calls.map((c: unknown[]) => {
@@ -83,7 +83,7 @@ function makeToolPart(
 
 describe('messagePartHandlers notification acknowledgement', () => {
   beforeEach(() => {
-    useSessionStore.setState({
+    useSessionContentStore.setState({
       messagesBySession: {
         'sess-1': [makeAssistantMessage('completed')],
       },
@@ -143,7 +143,7 @@ describe('messagePartHandlers notification acknowledgement', () => {
 });
 
 test('authoritative text snapshot discards buffered deltas before the trailing flush', () => {
-  useSessionStore.setState({ partsBySession: { 'sess-1': { 'msg-1': [] } } });
+  useSessionContentStore.setState({ partsBySession: { 'sess-1': { 'msg-1': [] } } });
   const ctx = makeCtx();
   ctx.pendingPartAppendsRef.current.set('text-1', 'Hello');
   const part = { id: 'text-1', messageId: 'msg-1', type: 'text', text: 'Hello!', createdAt: Date.now() } as const;

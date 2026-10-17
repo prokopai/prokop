@@ -9,6 +9,7 @@
 // Both are valid. Decorators are preferred for new stories.
 
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import type { MessageWithParts } from '@prokopai/sdk';
@@ -82,8 +83,8 @@ export function hydrateStores(options: HydrateStoresOptions = {}): void {
       if (!partsMap[sessionId]) partsMap[sessionId] = {};
       partsMap[sessionId][mwp.message.id] = mwp.parts;
     }
-    sessionStore.setMessagesBySession({ [sessionId]: msgArray });
-    sessionStore.setPartsBySession(partsMap);
+    useSessionContentStore.getState().setMessagesBySession({ [sessionId]: msgArray });
+    useSessionContentStore.getState().setPartsBySession(partsMap);
   }
 }
 

@@ -10,7 +10,8 @@ import { PendingAskDock } from './PendingAskDock';
 import type { PendingAskRequest } from '@/stores/askStore';
 import { useSessionControlStore, type ActionRejection } from '@/stores/sessionControlStore';
 import { useClientIdentityStore } from '@/stores/clientIdentityStore';
-import { useSessionStore, type SessionNavigationIntent } from '@/stores/sessionStore';
+import type { SessionNavigationIntent } from '@/stores/sessionContentStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { useTranscriptPagination } from '@/hooks/useTranscriptPagination';
 import { RetryStatus } from './RetryStatus';
@@ -228,7 +229,7 @@ function ChatViewContent({
   const goalUncertain = harnessState?.goalUncertain === true;
   const inputLocked = compactBusy || compactUncertain || goalUncertain;
 
-  const contentMeta = useSessionStore((state) => state.contentMetaBySession[session.id]);
+  const contentMeta = useSessionContentStore((state) => state.contentMetaBySession[session.id]);
   const { loadOlder } = useTranscriptPagination({ sessionId: session.id, client: sdkClient ?? null });
 
   const controlState = useSessionControlStore((s) => s.controlBySessionId[session.id]);
@@ -361,7 +362,7 @@ function ChatViewContent({
   }, [displayItems.length]);
 
   const handleSavePosition = useCallback((anchor: TranscriptAnchor | null) => {
-    useSessionStore.getState().setNavigationIntentForSession(
+    useSessionContentStore.getState().setNavigationIntentForSession(
       session.id,
       anchor ? { mode: 'free', anchor } : { mode: 'follow' },
     );

@@ -22,7 +22,7 @@ import { resolveHostUrl } from '@/lib/hostRoutes';
 import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { foreignSessionsOf, useForeignSessionsStore } from '@/stores/foreignSessionsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 
 /**
  * Live connections to other machines, one per machine, kept while at least one
@@ -178,7 +178,7 @@ function resumeOpenSessions(serverId: string, client: ProkopaiClient): void {
   const open = new Set(useSessionBoardStore.getState().openSessionIds);
   for (const session of foreignSessionsOf(serverId)) {
     if (!open.has(session.id)) continue;
-    useSessionStore.getState().beginSessionContentLoad(session.id);
+    useSessionContentStore.getState().beginSessionContentLoad(session.id);
     client.sessions.resume(session.id);
   }
 }

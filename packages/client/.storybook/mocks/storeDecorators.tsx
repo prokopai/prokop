@@ -9,6 +9,7 @@
 
 import type { ComponentType } from 'react';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -31,6 +32,7 @@ import {
 // -----------------------------------------------------------------------------
 
 type SessionStoreState = ReturnType<typeof useSessionStore.getState>;
+type SessionContentStoreState = ReturnType<typeof useSessionContentStore.getState>;
 type ServerDataStoreState = ReturnType<typeof useServerDataStore.getState>;
 type UIStoreState = ReturnType<typeof useUIStore.getState>;
 type ConnectionStoreState = ReturnType<typeof useConnectionStore.getState>;
@@ -43,9 +45,9 @@ type CompletionStoreState = ReturnType<typeof useCompletionStore.getState>;
 
 interface SessionStoreDefaults {
   sessions?: SessionStoreState['sessions'];
-  messagesBySession?: SessionStoreState['messagesBySession'];
-  partsBySession?: SessionStoreState['partsBySession'];
-  queuedMessages?: SessionStoreState['queuedMessages'];
+  messagesBySession?: SessionContentStoreState['messagesBySession'];
+  partsBySession?: SessionContentStoreState['partsBySession'];
+  queuedMessages?: SessionContentStoreState['queuedMessages'];
 }
 
 const defaultSessionState = (): SessionStoreDefaults => {
@@ -61,7 +63,9 @@ const defaultSessionState = (): SessionStoreDefaults => {
 
 export function withSessionStore(overrides: SessionStoreDefaults = {}) {
   return function SessionStoreDecorator(Story: ComponentType) {
-    useSessionStore.setState({ ...defaultSessionState(), ...overrides });
+    const { sessions, ...content } = { ...defaultSessionState(), ...overrides };
+    useSessionStore.setState({ sessions });
+    useSessionContentStore.setState(content);
     return <Story />;
   };
 }

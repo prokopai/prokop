@@ -3,8 +3,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest';
 import type { MessageWithParts, Session } from '@prokopai/sdk';
 import { ChatView } from '@/components/chat/ChatView';
-import type { SessionNavigationIntent } from '@/stores/sessionStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import type { SessionNavigationIntent } from '@/stores/sessionContentStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import type { TranscriptAnchor } from '@/lib/transcriptFollow';
 
 interface TranscriptProps {
@@ -29,7 +29,7 @@ vi.mock('@/hooks/useTranscriptPagination', () => ({ useTranscriptPagination: () 
 
 afterEach(() => {
   cleanup();
-  useSessionStore.setState({ navigationIntentBySessionId: {} });
+  useSessionContentStore.setState({ navigationIntentBySessionId: {} });
 });
 
 const session = { id: 'chat-1', status: 'active', workspaceId: 'w' } as Session;
@@ -91,9 +91,9 @@ test('free mode without a loaded anchor follows instead of opening at the top', 
 test('the transcript saves its position into the session navigation intent', () => {
   render(view({ mode: 'follow' }));
   act(() => transcript.props!.onSavePosition({ messageId: 'm2', offset: 12 }));
-  expect(useSessionStore.getState().getNavigationIntentForSession('chat-1'))
+  expect(useSessionContentStore.getState().getNavigationIntentForSession('chat-1'))
     .toEqual({ mode: 'free', anchor: { messageId: 'm2', offset: 12 } });
 
   act(() => transcript.props!.onSavePosition(null));
-  expect(useSessionStore.getState().getNavigationIntentForSession('chat-1')).toEqual({ mode: 'follow' });
+  expect(useSessionContentStore.getState().getNavigationIntentForSession('chat-1')).toEqual({ mode: 'follow' });
 });

@@ -3,7 +3,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { useSessionCommands } from '@/contexts/SessionCommandsContext';
 import { useServerClient } from '@/contexts/ServerClientContext';
-import { useSessionStore, type SessionUsage } from '@/stores/sessionStore';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore, type SessionUsage } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { getWorkspacePreconfigs } from '@/lib/workspacePreconfigs';
@@ -59,9 +60,9 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
 
   // Until the resume reply fills the per-session maps, show what the session
   // record already carries, so the header renders complete in the first frame.
-  const storedUsage = useSessionStore(s => (displayedSessionId ? s.usageBySessionId[displayedSessionId] : undefined));
-  const storedModel = useSessionStore(s => (displayedSessionId ? s.modelBySessionId[displayedSessionId] : undefined));
-  const storedVariant = useSessionStore(s => (displayedSessionId ? s.variantBySessionId[displayedSessionId] : undefined));
+  const storedUsage = useSessionContentStore(s => (displayedSessionId ? s.usageBySessionId[displayedSessionId] : undefined));
+  const storedModel = useSessionContentStore(s => (displayedSessionId ? s.modelBySessionId[displayedSessionId] : undefined));
+  const storedVariant = useSessionContentStore(s => (displayedSessionId ? s.variantBySessionId[displayedSessionId] : undefined));
   const sessionUsage = storedUsage ?? (currentSession?.totalTokens ? {
     promptTokens: currentSession.promptTokens ?? 0,
     completionTokens: currentSession.completionTokens ?? 0,
@@ -72,7 +73,7 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   } : EMPTY_USAGE);
   const currentModel = storedModel ?? currentSession?.selectedModel ?? '';
   const selectedVariant = storedVariant !== undefined ? storedVariant : currentSession?.selectedVariant ?? null;
-  const currentSessionMessages = useSessionStore((s) =>
+  const currentSessionMessages = useSessionContentStore((s) =>
     currentSession ? s.messagesBySession[currentSession.id] : undefined,
   );
   const isSessionStreaming = useConnectionStore((s) => displayedSessionId ? s.streamingSessionIds.has(displayedSessionId) : false);

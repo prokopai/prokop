@@ -6,6 +6,7 @@ import { useOverviewRouteSessionLoader } from '@/hooks/useOverviewRouteSessionLo
 import { useSessionCommands } from '@/hooks/useSessionCommands';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { createDefaultViewLayout, findViewRegion, sessionViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
@@ -17,6 +18,7 @@ const sessions = Array.from({ length: 12 }, (_, index) => ({ id: `s${index}`, wo
 beforeEach(() => {
   useServerDataStore.setState({ serverId: 'server', activeWorkspace: workspace, workspaces: [workspace] });
   useSessionStore.setState(useSessionStore.getInitialState());
+  useSessionContentStore.setState(useSessionContentStore.getInitialState());
   useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
   useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
   route.location.pathname = '/server/server/workspace/session/s7';
@@ -110,8 +112,8 @@ describe('session tab routing', () => {
 
   test('opening cached tabs preserves navigation intent while explicit message links still target the message', () => {
     useSessionStore.setState({ sessions });
-    useSessionStore.getState().replaceSessionContent('s0', []);
-    useSessionStore.getState().setNavigationIntentForSession('s0', { mode: 'free' });
+    useSessionContentStore.getState().replaceSessionContent('s0', []);
+    useSessionContentStore.getState().setNavigationIntentForSession('s0', { mode: 'free' });
     useSessionBoardStore.getState().openInFocusedPane('s0');
     useWorkspaceViewStore.getState().moveView(sessionViewId('server', 's0'), 'right');
     const resume = vi.fn();
@@ -126,12 +128,12 @@ describe('session tab routing', () => {
     }));
     act(() => result.current.resumeSession('s0'));
     expect(resume).not.toHaveBeenCalled();
-    expect(useSessionStore.getState().navigationIntentBySessionId.s0).toEqual({ mode: 'free' });
+    expect(useSessionContentStore.getState().navigationIntentBySessionId.s0).toEqual({ mode: 'free' });
     expect(findViewRegion(useWorkspaceViewStore.getState().layout, sessionViewId('server', 's0'))).toBe('right');
     act(() => result.current.resumeSession('s1'));
     expect(useSessionBoardStore.getState().openSessionIds).toEqual(['s0', 's1']);
     expect(resume).toHaveBeenCalledWith('s1');
     act(() => result.current.resumeSession('s0', { targetMessageId: 'target' }));
-    expect(useSessionStore.getState().navigationIntentBySessionId.s0).toEqual({ mode: 'target-message', messageId: 'target' });
+    expect(useSessionContentStore.getState().navigationIntentBySessionId.s0).toEqual({ mode: 'target-message', messageId: 'target' });
   });
 });

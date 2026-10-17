@@ -6,6 +6,7 @@
 // Also exported as resetAllStores() for manual use in beforeEach/afterEach.
 
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -21,8 +22,8 @@ import { useCompletionStore } from '@/stores/completionStore';
  */
 export function resetAllStores(): void {
   // Session Store
-  useSessionStore.setState({
-    sessions: [],
+  useSessionStore.setState({ sessions: [] });
+  useSessionContentStore.setState({
     messagesBySession: {},
     partsBySession: {},
     queuedMessages: {},

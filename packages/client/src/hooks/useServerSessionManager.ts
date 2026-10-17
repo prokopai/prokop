@@ -22,7 +22,9 @@ import type { ProkopaiClient } from '@prokopai/sdk';
 import type { SessionHandlersContext, ModelInfo } from '@/handlers/serverMessage/types';
 
 import { useServerContext } from '@/contexts/ServerContext';
-import { useSessionStore, type ResumeSessionOptions, evictToBudget } from '@/stores/sessionStore';
+import { useSessionStore, type ResumeSessionOptions } from '@/stores/sessionStore';
+import { evictToBudget } from '@/stores/sessionContentStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
@@ -162,7 +164,7 @@ export function useServerSessionManager({
     })),
   );
 
-  const { setMessagesBySession, setPartsBySession } = useSessionStore(
+  const { setMessagesBySession, setPartsBySession } = useSessionContentStore(
     useShallow((state) => ({
       setMessagesBySession: state.setMessagesBySession,
       setPartsBySession: state.setPartsBySession,
@@ -277,7 +279,7 @@ export function useServerSessionManager({
     setQueuedMessagesForSession,
     addQueuedMessage,
     removeQueuedMessageById,
-  } = useSessionStore(
+  } = useSessionContentStore(
     useShallow((s) => ({
       queuedMessages: s.queuedMessages,
       clearQueuedMessages: s.clearQueuedMessages,
@@ -347,7 +349,7 @@ export function useServerSessionManager({
   }, [setPartsBySession]);
 
   useLayoutEffect(() => {
-    const currentCount = useSessionStore.getState().getMessagesBySessionKeysCount();
+    const currentCount = useSessionContentStore.getState().getMessagesBySessionKeysCount();
     if (currentCount <= prevSessionKeyCountRef.current) {
       prevSessionKeyCountRef.current = currentCount;
       return;
@@ -398,11 +400,11 @@ export function useServerSessionManager({
       !hasResumedRef.current.has(sessionIdFromUrl)
     ) {
       const hasMessages = activeSessionId
-        ? !!useSessionStore.getState().messagesBySession[activeSessionId]?.length
+        ? !!useSessionContentStore.getState().messagesBySession[activeSessionId]?.length
         : false;
       if (!hasMessages) {
         hasResumedRef.current.add(sessionIdFromUrl);
-        useSessionStore.getState().beginSessionContentLoad(sessionIdFromUrl);
+        useSessionContentStore.getState().beginSessionContentLoad(sessionIdFromUrl);
         sdkClientRef.current.sessions.resume(sessionIdFromUrl);
       }
     }
@@ -524,7 +526,7 @@ export function useServerSessionManager({
 
     setSessions(prev => prev.filter(s => !deletedSessions.includes(s.id)));
 
-    useSessionStore.getState().evictSessionContentBatch(deletedSessions);
+    useSessionContentStore.getState().evictSessionContentBatch(deletedSessions);
     deletedSessions.forEach(sessionId => sessionAccessTimesRef.current.delete(sessionId));
 
     for (const [partId, entry] of partIdIndexRef.current) {
@@ -703,10 +705,10 @@ export function useServerSessionManager({
       addQueuedMessage,
       removeQueuedMessageById,
       clearQueuedMessages,
-      setUsageForSession: useSessionStore.getState().setUsageForSession,
-      setModelForSession: useSessionStore.getState().setModelForSession,
-      setVariantForSession: useSessionStore.getState().setVariantForSession,
-      setCompactionSuccessForSession: useSessionStore.getState().setCompactionSuccessForSession,
+      setUsageForSession: useSessionContentStore.getState().setUsageForSession,
+      setModelForSession: useSessionContentStore.getState().setModelForSession,
+      setVariantForSession: useSessionContentStore.getState().setVariantForSession,
+      setCompactionSuccessForSession: useSessionContentStore.getState().setCompactionSuccessForSession,
       setCompletion,
       clearCompletion,
       clearAllCompletions,
@@ -724,10 +726,10 @@ export function useServerSessionManager({
       interruptedSessions,
       sessionsRef,
       flushPendingPartAppends,
-      beginSessionContentLoad: useSessionStore.getState().beginSessionContentLoad,
-      replaceSessionContent: useSessionStore.getState().replaceSessionContent,
-      failSessionContentLoad: useSessionStore.getState().failSessionContentLoad,
-      touchSessionContent: useSessionStore.getState().touchSessionContent,
+      beginSessionContentLoad: useSessionContentStore.getState().beginSessionContentLoad,
+      replaceSessionContent: useSessionContentStore.getState().replaceSessionContent,
+      failSessionContentLoad: useSessionContentStore.getState().failSessionContentLoad,
+      touchSessionContent: useSessionContentStore.getState().touchSessionContent,
       setProviderStatuses,
       setPermissions,
       notifiedToolCallIdsRef,

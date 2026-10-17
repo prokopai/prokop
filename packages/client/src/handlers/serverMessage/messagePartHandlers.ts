@@ -2,7 +2,7 @@ import { getTerminalNotificationEventId, isFileMutatingToolName } from '@prokopa
 import type { CompactionCompleteMessage, Message, Part, ToolPart } from '@prokopai/sdk';
 import type { SessionHandlersContext, SessionUsage } from './types';
 import { handleFilesChanged } from './fileHandlers';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { queryClient } from '@/components/providers/QueryProvider';
 import { toast } from 'sonner';
@@ -40,7 +40,7 @@ export function handleMessageCreated(
   }
 
   // Write to any session that has content loaded (multi-pane safe)
-  const hasContent = useSessionStore.getState().messagesBySession[message.sessionId] !== undefined;
+  const hasContent = useSessionContentStore.getState().messagesBySession[message.sessionId] !== undefined;
   if (hasContent) {
     setMessagesBySession(prev => ({
       ...prev,
@@ -86,7 +86,7 @@ export function handleMessageUpdated(
   } = ctx;
 
   // Write to any session that has content loaded (multi-pane safe)
-  const hasContent = useSessionStore.getState().messagesBySession[message.sessionId] !== undefined;
+  const hasContent = useSessionContentStore.getState().messagesBySession[message.sessionId] !== undefined;
   if (hasContent) {
     if ('status' in message && message.status !== 'streaming') {
       if (partAppendRafRef.current !== null) {
@@ -165,7 +165,7 @@ export function handlePartCreated(
   }
 
   // Write to any session that has content loaded (multi-pane safe)
-  const hasContent = useSessionStore.getState().partsBySession[sessionId] !== undefined;
+  const hasContent = useSessionContentStore.getState().partsBySession[sessionId] !== undefined;
   if (hasContent) {
     setPartsBySession(prev => {
       const sessionParts = prev[sessionId] || {};
@@ -205,7 +205,7 @@ export function handlePartUpdated(
   ctx.pendingPartAppendsRef.current.delete(part.id);
 
   // Write to any session that has content loaded (multi-pane safe)
-  const hasContent = useSessionStore.getState().partsBySession[sessionId] !== undefined;
+  const hasContent = useSessionContentStore.getState().partsBySession[sessionId] !== undefined;
   if (hasContent) {
     const partLocation = partIdIndexRef.current.get(part.id);
     if (partLocation) {
@@ -287,7 +287,7 @@ export function handlePartAppend(
   }
 
   // Write to any session that has content loaded (multi-pane safe)
-  const hasContent = useSessionStore.getState().partsBySession[sessionId] !== undefined;
+  const hasContent = useSessionContentStore.getState().partsBySession[sessionId] !== undefined;
   if (hasContent) {
     const existing = pendingPartAppendsRef.current.get(partId);
     pendingPartAppendsRef.current.set(partId, (existing || '') + delta);

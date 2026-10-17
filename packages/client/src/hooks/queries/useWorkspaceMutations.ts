@@ -3,6 +3,7 @@ import type { ProkopaiClient, Workspace } from '@prokopai/sdk';
 import type { RefObject } from 'react';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { queryKeys } from '@/lib/queryKeys';
 
 interface CreateWorkspaceResult {
@@ -55,12 +56,13 @@ export function useDeleteWorkspaceMutation(clientRef: RefObject<ProkopaiClient |
       const sessionStore = useSessionStore.getState();
 
       sessionStore.setSessions(prev => prev.filter(s => !deletedSessions.includes(s.id)));
-      sessionStore.setMessagesBySession(prev => {
+      const content = useSessionContentStore.getState();
+      content.setMessagesBySession(prev => {
         const next = { ...prev };
         deletedSessions.forEach(sessionId => delete next[sessionId]);
         return next;
       });
-      sessionStore.setPartsBySession(prev => {
+      content.setPartsBySession(prev => {
         const next = { ...prev };
         deletedSessions.forEach(sessionId => delete next[sessionId]);
         return next;

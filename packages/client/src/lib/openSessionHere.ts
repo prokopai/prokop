@@ -5,7 +5,7 @@ import { resolveHostUrl } from '@/lib/hostRoutes';
 import type { NavigateFunction } from '@/lib/types';
 import { useForeignSessionsStore } from '@/stores/foreignSessionsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 
 export interface OpenSessionHereInput {
   /** Machine the session belongs to. */
@@ -33,7 +33,7 @@ export async function openSessionHere(input: OpenSessionHereInput): Promise<void
   // otherwise the new tab's connection resumes it once connected.
   const client = foreignClientFor(sessionId);
   if (client?.connected) {
-    useSessionStore.getState().beginSessionContentLoad(sessionId);
+    useSessionContentStore.getState().beginSessionContentLoad(sessionId);
     client.sessions.resume(sessionId);
   }
 

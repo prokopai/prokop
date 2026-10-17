@@ -8,6 +8,7 @@ import { WorkspaceContentArea } from '@/components/app/WorkspaceContentArea';
 import { ViewRefsContext, type ViewRefs } from '@/contexts/ViewRefsContext';
 import { SessionPaneRegistryContext, type SessionPaneRegistry } from '@/contexts/SessionPaneRegistryContext';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useChatLayoutStore } from '@/stores/chatLayoutStore';
@@ -68,6 +69,7 @@ describe('individual session tabs', () => {
     mocks.mobile = false;
     vi.clearAllMocks();
     useSessionStore.setState(useSessionStore.getInitialState());
+    useSessionContentStore.setState(useSessionContentStore.getInitialState());
     useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     useDockStore.setState(useDockStore.getInitialState());
@@ -211,7 +213,7 @@ describe('individual session tabs', () => {
     act(() => {
       useConnectionStore.setState({ streamingSessionIds: new Set(['s0']) });
       useAskStore.setState({ pendingRequests: [{ toolCallId: 'ask-1', sessionId: 's1', requestId: 'request-1' } as PendingAskRequest] });
-      useSessionStore.setState({ messagesBySession: { s0: [{ id: 'message', sessionId: 's0', role: 'assistant' } as Message] } });
+      useSessionContentStore.setState({ messagesBySession: { s0: [{ id: 'message', sessionId: 's0', role: 'assistant' } as Message] } });
     });
     expect(within(screen.getByRole('tab', { name: 'Project / Session 0' })).getByRole('img', { name: 'Running' })).toBeInTheDocument();
     expect(within(screen.getByRole('tab', { name: 'Project / Session 1' })).getByRole('img', { name: 'Needs input' })).toBeInTheDocument();
@@ -221,7 +223,7 @@ describe('individual session tabs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close Project / Session 0' }));
     expect(mocks.interrupt).not.toHaveBeenCalled();
     expect(useConnectionStore.getState().streamingSessionIds.has('s0')).toBe(true);
-    expect(useSessionStore.getState().messagesBySession.s0).toHaveLength(1);
+    expect(useSessionContentStore.getState().messagesBySession.s0).toHaveLength(1);
     expect(useSessionStore.getState().sessions.find((session) => session.id === 's0')).toBeDefined();
     expect(host('s0')).toBeNull();
     expect(mocks.navigate).toHaveBeenLastCalledWith(expect.objectContaining({ params: { serverId: 'server', sessionId: 's1' } }));

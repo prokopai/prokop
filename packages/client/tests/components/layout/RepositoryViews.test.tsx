@@ -7,6 +7,7 @@ import { useChatLayoutStore } from '@/stores/chatLayoutStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { createDefaultViewLayout, findViewRegion, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
@@ -61,6 +62,7 @@ describe('independent repository content', () => {
     useServerDataStore.setState(useServerDataStore.getInitialState());
     useSessionBoardStore.setState(useSessionBoardStore.getInitialState());
     useSessionStore.setState(useSessionStore.getInitialState());
+    useSessionContentStore.setState(useSessionContentStore.getInitialState());
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
     useDockStore.setState(useDockStore.getInitialState());
     localStorage.clear();

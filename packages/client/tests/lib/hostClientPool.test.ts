@@ -56,6 +56,7 @@ import {
 import { useForeignSessionsStore } from '@/stores/foreignSessionsStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import type { SessionHandlersContext } from '@/handlers/serverMessage';
 
 const laptop: SavedServer = { id: 'laptop', name: 'Laptop', url: 'laptop:8742', token: 'pkd_l', createdAt: '' };
@@ -77,6 +78,7 @@ beforeEach(() => {
   useForeignSessionsStore.setState({ byId: {} });
   useSessionBoardStore.setState({ openSessionIds: [], focusedSessionId: null });
   useSessionStore.setState(useSessionStore.getInitialState());
+  useSessionContentStore.setState(useSessionContentStore.getInitialState());
   useHostClientStore.setState({ clients: {}, urls: {}, status: {} });
 });
 

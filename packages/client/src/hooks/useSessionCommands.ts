@@ -8,6 +8,7 @@ import type {
 } from '@prokopai/sdk';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import type { PendingSessionCreateIntent } from '@/stores/sessionBoardStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
@@ -145,7 +146,7 @@ export function useSessionCommands({
 
   const resumeSession = useCallback((sessionId: string, options?: ResumeSessionOptions) => {
     const client = clientFor(sessionId);
-    const store = useSessionStore.getState();
+    const store = useSessionContentStore.getState();
     const alreadyOpen = useSessionBoardStore.getState().openSessionIds.includes(sessionId);
     if (!alreadyOpen || options?.targetMessageId) store.setNavigationIntentForSession(
       sessionId,
@@ -282,7 +283,7 @@ export function useSessionCommands({
 
   const updateSessionModelForSession = useCallback((sessionId: string, modelId: string, providerId: string) => {
     const client = clientFor(sessionId);
-    const store = useSessionStore.getState();
+    const store = useSessionContentStore.getState();
     store.setModelForSession(sessionId, modelId);
     store.setVariantForSession(sessionId, null);
     if (client && client.connected) {
@@ -299,7 +300,7 @@ export function useSessionCommands({
   const updateSessionVariantForSession = useCallback((sessionId: string, variant: string | null) => {
     const client = clientFor(sessionId);
     const session = sessionFor(sessionId);
-    const store = useSessionStore.getState();
+    const store = useSessionContentStore.getState();
     const sessionModel = session?.selectedModel || store.getModelForSession(sessionId);
     if (client && client.connected && session) {
       client.sessions.updateModel(sessionId, {
@@ -347,7 +348,7 @@ export function useSessionCommands({
   }, [clientFor]);
 
   const removeFromQueue = useCallback((queueId: string) => {
-    const queued = useSessionStore.getState().queuedMessages;
+    const queued = useSessionContentStore.getState().queuedMessages;
     const owner = Object.keys(queued).find(sessionId => queued[sessionId]?.some(item => item.id === queueId));
     const client = clientFor(owner);
     if (client && client.connected) {
@@ -356,7 +357,7 @@ export function useSessionCommands({
   }, [clientFor]);
 
   const steerQueued = useCallback((queueId: string) => {
-    const queued = useSessionStore.getState().queuedMessages;
+    const queued = useSessionContentStore.getState().queuedMessages;
     const owner = Object.keys(queued).find(sessionId => queued[sessionId]?.some(item => item.id === queueId));
     const client = clientFor(owner);
     if (client && client.connected) {

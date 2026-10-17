@@ -2,7 +2,7 @@ import type { Session, MessageWithParts, SessionControlState } from '@prokopai/s
 import type { SessionHandlersContext, SessionUsage } from './types';
 import { handleFilesChanged } from './fileHandlers';
 import { useSessionControlStore } from '@/stores/sessionControlStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
@@ -267,7 +267,7 @@ export function handleSessionClosed(
     pendingPartAppendsRef.current.clear();
   }
 
-  useSessionStore.getState().evictSessionContent(sessionId);
+  useSessionContentStore.getState().evictSessionContent(sessionId);
 
   for (const [partId, entry] of partIdIndexRef.current) {
     if (entry.sessionId === sessionId) {
@@ -320,7 +320,7 @@ export function handleSessionDeleted(
   setSessions(prev => prev.filter(s => s.id !== sessionId));
 
   clearCompletion(sessionId);
-  useSessionStore.getState().evictSessionContent(sessionId);
+  useSessionContentStore.getState().evictSessionContent(sessionId);
   removeInterruptedSession(sessionId);
   useSessionBoardStore.getState().removeFromBoard(sessionId);
 

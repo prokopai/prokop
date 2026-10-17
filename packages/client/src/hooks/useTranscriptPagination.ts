@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 
 interface UseTranscriptPaginationParams {
   sessionId: string | undefined;
@@ -17,7 +17,7 @@ export function useTranscriptPagination({
     if (!sessionId || !client) return;
     if (loadingRef.current) return;
 
-    const store = useSessionStore.getState();
+    const store = useSessionContentStore.getState();
     const meta = store.contentMetaBySession[sessionId];
     if (!meta || meta.status !== 'ready') return;
     if (!meta.hasOlder) return;
@@ -33,13 +33,13 @@ export function useTranscriptPagination({
         limit: 50,
       });
 
-      useSessionStore.getState().prependSessionContentPage(sessionId, response.messages, {
+      useSessionContentStore.getState().prependSessionContentPage(sessionId, response.messages, {
         hasOlder: response.pagination.hasOlder,
         oldestSequence: response.pagination.oldestSequence,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      useSessionStore.getState().failOlderContentLoad(sessionId, message);
+      useSessionContentStore.getState().failOlderContentLoad(sessionId, message);
     } finally {
       loadingRef.current = false;
     }

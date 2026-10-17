@@ -11,6 +11,7 @@ import type { SessionHandlersContext } from '@/handlers/serverMessage';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useUIStore } from '@/stores/uiStore';
 
 const workspace = { id: 'w', name: 'jean2', path: '/p' } as Workspace;
@@ -20,7 +21,8 @@ const queued: QueuedMessage = { id: 'q1', sessionId: 's1', content: 'use tabs', 
 
 beforeEach(() => {
   useServerDataStore.setState({ serverId: 'studio', activeWorkspace: workspace, workspaces: [workspace] });
-  useSessionStore.setState({ ...useSessionStore.getInitialState(), sessions: [running],
+  useSessionStore.setState({ ...useSessionStore.getInitialState(), sessions: [running] });
+  useSessionContentStore.setState({ ...useSessionContentStore.getInitialState(),
     queuedMessages: { s1: [queued, { ...queued, id: 'q2', content: 'then run tests', position: 1 }] } });
 });
 afterEach(cleanup);
@@ -76,9 +78,9 @@ describe('steering a queued message', () => {
   });
 
   test('queue.updated marks the row in place and keeps queue order', () => {
-    const ctx = { addQueuedMessage: useSessionStore.getState().addQueuedMessage } as unknown as SessionHandlersContext;
+    const ctx = { addQueuedMessage: useSessionContentStore.getState().addQueuedMessage } as unknown as SessionHandlersContext;
     handleQueueUpdated({ type: 'queue.updated', sessionId: 's1', message: { ...queued, steer: true } }, ctx);
-    expect(useSessionStore.getState().queuedMessages.s1!.map(row => [row.id, row.steer ?? false]))
+    expect(useSessionContentStore.getState().queuedMessages.s1!.map(row => [row.id, row.steer ?? false]))
       .toEqual([['q1', true], ['q2', false]]);
   });
 

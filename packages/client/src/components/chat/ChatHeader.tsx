@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TokenMeter } from './TokenMeter';
 import { ModelVariantConfigSelector } from './ModelVariantConfigSelector';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionControlStore } from '@/stores/sessionControlStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
-import type { SessionUsage } from '@/stores/sessionStore';
+import type { SessionUsage } from '@/stores/sessionContentStore';
 
 import { useClientIdentityStore } from '@/stores/clientIdentityStore';
 import {useIsCompact, useIsMobile} from '@/hooks/use-mobile';
@@ -81,7 +81,7 @@ export function ChatHeader({
   const [editTitle, setEditTitle] = useState(session.title || '');
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const queued = useSessionStore(s => s.queuedMessages[session.id]);
+  const queued = useSessionContentStore(s => s.queuedMessages[session.id]);
   const workspace = useScopedServerData(s => s.workspaces.find(w => w.id === session.workspaceId));
   // Any idle root session may change harness; after the first message the
   // server detaches the native thread and hands the new harness a brief.

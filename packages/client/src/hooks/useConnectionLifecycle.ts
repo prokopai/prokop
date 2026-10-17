@@ -3,7 +3,7 @@ import { ACCESS_REVOKED_CLOSE_CODE, PairingError, ProkopaiClient, HttpClient } f
 import type { ClientDescriptor } from '@prokopai/sdk';
 import type { SessionHandlersContext } from '@/handlers/serverMessage';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useAskStore } from '@/stores/askStore';
 import { useClientIdentityStore } from '@/stores/clientIdentityStore';
@@ -119,9 +119,9 @@ export function useConnectionLifecycle({
         if (openSessionIds.length > 0) {
           // Resume all open board sessions
           for (const sid of openSessionIds) {
-            const hasContent = !!useSessionStore.getState().messagesBySession[sid]?.length;
+            const hasContent = !!useSessionContentStore.getState().messagesBySession[sid]?.length;
             if (!hasContent) {
-              useSessionStore.getState().beginSessionContentLoad(sid);
+              useSessionContentStore.getState().beginSessionContentLoad(sid);
             }
             client.sessions.resume(sid);
           }
@@ -134,9 +134,9 @@ export function useConnectionLifecycle({
           const sessionId = currentSessionIdRef.current;
 
           if (sessionId) {
-            const hasContent = !!useSessionStore.getState().messagesBySession[sessionId]?.length;
+            const hasContent = !!useSessionContentStore.getState().messagesBySession[sessionId]?.length;
             if (!hasContent) {
-              useSessionStore.getState().beginSessionContentLoad(sessionId);
+              useSessionContentStore.getState().beginSessionContentLoad(sessionId);
             }
             console.log('[reconnect] Resuming session:', sessionId);
             client.sessions.resume(sessionId);

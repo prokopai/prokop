@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSessionBoardStore } from '@/stores/sessionBoardStore';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { foreignServerOf } from '@/stores/foreignSessionsStore';
 
@@ -26,13 +26,13 @@ export function useBoardSessionLoader(
     for (const sessionId of openSessionIds) {
       // Sessions from other machines load through their own pooled connection.
       if (foreignServerOf(sessionId)) continue;
-      const hasMessages = !!useSessionStore.getState().messagesBySession[sessionId]?.length;
-      const contentMeta = useSessionStore.getState().contentMetaBySession[sessionId];
+      const hasMessages = !!useSessionContentStore.getState().messagesBySession[sessionId]?.length;
+      const contentMeta = useSessionContentStore.getState().contentMetaBySession[sessionId];
       const isLoaded = contentMeta?.status === 'ready' || hasMessages;
 
       if (!isLoaded && contentMeta?.status !== 'loading' && !resumedRef.current.has(sessionId)) {
         resumedRef.current.add(sessionId);
-        useSessionStore.getState().beginSessionContentLoad(sessionId);
+        useSessionContentStore.getState().beginSessionContentLoad(sessionId);
         sdkClient.sessions.resume(sessionId);
       }
     }

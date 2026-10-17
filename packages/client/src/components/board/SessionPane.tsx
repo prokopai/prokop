@@ -5,7 +5,8 @@ import { ChatView } from '@/components/chat/ChatView';
 import type { MessageInputHandle } from '@/components/chat/MessageInput';
 import { ChatLoadingState } from '@/components/shared/LoadingSkeleton';
 import { Button } from '@/components/ui/button';
-import { useSessionStore, type SessionNavigationIntent } from '@/stores/sessionStore';
+import type { SessionNavigationIntent } from '@/stores/sessionContentStore';
+import { useSessionContentStore } from '@/stores/sessionContentStore';
 import { useAskStore } from '@/stores/askStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSessionCommands } from '@/contexts/SessionCommandsContext';
@@ -40,13 +41,13 @@ export function SessionPane({
   const commands = useSessionCommands();
 
   const session = useSessionById(sessionId);
-  const contentMeta = useSessionStore(s => s.contentMetaBySession[sessionId]);
-  const sessionMessages = useSessionStore(s => s.messagesBySession[sessionId]);
-  const sessionParts = useSessionStore(s => s.partsBySession[sessionId]);
-  const compactionSuccess = useSessionStore(s => s.compactionSuccessBySessionId[sessionId] ?? false);
-  const navigationIntent = useSessionStore(s => s.navigationIntentBySessionId[sessionId] ?? DEFAULT_NAV_INTENT);
-  const queuedMessages = useSessionStore(s => s.queuedMessages[sessionId] ?? EMPTY_QUEUE);
-  const storedModel = useSessionStore(s => s.modelBySessionId[sessionId]);
+  const contentMeta = useSessionContentStore(s => s.contentMetaBySession[sessionId]);
+  const sessionMessages = useSessionContentStore(s => s.messagesBySession[sessionId]);
+  const sessionParts = useSessionContentStore(s => s.partsBySession[sessionId]);
+  const compactionSuccess = useSessionContentStore(s => s.compactionSuccessBySessionId[sessionId] ?? false);
+  const navigationIntent = useSessionContentStore(s => s.navigationIntentBySessionId[sessionId] ?? DEFAULT_NAV_INTENT);
+  const queuedMessages = useSessionContentStore(s => s.queuedMessages[sessionId] ?? EMPTY_QUEUE);
+  const storedModel = useSessionContentStore(s => s.modelBySessionId[sessionId]);
   const sessionModel = storedModel ?? session?.selectedModel ?? '';
   const pendingAskRequests = useAskStore(
     useShallow(s => s.pendingRequests.filter(r => r.sessionId === sessionId || r.originSessionId === sessionId)),
@@ -88,15 +89,15 @@ export function SessionPane({
   // message and break the memo on every transcript row.
   const handleCompact = useCallback(() => commands.compactSession(sessionId), [commands, sessionId]);
   const handleClearCompactionSuccess = useCallback(
-    () => useSessionStore.getState().setCompactionSuccessForSession(sessionId, false),
+    () => useSessionContentStore.getState().setCompactionSuccessForSession(sessionId, false),
     [sessionId],
   );
   const handleTargetMessageHandled = useCallback(
-    () => useSessionStore.getState().setNavigationIntentForSession(sessionId, { mode: 'free' }),
+    () => useSessionContentStore.getState().setNavigationIntentForSession(sessionId, { mode: 'free' }),
     [sessionId],
   );
   const handleNavigateToMessage = useCallback(
-    (messageId: string) => useSessionStore.getState().setNavigationIntentForSession(
+    (messageId: string) => useSessionContentStore.getState().setNavigationIntentForSession(
       sessionId,
       { mode: 'target-message', messageId },
     ),
