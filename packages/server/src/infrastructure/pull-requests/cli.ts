@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { BadRequestError } from '@/application/http-errors';
+import { BadRequestError, ConflictError } from '@/application/http-errors';
 
 export interface CliRequest {
   command: 'gh' | 'az';
@@ -144,4 +144,52 @@ export function providerMessage(text: string): string {
   } catch {
     return '';
   }
+}
+
+export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+
+/**
+ * One provider REST call: 60 s timeout and an 8 MB body cap. Transport
+ * failures become messages that name the provider (`label`).
+ */
+export async function fetchProviderText(fetcher: FetchLike, label: string, url: string,
+  init: RequestInit): Promise<{ response: Response; text: string }> {
+  const tooLarge = () => new BadRequestError(`Provider response exceeded the size limit. Open this request on ${label}.`);
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetcher(url, { ...init, signal: AbortSignal.timeout(60_000) });
+    if (Number(response.headers.get('content-length')) > MAX_RESPONSE_BYTES) throw tooLarge();
+    text = await response.text();
+  } catch (error: unknown) {
+    if (error instanceof BadRequestError) throw error;
+    if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name))
+      throw new BadRequestError(
+        `${label} timed out. Refresh the PR before retrying; the remote action may have completed.`,
+      );
+    throw new BadRequestError(`Could not reach ${label} from the Prokop server.`);
+  }
+  if (text.length > MAX_RESPONSE_BYTES) throw tooLarge();
+  return { response, text };
+}
+
+/**
+ * The error for a failed (4xx/5xx) provider response after provider-specific
+ * handling: its own message when it sent one, else a fallback per status.
+ * `conflicts` are the statuses that mean the PR changed underneath.
+ */
+export function providerStatusError(label: string, status: number, text: string,
+  options: { conflicts: readonly number[]; refused: string }): Error {
+  const detail = providerMessage(text);
+  if (options.conflicts.includes(status)) return new ConflictError(detail || 'The PR changed. Refresh before continuing.');
+  return new BadRequestError(
+    detail ||
+      (status === 403
+        ? options.refused
+        : status === 404
+          ? `${label} could not find this resource, or you do not have access to it.`
+          : `${label} request failed (HTTP ${status}). Refresh before retrying a write.`),
+  );
 }

@@ -11,6 +11,7 @@ import { stripVisualization } from '@prokopai/core/infrastructure/tools/strip-vi
 import { getAttachment } from '@prokopai/core/infrastructure/storage/runtime';
 import { isToolOutputArtifactReference, RETRIEVE_TOOL_OUTPUT_NAME } from '#agent/harnesses/prokop/tool-output/policy';
 import { toolModelOutputToAiSdk } from '@prokopai/core/infrastructure/tools/model-output';
+import { parseAttachmentContentUrl } from '@prokopai/core/domains/attachments';
 
 type AiSdkContent = string | Array<{
   type: 'text' | 'tool-call' | 'tool-result' | 'image' | 'file';
@@ -36,11 +37,10 @@ interface ModelCapabilities {
 }
 
 async function resolveAttachmentPath(part: ImagePart | FilePart): Promise<{ absolutePath: string; mimeType: string } | null> {
-  const urlWithoutQuery = part.url.split('?')[0];
-  const match = urlWithoutQuery.match(/^\/api\/sessions\/([^/]+)\/attachments\/([^/]+)\/content$/);
-  if (!match) return null;
+  const target = parseAttachmentContentUrl(part.url);
+  if (!target) return null;
 
-  const [, sessionId, attachmentId] = match;
+  const { sessionId, attachmentId } = target;
   try {
     const attachment = await getAttachment(sessionId, attachmentId);
     if (!attachment) return null;

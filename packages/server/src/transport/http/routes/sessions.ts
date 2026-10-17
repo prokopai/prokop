@@ -11,6 +11,7 @@ import {
   UnauthorizedError,
 } from '@/application/http-errors';
 import type { SessionHttpApplication } from '@/application';
+import { attachmentContentUrl } from '@prokopai/core/domains/attachments';
 
 /**
  * HTTP session routes (S3).
@@ -375,7 +376,7 @@ export function registerSessionRoutes(app: Hono, application: SessionHttpApplica
       filename: attachment.filename,
       mimeType: attachment.mimeType,
       size: attachment.sizeBytes,
-      url: `/api/sessions/${sessionId}/attachments/${attachment.id}/content?key=${attachment.accessKey}`,
+      url: attachmentContentUrl(sessionId, attachment),
     }, 201);
   });
 

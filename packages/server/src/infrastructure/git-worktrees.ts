@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, realpath, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { GitWorktreeRef } from '@prokopai/sdk';
+import { git, GitOperationError, GitRunError } from '@/infrastructure/filesystem/git-command';
 import type {
   WorktreeGitPort,
   WorktreeGitStatus,
@@ -37,72 +38,18 @@ export class WorktreeGitError extends Error {
   }
 }
 
-async function readLimited(
-  stream: ReadableStream<Uint8Array>,
-  process: ReturnType<typeof Bun.spawn>,
-): Promise<string> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let result = '';
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      bytes += chunk.value.byteLength;
-      if (bytes > GIT_OUTPUT_LIMIT_BYTES) {
-        process.kill();
-        throw new WorktreeGitError('output_limit', 'Git output exceeded the allowed limit');
-      }
-      result += decoder.decode(chunk.value, { stream: true });
-    }
-    return result + decoder.decode();
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 async function runGit(cwd: string, args: string[]): Promise<GitResult> {
-  let process: ReturnType<typeof Bun.spawn>;
   try {
-    process = Bun.spawn(['git', '-C', cwd, ...args], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      windowsHide: true,
-      env: {
-        ...Bun.env,
-        LC_ALL: 'C',
-        GIT_TERMINAL_PROMPT: '0',
-      },
+    const result = await git(cwd, args, {
+      allowFailure: true, timeoutMs: GIT_TIMEOUT_MS, maxOutputBytes: GIT_OUTPUT_LIMIT_BYTES,
     });
+    return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code };
   } catch (error: unknown) {
-    throw new WorktreeGitError(
-      'git_not_installed',
-      error instanceof Error ? error.message : 'Git is not installed',
-    );
-  }
-
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    process.kill();
-  }, GIT_TIMEOUT_MS);
-
-  try {
-    const [stdout, stderr, exitCode] = await Promise.all([
-      readLimited(process.stdout as ReadableStream<Uint8Array>, process),
-      readLimited(process.stderr as ReadableStream<Uint8Array>, process),
-      process.exited,
-    ]);
-    if (timedOut) {
-      throw new WorktreeGitError('operation_timed_out', 'Git operation timed out');
+    if (error instanceof GitOperationError) throw new WorktreeGitError('operation_timed_out', 'Git operation timed out');
+    if (error instanceof GitRunError && error.kind === 'output-limit') {
+      throw new WorktreeGitError('output_limit', 'Git output exceeded the allowed limit');
     }
-    return { stdout, stderr, exitCode };
-  } catch (error: unknown) {
-    process.kill();
-    throw error;
-  } finally {
-    clearTimeout(timeout);
+    throw new WorktreeGitError('git_not_installed', error instanceof Error ? error.message : 'Git is not installed');
   }
 }
 

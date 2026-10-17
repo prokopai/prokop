@@ -4,6 +4,7 @@ import { extname } from 'path';
 import ignore from 'ignore';
 import picomatch from 'picomatch';
 import { fileConcernAsk, isToolPathAllowed } from '../file-permission';
+import { walkFiles } from '../walk-files';
 
 interface Input {
   pattern: string;
@@ -12,36 +13,6 @@ interface Input {
   ignore?: string[];
 }
 
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '__pycache__',
-  'dist',
-  'build',
-  'target',
-  'vendor',
-  'bin',
-  'obj',
-  '.idea',
-  '.vscode',
-  '.zig-cache',
-  'zig-out',
-  '.coverage',
-  'coverage',
-  'tmp',
-  'temp',
-  '.cache',
-  'cache',
-  'logs',
-  '.venv',
-  'venv',
-  'env',
-  '.next',
-  '.nuxt',
-  '.output',
-  '.svelte-kit',
-  '.turbo',
-]);
 
 const BINARY_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2',
@@ -120,70 +91,27 @@ async function searchInFile(ctx: ToolContext, filePath: string, regex: RegExp): 
   return matches;
 }
 
-async function walkDirectory(
+async function searchDirectory(
   ctx: ToolContext,
-  dirPath: string,
-  basePath: string,
+  root: string,
   ig: ReturnType<typeof ignore>,
   includeMatcher: ((path: string) => boolean) | null,
   ignoreMatcher: ((path: string) => boolean) | null,
   regex: RegExp,
   matches: Array<{ file: string; line: number; content: string }>,
 ): Promise<void> {
-  const dirName = dirPath.split(/[/\\]/).pop() || '';
-  if (SKIP_DIRS.has(dirName)) {
-    return;
-  }
-
-  try {
-    const entries = await ctx.fs.readDir(dirPath);
-    for (const entry of entries) {
-      const fullPath = `${dirPath}/${entry.name}`;
-      const relativePath = fullPath.slice(basePath.length + 1).replace(/\\/g, '/');
-
-      if (ig.ignores(relativePath)) {
-        continue;
+  await walkFiles(ctx, root, {
+    skip: relativePath => ig.ignores(relativePath),
+    async file(fullPath, relativePath) {
+      if (includeMatcher && !includeMatcher(relativePath)) return;
+      if (ignoreMatcher && ignoreMatcher(relativePath)) return;
+      if (isBinaryFile(fullPath)) return;
+      for (const fileMatch of await searchInFile(ctx, fullPath, regex)) {
+        if (matches.length >= MAX_MATCHES) return false;
+        matches.push({ file: relativePath, line: fileMatch.line, content: fileMatch.content });
       }
-
-      if (entry.isDirectory) {
-        await walkDirectory(ctx, fullPath, basePath, ig, includeMatcher, ignoreMatcher, regex, matches);
-      } else if (entry.isFile) {
-        if (includeMatcher && !includeMatcher(relativePath)) {
-          continue;
-        }
-
-        if (ignoreMatcher && ignoreMatcher(relativePath)) {
-          continue;
-        }
-
-        if (isBinaryFile(fullPath)) {
-          continue;
-        }
-
-        const fileMatches = await searchInFile(ctx, fullPath, regex);
-        for (const fileMatch of fileMatches) {
-          if (matches.length >= MAX_MATCHES) {
-            return;
-          }
-          matches.push({
-            file: relativePath,
-            line: fileMatch.line,
-            content: fileMatch.content,
-          });
-        }
-      }
-    }
-  } catch (error) {
-    const err = error as { code?: string };
-    if (
-      err.code !== 'EACCES' &&
-      err.code !== 'EPERM' &&
-      err.code !== 'ENOENT' &&
-      err.code !== 'ENOTDIR'
-    ) {
-      throw error;
-    }
-  }
+    },
+  });
 }
 
 export async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
@@ -269,7 +197,7 @@ export async function execute(input: Input, ctx: ToolContext): Promise<ToolResul
         }
       }
     } else {
-      await walkDirectory(ctx, searchPath, searchPath, ig, includeMatcher, ignoreMatcher, regex, matches);
+      await searchDirectory(ctx, searchPath, ig, includeMatcher, ignoreMatcher, regex, matches);
     }
 
     const truncated = matches.length >= MAX_MATCHES;

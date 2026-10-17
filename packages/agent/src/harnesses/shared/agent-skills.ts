@@ -32,7 +32,7 @@ async function scan(root: string): Promise<SkillListing[]> {
 }
 
 /** Workspace skills win collisions; an empty allowlist means no readable skills. */
-export async function listCodexAgentSkills(agentDir: string | null, workspaceRoot: string,
+export async function listAgentSkills(agentDir: string | null, workspaceRoot: string,
   allowed: string[] | null | undefined): Promise<SkillListing[]> {
   if (!agentDir || !isAbsolute(agentDir) || !isAbsolute(workspaceRoot) || allowed?.length === 0) return [];
   const workspaceNames = new Set((await scan(join(workspaceRoot, '.agents', 'skills'))).map(skill => skill.name));
@@ -45,7 +45,7 @@ export async function listCodexAgentSkills(agentDir: string | null, workspaceRoo
   });
 }
 
-export function formatCodexAgentSkills(skills: SkillListing[]): string | null {
+export function formatAgentSkills(skills: SkillListing[]): string | null {
   if (!skills.length) return null;
   const lines = ['<agent_home_skills>',
     'The selected agent has these skills. When one matches the task, read its SKILL.md before following it.',

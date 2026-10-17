@@ -1,5 +1,7 @@
+import { existsSync, realpathSync } from 'node:fs';
 import type { Session, Workspace } from '@prokopai/sdk';
 import { getRuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
+import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 
 /**
  * CLI turns need a real root on disk. Virtual workspaces qualify: "virtual"
@@ -29,4 +31,19 @@ export async function resolveCliRoot(
   } catch {
     return null;
   }
+}
+
+/**
+ * The session's workspace and its real root on disk, or an error a turn can
+ * show (`harness` names the CLI in the message).
+ */
+export async function resolveCliWorkspaceRoot(
+  session: Pick<Session, 'id' | 'workspaceId' | 'workspaceRootId'>, harness: 'Claude' | 'Codex',
+): Promise<{ workspace: Workspace; root: string }> {
+  const workspace = await getWorkspace(session.workspaceId);
+  if (!cliWorkspaceAvailable(workspace)) throw new Error(`${harness} requires a workspace folder on this host`);
+  const root = await resolveCliRoot(session, workspace);
+  if (!root) throw new Error('Selected worktree is unavailable');
+  if (!existsSync(root)) throw new Error('Workspace root is unavailable');
+  return { workspace, root: realpathSync(root) };
 }

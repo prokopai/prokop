@@ -6,7 +6,7 @@ import {
   transitionToolToInterrupted, updatePart,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import { codexObject } from './app-server';
-import { MAX_ATTACHMENT_SIZE } from '@prokopai/core/domains/attachments';
+import { attachmentContentUrl, MAX_ATTACHMENT_SIZE } from '@prokopai/core/domains/attachments';
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,
@@ -69,7 +69,7 @@ async function imageGenerationVisualization(item: Record<string, unknown>, sessi
       filename: `generated.${type.extension}`, mimeType: type.mimeType, data: new Uint8Array(bytes) });
     const alt = typeof item.revisedPrompt === 'string' ? item.revisedPrompt : typeof item.prompt === 'string' ? item.prompt : undefined;
     return { type: 'image', mimeType: type.mimeType,
-      url: `/api/sessions/${sessionId}/attachments/${attachment.id}/content?key=${attachment.accessKey}`,
+      url: attachmentContentUrl(sessionId, attachment),
       ...(alt ? { alt: preview(alt).slice(0, 500) } : {}) };
   } catch {
     return { type: 'none', message: saved };

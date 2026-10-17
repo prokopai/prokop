@@ -1,11 +1,7 @@
-import { lstatSync, realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, relative, sep } from 'node:path';
 import type { Session } from '@prokopai/sdk';
-import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
 import type { AttachmentRecord as Attachment } from '@prokopai/core/infrastructure/storage/contracts';
-import { getAttachment } from '@prokopai/core/infrastructure/storage/runtime';
-import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
+import { resolveSessionImages } from '#agent/harnesses/shared/images';
 
 export interface ClaudeImage extends Attachment {
   data: string;
@@ -13,29 +9,12 @@ export interface ClaudeImage extends Attachment {
 
 /**
  * Validate ownership and the actual file before any native prompt can be
- * submitted. Metadata only; `loadClaudeImages` reads the bytes once the turn
- * is claimed.
+ * submitted, at most 10 images. Metadata only; `loadClaudeImages` reads the
+ * bytes once the turn is claimed.
  */
-export async function resolveClaudeImages(session: Session,
+export function resolveClaudeImages(session: Session,
   references: Array<{ id: string; kind: string }>): Promise<Attachment[] | null> {
-  if (references.length > 10) return null;
-  const images: Attachment[] = [];
-  const directory = getAttachmentDir(session.workspaceId, session.id);
-  for (const reference of references) {
-    if (reference?.kind !== 'image' || typeof reference.id !== 'string') return null;
-    const image = await getAttachment(session.id, reference.id);
-    if (!image || image.workspaceId !== session.workspaceId || image.kind !== 'image'
-      || !validateImageMime(image.mimeType) || image.sizeBytes < 1 || image.sizeBytes > MAX_ATTACHMENT_SIZE) return null;
-    try {
-      const stat = lstatSync(image.absolutePath);
-      const file = realpathSync(image.absolutePath);
-      const offset = relative(realpathSync(directory), file);
-      if (!offset || offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
-        || !stat.isFile() || stat.isSymbolicLink() || stat.size !== image.sizeBytes) return null;
-      images.push({ ...image, absolutePath: file });
-    } catch { return null; }
-  }
-  return images;
+  return resolveSessionImages(session, references, 10);
 }
 
 /** Reads validated images off the event loop; a file that changed size since validation fails the turn. */

@@ -1,8 +1,8 @@
 import { forkSession, getSessionMessages } from '@anthropic-ai/claude-agent-sdk';
 import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/application/ports/execution';
-import type { Session } from '@prokopai/sdk';
 import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { writeForkedSession, writeForkedTranscript } from '#agent/harnesses/shared/fork-copy';
 import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { getClaudeModelSelection } from './models';
 import {
@@ -98,32 +98,15 @@ export async function forkClaudeSession(
   const selection = await getClaudeModelSelection(session.id);
   const forkedSessionId = crypto.randomUUID();
   const forkedSession = await storeTransaction((tx) => {
-    const created = tx.write<Session>({ op: 'session.create', session: {
-      id: forkedSessionId, workspaceId: session.workspaceId, workspaceRootId: session.workspaceRootId,
-      harness: 'claude-cli', preconfigId: session.preconfigId,
-      title: input.title || `${session.title || 'Untitled'} (fork)`, status: 'active',
-      metadata: { ...(session.metadata ?? {}), forkedFrom: session.id }, parentId: null, agentName: null,
-      agentId: session.agentId, selectedModel: session.selectedModel,
-      selectedProvider: session.selectedProvider, permissionMode: session.permissionMode,
-    } });
+    const created = writeForkedSession(tx, session, { id: forkedSessionId, harness: 'claude-cli',
+      title: input.title, metadata: session.metadata ?? {} });
     insertClaudeBinding(tx, forkedSessionId, forkedId, deps.root, deps.version(), false);
     if (selection) copyClaudeModelSelection(tx, forkedSessionId, selection);
-    const ids = new Map(retained.map(entry => [entry.message.id, crypto.randomUUID()]));
     let userTurn = 0;
-    for (const entry of retained) {
-      const id = ids.get(entry.message.id)!;
-      tx.write({ op: 'message.create', message: { ...entry.message, id, sessionId: forkedSessionId,
-        ...(entry.message.role === 'assistant' && entry.message.parentId
-          ? { parentId: ids.get(entry.message.parentId) } : {}) } });
-      if (entry.message.role === 'user') {
-        // The fork's native user messages carry fresh uuids; remember them so
-        // later Undo or Edit in the fork still matches its native history.
-        setClaudeInheritedUserId(tx, forkedSessionId, id, forkedTurns[userTurn++]!.userId);
-      }
-      for (const part of entry.parts) {
-        tx.write({ op: 'part.create', sessionId: forkedSessionId, part: { ...part, id: crypto.randomUUID(), messageId: id } });
-      }
-    }
+    // The fork's native user messages carry fresh uuids; remember them so
+    // later Undo or Edit in the fork still matches its native history.
+    writeForkedTranscript(tx, forkedSessionId, retained, id =>
+      setClaudeInheritedUserId(tx, forkedSessionId, id, forkedTurns[userTurn++]!.userId));
     deleteClaudeForkIntent(tx, session.id);
     return created;
   });

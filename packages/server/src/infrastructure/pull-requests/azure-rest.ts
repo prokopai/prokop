@@ -1,15 +1,12 @@
 import { homedir } from 'node:os';
 import type { PullRequestRepository } from '@prokopai/sdk/types';
-import { BadRequestError, ConflictError } from '@/application/http-errors';
-import { array, json, object, providerMessage, str, type RunCli } from './cli';
+import { BadRequestError } from '@/application/http-errors';
+import { array, fetchProviderText, json, object, providerMessage, providerStatusError, str, type FetchLike, type RunCli } from './cli';
 
 /** Microsoft Entra resource ID of Azure DevOps; its tokens authorize dev.azure.com REST calls. */
 const DEVOPS_RESOURCE = '499b84ac-1321-427f-aa17-267ca6975798';
 const NO_TENANT = '00000000-0000-0000-0000-000000000000';
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_BYTES = 8 * 1024 * 1024;
-
-export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 /** A failure the user fixes on the server; `command` is shown verbatim in the UI. */
 export class AzureSetupError extends BadRequestError {
@@ -181,34 +178,17 @@ export function azureRest(
     const url = new URL(path, bases[scope]);
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     url.searchParams.set('api-version', version);
-    let response: Response;
-    let text: string;
-    try {
-      response = await fetcher(url.href, {
-        method,
-        headers: {
-          authorization,
-          accept: 'application/json',
-          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        // Unauthenticated requests redirect to an HTML sign-in page.
-        redirect: 'manual',
-        signal: AbortSignal.timeout(60_000),
-      });
-      if (Number(response.headers.get('content-length')) > MAX_BYTES)
-        throw new BadRequestError('Provider response exceeded the size limit. Open this request on Azure DevOps.');
-      text = await response.text();
-    } catch (error: unknown) {
-      if (error instanceof BadRequestError) throw error;
-      if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name))
-        throw new BadRequestError(
-          'Azure DevOps timed out. Refresh the PR before retrying; the remote action may have completed.',
-        );
-      throw new BadRequestError('Could not reach Azure DevOps from the Prokop server.');
-    }
-    if (text.length > MAX_BYTES)
-      throw new BadRequestError('Provider response exceeded the size limit. Open this request on Azure DevOps.');
+    const { response, text } = await fetchProviderText(fetcher, 'Azure DevOps', url.href, {
+      method,
+      headers: {
+        authorization,
+        accept: 'application/json',
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      // Unauthenticated requests redirect to an HTML sign-in page.
+      redirect: 'manual',
+    });
     const status = response.status;
     const html = !/json/i.test(response.headers.get('content-type') ?? '') && text.trim() !== '';
     if (status === 401 || status === 203 || (status >= 300 && status < 400) || (status < 300 && html)) {
@@ -217,18 +197,10 @@ export function azureRest(
     }
     if (status === 429) throw new BadRequestError('Provider rate limit reached. Wait before refreshing.');
     if (status >= 400) {
-      const detail = providerMessage(text);
-      if (status === 409 || status === 412) throw new ConflictError(detail || 'The PR changed. Refresh before continuing.');
-      if (/has not been materialized/i.test(detail))
+      if (/has not been materialized/i.test(providerMessage(text)))
         throw signIn(`Your Azure CLI identity is not a member of "${org}". Sign in with an account that has access.`);
-      throw new BadRequestError(
-        detail ||
-          (status === 403
-            ? 'Azure DevOps refused this operation. Check your permissions and repository policies.'
-            : status === 404
-              ? 'Azure DevOps could not find this resource, or you do not have access to it.'
-              : `Azure DevOps request failed (HTTP ${status}). Refresh before retrying a write.`),
-      );
+      throw providerStatusError('Azure DevOps', status, text, { conflicts: [409, 412],
+        refused: 'Azure DevOps refused this operation. Check your permissions and repository policies.' });
     }
     return text.trim() ? json(text) : null;
   };

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { Preconfig } from '@prokopai/sdk';
 import { agentSkillsDomainTools } from '@prokopai/agent/internal/harnesses/shared/domain-tools';
 import { createCodexAgentSkillTools } from '@prokopai/agent/internal/harnesses/codex-cli/agent-skill-tools';
-import { formatCodexAgentSkills, listCodexAgentSkills } from '@prokopai/agent/internal/harnesses/codex-cli/agent-skills';
+import { formatAgentSkills, listAgentSkills } from '@prokopai/agent/internal/harnesses/shared/agent-skills';
 import { codexDeveloperInstructions } from '@prokopai/agent/internal/harnesses/codex-cli/instructions';
 import { createSession, updateSession } from '@/infrastructure/sqlite/session-store';
 import { getWorkspace } from '@/infrastructure/sqlite/workspaces';
@@ -50,21 +50,21 @@ test('agent skill listing respects allowlists, workspace precedence, and path/si
   putSkill(join(agentDir, 'skills'), 'shared');
   putSkill(join(agentDir, 'skills'), 'personal', 'Personal procedure');
   putSkill(join(workspaceRoot, '.agents', 'skills'), 'shared');
-  const visible = await listCodexAgentSkills(agentDir, workspaceRoot, null);
+  const visible = await listAgentSkills(agentDir, workspaceRoot, null);
   expect(visible.map(skill => skill.name)).toEqual(['personal']);
-  const text = formatCodexAgentSkills(visible)!;
+  const text = formatAgentSkills(visible)!;
   expect(text).toContain(join(agentDir, 'skills', 'personal', 'SKILL.md'));
   expect(text).not.toContain('shared');
-  expect(await listCodexAgentSkills(agentDir, workspaceRoot, [])).toEqual([]);
-  expect(await listCodexAgentSkills(agentDir, workspaceRoot, ['shared'])).toEqual([]);
-  expect(await listCodexAgentSkills(null, workspaceRoot, null)).toEqual([]);
-  expect(formatCodexAgentSkills([{ name: 'huge', description: 'a'.repeat(9000), path: '/path' }])).toBeNull();
+  expect(await listAgentSkills(agentDir, workspaceRoot, [])).toEqual([]);
+  expect(await listAgentSkills(agentDir, workspaceRoot, ['shared'])).toEqual([]);
+  expect(await listAgentSkills(null, workspaceRoot, null)).toEqual([]);
+  expect(formatAgentSkills([{ name: 'huge', description: 'a'.repeat(9000), path: '/path' }])).toBeNull();
   symlinkSync(join(agentDir, 'skills', 'personal', 'SKILL.md'),
     join(agentDir, 'skills', 'linked'), 'file');
   mkdirSync(join(agentDir, 'skills', 'alias'));
   symlinkSync(join(agentDir, 'skills', 'personal', 'SKILL.md'),
     join(agentDir, 'skills', 'alias', 'SKILL.md'));
-  expect((await listCodexAgentSkills(agentDir, workspaceRoot, null)).map(skill => skill.name)).toEqual(['personal']);
+  expect((await listAgentSkills(agentDir, workspaceRoot, null)).map(skill => skill.name)).toEqual(['personal']);
 });
 
 test('instructions include agent skills only for the selected agent, not plain preconfigs', async () => {

@@ -7,8 +7,8 @@ import {
 } from '#agent/harnesses/shared/domain-tools';
 import { resolveWorkspaceMemoryDir } from '@prokopai/core/infrastructure/runtime/workspace-dirs';
 
-/** Format opted-in workspace memory for Codex without memory-tool guidance. */
-export async function codexWorkspaceMemory(workspace: Workspace, root: string): Promise<string | null> {
+/** Format opted-in workspace memory for a CLI harness, without memory-tool guidance. */
+export async function cliWorkspaceMemory(workspace: Workspace, root: string): Promise<string | null> {
   if (workspace.settings.memory?.enabled !== true) return null;
   const directory = resolveWorkspaceMemoryDir(root);
   const user = await loadMemoryFile(directory, 'user');

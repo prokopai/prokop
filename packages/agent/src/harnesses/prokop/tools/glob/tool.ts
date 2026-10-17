@@ -3,6 +3,7 @@ import type { FileListVisualization } from '@prokopai/sdk';
 import picomatch from 'picomatch';
 import { scan as scanGlob } from 'picomatch';
 import { fileConcernAsk, isToolPathAllowed } from '../file-permission';
+import { walkFiles } from '../walk-files';
 
 interface Input {
   pattern: string;
@@ -10,36 +11,6 @@ interface Input {
   ignore?: string[];
 }
 
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '__pycache__',
-  'dist',
-  'build',
-  'target',
-  'vendor',
-  'bin',
-  'obj',
-  '.idea',
-  '.vscode',
-  '.zig-cache',
-  'zig-out',
-  '.coverage',
-  'coverage',
-  'tmp',
-  'temp',
-  '.cache',
-  'cache',
-  'logs',
-  '.venv',
-  'venv',
-  'env',
-  '.next',
-  '.nuxt',
-  '.output',
-  '.svelte-kit',
-  '.turbo',
-]);
 
 export const definition: ToolDefinition = {
   name: 'glob',
@@ -77,50 +48,29 @@ interface FileResult {
   modifiedAt: Date;
 }
 
-async function walkDirectory(
+/** Every file under `root` (top level only unless `recursive`), with its modification time. */
+async function listFiles(
   ctx: ToolContext,
-  dirPath: string,
-  basePath: string,
-  results: FileResult[],
+  root: string,
   recursive: boolean,
   ignoreMatcher: ((path: string) => boolean) | null,
-): Promise<void> {
-  const dirName = dirPath.split(/[/\\]/).pop() || '';
-  if (SKIP_DIRS.has(dirName)) {
-    return;
-  }
-
-  try {
-    const entries = await ctx.fs.readDir(dirPath);
-
-    for (const entry of entries) {
-      const fullPath = `${dirPath}/${entry.name}`;
-      const relativePath = fullPath.slice(basePath.length + 1).replace(/\\/g, '/');
-
-      if (entry.isDirectory) {
-        if (recursive) {
-          await walkDirectory(ctx, fullPath, basePath, results, recursive, ignoreMatcher);
-        }
-      } else if (entry.isFile) {
-        if (ignoreMatcher && ignoreMatcher(relativePath)) {
-          continue;
-        }
-        let modifiedAt = new Date();
-        try {
-          const stat = await ctx.fs.stat(fullPath);
-          modifiedAt = stat.modifiedAt ?? new Date();
-        } catch {
-          // use default date if stat fails
-        }
-        results.push({ relativePath, fullPath, modifiedAt });
+): Promise<FileResult[]> {
+  const results: FileResult[] = [];
+  await walkFiles(ctx, root, {
+    recursive,
+    async file(fullPath, relativePath) {
+      if (ignoreMatcher && ignoreMatcher(relativePath)) return;
+      let modifiedAt = new Date();
+      try {
+        const stat = await ctx.fs.stat(fullPath);
+        modifiedAt = stat.modifiedAt ?? new Date();
+      } catch {
+        // use default date if stat fails
       }
-    }
-  } catch (error) {
-    const err = error as { code?: string };
-    if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'ENOENT') {
-      throw error;
-    }
-  }
+      results.push({ relativePath, fullPath, modifiedAt });
+    },
+  });
+  return results;
 }
 
 export async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
@@ -201,8 +151,7 @@ export async function execute(input: Input, ctx: ToolContext): Promise<ToolResul
       };
     }
 
-    const fileResults: FileResult[] = [];
-    await walkDirectory(ctx, cwd, cwd, fileResults, recursive, ignoreMatcher);
+    const fileResults = await listFiles(ctx, cwd, recursive, ignoreMatcher);
 
     const isMatch = picomatch(input.pattern, { dot: true });
     const matched = fileResults.filter(f => isMatch(f.relativePath));

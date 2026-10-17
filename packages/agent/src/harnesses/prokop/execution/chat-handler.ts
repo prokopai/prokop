@@ -39,6 +39,7 @@ import { resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure
 import { revertCrossesHarnessSwitch, revertToStep } from '#agent/harnesses/prokop/execution/revert';
 import { HARNESS_SWITCH_PRIOR_EDIT_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import { streamChatWithRetry } from '#agent/harnesses/prokop/retry/stream-chat';
+import { attachmentContentUrl } from '@prokopai/core/domains/attachments';
 
 export type RuntimeRequestContext<Origin = unknown> = RuntimeEventContext<Origin>;
 
@@ -149,7 +150,7 @@ async function runSingleChatTurn<Origin>(
       if (!attachmentRecord) continue;
 
       const partId = crypto.randomUUID();
-      const serverUrl = `/api/sessions/${sessionId}/attachments/${attachmentRecord.id}/content?key=${attachmentRecord.accessKey}`;
+      const serverUrl = attachmentContentUrl(sessionId, attachmentRecord);
 
       if (attachmentRecord.kind === 'image') {
         const imagePart = {

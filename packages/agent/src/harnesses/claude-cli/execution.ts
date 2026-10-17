@@ -1,5 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs';
-import type { AssistantMessage, Part, Session, TextPart, ToolPart } from '@prokopai/sdk';
+import type { AssistantMessage, Session, TextPart, ToolPart } from '@prokopai/sdk';
 import { forkSession, getSessionMessages, type SDKMessage, type SDKUserMessage, type Options, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { persistCliSessionRunning, withCliMessageQueue, type QueuedCliExecution, type QueuedTurnInput } from '#agent/harnesses/shared/message-queue';
@@ -9,7 +8,7 @@ import {
   startClaudeRollbackIntent,
 } from './native-state';
 import {
-  createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, getWorkspace, listMessagesWithParts,
+  createMessage, createPart, getHandoffBrief, getSession, getToolPartByCallId, listMessagesWithParts,
   transitionToolToCompleted, transitionToolToError, transitionToolToInterrupted, updateMessage, updatePart, updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
@@ -30,9 +29,10 @@ import {
   type ClaudeRollbackDependencies,
 } from './rollback';
 import { forkClaudeSession } from './fork';
-import { claudeDeveloperInstructions, defaultClaudePreconfigId, type ClaudeInstructionSources } from './instructions';
+import { claudeDeveloperInstructions, type ClaudeInstructionSources } from './instructions';
+import { pinDefaultPreconfig, resolveTurnPreconfig } from '#agent/harnesses/shared/cli-instructions';
 import { createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from './dynamic-tools';
-import { cliWorkspaceAvailable, resolveCliRoot } from '#agent/harnesses/shared/cli-workspace';
+import { resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '#agent/harnesses/shared/tool-viz';
@@ -41,6 +41,8 @@ import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/in
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
 import { createClaudeWorkspaceMcp } from './mcp-tools';
+import { announceUserTurn, createUserTurnParts, streamingAssistant } from '#agent/harnesses/shared/turn-records';
+import { patchSessionMetadata } from '#agent/harnesses/shared/session-metadata';
 
 
 export interface ClaudeExecutionDependencies extends ClaudeRollbackDependencies {
@@ -135,11 +137,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       // Apply is one transaction that also advances the intent. A fork-phase intent
       // therefore means the transcript and binding are untouched: drop it and start over.
       await deleteClaudeRollbackIntent(undefined, sessionId, 'fork');
-      const workspace = await getWorkspace(session.workspaceId);
-      if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace is unavailable');
-      const selectedRoot = await resolveCliRoot(session, workspace);
-      if (!selectedRoot) throw new Error('Claude workspace is unavailable');
-      const root = realpathSync(selectedRoot);
+      const { root } = await resolveCliWorkspaceRoot(session, 'Claude');
       const binding = await getClaudeBinding(sessionId);
       const local = await listMessagesWithParts(sessionId);
       const inherited = await inheritedUserIds(local);
@@ -295,12 +293,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       let phase = 'setup';
       try {
         const imageData = await loadClaudeImages(images);
-        const workspace = await getWorkspace(session.workspaceId);
-        if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace unavailable');
-        const selectedRoot = await resolveCliRoot(session, workspace);
-        if (!selectedRoot) throw new Error('Selected worktree unavailable');
-        if (!existsSync(selectedRoot)) throw new Error('Claude workspace root unavailable');
-        const root = realpathSync(selectedRoot);
+        const { workspace, root } = await resolveCliWorkspaceRoot(session, 'Claude');
         const workspaceMcpTools = deps.mcp ? await deps.mcp.tools(workspace.path, sessionId) : [];
         const workspaceMcp = deps.mcp ? createClaudeWorkspaceMcp(workspaceMcpTools, controller.signal, async () => {
           const current = await getSession(sessionId);
@@ -317,12 +310,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         let dynamicTools: SdkMcpToolDefinition[] = [];
         const sources = deps.instructions;
         if (sources) {
-          const preconfigId = session.preconfigId || defaultClaudePreconfigId(workspace, await sources.listPreconfigs());
-          if (!preconfigId) throw new Error('Claude requires a preconfig');
-          const preconfig = await sources.getPreconfig(preconfigId);
-          if (!preconfig) throw new Error('Claude preconfig is unavailable');
-          const agentDir = session.agentId && session.agentId !== preconfigId
-            ? null : await sources.getAgentDirectory(preconfigId);
+          const { preconfigId, preconfig, agentDir } = await resolveTurnPreconfig(session, workspace, sources, 'Claude');
           if (deps.memoryTools) {
             // Per-turn registration mirrors Codex: workspace setting plus the selected agent home.
             dynamicTools = await createClaudeMemoryTools({ bridge: deps.memoryTools,
@@ -344,11 +332,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           developerInstructions = await claudeDeveloperInstructions(workspace, root, preconfig, {
             ...sources, getAgentDirectory: async () => agentDir,
           }, [...dynamicTools.map(item => item.name), ...workspaceMcpTools.map(tool => tool.name)]);
-          if (!session.preconfigId) {
-            const updated = await updateSession(sessionId, { preconfigId,
-              agentId: agentDir ? preconfigId : null });
-            if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-          }
+          await pinDefaultPreconfig(session, preconfigId, agentDir, wire.delivery);
         }
         const binding = await getClaudeBinding(sessionId);
         // A CLI upgrade does not block: the CLI resumes its own older sessions.
@@ -376,34 +360,22 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         });
         ownedNativeId = nativeId;
         if (goalCondition !== undefined) {
-          const updated = await updateSession(sessionId, { metadata: { ...(session.metadata ?? {}),
-            claudeGoal: { condition: goalCondition, status: 'active', iterations: 0 } } });
+          const updated = await patchSessionMetadata(sessionId, {
+            claudeGoal: { condition: goalCondition, status: 'active', iterations: 0 } });
           if (!updated) throw new Error('Claude goal state could not be saved');
           wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
         }
         const user = resubmit ? (await listMessagesWithParts(sessionId)).find(entry => entry.message.id === resubmit)?.message
           : await createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
         if (!user || user.role !== 'user') throw new Error('Claude edit message is unavailable');
-        const userParts: Part[] = [];
-        if (content.trim() && !resubmit) {
-          const inputPart = await createPart({ id: crypto.randomUUID(), messageId: user.id, type: 'text',
-            text: content, createdAt: Date.now() }, sessionId);
-          userParts.push(inputPart);
-        }
-        for (const [index, image] of images.entries()) {
-          const part = await createPart({ id: crypto.randomUUID(), messageId: user.id, type: 'image',
-            url: `/api/sessions/${sessionId}/attachments/${image.id}/content?key=${image.accessKey}`,
-            mimeType: image.mimeType, createdAt: Date.now() + index + 1 }, sessionId);
-          userParts.push(part);
-        }
+        const userParts = await createUserTurnParts(sessionId, user.id, {
+          text: content.trim() && !resubmit ? content : null, images,
+          imageCreatedAt: index => Date.now() + index + 1 });
         await queued?.accepted();
         await onTurnStarted?.();
-        if (!resubmit) wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: user });
-        for (const part of userParts) wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
-        wire.actor.attachOriginToSession(origin, sessionId);
-        assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
-          modelId: selection.model, providerId: 'claude-cli', agent: session.agentId ?? undefined,
-          tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
+        announceUserTurn(wire, origin, sessionId, resubmit ? null : user, userParts);
+        assistant = await createMessage(streamingAssistant(sessionId, {
+          modelId: selection.model, providerId: 'claude-cli', agent: session.agentId })) as AssistantMessage;
         wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
         let result: string | null = null;
         let goalActivated = false;
@@ -456,9 +428,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             }
             const previous = await getSession(sessionId);
             if (!previous) throw new Error('Claude goal session disappeared');
-            const updated = await updateSession(sessionId, { metadata: { ...(previous.metadata ?? {}),
+            const updated = await patchSessionMetadata(sessionId, {
               claudeGoal: { condition: goalCondition, status: 'active',
-                iterations: event.iterations ?? ((previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0) } } });
+                iterations: event.iterations ?? ((previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0) } });
             if (!updated) throw new Error('Claude goal state could not be saved');
             wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
             continue;
@@ -478,10 +450,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             const answered = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now() });
             if (answered) wire.delivery.broadcastToSession(sessionId, { type: 'message.updated', message: answered });
             const steered = await commitSteer(wire.delivery, sessionId, steer);
-            assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
-              modelId: selection.model, providerId: 'claude-cli', agent: session.agentId ?? undefined,
-              tokens: { prompt: 0, completion: 0 }, cost: 0,
-              createdAt: Math.max(Date.now(), steered.createdAt + 1) }) as AssistantMessage;
+            assistant = await createMessage(streamingAssistant(sessionId, {
+              modelId: selection.model, providerId: 'claude-cli', agent: session.agentId,
+              createdAt: Math.max(Date.now(), steered.createdAt + 1) })) as AssistantMessage;
             wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
             segments.length = 0;
             // The answer to the steered message ends with its own result; usage stays cumulative.
@@ -517,13 +488,10 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             continue;
           }
           if (event.type === 'compact-boundary') {
-            const previous = await getSession(sessionId);
-            if (previous) {
-              const updated = await updateSession(sessionId, { metadata: { ...(previous.metadata ?? {}),
-                claudeCompactedAt: Date.now(), claudeCompaction: { trigger: event.trigger,
-                  preTokens: event.preTokens, postTokens: event.postTokens } } });
-              if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-            }
+            const updated = await patchSessionMetadata(sessionId, {
+              claudeCompactedAt: Date.now(), claudeCompaction: { trigger: event.trigger,
+                preTokens: event.preTokens, postTokens: event.postTokens } });
+            if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
           if (event.type === 'text-delta' && event.text) {
             await saveText(openText() + event.text, event.text);
@@ -596,21 +564,17 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           }
           const previous = await getSession(sessionId);
           if (!previous) throw new Error('Claude goal session disappeared');
-          const updated = await updateSession(sessionId, { metadata: { ...(previous.metadata ?? {}),
+          const updated = await patchSessionMetadata(sessionId, {
             claudeGoal: { condition: goalCondition, status: 'ended',
-              iterations: iterations ?? (previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0 } } });
+              iterations: iterations ?? (previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0 } });
           if (!updated) throw new Error('Claude goal state could not be saved');
           wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
         }
         if (controller.signal.aborted) throw new Error('Claude turn interrupted');
         if (segments.length === 0 && result) await saveText(result);
         await children.close('interrupted');
-        const contextSession = await getSession(sessionId);
-        if (contextSession) {
-          const updated = await updateSession(sessionId, { metadata: { ...(contextSession.metadata ?? {}),
-            claudeContext: contextUsage } });
-          if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-        }
+        const contextUpdated = await patchSessionMetadata(sessionId, { claudeContext: contextUsage });
+        if (contextUpdated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: contextUpdated });
         const completed = await updateMessage(assistant.id, { status: 'completed', completedAt: Date.now(),
           ...(usage ? { tokens: { prompt: usage.prompt + usage.cacheRead + usage.cacheWrite,
             completion: usage.completion }, cost: usage.cost } : {}) });
@@ -619,14 +583,14 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           const previous = await getSession(sessionId);
           if (previous) {
             const total = usage.prompt + usage.cacheRead + usage.cacheWrite + usage.completion;
-            const updated = await updateSession(sessionId, { promptTokens: (previous.promptTokens ?? 0)
+            const updated = await patchSessionMetadata(sessionId, {
+              claudeUsage: { last: usage, contextWindow: usage.contextWindow },
+            }, { promptTokens: (previous.promptTokens ?? 0)
               + usage.prompt + usage.cacheRead + usage.cacheWrite,
             completionTokens: (previous.completionTokens ?? 0) + usage.completion,
             totalTokens: (previous.totalTokens ?? 0) + total,
             cacheReadTokens: (previous.cacheReadTokens ?? 0) + usage.cacheRead,
-            cacheWriteTokens: (previous.cacheWriteTokens ?? 0) + usage.cacheWrite,
-            metadata: { ...(previous.metadata ?? {}), claudeUsage: {
-              last: usage, contextWindow: usage.contextWindow } } });
+            cacheWriteTokens: (previous.cacheWriteTokens ?? 0) + usage.cacheWrite });
             if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
         }
@@ -647,9 +611,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         if (goalCondition !== undefined && assistant) {
           const previous = await getSession(sessionId);
           if (previous) {
-            const updated = await updateSession(sessionId, { metadata: { ...(previous.metadata ?? {}),
+            const updated = await patchSessionMetadata(sessionId, {
               claudeGoal: { condition: goalCondition, status: 'uncertain',
-                iterations: (previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0 } } });
+                iterations: (previous.metadata?.claudeGoal as { iterations?: number } | undefined)?.iterations ?? 0 } });
             if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
           }
         }
@@ -708,11 +672,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           || active.has(input.sessionId) || rollingBack.has(input.sessionId)) {
           throw new Error('Claude session is unavailable or busy');
         }
-        const workspace = await getWorkspace(session.workspaceId);
-        if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace is unavailable');
-        const selectedRoot = await resolveCliRoot(session, workspace);
-        if (!selectedRoot) throw new Error('Claude workspace is unavailable');
-        return await forkClaudeSession(input, { root: realpathSync(selectedRoot),
+        const { root } = await resolveCliWorkspaceRoot(session, 'Claude');
+        return await forkClaudeSession(input, { root,
           version: deps.version ?? claudeCliVersion,
           busy: id => active.has(id) || rollingBack.has(id),
           readHistory: deps.readHistory, forkHistory: deps.forkHistory });
@@ -766,11 +727,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       let submitted = false;
       let confirmed = false;
       try {
-        const workspace = await getWorkspace(session.workspaceId);
-        if (!cliWorkspaceAvailable(workspace)) throw new Error('Claude workspace unavailable');
-        const selectedRoot = await resolveCliRoot(session, workspace);
-        if (!selectedRoot) throw new Error('Selected worktree unavailable');
-        const root = realpathSync(selectedRoot);
+        const { root } = await resolveCliWorkspaceRoot(session, 'Claude');
         const selection = await getClaudeModelSelection(sessionId);
         const binding = await getClaudeBinding(sessionId);
         if (!binding || binding.pending || binding.workspace_root !== root
@@ -778,7 +735,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         if (!deps.start && !Bun.which('claude')) {
           return { ok: false, skipped: true, error: 'Claude CLI is unavailable on this host' };
         }
-        const pending = await updateSession(sessionId, { metadata: { ...(session.metadata ?? {}), claudeCompactPending: true } });
+        const pending = await patchSessionMetadata(sessionId, { claudeCompactPending: true });
         if (!pending) throw new Error('Claude compaction state could not be saved');
         delivery?.broadcastToSession(sessionId, { type: 'session.updated', session: pending });
         submitted = true;

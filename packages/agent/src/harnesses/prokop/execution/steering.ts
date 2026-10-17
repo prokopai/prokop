@@ -1,6 +1,7 @@
 import type { MessageEvent, Part, UserMessage } from '@prokopai/sdk/types';
 import { getAttachment, getNextSteerQueuedMessage } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { attachmentContentUrl } from '@prokopai/core/domains/attachments';
 
 export type SteerDeliveryEvent = MessageEvent | { type: 'queue.sending'; sessionId: string; queueId: string };
 
@@ -25,7 +26,7 @@ export async function* deliverSteerMessages(sessionId: string): AsyncGenerator<S
     for (const attachment of next.attachments ?? []) {
       const record = await getAttachment(sessionId, attachment.id);
       if (!record) continue;
-      const url = `/api/sessions/${sessionId}/attachments/${record.id}/content?key=${record.accessKey}`;
+      const url = attachmentContentUrl(sessionId, record);
       parts.push(record.kind === 'image'
         ? { id: crypto.randomUUID(), messageId: user.id, createdAt: Date.now(), type: 'image', url, mimeType: record.mimeType }
         : { id: crypto.randomUUID(), messageId: user.id, createdAt: Date.now(), type: 'file', url,

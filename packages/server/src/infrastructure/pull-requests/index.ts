@@ -1,6 +1,7 @@
 import type { PullRequestsPort } from '@/application/ports/pull-requests';
 import { createAzurePullRequests } from './azure';
-import { azureRest, createAzureCredentials, type FetchLike } from './azure-rest';
+import { azureRest, createAzureCredentials } from './azure-rest';
+import type { FetchLike } from './cli';
 import { runCli, type RunCli } from './cli';
 import { createGitHubPullRequests } from './github';
 import { createGitHubCredentials, githubRest } from './github-rest';

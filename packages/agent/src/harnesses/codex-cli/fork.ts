@@ -1,8 +1,8 @@
 import type { ForkExecutionResult, SessionExecutionPort } from '@prokopai/core/application/ports/execution';
 import { HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
-import type { Session } from '@prokopai/sdk';
 import { getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { writeForkedSession, writeForkedTranscript } from '#agent/harnesses/shared/fork-copy';
 import { CodexAppServer, codexObject, type CodexConnection } from './app-server';
 import { bindCodexThread, findCodexBindingByThread, getCodexBinding } from './bindings';
 import {
@@ -120,29 +120,13 @@ export async function forkCodexSession(
     const forkedSessionId = crypto.randomUUID();
     const forkedSession = await storeTransaction(async (tx) => {
       const { codexGoal: _goal, codexGoalPending: _pending, ...sourceMetadata } = metadata ?? {};
-      const created = tx.write<Session>({ op: 'session.create', session: {
-        id: forkedSessionId, workspaceId: session.workspaceId, workspaceRootId: session.workspaceRootId,
-        harness: 'codex-cli', preconfigId: session.preconfigId,
-        title: input.title || `${session.title || 'Untitled'} (fork)`, status: 'active',
-        metadata: { ...sourceMetadata, forkedFrom: session.id }, parentId: null, agentName: null,
-        agentId: session.agentId, selectedModel: session.selectedModel,
-        selectedProvider: session.selectedProvider, permissionMode: session.permissionMode,
-      } });
+      const created = writeForkedSession(tx, session, { id: forkedSessionId, harness: 'codex-cli',
+        title: input.title, metadata: sourceMetadata });
       await bindCodexThread({ sessionId: forkedSessionId, threadId: newThreadId, cliVersion: version, workspaceRoot: root },
         tx, { createdInTransaction: true });
       if (selection) copyCodexModelSelection(tx, forkedSessionId, selection);
-      const ids = new Map(retained.map(entry => [entry.message.id, crypto.randomUUID()]));
-      for (const entry of retained) {
-        const message = entry.message;
-        const id = ids.get(message.id)!;
-        tx.write({ op: 'message.create', message: { ...message, id, sessionId: forkedSessionId,
-          ...(message.role === 'assistant' && message.parentId
-            ? { parentId: ids.get(message.parentId) } : {}) } });
-        if (message.role === 'user') insertCodexInheritedUserId(tx, forkedSessionId, id, upstream.get(message.id)!);
-        for (const part of entry.parts) {
-          tx.write({ op: 'part.create', sessionId: forkedSessionId, part: { ...part, id: crypto.randomUUID(), messageId: id } });
-        }
-      }
+      writeForkedTranscript(tx, forkedSessionId, retained, (id, message) =>
+        insertCodexInheritedUserId(tx, forkedSessionId, id, upstream.get(message.id)!));
       deleteCodexForkIntent(tx, session.id);
       return created;
     });

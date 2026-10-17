@@ -1,26 +1,29 @@
-import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import { relative, isAbsolute, sep } from 'node:path';
-import type { AssistantMessage, Message, Part, Session, TextPart } from '@prokopai/sdk';
+import type { AssistantMessage, Message, Session, TextPart } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import type { InterruptExecutionResult } from '@prokopai/core/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '#agent/harnesses/shared/message-queue';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '#agent/harnesses/shared/steering';
 import {
-  createMessage, createPart, deleteMessage, getAttachment, getHandoffBrief, getMessageWithParts, getSession, getWorkspace,
+  createMessage, createPart, deleteMessage, getHandoffBrief, getMessageWithParts, getSession, getWorkspace,
   listMessagesWithParts, updateMessage, updatePart, updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
-import { cliWorkspaceAvailable, resolveCliRoot } from '#agent/harnesses/shared/cli-workspace';
+import { resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
-import { MAX_ATTACHMENT_SIZE, validateImageMime } from '@prokopai/core/domains/attachments';
+import { parseAttachmentContentUrl } from '@prokopai/core/domains/attachments';
+import { resolveSessionImages } from '#agent/harnesses/shared/images';
+import { announceUserTurn, createUserTurnParts, streamingAssistant } from '#agent/harnesses/shared/turn-records';
+import { patchSessionMetadata } from '#agent/harnesses/shared/session-metadata';
 import type { AttachmentRecord as Attachment } from '@prokopai/core/infrastructure/storage/contracts';
-import { getAttachmentDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { CodexAppServer, CodexRequestError, codexObject, type CodexConnection, type CodexNotification } from './app-server';
 import { bindCodexThread, getCodexBinding, recordCodexCliVersion, markCodexTurnPending, markCodexTurnStarted, markCodexGoalRequested, markCodexGoalUncertain, markCodexTurnCompleted, markCodexSteerReply, type CodexBinding } from './bindings';
 import { hasCodexForkIntent } from './native-state';
 import { getCodexModelSelection } from './models';
-import { codexDeveloperInstructions, defaultCodexPreconfigId, type CodexInstructionSources } from './instructions';
+import { codexDeveloperInstructions, type CodexInstructionSources } from './instructions';
+import { pinDefaultPreconfig, resolveTurnPreconfig } from '#agent/harnesses/shared/cli-instructions';
 import { codexApprovals } from './approvals';
 import { CodexToolItems } from './tool-items';
 import { CodexChildTimelines } from './child-timelines';
@@ -101,33 +104,9 @@ function id(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-async function resolveImages(session: Session, references: Array<{ id: string; kind: string }>): Promise<Attachment[] | null> {
-  const directory = getAttachmentDir(session.workspaceId, session.id);
-  const images: Attachment[] = [];
-  for (const reference of references) {
-    if (reference?.kind !== 'image' || typeof reference.id !== 'string') return null;
-    const image = await getAttachment(session.id, reference.id);
-    if (!image || image.workspaceId !== session.workspaceId || image.kind !== 'image'
-      || !validateImageMime(image.mimeType) || image.sizeBytes < 1 || image.sizeBytes > MAX_ATTACHMENT_SIZE) return null;
-    try {
-      const stat = lstatSync(image.absolutePath);
-      const path = realpathSync(image.absolutePath);
-      const offset = relative(realpathSync(directory), path);
-      if (!offset || offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
-        || !stat.isFile() || stat.isSymbolicLink() || stat.size !== image.sizeBytes) return null;
-      images.push({ ...image, absolutePath: path });
-    } catch { return null; }
-  }
-  return images;
-}
 
 async function workspaceRoot(session: Session): Promise<string> {
-  const workspace = await getWorkspace(session.workspaceId);
-  if (!cliWorkspaceAvailable(workspace)) throw new Error('Codex requires a workspace folder on this host');
-  const root = await resolveCliRoot(session, workspace);
-  if (!root) throw new Error('Selected worktree is unavailable');
-  if (!existsSync(root)) throw new Error('Workspace root is unavailable');
-  return realpathSync(root);
+  return (await resolveCliWorkspaceRoot(session, 'Codex')).root;
 }
 
 /** Only a terminal turn containing our persisted client user ID proves the lost turn finished. */
@@ -326,7 +305,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       for (const queued of await pendingSteers(sessionId, run.steers.values())) {
         if (active.get(sessionId) !== run || !run.steerable() || !run.turnId) return;
         // Unusable images stay queued; the drain reports them like any queued send.
-        const images = await resolveImages(run.session, queued.attachments ?? []);
+        const images = await resolveSessionImages(run.session, queued.attachments ?? []);
         if (!images) continue;
         if (active.get(sessionId) !== run || !run.steerable() || !run.turnId) return;
         const steer: DispatchedSteer = { queued, userMessageId: crypto.randomUUID(),
@@ -426,8 +405,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         const target = local[index];
         if (!target || (operation === 'edit' && (target.message.role !== 'user'
           || !target.parts.some(part => part.type === 'text')))) throw new Error('Invalid Codex rollback target');
-        if (operation === 'edit' && !await resolveImages(session, target.parts.filter(part => part.type === 'image')
-          .map(part => ({ id: /\/attachments\/([^/]+)\/content/.exec(part.url ?? '')?.[1] ?? '', kind: 'image' })))) {
+        if (operation === 'edit' && !await resolveSessionImages(session, target.parts.filter(part => part.type === 'image')
+          .map(part => ({ id: parseAttachmentContentUrl(part.url ?? '')?.attachmentId ?? '', kind: 'image' })))) {
           throw new Error('Codex edit attachment is unavailable');
         }
         const firstUser = operation === 'revert' && index === 0 && target.message.role === 'user';
@@ -582,10 +561,10 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           || existingUser.message.role !== 'user' || !existingUser.parts.some(part => part.type === 'text'
             && part.text === content))) return 'Codex edit target is unavailable';
         const references = reuseId ? existingUser!.parts.filter(part => part.type === 'image').map(part => {
-          const id = /\/attachments\/([^/]+)\/content/.exec(part.url ?? '')?.[1] ?? '';
+          const id = parseAttachmentContentUrl(part.url ?? '')?.attachmentId ?? '';
           return { id, kind: 'image' };
         }) : attachments ?? [];
-        const images = await resolveImages(session, references);
+        const images = await resolveSessionImages(session, references);
         return images ? { reuseId, existingUser, images } : 'Codex image attachment is unavailable or unsupported';
       };
       // Claimed before the first await so a concurrent rollback, compact or fork is refused.
@@ -625,12 +604,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         const workspace = await getWorkspace(session.workspaceId);
         const sources = deps.instructions;
         if (!workspace) throw new Error('Codex workspace is unavailable');
-        const preconfigId = session.preconfigId || defaultCodexPreconfigId(workspace, await sources.listPreconfigs());
-        if (!preconfigId) throw new Error('Codex requires a preconfig');
-        const preconfig = await sources.getPreconfig(preconfigId);
-        if (!preconfig) throw new Error('Codex preconfig is unavailable');
-        const agentDir = session.agentId && session.agentId !== preconfigId
-          ? null : await sources.getAgentDirectory(preconfigId);
+        const { preconfigId, preconfig, agentDir } = await resolveTurnPreconfig(session, workspace, sources, 'Codex');
         const memoryDefinitions = deps.memoryTools?.definitions() ?? [];
         const memoryToolNames = memoryDefinitions.filter(definition =>
           definition.type === 'function' && (definition.name === 'memory'
@@ -655,11 +629,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           ...sources, getAgentDirectory: async () => agentDir,
         }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
           + (handoffBrief ? `\n\n${handoffBrief}` : '');
-        if (!session.preconfigId) {
-          const updated = await updateSession(sessionId, { preconfigId,
-            agentId: agentDir ? preconfigId : null });
-          if (updated) wire.delivery.broadcastToSession(sessionId, { type: 'session.updated', session: updated });
-        }
+        await pinDefaultPreconfig(session, preconfigId, agentDir, wire.delivery);
         phase = 'workspace root check';
         const version = deps.version();
         cliVersion = version;
@@ -689,27 +659,16 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         }
         if (queued && !await queued.isPending()) return 'drainable';
         const user = existingUser?.message ?? await createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
-        const userParts: Part[] = [];
-        if (!reuseId && content.trim()) {
-          const userPart = await createPart({ id: crypto.randomUUID(), messageId: user.id,
-            type: 'text', text: content, createdAt: Date.now() }, sessionId);
-          userParts.push(userPart);
-        }
-        const imagePartStart = Date.now() + (content.trim() ? 1 : 0);
-        for (const [index, image] of (reuseId ? [] : images).entries()) {
-          const part = await createPart({ id: crypto.randomUUID(), messageId: user.id, type: 'image',
-            url: `/api/sessions/${sessionId}/attachments/${image.id}/content?key=${image.accessKey}`,
-            mimeType: image.mimeType, createdAt: imagePartStart + index }, sessionId);
-          userParts.push(part);
-        }
+        // Images sort after the text part: their base time is read once the text part exists.
+        let imagePartStart: number | undefined;
+        const userParts = await createUserTurnParts(sessionId, user.id, {
+          text: !reuseId && content.trim() ? content : null, images: reuseId ? [] : images,
+          imageCreatedAt: index => (imagePartStart ??= Date.now() + (content.trim() ? 1 : 0)) + index });
         await queued?.accepted();
         await onTurnStarted?.();
-        if (!reuseId) wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: user });
-        for (const part of userParts) wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part });
-        wire.actor.attachOriginToSession(origin, sessionId);
-        assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
-          status: 'streaming', modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId ?? undefined,
-          tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
+        announceUserTurn(wire, origin, sessionId, reuseId ? null : user, userParts);
+        assistant = await createMessage(streamingAssistant(sessionId, {
+          modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId })) as AssistantMessage;
         wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
 
         let resolveDone!: () => void;
@@ -798,9 +757,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
               toolItems = undefined;
               await settleStreamedText();
               pendingDeltas.clear();
-              assistant = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'assistant',
-                status: 'streaming', modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId ?? undefined,
-                tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() }) as AssistantMessage;
+              assistant = await createMessage(streamingAssistant(sessionId, {
+                modelId: 'codex-cli', providerId: 'codex-cli', agent: session.agentId })) as AssistantMessage;
               await markCodexTurnStarted(sessionId, eventTurnId, assistant.id, true);
               turnIdentityRecorded = true;
               wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: assistant });
@@ -835,9 +793,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
                 answered = tx.write<Message | null>({ op: 'message.update', id: previous.id,
                   updates: { status: 'completed', completedAt: Date.now() } });
                 // Sorts after the steered message, which is created first in this commit.
-                next = { id: crypto.randomUUID(), sessionId, role: 'assistant', status: 'streaming',
-                  modelId: previous.modelId, providerId: 'codex-cli', agent: session.agentId ?? undefined,
-                  tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() + 1 };
+                next = streamingAssistant(sessionId, {
+                  modelId: previous.modelId, providerId: 'codex-cli', agent: session.agentId, createdAt: Date.now() + 1 });
                 tx.write({ op: 'message.create', message: next });
                 await markCodexSteerReply(tx, sessionId, next.id);
               });
@@ -1347,9 +1304,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         // Persist uncertainty before the RPC. A lost response cannot justify replaying compaction.
         const latest = await getSession(sessionId);
         if (!latest || latest.status !== 'active') throw new Error('Codex session disappeared');
-        const pendingSession = await updateSession(sessionId, { metadata: {
-          ...(codexObject(latest.metadata) ?? {}), codexCompactPending: true,
-        } });
+        const pendingSession = await patchSessionMetadata(sessionId, { codexCompactPending: true });
         if (!pendingSession) throw new Error('Codex compaction state could not be saved');
         delivery?.broadcastToSession(sessionId, { type: 'session.updated', session: pendingSession });
         sent = true;

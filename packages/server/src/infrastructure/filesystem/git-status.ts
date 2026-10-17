@@ -10,9 +10,11 @@
 
 import { relative, normalize, sep, resolve, join, extname, dirname, isAbsolute } from 'path';
 import { stat, readFile, lstat, realpath } from 'fs/promises';
+import { homedir } from 'os';
 import type { FileEntry, GitAvailability, GitDiffSummary, GitFileStatus, GitFileDiffResponse, GitDiffHunk, GitDiffChange, GitFileDiffUnavailableReason, GitHead } from '@prokopai/sdk';
 import { isBinaryExtension, isBinaryFile, FILE_PREVIEW_MAX_BYTES } from './binary-detection';
 import { getLanguageForPath } from './file-preview';
+import { git } from './git-command';
 
 export interface GitStatusResult {
   availability: GitAvailability;
@@ -126,20 +128,15 @@ function stripTerminalLineEnding(output: string): string {
   return output.replace(/\r?\n$/, '');
 }
 
-async function execGit(args: string[]): Promise<{ stdout: string; exitCode: number }> {
+/** Status and diff reads: large diffs stay readable, a hung Git still stops. */
+const STATUS_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
+
+/** Runs a read in `root` (the home directory for `--version`). Never throws: failures read as exit code 1. */
+async function execGit(root: string | null, args: string[]): Promise<{ stdout: string; exitCode: number }> {
   try {
-    const proc = Bun.spawn(['git', ...args], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      windowsHide: true,
-    });
-
-    const exitCode = await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    await new Response(proc.stderr).text();
-
+    const result = await git(root ?? homedir(), args, { allowFailure: true, maxOutputBytes: STATUS_OUTPUT_LIMIT_BYTES });
     // Preserve Git's single-space representation of an empty context line.
-    return { stdout: stripTerminalLineEnding(stdout), exitCode };
+    return { stdout: stripTerminalLineEnding(result.stdout), exitCode: result.code };
   } catch {
     return { stdout: '', exitCode: 1 };
   }
@@ -147,7 +144,7 @@ async function execGit(args: string[]): Promise<{ stdout: string; exitCode: numb
 
 async function detectGitAvailability(workspacePath: string): Promise<GitAvailability> {
   if (!gitInstalled) {
-    const versionResult = await execGit(['--version']);
+    const versionResult = await execGit(null, ['--version']);
     if (versionResult.exitCode !== 0) {
       return { available: false, reason: 'git_not_installed' };
     }
@@ -157,7 +154,7 @@ async function detectGitAvailability(workspacePath: string): Promise<GitAvailabi
   const cachedRoot = toplevels.get(workspacePath);
   if (cachedRoot !== undefined) return { available: true, root: cachedRoot };
 
-  const rootResult = await execGit(['-C', workspacePath, 'rev-parse', '--show-toplevel']);
+  const rootResult = await execGit(workspacePath, ['rev-parse', '--show-toplevel']);
   if (rootResult.exitCode !== 0) {
     return { available: false, reason: 'not_a_git_repo' };
   }
@@ -183,11 +180,11 @@ async function computeGitStatus(workspacePath: string): Promise<GitStatusResult>
 
   try {
     const [statusResult, numstatResult, cachedNumstatResult, additionsResult, headResult] = await Promise.all([
-      execGit(['-C', workspacePath, 'status', '--porcelain=v1', '-z', '--untracked-files=all']),
-      execGit(['-C', workspacePath, 'diff', '--numstat']),
-      execGit(['-C', workspacePath, 'diff', '--cached', '--numstat']),
-      execGit(['-C', workspacePath, 'diff', '--cached', '--no-renames', '--diff-filter=A', '--name-only', '-z']),
-      execGit(['-C', workspacePath, 'rev-parse', 'HEAD', '--abbrev-ref', 'HEAD']),
+      execGit(workspacePath, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+      execGit(workspacePath, ['diff', '--numstat']),
+      execGit(workspacePath, ['diff', '--cached', '--numstat']),
+      execGit(workspacePath, ['diff', '--cached', '--no-renames', '--diff-filter=A', '--name-only', '-z']),
+      execGit(workspacePath, ['rev-parse', 'HEAD', '--abbrev-ref', 'HEAD']),
     ]);
 
     // A removed repository keeps its cached top level; recheck it on the next read.
@@ -288,14 +285,13 @@ async function addUntrackedFile(
   if (!entry.isFile() && !entry.isSymbolicLink()) {
     throw new Error('Invalid Git file path');
   }
-  // Literal pathspecs and NUL-delimited output keep glob characters and whitespace inert.
-  const args = ['--literal-pathspecs', '-C', workspacePath];
-  const untracked = await execGit([...args, 'ls-files', '--others', '--exclude-standard', '-z', '--', inputPath]);
+  // Literal pathspecs (the runner's default) and NUL-delimited output keep glob characters and whitespace inert.
+  const untracked = await execGit(workspacePath, ['ls-files', '--others', '--exclude-standard', '-z', '--', inputPath]);
   if (untracked.exitCode !== 0) throw new Error('Git add failed: unable to read repository status');
   if (untracked.stdout !== `${inputPath}\0`) {
     throw new Error('Only untracked files can be added to Git');
   }
-  const result = await execGit([...args, 'add', '--', inputPath]);
+  const result = await execGit(workspacePath, ['add', '--', inputPath]);
   if (result.exitCode !== 0) {
     throw new Error('Git add failed: could not stage file (check repository permissions or index lock)');
   }
@@ -311,7 +307,7 @@ async function addUntrackedFile(
 export async function listIgnoredPaths(root: string): Promise<string[] | null> {
   const availability = await detectGitAvailability(root);
   if (!availability.available) return null;
-  const result = await execGit(['-C', root, 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z']);
+  const result = await execGit(root, ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z']);
   if (result.exitCode !== 0) return null;
   return result.stdout.split('\0').filter(Boolean);
 }
@@ -627,7 +623,7 @@ async function getGitFileDiffWithContainment(
   }
 
   try {
-    const { stdout, exitCode } = await execGit(['-C', workspacePath, 'diff', 'HEAD', '--', repoRelativePath]);
+    const { stdout, exitCode } = await execGit(workspacePath, ['diff', 'HEAD', '--', repoRelativePath]);
 
     if (exitCode !== 0) {
       return makeUnavailableResponse(relativePath, 'git_error');

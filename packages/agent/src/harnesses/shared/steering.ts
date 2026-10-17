@@ -2,6 +2,7 @@ import type { Message, Part, QueuedMessage, UserMessage } from '@prokopai/sdk';
 import type { ApplicationDeliveryPort } from '@prokopai/core/application/ports/delivery';
 import { getStorage } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
+import { attachmentContentUrl } from '@prokopai/core/domains/attachments';
 
 /** A steer message handed to a native runtime and not yet seen in its turn. */
 export interface DispatchedSteer {
@@ -46,7 +47,7 @@ export async function commitSteer(
     }
     for (const [index, image] of steer.images.entries()) {
       parts.push({ id: crypto.randomUUID(), messageId: user.id, type: 'image',
-        url: `/api/sessions/${sessionId}/attachments/${image.id}/content?key=${image.accessKey}`,
+        url: attachmentContentUrl(sessionId, image),
         mimeType: image.mimeType, createdAt: createdAt + index + 1 });
     }
     for (const part of parts) tx.write({ op: 'part.create', sessionId, part });

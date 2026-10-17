@@ -1,9 +1,7 @@
 import { homedir } from 'node:os';
-import { BadRequestError, ConflictError } from '@/application/http-errors';
-import { json, providerMessage, type RunCli } from './cli';
-import type { FetchLike } from './azure-rest';
+import { BadRequestError } from '@/application/http-errors';
+import { fetchProviderText, json, providerStatusError, type FetchLike, type RunCli } from './cli';
 
-const MAX_BYTES = 8 * 1024 * 1024;
 /** `gh auth switch` and `gh auth login` take effect within this window. */
 const TOKEN_TTL = 10_000;
 const IDENTITY_TTL = 10 * 60_000;
@@ -68,34 +66,17 @@ export type GitHubApi = (path: string, method?: string, body?: unknown) => Promi
 
 export function githubRest(fetcher: FetchLike, credentials: GitHubCredentials): GitHubApi {
   const request = async (token: string, path: string, method: string, body: unknown): Promise<unknown> => {
-    let response: Response;
-    let text: string;
-    try {
-      response = await fetcher(`https://api.github.com/${path}`, {
-        method,
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: 'application/vnd.github+json',
-          'x-github-api-version': '2022-11-28',
-          'user-agent': 'Prokop',
-          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(60_000),
-      });
-      if (Number(response.headers.get('content-length')) > MAX_BYTES)
-        throw new BadRequestError('Provider response exceeded the size limit. Open this request on GitHub.');
-      text = await response.text();
-    } catch (error: unknown) {
-      if (error instanceof BadRequestError) throw error;
-      if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name))
-        throw new BadRequestError(
-          'GitHub timed out. Refresh the PR before retrying; the remote action may have completed.',
-        );
-      throw new BadRequestError('Could not reach GitHub from the Prokop server.');
-    }
-    if (text.length > MAX_BYTES)
-      throw new BadRequestError('Provider response exceeded the size limit. Open this request on GitHub.');
+    const { response, text } = await fetchProviderText(fetcher, 'GitHub', `https://api.github.com/${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        'user-agent': 'Prokop',
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
     const status = response.status;
     if (status === 401) {
       credentials.invalidate();
@@ -103,18 +84,8 @@ export function githubRest(fetcher: FetchLike, credentials: GitHubCredentials): 
     }
     if (status === 429 || (status === 403 && response.headers.get('x-ratelimit-remaining') === '0'))
       throw new BadRequestError('Provider rate limit reached. Wait before refreshing.');
-    if (status >= 400) {
-      const detail = providerMessage(text);
-      if (status === 409) throw new ConflictError(detail || 'The PR changed. Refresh before continuing.');
-      throw new BadRequestError(
-        detail ||
-          (status === 403
-            ? 'The provider refused this operation. Check your permissions and repository policies.'
-            : status === 404
-              ? 'GitHub could not find this resource, or you do not have access to it.'
-              : `GitHub request failed (HTTP ${status}). Refresh before retrying a write.`),
-      );
-    }
+    if (status >= 400) throw providerStatusError('GitHub', status, text, { conflicts: [409],
+      refused: 'The provider refused this operation. Check your permissions and repository policies.' });
     return text.trim() ? json(text) : null;
   };
   return async (path, method = 'GET', body) => {

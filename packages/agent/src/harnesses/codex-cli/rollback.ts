@@ -1,7 +1,7 @@
-import type { MessageWithParts } from '@prokopai/sdk';
 import { listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction, type StoreTransaction } from '@prokopai/core/infrastructure/storage/transaction';
 import type { RevertExecutionResult } from '@prokopai/core/application/ports/execution';
+import { rollbackResult } from '#agent/harnesses/shared/rollback';
 import { CodexAppServer, codexObject } from './app-server';
 import type { CodexBinding } from './bindings';
 import {
@@ -135,15 +135,6 @@ export async function readTurnIds(client: CodexAppServer, threadId: string): Pro
   });
   if (new Set(ids).size !== ids.length) throw new Error('Codex rollback history is ambiguous');
   return ids;
-}
-
-export function rollbackResult(local: MessageWithParts[], targetIndex: number, edit: boolean): RevertExecutionResult {
-  const removed = local.slice(edit ? targetIndex + 1 : targetIndex === 0 ? 0 : targetIndex);
-  return { revertedTo: { messageId: edit ? local[targetIndex]!.message.id
-    : targetIndex === 0 ? null : local[targetIndex - 1]!.message.id,
-  messageCount: local.length - removed.length },
-  removed: { messageIds: removed.map(entry => entry.message.id),
-    partCount: removed.reduce((count, entry) => count + entry.parts.length, 0) } };
 }
 
 export function applyRollback(intent: RollbackIntent): Promise<RevertExecutionResult> {

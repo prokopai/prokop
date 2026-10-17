@@ -6,14 +6,13 @@ import { parsePullRequestRemote } from '@/infrastructure/pull-requests/repositor
 import { createGitHubPullRequests } from '@/infrastructure/pull-requests/github';
 import { createGitHubCredentials, githubRest, type GitHubApi } from '@/infrastructure/pull-requests/github-rest';
 import { createAzurePullRequests } from '@/infrastructure/pull-requests/azure';
-import { runCli, type CliRequest, type RunCli } from '@/infrastructure/pull-requests/cli';
+import { runCli, type CliRequest, type FetchLike, type RunCli } from '@/infrastructure/pull-requests/cli';
 import {
   AzureSetupError,
   azureRest,
   createAzureCredentials,
   type AzureApi,
   type AzureRequest,
-  type FetchLike,
 } from '@/infrastructure/pull-requests/azure-rest';
 import { BadRequestError, ConflictError } from '@/application/http-errors';
 import { pullRequestActionSchema, pullRequestCreateSchema } from '@/transport/http/routes/pull-requests';
