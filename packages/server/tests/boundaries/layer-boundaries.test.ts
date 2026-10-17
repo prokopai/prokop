@@ -129,7 +129,7 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   'packages/server/src/adapters/prokop/notifications.ts': [
     '@/infrastructure/sqlite/notification-repository', '@/infrastructure/web-push/sender',
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/scheduled-job-store', '@/infrastructure/sqlite/pending-asks', '@prokopai/core/infrastructure/runtime/environment',
-    '@/transport/websocket/control-registry',
+    '@/transport/websocket/connection-registry',
   ],
   'packages/server/src/adapters/prokop/permissions.ts': ['@/infrastructure/sqlite/permissions'],
   'packages/server/src/adapters/prokop/configuration.ts': [
@@ -2334,7 +2334,7 @@ describe('server layer boundaries', () => {
       '@/infrastructure/sqlite/scheduled-job-store',
       '@/infrastructure/sqlite/session-store',
       '@/infrastructure/web-push/sender',
-      '@/transport/websocket/control-registry',
+      '@/transport/websocket/connection-registry',
     ].sort());
   });
 
