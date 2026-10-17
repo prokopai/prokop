@@ -54,7 +54,7 @@ export function AppHeader() {
       onToggleRight={() => toggleRegion('right')}
       bottomActive={regionOpen('bottom')}
       onToggleBottom={() => toggleRegion('bottom')}
-      hasRightDock={!isMobile || Boolean(activeWorkspace)}
+      hasRightDock={Boolean(activeWorkspace)}
       mobile={isMobile}
       onOpenSettings={() => setShowSettings(true)}
       updateVersion={updateVersion}

@@ -26,6 +26,25 @@ import type { AppSidebarHandle } from '@/components/layout/AppSidebar';
 import { ServerDialogs } from './ServerDialogs';
 import { ReconnectStatus } from './ReconnectStatus';
 
+/**
+ * Every command the stable context delegates to the live manager. The type
+ * check fails when SessionCommandsValue gains or loses a command, so the
+ * delegation can never drift from the interface.
+ */
+const SESSION_COMMANDS = {
+  createSession: true, resumeSession: true, openAlongside: true, closeSession: true, reopenSession: true,
+  permanentlyDeleteSession: true, handleRenameSession: true, regenerateSessionTitle: true, revertSession: true,
+  forkSession: true, editMessage: true, compactSession: true, removeFromQueue: true, steerQueued: true,
+  sendChatMessage: true, sendChatMessageForSession: true, handleAskResponse: true, handleInterruptSession: true,
+  handleInterruptSessionById: true, updateSessionPreconfig: true, updateSessionPreconfigForSession: true,
+  updateSessionModel: true, updateSessionModelForSession: true, updateSessionVariant: true,
+  updateSessionVariantForSession: true, handleNavigateBack: true, selectWorkspace: true, renameWorkspace: true,
+  updateWorkspacePath: true, updateWorkspacePaths: true, updateWorkspaceSettings: true,
+  handleCreateVirtualWorkspace: true, handleCreatePhysicalWorkspace: true, deleteWorkspace: true,
+  createSessionInWorkspace: true, claimControl: true, handleLogout: true, handleRetry: true,
+  refreshPermissions: true, revokePermission: true, revokeAllPermissions: true,
+} satisfies Record<keyof SessionCommandsValue, true>;
+
 export default function ServerShell() {
   const router = useRouter();
   const params = useParams({ from: '/server/$serverId', strict: false } as unknown as Parameters<typeof useParams>[0]);
@@ -93,50 +112,11 @@ export default function ServerShell() {
     sessionManagerRef.current = sessionManager;
   });
   const commandsValue = useMemo(() => {
-    const manager = () => sessionManagerRef.current;
-    return {
-      createSession: (...args: Parameters<SessionCommandsValue['createSession']>) => manager().createSession(...args),
-      resumeSession: (...args: Parameters<SessionCommandsValue['resumeSession']>) => manager().resumeSession(...args),
-      openAlongside: (...args: Parameters<SessionCommandsValue['openAlongside']>) => manager().openAlongside(...args),
-      closeSession: (...args: Parameters<SessionCommandsValue['closeSession']>) => manager().closeSession(...args),
-      reopenSession: (...args: Parameters<SessionCommandsValue['reopenSession']>) => manager().reopenSession(...args),
-      permanentlyDeleteSession: (...args: Parameters<SessionCommandsValue['permanentlyDeleteSession']>) => manager().permanentlyDeleteSession(...args),
-      handleRenameSession: (...args: Parameters<SessionCommandsValue['handleRenameSession']>) => manager().handleRenameSession(...args),
-      regenerateSessionTitle: (...args: Parameters<SessionCommandsValue['regenerateSessionTitle']>) => manager().regenerateSessionTitle(...args),
-      revertSession: (...args: Parameters<SessionCommandsValue['revertSession']>) => manager().revertSession(...args),
-      forkSession: (...args: Parameters<SessionCommandsValue['forkSession']>) => manager().forkSession(...args),
-      editMessage: (...args: Parameters<SessionCommandsValue['editMessage']>) => manager().editMessage(...args),
-      compactSession: (...args: Parameters<SessionCommandsValue['compactSession']>) => manager().compactSession(...args),
-      removeFromQueue: (...args: Parameters<SessionCommandsValue['removeFromQueue']>) => manager().removeFromQueue(...args),
-      steerQueued: (...args: Parameters<SessionCommandsValue['steerQueued']>) => manager().steerQueued(...args),
-      sendChatMessage: (...args: Parameters<SessionCommandsValue['sendChatMessage']>) => manager().sendChatMessage(...args),
-      sendChatMessageForSession: (...args: Parameters<SessionCommandsValue['sendChatMessageForSession']>) => manager().sendChatMessageForSession(...args),
-      handleAskResponse: (...args: Parameters<SessionCommandsValue['handleAskResponse']>) => manager().handleAskResponse(...args),
-      handleInterruptSession: (...args: Parameters<SessionCommandsValue['handleInterruptSession']>) => manager().handleInterruptSession(...args),
-      handleInterruptSessionById: (...args: Parameters<SessionCommandsValue['handleInterruptSessionById']>) => manager().handleInterruptSessionById(...args),
-      updateSessionPreconfig: (...args: Parameters<SessionCommandsValue['updateSessionPreconfig']>) => manager().updateSessionPreconfig(...args),
-      updateSessionPreconfigForSession: (...args: Parameters<SessionCommandsValue['updateSessionPreconfigForSession']>) => manager().updateSessionPreconfigForSession(...args),
-      updateSessionModel: (...args: Parameters<SessionCommandsValue['updateSessionModel']>) => manager().updateSessionModel(...args),
-      updateSessionModelForSession: (...args: Parameters<SessionCommandsValue['updateSessionModelForSession']>) => manager().updateSessionModelForSession(...args),
-      updateSessionVariant: (...args: Parameters<SessionCommandsValue['updateSessionVariant']>) => manager().updateSessionVariant(...args),
-      updateSessionVariantForSession: (...args: Parameters<SessionCommandsValue['updateSessionVariantForSession']>) => manager().updateSessionVariantForSession(...args),
-      handleNavigateBack: () => manager().handleNavigateBack(),
-      selectWorkspace: (...args: Parameters<SessionCommandsValue['selectWorkspace']>) => manager().selectWorkspace(...args),
-      renameWorkspace: (...args: Parameters<SessionCommandsValue['renameWorkspace']>) => manager().renameWorkspace(...args),
-      updateWorkspacePath: (...args: Parameters<SessionCommandsValue['updateWorkspacePath']>) => manager().updateWorkspacePath(...args),
-      updateWorkspacePaths: (...args: Parameters<SessionCommandsValue['updateWorkspacePaths']>) => manager().updateWorkspacePaths(...args),
-      updateWorkspaceSettings: (...args: Parameters<SessionCommandsValue['updateWorkspaceSettings']>) => manager().updateWorkspaceSettings(...args),
-      handleCreateVirtualWorkspace: () => manager().handleCreateVirtualWorkspace(),
-      handleCreatePhysicalWorkspace: (...args: Parameters<SessionCommandsValue['handleCreatePhysicalWorkspace']>) => manager().handleCreatePhysicalWorkspace(...args),
-      deleteWorkspace: (...args: Parameters<SessionCommandsValue['deleteWorkspace']>) => manager().deleteWorkspace(...args),
-      createSessionInWorkspace: (...args: Parameters<SessionCommandsValue['createSessionInWorkspace']>) => manager().createSessionInWorkspace(...args),
-      claimControl: (...args: Parameters<SessionCommandsValue['claimControl']>) => manager().claimControl(...args),
-      handleLogout: () => manager().handleLogout(),
-      handleRetry: () => manager().handleRetry(),
-      refreshPermissions: () => manager().refreshPermissions(),
-      revokePermission: (...args: Parameters<SessionCommandsValue['revokePermission']>) => manager().revokePermission(...args),
-      revokeAllPermissions: (...args: Parameters<SessionCommandsValue['revokeAllPermissions']>) => manager().revokeAllPermissions(...args),
-    } satisfies SessionCommandsValue;
+    const entries = (Object.keys(SESSION_COMMANDS) as (keyof SessionCommandsValue)[]).map((key) => [
+      key,
+      (...args: unknown[]) => (sessionManagerRef.current[key] as (...params: unknown[]) => unknown)(...args),
+    ]);
+    return Object.fromEntries(entries) as SessionCommandsValue;
   }, []);
 
   // The manager context carries the stable commands plus the few values its

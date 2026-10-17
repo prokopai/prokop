@@ -163,7 +163,11 @@ export function WorkspaceViewGroup({ region, groupId = region, available, slotRe
         </DropdownMenu>
       </div>
       <div ref={slotRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-        {!activeId && region === 'center' && <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">Open a session or add a view.</div>}
+        {!activeId && (
+          <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            {region === 'center' ? 'Open a session or add a view.' : 'Nothing here. Add a view from the panel menu.'}
+          </div>
+        )}
       </div>
     </section>
   );

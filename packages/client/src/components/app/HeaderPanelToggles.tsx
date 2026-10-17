@@ -11,7 +11,7 @@ interface HeaderPanelTogglesProps {
   onToggleRight: () => void;
   bottomActive: boolean;
   onToggleBottom: () => void;
-  /** Whether the right dock has content in the current scope. */
+  /** The right dock holds repository views, which exist only with a workspace. */
   hasRightDock: boolean;
   mobile?: boolean;
   onOpenSettings: () => void;
