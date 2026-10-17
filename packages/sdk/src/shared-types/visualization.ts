@@ -180,8 +180,10 @@ export interface ShellOutputVisualization extends ToolVisualization {
   stdout?: string;
   /** Standard error from the command */
   stderr?: string;
-  /** Exit code from the command */
-  exitCode: number;
+  /** Exit code once the command finished. Absent while it still runs. */
+  exitCode?: number;
+  /** Absent means the command completed. */
+  status?: 'running' | 'killed';
 }
 
 /**

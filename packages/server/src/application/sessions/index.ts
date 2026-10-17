@@ -35,6 +35,8 @@ export interface SessionApplicationDeps<Origin> {
     isAvailable(workspaceId: string, workspaceRootId: string): boolean;
   };
   worktreeAttachments?: WorktreeAttachmentRefreshPort;
+  /** Archive, delete, undo and edit stop the session's background work. */
+  stopBackgroundWork?: (sessionId: string) => void;
   codexAvailable?: () => boolean;
   codexWorkspaceAvailable?: (workspaceId: string) => boolean;
   codexModels?: () => Promise<import('@prokopai/sdk').CodexModel[]>;

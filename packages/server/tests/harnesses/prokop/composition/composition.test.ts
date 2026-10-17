@@ -383,7 +383,6 @@ describe('C4 coding bundle in the Jean2 composition', () => {
     'question',
     'read-file',
     'shell',
-    'terminal',
     'todo',
     'webfetch',
     'write-file',

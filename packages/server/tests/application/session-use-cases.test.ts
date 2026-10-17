@@ -1707,3 +1707,43 @@ describe('application session use cases', () => {
     });
   });
 });
+
+describe('background work stops when history is rewritten', () => {
+  test('edit stops the session background work before the edit runs', async () => {
+    const order: string[] = [];
+    const execution = makeExecution({ editMessage: async () => { order.push('edit'); } });
+    const app = createSessionChatApplication({
+      repository: makeRepository(), execution, gate: noGate(),
+      stopBackgroundWork: (sessionId) => { order.push(`stop:${sessionId}`); },
+    });
+    await app.editMessage(makeWire(makeSpy()), origin, { sessionId: 'sess-1', messageId: 'm-1', content: 'edited' });
+    expect(order).toEqual(['stop:sess-1', 'edit']);
+  });
+
+  test('a gated edit leaves background work alone', async () => {
+    const stops: string[] = [];
+    const execution = makeExecution({ editMessage: async () => { throw new Error('must not run'); } });
+    const app = createSessionChatApplication({
+      repository: makeRepository(), execution, gate: rejectGate(), stopBackgroundWork: (id) => { stops.push(id); },
+    });
+    await app.editMessage(makeWire(makeSpy()), origin, { sessionId: 'sess-1', messageId: 'm-1', content: 'edited' });
+    expect(stops).toEqual([]);
+  });
+
+  test('undo stops the session background work before the revert runs', async () => {
+    const order: string[] = [];
+    const page = { messages: [], pagination: { hasOlder: false, oldestSequence: null, newestSequence: null, limit: 50 } };
+    const execution = makeExecution({
+      revert: async () => {
+        order.push('revert');
+        return { revertedTo: { messageId: 'm-2', messageCount: 2 }, removed: { messageIds: ['m-3'], partCount: 1 } };
+      },
+    });
+    const app = createSessionTranscriptApplication({
+      repository: makeRepository({ listLatestMessagesWithPartsPage: () => page as never }), execution, gate: noGate(),
+      stopBackgroundWork: (sessionId) => { order.push(`stop:${sessionId}`); },
+    });
+    await app.revert(makeWire(makeSpy()), origin, { sessionId: 'sess-1', messageId: 'm-2' });
+    expect(order).toEqual(['stop:sess-1', 'revert']);
+  });
+});

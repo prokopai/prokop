@@ -32,6 +32,8 @@ export interface SessionLifecycleDeps<Origin> {
     isAvailable(workspaceId: string, workspaceRootId: string): boolean;
   };
   worktreeAttachments?: WorktreeAttachmentRefreshPort;
+  /** The session ended (archive, delete) or its history was rewritten (undo, edit): its background work stops. */
+  stopBackgroundWork?: (sessionId: string) => void;
   codexAvailable?: () => boolean;
   codexWorkspaceAvailable?: (workspaceId: string) => boolean;
   codexModels?: () => Promise<CodexModel[]>;
@@ -509,6 +511,7 @@ export function createSessionLifecycleApplication<Origin>(
 
     close(wire, origin, sessionId): void {
       const updated = deps.repository.updateSession(sessionId, { status: 'closed' });
+      if (updated) deps.stopBackgroundWork?.(sessionId);
       wire.delivery.send(origin, { type: 'session.closed', sessionId });
       // Other clients move it to the archive without closing their open view of it.
       if (updated) wire.delivery.broadcast({ type: 'session.updated', session: updated }, origin);
@@ -533,6 +536,7 @@ export function createSessionLifecycleApplication<Origin>(
           return;
         }
         deps.repository.deleteSession(sessionId);
+        deps.stopBackgroundWork?.(sessionId);
         refreshAttachments(session.workspaceRootId);
         wire.delivery.send(origin, { type: 'session.deleted', sessionId });
         wire.delivery.broadcast({ type: 'session.deleted', sessionId }, origin);

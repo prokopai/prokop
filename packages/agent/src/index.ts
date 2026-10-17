@@ -16,4 +16,8 @@ export { builtinTools } from '#agent/harnesses/prokop/tools/index';
 export { disposeProkopExecutionScope, initializeProkopExecutionScope } from '#agent/harnesses/prokop/composition/execution-scope';
 
 // Ports the harnesses read, configured by the host.
-export { configureAgentTerminals, type AgentTerminalPort } from '#agent/harnesses/prokop/tools/terminal/port';
+export {
+  configureShellCompletions,
+  killShellCommandsForSession,
+  type ShellCompletionPort,
+} from '#agent/harnesses/prokop/tools/shell/completion';

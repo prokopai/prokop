@@ -2,8 +2,8 @@
  * Unified permission concerns and the single policy table (permissions v2).
  *
  * The classifier reports facts (concerns); this module is the only place that
- * turns facts into a decision. Every harness policy consumer (prokop shell and
- * terminal tools, codex-cli and claude-cli pre-tool hooks) calls decide() so
+ * turns facts into a decision. Every harness policy consumer (the prokop shell
+ * tool, codex-cli and claude-cli pre-tool hooks) calls decide() so
  * behavior stays identical across harnesses.
  *
  * Policy (user decisions, docs/plans/unified-permissions.md):

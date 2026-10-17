@@ -3,7 +3,7 @@
  * pipeline in slice 4).
  *
  * One policy definition point for shell operations, consumed identically by
- * the Prokop shell and terminal tools and by the native-harness permission
+ * the Prokop shell tool and by the native-harness permission
  * policies (Codex pre-tool hook, Claude pre-tool hook). The end-goal anchor:
  * sensitive files, potentially dangerous or destructive actions, and
  * workspace locking are decided here; per-harness adapters only translate

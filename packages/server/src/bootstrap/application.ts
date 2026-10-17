@@ -76,7 +76,15 @@ import {
   createProkopWorkspaceTerminalPort,
 } from '@/adapters/prokop';
 import { getTerminalManager, installTerminalSessionStore } from '@/transport/terminal';
-import { broadcastEvent, broadcastSessionUpdated, sendToConnectionEvent } from '@/transport/websocket/broadcast';
+import {
+  broadcastEvent,
+  broadcastSessionUpdated,
+  broadcastToSessionEvent,
+  sendToAskTargetsEvent,
+  sendToConnectionEvent,
+  sendToControllerEvent,
+} from '@/transport/websocket/broadcast';
+import { installShellCompletionDelivery } from './shell-completions';
 import { addWorkspaceFilesChangedObserver } from '@prokopai/core/application/workspaces/files-changed';
 import { setMcpChangeListener } from '@/infrastructure/mcp';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
@@ -197,6 +205,18 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   onHarnessWorktreeChanged(worktreeAttachments.changed);
   const harnessRegistrations = inProcessHarnessRegistrations(agents, repository);
   const execution = createHarnessExecution(repository, harnessRegistrations);
+  // Background shell commands report back through the session's own turn flow.
+  const shellCommands = installShellCompletionDelivery({
+    runtime: agentRuntime(),
+    repository,
+    execution,
+    delivery: {
+      broadcast: broadcastEvent,
+      broadcastToSession: broadcastToSessionEvent,
+      sendToController: sendToControllerEvent,
+      sendToAskTargets: sendToAskTargetsEvent,
+    },
+  });
   // Headless (scheduled) dispatch routes through the harness registry: the
   // Prokop registration owns the composed-scope child run; harnesses
   // without headless support fail closed per run and are rejected at job
@@ -252,6 +272,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     toolCatalog,
     workspaceRoots,
     worktreeAttachments,
+    stopBackgroundWork: shellCommands.stopBackgroundWork,
     codexAvailable: codexCliAvailable,
     codexWorkspaceAvailable,
     claudeAvailable: claudeCliAvailable,
@@ -292,7 +313,10 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     {
       created: (session) => broadcastEvent({ type: 'session.created', session }),
       updated: broadcastSessionUpdated,
-      deleted: (sessionId) => broadcastEvent({ type: 'session.deleted', sessionId }),
+      deleted: (sessionId) => {
+        shellCommands.stopBackgroundWork(sessionId);
+        broadcastEvent({ type: 'session.deleted', sessionId });
+      },
     },
   );
 

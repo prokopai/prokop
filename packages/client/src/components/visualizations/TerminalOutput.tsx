@@ -3,15 +3,19 @@ interface TerminalOutputProps {
   stdout?: string;
   stderr?: string;
   exitCode?: number;
+  /** Absent means the command completed. */
+  status?: 'running' | 'killed';
 }
 
 /**
  * Tonally themed terminal output. Follows the app surface tokens instead of a
  * hardcoded black panel so it reads correctly in light/dark and every scheme.
  */
-export function TerminalOutput({ command, stdout, stderr, exitCode }: TerminalOutputProps) {
-  const hasHeader = command !== undefined || exitCode !== undefined;
-  const isSuccess = (exitCode ?? 0) === 0;
+export function TerminalOutput({ command, stdout, stderr, exitCode, status }: TerminalOutputProps) {
+  const hasHeader = command !== undefined || exitCode !== undefined || status !== undefined;
+  // A command still running in the background is neither success nor failure.
+  const isSuccess = status === 'running' || (status !== 'killed' && (exitCode ?? 0) === 0);
+  const badge = status === 'running' ? 'running' : status === 'killed' ? 'killed' : `[${exitCode ?? 0}]`;
   // Whitespace-only output renders nothing: an empty body block is noise.
   const hasStdout = !!stdout?.trim();
   const hasStderr = !!stderr?.trim();
@@ -40,7 +44,7 @@ export function TerminalOutput({ command, stdout, stderr, exitCode }: TerminalOu
               : 'bg-destructive/10 text-destructive'
           }`}
         >
-          [{exitCode}]
+          {badge}
         </span>
       </div>
 

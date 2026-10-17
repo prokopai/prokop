@@ -14,6 +14,8 @@ export interface SessionTranscriptDeps<Origin> {
   gate: ControllerGatePort<Origin>;
   toolCatalog?: Pick<ToolCatalogPort, 'listTools'>;
   worktreeAttachments?: WorktreeAttachmentRefreshPort;
+  /** Undo rewrites history: background commands from the discarded turns stop. */
+  stopBackgroundWork?: (sessionId: string) => void;
 }
 
 export interface SessionTranscriptApplication<Origin> {
@@ -82,6 +84,8 @@ export function createSessionTranscriptApplication<Origin>(
           return;
         }
 
+        // The discarded turns may have left commands running; their results must not come back.
+        deps.stopBackgroundWork?.(sessionId);
         const result = await deps.execution.revert({
           sessionId,
           targetMessageId: input.messageId,

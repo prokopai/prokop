@@ -15,7 +15,6 @@ import * as grep from '#agent/harnesses/prokop/tools/grep/tool';
 import * as question from '#agent/harnesses/prokop/tools/question/tool';
 import * as readFile from '#agent/harnesses/prokop/tools/read-file/tool';
 import * as shell from '#agent/harnesses/prokop/tools/shell/tool';
-import * as terminal from '#agent/harnesses/prokop/tools/terminal/tool';
 import * as todo from '#agent/harnesses/prokop/tools/todo/tool';
 import * as webfetch from '#agent/harnesses/prokop/tools/webfetch/tool';
 import * as writeFile from '#agent/harnesses/prokop/tools/write-file/tool';
@@ -40,7 +39,6 @@ const modules = [
   question,
   readFile,
   shell,
-  terminal,
   todo,
   webfetch,
   writeFile,

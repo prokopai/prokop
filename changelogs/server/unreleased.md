@@ -1,8 +1,12 @@
 ### Removed
 
+- **The separate `terminal` tool for Prokop agents**: Agents no longer open their own terminal tabs in your terminal panel. The `shell` tool covers long-running commands now (see below), so there is nothing left for you to kill by hand after a run.
+
 - **Tools loaded from a folder on disk**: Prokop no longer loads tool modules from `~/.prokopai/tools` or `PROKOPAI_TOOLS_PATH`, and `prokop init` no longer takes `--tools-path`. Tools come from the binary and from MCP servers. An existing tools folder is left in place and ignored.
 
 ### Changed
+
+- **One `shell` tool for Prokop agents, with background commands**: Every command runs in its own process, so commands the agent starts side by side no longer wait on each other, and a dev server never blocks the next command. A command still running after the wait (60 seconds unless the agent asks for more) keeps running in the background; the agent gets its output so far and a message when it finishes, as a prompt in the conversation with the output attached as a terminal chip. The agent can read more of its output or stop it, and the full output of every command is kept in a file it can search. Background commands stop when the session is archived or deleted, when you undo or edit a message, and when the server stops. Commands now run with your shell (zsh, bash, dash, ksh or sh) instead of always `sh`. Interactive prompts are not supported; the agent is told to use non-interactive flags.
 
 - **Fewer approvals for paths in variables**: A command like `ROOT=/repo/build; rm -rf "$ROOT"` used to ask every time, because `$ROOT` was unknown. When the same command surely set the variable to a plain value, the path is now judged by that value. Variables from the environment, set inside `if`, loops or `( )`, after `||`, or changed by `read`, `unset`, `eval` and similar still count as unknown.
 
@@ -12,6 +16,8 @@
 - **Lighter code blocks while they stream**: A code block that is still being written only recolors its newest lines instead of the whole block on every update. Long code blocks now stream at full frame rate and use about half the CPU.
 
 ### Fixed
+
+- **A command that leaves something running no longer hangs the agent**: Starting a server with `&` from the `shell` tool used to stall the agent until the 60 second limit, because the server kept the command's output open. The command now returns as soon as it exits, and whatever it left running keeps going in the background.
 
 - **Scripts that count with `| xargs` are no longer marked critical**: A value captured from a pipeline, such as `total=$(grep ... | wc -l | xargs)`, was read as running a dangerous command through `xargs` and shown as critical. The captured command is now read as a whole, so a trailing `xargs` with nothing to run is harmless. As a result, a command hidden in a captured value, such as `X=$(rm -rf /)`, is now caught too.
 

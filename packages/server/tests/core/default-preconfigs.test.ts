@@ -49,7 +49,9 @@ describe('default preconfigs', () => {
     for (const toolName of toolNames) {
       expect(builtinToolNames).toContain(toolName);
     }
-    expect(toolNames).toContain('terminal');
+    expect(toolNames).toContain('shell');
+    // One shell tool covers background commands; the terminal tool is gone.
+    expect(toolNames).not.toContain('terminal');
     expect(toolNames).not.toContain('browser_navigate');
 
     // Prompts must carry content, not just frontmatter.

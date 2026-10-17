@@ -106,6 +106,7 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
           stdout={visualization.stdout}
           stderr={visualization.stderr}
           exitCode={visualization.exitCode}
+          status={visualization.status}
         />
       );
 

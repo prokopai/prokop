@@ -11,6 +11,8 @@ export interface SessionChatDeps<Origin> {
   gate: ControllerGatePort<Origin>;
   /** Defaults to the process-wide registry shared with queue adds. */
   sends?: ClientSendRegistry;
+  /** An edit rewrites history: background commands from the discarded turns stop. */
+  stopBackgroundWork?: (sessionId: string) => void;
 }
 
 export interface SessionChatApplication<Origin> {
@@ -108,6 +110,7 @@ export function createSessionChatApplication<Origin>(deps: SessionChatDeps<Origi
         sendGateRejection(wire, origin, gate);
         return;
       }
+      deps.stopBackgroundWork?.(input.sessionId);
       await deps.execution.editMessage(wire, origin, input);
       autoTitle(wire, origin, input.sessionId);
     },

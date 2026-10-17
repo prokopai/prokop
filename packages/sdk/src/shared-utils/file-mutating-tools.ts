@@ -13,7 +13,6 @@ export const FILE_MUTATING_TOOL_NAMES = [
   'edit',
   'write-file',
   'shell',
-  'terminal',
   'cp',
   'mv',
   'mkdir',

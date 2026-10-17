@@ -139,8 +139,8 @@ export function buildGrantParams(
   let grantScope: GrantScope = response.grant;
   const boundRootSessionId = record.rootSessionId ?? record.sessionId;
 
-  // A non-persistable intent's targets are too broad to remember (the
-  // terminal tool's "terminal"); it falls back to the exact-command key below.
+  // A non-persistable intent's targets are too broad to remember; it falls
+  // back to the exact-command key below.
   const intent: PermissionIntent | undefined = permAsk.intents?.[0];
   if (intent && intent.persistable !== false) {
     if (!intent.allowedScopes.includes(grantScope) || grantScope === 'once') return [];

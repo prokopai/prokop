@@ -11,7 +11,6 @@ describe('built-in tool catalog', () => {
       'question',
       'read-file',
       'shell',
-      'terminal',
       'todo',
       'webfetch',
       'write-file',
@@ -19,7 +18,7 @@ describe('built-in tool catalog', () => {
   });
 
   test('every tool has a valid definition and executor', () => {
-    expect(builtinTools).toHaveLength(11);
+    expect(builtinTools).toHaveLength(10);
     for (const tool of builtinTools) {
       expect(tool.definition.name).toBeTruthy();
       expect(tool.definition.description).toBeTruthy();

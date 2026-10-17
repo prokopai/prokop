@@ -284,7 +284,7 @@ MCP tools appear alongside built-in tools. The agent calls them identically. No 
 
 ## Terminal Sessions
 
-The client provides full PTY terminal sessions. The agent can also run commands in these terminals via the `shell` tool.
+The client provides full PTY terminal sessions for you. The agent runs its commands through the `shell` tool instead: one process per command, with long-running commands left in the background and reported back when they finish.
 
 - **Multi-tab** - Run multiple terminals side by side
 - **Persistent** - Terminals survive across chat sessions
