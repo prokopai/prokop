@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { Preconfig, ScheduledJob, Session } from '@prokopai/sdk';
-import { findProviderFromModel } from '@prokopai/core/infrastructure/providers/model-selection';
+import { matchProviderForModel } from '@prokopai/core/infrastructure/providers/model-selection';
 import { modelVariantKeys, resolveSessionVariant } from '@/domains/sessions/variant';
 import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
 import type {
@@ -44,7 +44,7 @@ export function createScheduledJobRunner(deps: ScheduledJobRunnerDeps): {
       const modelId = pinnedModel || config.defaultModel;
       const providerId =
         (pinApplies ? preconfig.provider : null) ||
-        findProviderFromModel(modelId) ||
+        matchProviderForModel(modelId) ||
         config.defaultProvider;
       const permissionMode =
         job.permissionMode ?? deps.workspaces.permissionMode(job.workspaceId);

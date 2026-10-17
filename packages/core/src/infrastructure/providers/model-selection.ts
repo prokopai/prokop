@@ -39,7 +39,8 @@ export function parseModelSpecifier(modelId: string): ParsedModelSpecifier {
   };
 }
 
-export function findProviderFromModel(modelId: string): string {
+/** The provider a model id names or belongs to, or null when nothing identifies one. */
+export function matchProviderForModel(modelId: string): string | null {
   const modelInfo = findModel(modelId);
   if (modelInfo) return modelInfo.providerId;
 
@@ -49,7 +50,12 @@ export function findProviderFromModel(modelId: string): string {
   for (const { test, provider } of PROVIDER_PREFIXES) {
     if (test(modelId)) return provider;
   }
-  return getModelsConfig().defaultProvider;
+  return null;
+}
+
+/** The model's provider, else the configured default provider. */
+export function findProviderFromModel(modelId: string): string {
+  return matchProviderForModel(modelId) ?? getModelsConfig().defaultProvider;
 }
 
 export function resolveModelId(
