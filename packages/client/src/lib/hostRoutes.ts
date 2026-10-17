@@ -45,7 +45,7 @@ export function routeCandidates(server: Pick<SavedServer, 'id' | 'url' | 'routes
 }
 
 /** Reads `/api/info`; null when the URL does not answer as a Prokop server in time. */
-export async function probeInstallation(url: string, signal?: AbortSignal): Promise<{ installationId: string | null } | null> {
+async function probeInstallation(url: string, signal?: AbortSignal): Promise<{ installationId: string | null } | null> {
   const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
@@ -121,7 +121,7 @@ export interface LearnedHost {
 }
 
 /** After connecting: the server's identity and the addresses it is published under. */
-export async function learnHost(url: string, token: string | undefined, signal?: AbortSignal): Promise<LearnedHost | null> {
+async function learnHost(url: string, token: string | undefined, signal?: AbortSignal): Promise<LearnedHost | null> {
   const info = await probeInstallation(url, signal);
   if (!info) return null;
   let routes: string[] = [];

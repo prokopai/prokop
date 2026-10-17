@@ -10,7 +10,7 @@ import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { usePendingSendStore } from '@/stores/pendingSendStore';
 
-export const STREAM_FLUSH_INTERVAL_MS = 75;
+const STREAM_FLUSH_INTERVAL_MS = 75;
 
 export function handleMessageCreated(
   msg: { type: 'message.created'; message: Message },
@@ -252,7 +252,7 @@ export function handlePartUpdated(
   }
 }
 
-export function handlePartAppend(
+function handlePartAppend(
   msg: { type: 'part.append'; sessionId: string; partId: string; field: 'text' | 'reasoning'; delta: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -300,7 +300,7 @@ export function handlePartAppend(
   }
 }
 
-export function handleChatUsage(
+function handleChatUsage(
   msg: { type: 'chat.usage'; sessionId: string; usage: SessionUsage; model: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -318,7 +318,7 @@ export function handleChatUsage(
   setModelForSession(sessionId, model);
 }
 
-export function handleCompactionComplete(
+function handleCompactionComplete(
   msg: { type: 'compaction.complete'; sessionId: string; tokensUsed: CompactionCompleteMessage['tokensUsed'] },
   ctx: SessionHandlersContext,
 ): void {

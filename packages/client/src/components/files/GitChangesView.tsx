@@ -8,7 +8,7 @@ import type {
   ContextMenuOpenContext,
 } from '@pierre/trees';
 import { FileTree as PierreFileTreeReact, useFileTree } from '@pierre/trees/react';
-import type { FileEntryActionTarget, FileOpenMode } from './FileEntryContextMenu';
+import type { FileEntryActionTarget, FileOpenMode } from './fileEntry';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { useGitStatusQuery } from '@/hooks/queries/useFileQueries';

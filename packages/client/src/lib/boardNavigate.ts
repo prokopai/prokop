@@ -13,7 +13,7 @@ export interface BoardNavigateOptions {
  * Build a navigation target for the board.
  * Returns the route `to`, `params`, and `search` for TanStack Router.
  */
-export function buildBoardNavTarget(
+function buildBoardNavTarget(
   viewPath: string,
   serverId: string,
   focusedSessionId: string | null,

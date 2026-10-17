@@ -66,7 +66,7 @@ function isChatInputFocused(): boolean {
 }
 
 /** The shell itself has focus (xterm's hidden textarea), not the tab strip. */
-export function isTerminalInputFocused(): boolean {
+function isTerminalInputFocused(): boolean {
   return Boolean(document.activeElement?.closest?.('[data-terminal-panel] .xterm'));
 }
 

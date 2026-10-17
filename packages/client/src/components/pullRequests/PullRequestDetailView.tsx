@@ -230,7 +230,7 @@ const untrusted: Components = {
   ),
 };
 
-export function Markdown({ body }: { body: string }) {
+function Markdown({ body }: { body: string }) {
   return (
     <MarkdownRenderer overrides={untrusted} className="space-y-2 text-sm [&_li]:my-0.5">
       {body}

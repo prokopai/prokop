@@ -179,7 +179,7 @@ export function deleteServer(id: string): void {
 export const SERVERS_CHANGED_EVENT = 'prokopai:servers-changed';
 
 /** Lets React state follow storage writes made outside it (route loaders, host learning). */
-export function notifyServersChanged(): void {
+function notifyServersChanged(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(SERVERS_CHANGED_EVENT));
 }
 

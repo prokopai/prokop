@@ -14,7 +14,8 @@
     "test": "bun vitest run",
     "test:watch": "bun vitest",
     "test:ui": "bun vitest --ui",
-    "test:coverage": "bun vitest run --coverage"
+    "test:coverage": "bun vitest run --coverage",
+    "test:compiler": "bun vitest run --config vitest.compiler.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
@@ -71,7 +72,6 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/diff": "^8.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",

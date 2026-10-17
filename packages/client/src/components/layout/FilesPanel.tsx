@@ -3,7 +3,7 @@ import { RefreshCw, ChevronDown, Folder, GitBranch, Check, PinOff, Plus, FilePlu
 import { useParams } from '@tanstack/react-router';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { FileTree, type FileTreeHandle, GitChangesView, type GitChangesViewHandle } from '@/components/files';
-import { type FileEntryActionTarget } from '@/components/files/FileEntryContextMenu';
+import { type FileEntryActionTarget } from '@/components/files/fileEntry';
 import { FOLDER_ICON_COLOR } from '@/components/files/fileIcons';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

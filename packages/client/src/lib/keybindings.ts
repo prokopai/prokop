@@ -94,7 +94,7 @@ const KEY_ALIASES: Record<string, string> = {
   shiftright: 'shift',
 };
 
-export function isKeybindingCommandId(value: string): value is KeybindingCommandId {
+function isKeybindingCommandId(value: string): value is KeybindingCommandId {
   return COMMAND_IDS.has(value as KeybindingCommandId);
 }
 
@@ -136,7 +136,7 @@ export function normalizeKeybinding(binding: string): string | null {
   return normalizeChord(binding);
 }
 
-export function isApplePlatform(platform?: string): boolean {
+function isApplePlatform(platform?: string): boolean {
   if (platform !== undefined) return /mac|iphone|ipad|ipod/i.test(platform);
   if (typeof navigator === 'undefined') return false;
   const userAgentDataPlatform = (navigator as Navigator & {

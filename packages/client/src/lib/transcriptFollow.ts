@@ -1,5 +1,5 @@
 /** Same fraction LegendList uses for `maintainScrollAtEndThreshold`. */
-export const FOLLOW_END_THRESHOLD = 0.1;
+const FOLLOW_END_THRESHOLD = 0.1;
 
 /** Scroll events this soon after wheel, touch, key or pointer input are the user's. */
 export const USER_SCROLL_INPUT_WINDOW_MS = 300;

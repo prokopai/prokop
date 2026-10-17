@@ -8,7 +8,7 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 /** Ahead/behind counts come from the last fetch; older than this they may mislead. */
-export const FETCH_STALE_MS = HOUR;
+const FETCH_STALE_MS = HOUR;
 
 function startOfDay(time: number): number {
   const date = new Date(time);

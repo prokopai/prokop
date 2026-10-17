@@ -15,7 +15,7 @@ async function getOrCreateClientId(): Promise<string> {
   return newId;
 }
 
-export function getDisplayName(): string {
+function getDisplayName(): string {
   return 'Prokopai Web';
 }
 

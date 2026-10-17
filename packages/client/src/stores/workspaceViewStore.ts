@@ -51,7 +51,7 @@ export function isSessionViewId(id: string): id is SessionViewId {
   } catch { return false; }
 }
 
-export function isResourceViewId(id: string): id is ResourceViewId {
+function isResourceViewId(id: string): id is ResourceViewId {
   return isFileViewId(id) || isSessionViewId(id) || isPullRequestsViewId(id);
 }
 
@@ -221,7 +221,7 @@ export function findViewRegion(layout: WorkspaceViewLayout, id: WorkspaceViewId)
   return groupRegion(layout, findViewGroup(layout, id));
 }
 
-export function groupRegion(layout: WorkspaceViewLayout, groupId: string): ViewRegion {
+function groupRegion(layout: WorkspaceViewLayout, groupId: string): ViewRegion {
   return VIEW_REGIONS.find((region) => treeGroups(layout.roots[region]).includes(groupId)) ?? 'center';
 }
 
@@ -278,7 +278,7 @@ export function isRepositoryViewId(id: string): id is RepositoryViewId {
 }
 
 /** The phone surface that shows a view. */
-export function mobileSurfaceFor(id: WorkspaceViewId): MobileSurface | 'terminal' {
+function mobileSurfaceFor(id: WorkspaceViewId): MobileSurface | 'terminal' {
   if (id === 'terminals') return 'terminal';
   if (id === 'sessions' || id === 'usage') return 'sessions';
   if (id === 'editor' || isFileViewId(id)) return 'editor';

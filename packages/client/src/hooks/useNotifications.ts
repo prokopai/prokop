@@ -77,5 +77,4 @@ export function useNotifications(serverInfo: ServerInfo | null) {
 }
 
 // Re-export the store hook for convenience
-export { useNotificationStore };
 export type { ProkopaiClient };

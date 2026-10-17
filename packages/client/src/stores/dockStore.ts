@@ -10,8 +10,8 @@ export const DOCK_SIZE_LIMITS = {
 } as const;
 
 /** Width the center keeps beside a side dock, and height beside the bottom dock (as a share). */
-export const CENTER_MIN_WIDTH = 360;
-export const BOTTOM_MAX_SHARE = 0.7;
+const CENTER_MIN_WIDTH = 360;
+const BOTTOM_MAX_SHARE = 0.7;
 /** Width of the resize divider between a dock and the center. */
 export const DOCK_DIVIDER_WIDTH = 12;
 
@@ -46,7 +46,7 @@ interface DockStore {
   setDockSize: (position: DockPosition, size: number) => void;
 }
 
-export function clampDockSize(position: DockPosition, size: number): number {
+function clampDockSize(position: DockPosition, size: number): number {
   const limits = DOCK_SIZE_LIMITS[position];
   return Math.round(Math.max(limits.min, Math.min(limits.max, size)));
 }

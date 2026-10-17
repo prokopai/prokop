@@ -29,7 +29,7 @@ function hasSelectionAt(element: Element): boolean {
   return selection.containsNode(element, true);
 }
 
-export function allowsNativeContextMenu(event: MouseEvent): boolean {
+function allowsNativeContextMenu(event: MouseEvent): boolean {
   if (event.shiftKey) return true;
   const element = eventElement(event);
   if (!element) return false;

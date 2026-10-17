@@ -2,7 +2,7 @@ import type { Ask, AskAuthority, AskResponse } from '@prokopai/sdk';
 import type { SessionHandlersContext } from './types';
 import type { PendingAskRequest } from '@/stores/askStore';
 
-export function handleAskRequest(
+function handleAskRequest(
   msg: { type: 'ask.request'; sessionId: string; toolCallId: string; toolName: string; ask: Ask; requestId?: string; authority?: AskAuthority },
   ctx: SessionHandlersContext,
 ): void {
@@ -69,7 +69,7 @@ export function handleAskRequest(
   }
 }
 
-export function handleAskTimeout(
+function handleAskTimeout(
   msg: { type: 'ask.timeout'; sessionId: string; toolCallId: string; requestId?: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -83,7 +83,7 @@ export function handleAskTimeout(
   }
 }
 
-export function handleAskPendingSync(
+function handleAskPendingSync(
   msg: {
     type: 'ask.pending_sync';
     sessionId: string;
@@ -152,7 +152,7 @@ export function handleAskPendingSync(
   }
 }
 
-export function handleAskResponseRejected(
+function handleAskResponseRejected(
   msg: {
     type: 'ask.response_rejected';
     sessionId: string;

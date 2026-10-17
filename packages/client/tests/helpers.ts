@@ -1,6 +1,6 @@
 import { beforeEach } from 'vitest';
 
-export function setupLocalStorage() {
+function setupLocalStorage() {
   const store: Record<string, string> = {};
 
   beforeEach(() => {

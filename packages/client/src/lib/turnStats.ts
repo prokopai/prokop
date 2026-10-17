@@ -17,7 +17,7 @@ export function formatDuration(ms: number): string {
   return formatElapsed(ms);
 }
 
-export function formatCompactCount(value: number): string {
+function formatCompactCount(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
   return String(value);

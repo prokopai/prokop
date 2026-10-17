@@ -6,7 +6,7 @@ export { useModelsConfigQuery, useCreateModel, useUpdateModel, useDeleteModel, u
 export { usePreconfigsQuery, useCreatePreconfig, useUpdatePreconfig, useDeletePreconfig } from './usePreconfigsQueries';
 export { usePromptsQuery, useCreatePrompt, useUpdatePrompt, useDeletePrompt } from './usePromptsQueries';
 export { useProvidersQuery, useProviderCredentialsQuery, useConnectProvider, useDisconnectProvider, useProviderAccountMutation, useCompleteOAuth, useSetProviderCredential, useClearProviderCredential } from './useProvidersQueries';
-export { useFileBrowseFsQuery, useFileDrivesQuery, useFileParentQuery, useFilePreviewQuery, useFileGitDiffQuery, useEditorGitDiffQuery, useGitStatusQuery } from './useFileQueries';
+export { useFileBrowseFsQuery, useFileDrivesQuery, useFileParentQuery, useFileGitDiffQuery, useEditorGitDiffQuery } from './useFileQueries';
 export { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from './useResponseFormatsQueries';
 export { usePinnedMessagesQuery, usePinMessageMutation, useUnpinMessageMutation } from './usePinnedMessagesQueries';
 export { useWorkspaceTagsQuery, useInvalidateWorkspaceTags } from './useSessionTagsQueries';

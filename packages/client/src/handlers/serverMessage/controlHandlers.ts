@@ -2,7 +2,7 @@ import type { SessionControlState, SessionControlUpdateReason } from '@prokopai/
 import type { SessionHandlersContext } from './types';
 import { useSessionControlStore } from '@/stores/sessionControlStore';
 
-export function handleControlUpdated(
+function handleControlUpdated(
   msg: { type: 'session.control.updated'; control: SessionControlState; reason: SessionControlUpdateReason },
   _ctx: SessionHandlersContext,
 ): void {
@@ -14,7 +14,7 @@ export function handleControlUpdated(
   );
 }
 
-export function handleActionRejected(
+function handleActionRejected(
   msg: {
     type: 'session.action_rejected';
     sessionId: string;

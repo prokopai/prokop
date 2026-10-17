@@ -60,12 +60,3 @@ export function handleFileTree(workspaceId: string, root: string, update: FileTr
     }
   }
 }
-
-/** Test seam: flush pending debounced invalidations immediately. */
-export function flushFilesChangedForTest(): void {
-  for (const [workspaceId, timer] of pendingTimers) {
-    clearTimeout(timer);
-    pendingTimers.delete(workspaceId);
-    invalidateWorkspaceFileQueries(workspaceId);
-  }
-}

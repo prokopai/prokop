@@ -11,7 +11,7 @@ export type TurnSegment =
   | { kind: 'tools'; id: string; items: IndexedPart[] };
 
 /** Fewer tools than this stay as plain rows; a fold would only add a click. */
-export const MIN_GROUPED_TOOLS = 2;
+const MIN_GROUPED_TOOLS = 2;
 
 function isWorkPart(part: Part): boolean {
   if (part.type === 'tool') return !isAnswerVisualization(getToolPartVisualization(part));

@@ -9,7 +9,7 @@ interface TerminalKey {
 
 const arrow = (final: string) => (applicationCursor: boolean) => `\x1b${applicationCursor ? 'O' : '['}${final}`;
 
-export const TERMINAL_KEYS: TerminalKey[] = [
+const TERMINAL_KEYS: TerminalKey[] = [
   { label: '^C', title: 'Ctrl+C (interrupt)', sequence: () => '\x03' },
   { label: 'Esc', title: 'Escape', sequence: () => '\x1b' },
   { label: 'Tab', title: 'Tab', sequence: () => '\t' },

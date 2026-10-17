@@ -2,7 +2,7 @@ import * as React from 'react';
 import { MOBILE_MEDIA_QUERY } from '@/lib/viewport';
 
 /** Tracks a media query; the initial value is read synchronously to avoid a layout flash. */
-export function useMediaQuery(query: string): boolean {
+function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = React.useState<boolean>(() => (
     typeof window !== 'undefined' && window.matchMedia(query).matches
   ));

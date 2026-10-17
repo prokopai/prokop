@@ -2,7 +2,7 @@ import type { PermissionGrant, QueuedMessage } from '@prokopai/sdk';
 import type { SessionHandlersContext } from './types';
 import { usePendingSendStore } from '@/stores/pendingSendStore';
 
-export function handlePermissionList(
+function handlePermissionList(
   msg: { type: 'permission.list'; workspaceId: string; grants: PermissionGrant[] },
   ctx: SessionHandlersContext,
 ): void {
@@ -11,7 +11,7 @@ export function handlePermissionList(
   setPermissions(grants);
 }
 
-export function handlePermissionRevoked(
+function handlePermissionRevoked(
   msg: { type: 'permission.revoked'; grantId: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -23,7 +23,7 @@ export function handlePermissionRevoked(
   ));
 }
 
-export function handlePermissionAllRevoked(
+function handlePermissionAllRevoked(
   msg: { type: 'permission.all_revoked'; workspaceId: string; count: number },
   ctx: SessionHandlersContext,
 ): void {
@@ -35,7 +35,7 @@ export function handlePermissionAllRevoked(
   });
 }
 
-export function handleQueueList(
+function handleQueueList(
   msg: { type: 'queue.list'; sessionId: string; messages: QueuedMessage[] },
   ctx: SessionHandlersContext,
 ): void {
@@ -57,7 +57,7 @@ export function handleQueueAdded(
   pendingSends.removeWhere(sessionId, send => send.queueId === message.id);
 }
 
-export function handleQueueRemoved(
+function handleQueueRemoved(
   msg: { type: 'queue.removed'; sessionId: string; queueId: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -66,7 +66,7 @@ export function handleQueueRemoved(
   removeQueuedMessageById(sessionId, queueId);
 }
 
-export function handleQueueSending(
+function handleQueueSending(
   msg: { type: 'queue.sending'; sessionId: string; queueId: string },
   ctx: SessionHandlersContext,
 ): void {

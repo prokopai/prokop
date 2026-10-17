@@ -68,7 +68,7 @@ const MESSAGE_WEIGHT = 100;
 const PART_WEIGHT = 50;
 const SESSION_CONTENT_BUDGET = 2_000_000;
 
-export function estimateContentWeight(
+function estimateContentWeight(
   messages: Message[],
   partsByMessage: Record<string, Part[]>,
 ): number {

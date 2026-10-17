@@ -128,7 +128,7 @@ export function handleSessionCreated(
   }
 }
 
-export function handleSessionResumed(
+function handleSessionResumed(
   msg: {
     type: 'session.resumed';
     session: Session;
@@ -238,7 +238,7 @@ export function handleSessionResumed(
   markAndMeasure('session-resumed:received', 'session-content:ready');
 }
 
-export function handleSessionClosed(
+function handleSessionClosed(
   msg: { type: 'session.closed'; sessionId: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -289,7 +289,7 @@ export function handleSessionClosed(
   }
 }
 
-export function handleSessionReopened(
+function handleSessionReopened(
   msg: { type: 'session.reopened'; session: Session },
   ctx: SessionHandlersContext,
 ): void {
@@ -304,7 +304,7 @@ export function handleSessionReopened(
   }
 }
 
-export function handleSessionDeleted(
+function handleSessionDeleted(
   msg: { type: 'session.deleted'; sessionId: string },
   ctx: SessionHandlersContext,
 ): void {
@@ -435,7 +435,7 @@ export function handleSessionInterrupted(
   }
 }
 
-export function handleSessionReverted(
+function handleSessionReverted(
   msg: { type: 'session.reverted'; sessionId: string; revertedTo: { messageId: string | null; messageCount: number }; removed: { messageIds: string[]; partCount: number } },
   ctx: SessionHandlersContext,
 ): void {
@@ -502,7 +502,7 @@ export function handleSessionForked(
   }
 }
 
-export function handleSessionState(
+function handleSessionState(
   msg: { type: 'session.state'; sessionId: string; messages: MessageWithParts[] },
   ctx: SessionHandlersContext,
 ): void {

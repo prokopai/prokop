@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
  * be rendered inside a `[data-pierre-file-tree]` wrapper (shadow DOM isolates
  * the tree from `:root`, so every token below is an explicit indirection).
  */
-export const PIERRE_TREE_THEME_CSS = `
+const PIERRE_TREE_THEME_CSS = `
   [data-pierre-file-tree] {
     /* Structure */
     --trees-bg-override: var(--sidebar);
