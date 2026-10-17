@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
-import { render } from '@testing-library/react';
-import { CommitPatch } from '@/components/files/CommitPatch';
+import { render, screen } from '@testing-library/react';
+import { CommitFileDiff } from '@/components/files/CommitPatch';
+import { commitFiles, parseCommitPatch } from '@/components/files/commitFiles';
 
 const filePatch = (name: string) => `diff --git a/${name} b/${name}
 index 1111111..2222222 100644
@@ -11,12 +12,15 @@ index 1111111..2222222 100644
 +new
 `;
 
-test('renders a multi-file commit with the real Pierre renderer', () => {
-  const { container } = render(<CommitPatch patch={filePatch('a.txt') + filePatch('b.txt')} themeType="light" />);
-  expect(container.querySelectorAll('diffs-container')).toHaveLength(2);
+test('renders one file of a multi-file commit with the real Pierre renderer', () => {
+  const files = commitFiles(['a.txt', 'b.txt'], parseCommitPatch(filePatch('a.txt') + filePatch('b.txt')).files);
+  const { container } = render(<CommitFileDiff file={files[1]} themeType="light" />);
+  expect(container.querySelectorAll('diffs-container')).toHaveLength(1);
 });
 
-test('renders a single-file commit', () => {
-  const { container } = render(<CommitPatch patch={filePatch('a.txt')} themeType="dark" />);
-  expect(container.querySelectorAll('diffs-container')).toHaveLength(1);
+test('files without a text diff explain the empty body', () => {
+  const [file] = commitFiles(['logo.png'], []);
+  const { container } = render(<CommitFileDiff file={file} themeType="dark" />);
+  expect(container.querySelectorAll('diffs-container')).toHaveLength(0);
+  expect(screen.getByText('No text diff for this file.')).toBeInTheDocument();
 });

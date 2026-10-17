@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, ChevronDown, Download, GitBranch, GitMerge, Loader2, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
-import { CommitPatch } from './CommitPatch';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, GitBranch, GitMerge, Loader2, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
+import { CommitFileDiff } from './CommitPatch';
+import { commitFiles, parseCommitPatch, splitPath, type CommitFile } from './commitFiles';
 import { RebasePanel, rebaseKey } from './RebasePanel';
 import type { GitBranchAction, GitBranchInfo, GitBranchPushReview, GitBranchPushTarget, GitHistoryEntry, ProkopaiClient } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
@@ -204,8 +205,12 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
     <Button variant="ghost" size="icon-xs" className="size-5" aria-label={`Fetch ${fetchRemote}`} title={`Fetch ${fetchRemote}`} disabled={busy} onClick={() => mutation.mutate({ action: 'fetch', remote: fetchRemote })}><RefreshCw className={cn('size-3', fetching && 'animate-spin')} /></Button>
   </span>);
 
+  // A commit replaces the branch chrome: the commit header carries the branch
+  // name and the new-branch action, so the picker, sync line and context line
+  // would only take space from the diff. Alerts below stay visible.
+  const readingCommit = !!commit && !pushBranch;
   return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex shrink-0 items-center gap-1 px-2 py-1.5">
+    {!readingCommit && <div className="flex shrink-0 items-center gap-1 px-2 py-1.5">
       <Popover open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) setSearch(''); }}>
         <PopoverTrigger asChild><Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" disabled={busy || !data} aria-label="Select branch history"><GitBranch data-icon="inline-start" /><span className="min-w-0 flex-1 truncate text-left">{selected?.name ?? data?.repository.branch ?? 'Branches'}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-0"><Command>
@@ -228,7 +233,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
           <DropdownMenuItem disabled={branches.isFetching} onClick={() => void branches.refetch()}>Refresh branches</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </div>}
     {rebase.data?.active && <button type="button" className="mx-2 mb-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-left text-xs font-medium hover:bg-accent" onClick={() => setRebaseOpen(true)}>
       <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">Rebase in progress — resolve conflicts, continue, or abort</span>
@@ -242,7 +247,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
     {rebase.error && <p role="alert" className="px-3 pb-1 text-xs text-destructive">Unable to read rebase state. <button type="button" className="underline underline-offset-2" onClick={() => void rebase.refetch()}>Retry</button></p>}
     {branches.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-9 w-full" key={i} />)}</div>}
     {branches.error && <div className="p-3 text-xs text-destructive" role="alert">{branches.error.message} <Button size="sm" variant="ghost" onClick={() => void branches.refetch()}>Retry</Button></div>}
-    {data && selected && !pushBranch && <div className="flex shrink-0 flex-col gap-0.5 px-3 pb-1.5">
+    {data && selected && !pushBranch && !readingCommit && <div className="flex shrink-0 flex-col gap-0.5 px-3 pb-1.5">
       <div className="flex min-w-0 items-center gap-1">
         <div className="flex min-w-0 flex-1 items-baseline text-xs">{syncStatus}</div>
         {selected.kind === 'local' && (selected.current ? <>
@@ -276,7 +281,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
       return <div className="flex flex-col gap-1 px-3 py-2"><p role="alert" className="text-xs text-destructive">{mutation.error.message}</p><GitOutput output={failure.output} /></div>;
     })()}
     {mutation.data?.warning && <p role="alert" className="px-3 py-2 text-xs text-destructive">{mutation.data.warning}</p>}
-    {pushBranch && data ? <BranchPush key={`${pushBranch.ref}:${pushBranch.head}`} sdkClient={sdkClient} serverId={serverId} workspaceId={workspaceId} root={root} source={pushBranch} remotes={data.repository.remotes} onClose={() => setPushBranch(null)} onChanged={refresh} /> : commit ? <CommitDetails key={commit.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} entry={commit} onBack={() => setCommit(null)} /> : selected && data ? <BranchHistory key={selected.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} head={selected.head} upstream={selected.upstream} branches={data.branches} selected={selected} now={now} onSelect={setCommit} /> : data && <p className="p-3 text-xs text-muted-foreground">{selectedRef ? 'This branch no longer exists. Choose another branch.' : 'No commits yet. Create the first commit in Changes.'}</p>}
+    {pushBranch && data ? <BranchPush key={`${pushBranch.ref}:${pushBranch.head}`} sdkClient={sdkClient} serverId={serverId} workspaceId={workspaceId} root={root} source={pushBranch} remotes={data.repository.remotes} onClose={() => setPushBranch(null)} onChanged={refresh} /> : commit ? <CommitDetails key={commit.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} entry={commit} branchName={selected?.name} busy={busy} onBack={() => setCommit(null)} onCreateBranch={selected ? () => { setCreateFrom(commit.head); setPushBranch(null); } : undefined} /> : selected && data ? <BranchHistory key={selected.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} head={selected.head} upstream={selected.upstream} branches={data.branches} selected={selected} now={now} onSelect={setCommit} /> : data && <p className="p-3 text-xs text-muted-foreground">{selectedRef ? 'This branch no longer exists. Choose another branch.' : 'No commits yet. Create the first commit in Changes.'}</p>}
   </div>;
 }
 
@@ -350,21 +355,90 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
   </div>;
 }
 
-function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, onBack }: Props & { sdkClient: ProkopaiClient; entry: HistoryEntry; onBack: () => void }) {
+const COMMIT_STATUS_CLASS: Record<CommitFile['status'], string> = { A: 'text-success', M: 'text-warning', D: 'text-destructive', R: 'text-muted-foreground' };
+const COMMIT_STATUS_LABEL: Record<CommitFile['status'], string> = { A: 'added', M: 'modified', D: 'deleted', R: 'renamed' };
+
+/** Header, file list and one diff at a time; only the diff scrolls. */
+function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchName, busy, onBack, onCreateBranch }: Props & { sdkClient: ProkopaiClient; entry: HistoryEntry; branchName?: string; busy: boolean; onBack: () => void; onCreateBranch?: () => void }) {
   const { resolvedMode } = useTheme();
   const details = useQuery({ queryKey: ['git-commit-details', serverId, workspaceId, root, entry.head], queryFn: () => sdkClient.http.files.gitCommitDetails(workspaceId, { root, head: entry.head }), retry: false });
-  return <div className="dialog-scrollbar min-h-0 flex-1 overflow-auto">
-    <div className="px-2 py-1"><Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft data-icon="inline-start" />History</Button></div>
-    <div className="flex flex-col gap-2 px-3 pb-3">
-      <p className="text-sm font-medium">{entry.subject}</p>
-      <p className="text-xs text-muted-foreground"><span className="shrink-0 font-mono tabular-nums">{entry.head.slice(0, 8)}</span> · {entry.author} · {entry.date.slice(0, 10)} · Diff against first parent</p>
-      {details.isPending && <p className="text-xs text-muted-foreground">Loading commit…</p>}
-      {details.error && <p role="alert" className="text-xs text-destructive">{details.error.message}</p>}
-      {details.data && <>
-        <details className="text-xs"><summary>{details.data.files.length} changed files</summary><ul className="py-1">{details.data.files.map((path) => <li key={path} className="truncate py-0.5">{path.split('/').pop()}<span className="ml-1.5 text-muted-foreground/70">{path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''}</span></li>)}</ul></details>
-        {details.data.patch ? <CommitPatch patch={details.data.patch} themeType={resolvedMode} /> : <p className="text-xs text-muted-foreground">No file changes</p>}
+  const parsed = useMemo(() => parseCommitPatch(details.data?.patch ?? ''), [details.data?.patch]);
+  const files = useMemo(() => commitFiles(details.data?.files ?? [], parsed.files), [details.data?.files, parsed.files]);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const index = Math.max(0, files.findIndex((file) => file.path === selectedPath));
+  const current = files[index];
+  const totals = files.reduce((sum, file) => ({ additions: sum.additions + file.additions, deletions: sum.deletions + file.deletions }), { additions: 0, deletions: 0 });
+  const step = (delta: number) => {
+    const next = files[index + delta];
+    if (next) setSelectedPath(next.path);
+  };
+  const listRef = useRef<HTMLUListElement>(null);
+  // Keyboard and prev/next moves keep the active row visible in the capped list.
+  useEffect(() => {
+    if (!current) return;
+    const row = listRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
+    row?.scrollIntoView?.({ block: 'nearest' });
+  }, [current]);
+  // j/k and arrows move between files from anywhere in the view except text inputs.
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+    if (event.key === 'j' || event.key === 'ArrowDown') { event.preventDefault(); step(1); }
+    else if (event.key === 'k' || event.key === 'ArrowUp') { event.preventDefault(); step(-1); }
+  };
+  return <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
+    <div className="flex shrink-0 flex-col gap-1 px-2 pt-1">
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft data-icon="inline-start" />History</Button>
+        {branchName && <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground" title={branchName}>{branchName}</span>}
+        {busy && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
+        <Button variant="ghost" size="icon-sm" aria-label="New branch from this commit" title="New branch from this commit" disabled={busy || !onCreateBranch} onClick={onCreateBranch}><Plus /></Button>
+      </div>
+      <div className="flex flex-col gap-0.5 px-1 pb-1">
+        <p className="truncate text-sm font-medium" title={entry.subject}>{entry.subject}</p>
+        <p className="truncate text-xs text-muted-foreground"><span className="font-mono tabular-nums" title="Diff against first parent">{entry.head.slice(0, 8)}</span> · {entry.author} · {entry.date.slice(0, 10)}</p>
+      </div>
+      {details.isPending && <p className="px-1 pb-2 text-xs text-muted-foreground">Loading commit…</p>}
+      {details.error && <p role="alert" className="px-1 pb-2 text-xs text-destructive">{details.error.message}</p>}
+      {parsed.error && <p role="alert" className="px-1 pb-2 text-xs text-destructive">{parsed.error}</p>}
+      {details.data && files.length === 0 && <p className="px-1 pb-2 text-xs text-muted-foreground">No file changes</p>}
+      {files.length > 0 && <>
+        <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate">{files.length} changed {files.length === 1 ? 'file' : 'files'}</span>
+          {totals.additions > 0 && <span className="font-mono text-[10px] text-success">+{totals.additions}</span>}
+          {totals.deletions > 0 && <span className="font-mono text-[10px] text-destructive">−{totals.deletions}</span>}
+          <span className="ml-1 tabular-nums">{index + 1}/{files.length}</span>
+          <Button variant="ghost" size="icon-xs" aria-label="Previous file" disabled={index === 0} onClick={() => step(-1)}><ChevronLeft /></Button>
+          <Button variant="ghost" size="icon-xs" aria-label="Next file" disabled={index >= files.length - 1} onClick={() => step(1)}><ChevronRight /></Button>
+        </div>
+        <ul ref={listRef} aria-label="Changed files" className="dialog-scrollbar max-h-44 shrink-0 overflow-y-auto border-b border-border/60 pb-1">
+          {files.map((file) => {
+            const { name, folder } = splitPath(file.path);
+            const active = file === current;
+            return <li key={file.path}>
+              <button
+                type="button"
+                aria-current={active ? 'true' : undefined}
+                title={`${file.path} (${COMMIT_STATUS_LABEL[file.status]})`}
+                data-path={file.path}
+                className={cn('flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm px-1 text-left text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none', active && 'bg-muted')}
+                onClick={() => setSelectedPath(file.path)}
+              >
+                <span className={cn('w-3 shrink-0 text-center font-mono text-[10px] font-semibold', COMMIT_STATUS_CLASS[file.status])}>{file.status}</span>
+                <span className="min-w-0 flex-1 truncate">{name}{folder && <span className="ml-1.5 text-muted-foreground/70">{folder}</span>}</span>
+                {file.diff ? <span className="shrink-0 font-mono text-[10px] tabular-nums">
+                  {file.additions > 0 && <span className="text-success">+{file.additions}</span>}
+                  {file.additions > 0 && file.deletions > 0 && ' '}
+                  {file.deletions > 0 && <span className="text-destructive">−{file.deletions}</span>}
+                </span> : <span className="shrink-0 text-[10px] text-muted-foreground/70">binary</span>}
+              </button>
+            </li>;
+          })}
+        </ul>
       </>}
     </div>
+    {current && <div key={current.path} className="dialog-scrollbar min-h-0 flex-1 overflow-y-auto">
+      <CommitFileDiff file={current} themeType={resolvedMode} />
+    </div>}
   </div>;
 }
 
