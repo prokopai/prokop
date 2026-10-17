@@ -1,6 +1,5 @@
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { toast } from 'sonner';
-import { storage, STORAGE_KEYS } from '@/lib/storage';
 import { useNotificationStore } from '@/stores/notificationStore';
 import {
   detectNotificationSupport,
@@ -8,12 +7,11 @@ import {
   serializePushSubscription,
   urlBase64ToApplicationServerKey,
 } from './notificationSupport';
-import { randomUUID } from '@/lib/randomId';
+import { getOrCreateClientId } from '@/config/client-identity';
 
-async function getClientId(): Promise<string> {
-  const existing = await storage.get<string>(STORAGE_KEYS.CLIENT_ID);
-  return existing ?? randomUUID();
-}
+// A push is routed by the controlling device's client id, so the
+// subscription must carry the same id the socket registers with.
+const getClientId = getOrCreateClientId;
 
 const SERVICE_WORKER_READY_TIMEOUT_MS = 10_000;
 const REGISTRATION_RECONCILE_GRACE_MS = 5_000;

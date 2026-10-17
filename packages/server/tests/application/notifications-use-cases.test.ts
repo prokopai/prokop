@@ -154,6 +154,7 @@ function makeDeps(state: FakeState, overrides: Partial<NotificationsApplicationD
         : { status: 'resolved', isPermission: true }),
     permissionTimeoutMs: () => 1_800_000,
     isAnyClientAttending: () => false,
+    controllerClientId: () => null,
     ...overrides,
   };
 }
@@ -264,9 +265,9 @@ describe('notifications application use cases', () => {
     expect(state.sent).toHaveLength(1);
   });
 
-  test('dispatch delivers to every enabled device, whichever one started the session', async () => {
-    // The desktop opened the session first; the phone must still hear about
-    // the finish, or a run started at the desk never reaches your pocket.
+  test('dispatch for a session nobody controls delivers to every enabled device', async () => {
+    // A scheduled run or a released session has no one working from a device,
+    // so each device may hear about it.
     state.subscriptions = [
       makeSubRow({ id: 'sub-desktop', client_id: 'client-desktop' }),
       makeSubRow({ id: 'sub-phone', client_id: 'client-phone', endpoint: 'https://push.example.com/phone' }),
@@ -281,6 +282,31 @@ describe('notifications application use cases', () => {
     ]);
     expect(state.log).toContain('delivered:e-all:sub-desktop');
     expect(state.log).toContain('delivered:e-all:sub-phone');
+  });
+
+  test('dispatch for a controlled session delivers only to the controlling device', async () => {
+    // The phone controls the session; the desk must not buzz about it.
+    state.subscriptions = [
+      makeSubRow({ id: 'sub-desktop', client_id: 'client-desktop' }),
+      makeSubRow({ id: 'sub-phone', client_id: 'client-phone', endpoint: 'https://push.example.com/phone' }),
+    ];
+    const application = createNotificationsApplication(makeDeps(state, { controllerClientId: () => 'client-phone' }));
+
+    await application.dispatch({ eventId: 'e-ctl', eventType: 'session_completed', sessionId: 'sess-1' });
+
+    expect(state.sent.map((sent) => sent.endpoint)).toEqual(['https://push.example.com/phone']);
+    expect(state.log).toContain('delivered:e-ctl:sub-phone');
+    expect(state.log).not.toContain('reserve:e-ctl:sub-desktop');
+  });
+
+  test('a controlling device without a subscription means no push at all', async () => {
+    state.subscriptions = [makeSubRow({ id: 'sub-desktop', client_id: 'client-desktop' })];
+    const application = createNotificationsApplication(makeDeps(state, { controllerClientId: () => 'client-phone' }));
+
+    await application.dispatch({ eventId: 'e-none', eventType: 'session_completed', sessionId: 'sess-1' });
+
+    expect(state.sent).toEqual([]);
+    expect(state.log.some((entry) => entry.startsWith('reserve:'))).toBe(false);
   });
 
   test('dispatch deletes stale subscriptions and marks transient and permanent failures', async () => {

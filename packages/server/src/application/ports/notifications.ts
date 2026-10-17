@@ -118,4 +118,7 @@ export interface NotificationsApplicationDeps {
    * dropped at its due time while this is true: that device signals locally
    * (sound, unread mark, the ask itself), and the person is one person. */
   isAnyClientAttending(): boolean;
+  /** The client id of the device controlling the session, or null when nobody does.
+   * A controlled session is pushed only to that device. */
+  controllerClientId(sessionId: string): string | null;
 }

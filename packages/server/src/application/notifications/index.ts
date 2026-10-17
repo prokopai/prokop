@@ -30,12 +30,13 @@ import type { NotificationsApplicationDeps } from '@/application/ports/notificat
  * retry tick, and the delivery cleanup). The reservation store, the push
  * sender, and the scheduled-run eligibility stay behind ports.
  *
- * One person, several devices: every push goes to every enabled device, and
- * none goes out while that person is at one of them. A device showing the
- * event to someone present cancels it at once; at the due time a push is
- * also dropped when any connected device reports someone present, since
- * that device signals locally. Which device controls the session does not
- * matter here; control decides who may act, not who is told.
+ * One person, several devices: a push about a controlled session goes only
+ * to the device that controls it, since that is the device the person is
+ * working from; a session nobody controls goes to every enabled device. No
+ * push goes out while that person is at a connected device. A device
+ * showing the event to someone present cancels it at once; at the due time
+ * a push is also dropped when any connected device reports someone present,
+ * since that device signals locally.
  */
 
 interface PendingNotificationDispatch {
@@ -111,9 +112,15 @@ export function createNotificationsApplication(
   }): Promise<void> {
     const { eventId, eventType, sessionId } = input;
 
-    const subscriptions = deps.store.listEnabledForEvent(eventType);
+    const enabled = deps.store.listEnabledForEvent(eventType);
+    // The controlling device is the one to tell; the others would only buzz
+    // about work being done elsewhere.
+    const controller = deps.controllerClientId(sessionId);
+    const subscriptions = controller === null ? enabled : enabled.filter((sub) => sub.client_id === controller);
     if (subscriptions.length === 0) {
-      console.info(`[web-push] No enabled subscriptions for ${eventType}`, { eventId });
+      console.info(controller === null
+        ? `[web-push] No enabled subscriptions for ${eventType}`
+        : `[web-push] The controlling device has no enabled subscription for ${eventType}`, { eventId, sessionId });
       return;
     }
 

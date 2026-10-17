@@ -6,6 +6,7 @@ import { createNotificationRepository } from '@/infrastructure/sqlite/notificati
 import { createWebPushSender } from '@/infrastructure/web-push/sender';
 import { canNotifyForSession as scheduledSessionCanNotify } from '@/domains/scheduling/notifications';
 import { isAnyConnectionAttending } from '@/transport/websocket/connection-registry';
+import { getControlState } from '@/transport/websocket/control-registry';
 import {
   createNotificationsApplication,
   type NotificationsApplication,
@@ -38,6 +39,7 @@ export function getProkopNotificationsApplication(): NotificationsApplication {
     getPendingAsk: getPermissionRequestByRequestId,
     permissionTimeoutMs: getPermissionTimeoutMs,
     isAnyClientAttending: () => isAnyConnectionAttending(),
+    controllerClientId: (sessionId) => getControlState(sessionId).controllerClientId,
   });
 
   return singleton;

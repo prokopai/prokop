@@ -6,7 +6,8 @@ function generateClientId(): string {
   return randomUUID();
 }
 
-async function getOrCreateClientId(): Promise<string> {
+/** The one client id of this device: the socket registers with it and push subscriptions carry it. */
+export async function getOrCreateClientId(): Promise<string> {
   const existing = await storage.get<string>(STORAGE_KEYS.CLIENT_ID);
   if (existing) return existing;
 
