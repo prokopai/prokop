@@ -45,7 +45,7 @@ export function WorkspaceTabSearch({ ids, tabs, onSelect }: WorkspaceTabSearchPr
                   <span className="block truncate">{workspaceTabLabel(id, tabs)}</span>
                   {tabs[id]?.description && <span className="block truncate text-xs text-muted-foreground">{tabs[id]?.description}</span>}
                 </span>
-                {tabs[id]?.dirty && <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Unsaved changes" />}
+                {tabs[id]?.dirty && <span className="size-1.5 shrink-0 rounded-full bg-highlight" aria-label="Unsaved changes" />}
               </CommandItem>
             ))}
           </CommandList>

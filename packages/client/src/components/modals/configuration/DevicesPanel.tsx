@@ -141,7 +141,7 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
             <p className="text-sm text-muted-foreground">Use Prokop from your phone or another computer. This computer never needs to pair.</p>
           </div>
           {!pairing && (
-            <Button size="sm" disabled={busy !== null}
+            <Button variant="outline" size="sm" disabled={busy !== null}
               onClick={() => void run('pair', async () => setPairing(await sdkClient.http.access.createPairingCode()))}>
               Pair a device
             </Button>
@@ -161,7 +161,7 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
                 <span className="font-mono text-sm text-muted-foreground" title="Should match the code on the other device">
                   {request.matchCode}
                 </span>
-                <Button size="sm" disabled={busy !== null}
+                <Button variant="outline" size="sm" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.approve(request.id))}>Allow</Button>
                 <Button size="sm" variant="ghost" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.deny(request.id))}>Deny</Button>

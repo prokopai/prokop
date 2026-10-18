@@ -423,7 +423,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       onDrop={handleDrop}
       className={cn(
         'mx-auto w-full max-w-3xl px-4 pt-2 pb-4',
-        isDragOver && 'ring-2 ring-primary'
+        isDragOver && 'ring-2 ring-highlight'
       )}
     >
       <div
@@ -432,7 +432,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           'focus-within:ring-1 focus-within:ring-ring/30',
           'transition-shadow',
           'border',
-          isDragOver && 'ring-2 ring-primary border-primary'
+          isDragOver && 'ring-2 ring-highlight border-highlight'
         )}
       >
         {pendingAttachments.length > 0 && (
@@ -658,7 +658,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     ? 'text-muted-foreground'
                     : sendMode === 'goal'
                       ? 'text-warning'
-                      : 'text-primary',
+                      : 'text-highlight',
                 )}
                 aria-label={isStreaming ? (steerByDefault ? 'Steer message' : 'Queue message')
                   : sendMode === 'goal' ? 'Set goal' : 'Send message'}

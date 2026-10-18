@@ -231,7 +231,7 @@ const untrusted: Components = {
       href={href ? safePrUrl(href) : undefined}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-primary underline underline-offset-2 hover:text-primary/80"
+      className="text-foreground underline underline-offset-2 hover:text-foreground/80"
     >
       {children}
     </a>
@@ -883,7 +883,7 @@ export function Thread({
               maxLength={60000}
             />
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={busy || !reply.trim()}>
+              <Button variant="outline" type="submit" size="sm" disabled={busy || !reply.trim()}>
                 Reply
               </Button>
               {thread.canResolve && (

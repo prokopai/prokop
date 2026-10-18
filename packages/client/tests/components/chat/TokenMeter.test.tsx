@@ -45,7 +45,7 @@ describe('TokenMeter (server-normalized usage)', () => {
       <TokenMeter usage={usage({ used: 1000, contextWindow: 10000, rows: [] })} />,
     );
     const progressRing = container.querySelectorAll('circle')[1];
-    expect(progressRing?.className.baseVal ?? progressRing?.getAttribute('class') ?? '').toContain('text-primary');
+    expect(progressRing?.className.baseVal ?? progressRing?.getAttribute('class') ?? '').toContain('text-highlight');
   });
 
   it('uses warning ring color for 40%+ usage', () => {

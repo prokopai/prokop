@@ -49,7 +49,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
   return (
     <div ref={scrollerRef} role="tablist" aria-label={label} {...drag.stripEvents} className={cn(
       'board-tab-strip-scrollbar relative flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden',
-      drag.insertion && 'bg-primary/5 ring-1 ring-inset ring-primary/30',
+      drag.insertion && 'bg-highlight/5 ring-1 ring-inset ring-highlight/30',
     )}>
       {ids.map((id, index) => {
         const tab = tabs[id];
@@ -87,7 +87,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
               <WorkspaceTabIcon id={id} />
               <WorkspaceTabStatus status={tab?.status} />
               <span className="truncate">{name}</span>
-              {tab?.dirty && <span role="img" aria-label="Unsaved changes" className="size-1.5 shrink-0 rounded-full bg-primary" />}
+              {tab?.dirty && <span role="img" aria-label="Unsaved changes" className="size-1.5 shrink-0 rounded-full bg-highlight" />}
             </button>
             {tab?.onClose && (
               <button type="button" className="mr-1 rounded-md p-0.5 outline-none hover:bg-background focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:opacity-40" aria-label={`Close ${name}`} tabIndex={id === activeId ? 0 : -1} disabled={tab.closeDisabled} onClick={() => onClose(id)}>
@@ -98,7 +98,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
         );
         return renderTabMenu ? renderTabMenu(id, trigger) : trigger;
       })}
-      {drag.insertion && <span data-tab-insertion-marker aria-hidden="true" className="pointer-events-none absolute top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-primary" style={{ left: Math.max(0, drag.insertion.left - 1) }} />}
+      {drag.insertion && <span data-tab-insertion-marker aria-hidden="true" className="pointer-events-none absolute top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-highlight" style={{ left: Math.max(0, drag.insertion.left - 1) }} />}
     </div>
   );
 }

@@ -123,7 +123,7 @@ export function PairDeviceScreen({ server, onPaired }: PairDeviceScreenProps) {
                 : approval.kind === 'expired' ? 'The request expired before anyone approved it.'
                   : approval.message}
             </p>
-            <Button size="sm" onClick={retry}>Ask again</Button>
+            <Button variant="outline" size="sm" onClick={retry}>Ask again</Button>
           </div>
         )}
 

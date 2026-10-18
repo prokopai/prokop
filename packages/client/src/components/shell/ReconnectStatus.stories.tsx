@@ -1,16 +1,22 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { ReconnectStatus } from './ReconnectStatus';
-import { withConnectionStore } from '../../../.storybook/mocks/storeDecorators';
+import { ThemedToaster } from '@/components/providers/ThemedToaster';
+import { useConnectionStore } from '@/stores/connectionStore';
 
-/** The small reconnect pill under the header while the socket is down. It stays quiet for 1.5 s unless the drop was found on return to the foreground. */
+/** The reconnect notice while the socket is down: a persistent toast with a retry action and no close button. It stays quiet for 1.5 s unless the drop was found on return to the foreground. */
 
 const meta = {
   title: 'Shell/ReconnectStatus',
   component: ReconnectStatus,
-  parameters: { layout: 'padded' },
+  parameters: { layout: 'fullscreen', smoke: 'skip: sonner measures toast heights in a real browser' },
   args: { authError: null, nextRetryIn: 4, onRetry: fn() },
-  decorators: [withConnectionStore({ connected: false }), (Story) => <div className="relative h-24 w-[32rem] rounded-xl border bg-background"><div className="h-10 border-b" /><Story /></div>],
+  decorators: [(Story) => {
+    // A drop found on return to the foreground shows at once, so the story needs no 1.5 s wait.
+    useConnectionStore.setState({ connected: false, foregroundRecovery: true });
+    // The toaster mounts first so it is subscribed when the notice fires.
+    return <div className="h-screen bg-background"><ThemedToaster /><Story /></div>;
+  }],
 } satisfies Meta<typeof ReconnectStatus>;
 
 export default meta;

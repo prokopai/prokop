@@ -236,7 +236,7 @@ export function FolderPickerDialog({
                         }}
                         className={cn(
                           'flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover:bg-muted',
-                          currentPath === drive && 'bg-primary/20 text-primary font-medium'
+                          currentPath === drive && 'bg-highlight/20 text-highlight font-medium'
                         )}
                       >
                         <Folder className={cn('size-3.5', FOLDER_ICON_COLOR)} />
@@ -249,7 +249,7 @@ export function FolderPickerDialog({
             )}
             <span className="flex-1 text-sm font-mono truncate" title={targetPath}>
               {selectedFolder ? (
-                <span className="text-primary">
+                <span className="text-highlight">
                   {truncatePath(getFullPath(selectedFolder), 45)}
                 </span>
               ) : (
@@ -302,13 +302,13 @@ export function FolderPickerDialog({
                     className={cn(
                       'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-left',
                       'hover:bg-muted',
-                      index === selectedIndex && 'bg-primary/20 text-primary font-medium ring-1 ring-primary/50'
+                      index === selectedIndex && 'bg-accent text-accent-foreground'
                     )}
                   >
                     <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
                     <span className="truncate flex-1">{file.name}</span>
                     {index === selectedIndex && (
-                      <Check className="size-4 text-primary" />
+                      <Check className="size-4 text-highlight" />
                     )}
                   </button>
                 ))}

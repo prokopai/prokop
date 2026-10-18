@@ -34,7 +34,7 @@ function SchemeButton({ scheme, currentScheme, onClick }: {
       className={cn(
         'flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors',
         isSelected
-          ? 'border-primary bg-primary/5'
+          ? 'border-highlight bg-highlight/5'
           : 'border-border bg-transparent hover:bg-muted/50',
       )}
     >

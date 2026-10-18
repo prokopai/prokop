@@ -325,7 +325,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
 
               <div className="flex gap-2">
                 {!provider.accounts && !provider.connected && !provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
-                  <Button
+                  <Button variant="outline"
                     size="sm"
                     onClick={() => handleConnect(provider.provider)}
                     disabled={connectingId === provider.provider}
@@ -339,7 +339,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
 
                 {!provider.accounts && provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
                   <>
-                    <Button
+                    <Button variant="outline"
                       size="sm"
                       onClick={() => handleConnect(provider.provider)}
                       disabled={connectingId === provider.provider}

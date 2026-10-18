@@ -11,10 +11,15 @@ export function ThemedToaster() {
       richColors
       theme={resolvedMode}
       toastOptions={{
+        // The one surface for everything the app says on its own: attention
+        // asks, finished sessions, update ready, reconnecting, action errors.
         classNames: {
-          toast: 'bg-popover text-popover-foreground border-border',
-          description: 'text-muted-foreground',
-          closeButton: 'bg-border',
+          toast: 'rounded-xl border-border bg-popover text-popover-foreground shadow-md',
+          title: 'text-sm font-medium',
+          description: 'text-sm text-muted-foreground',
+          actionButton: 'rounded-md bg-primary text-primary-foreground',
+          cancelButton: 'rounded-md bg-muted text-foreground',
+          closeButton: 'border-border bg-popover text-muted-foreground',
         },
       }}
     />

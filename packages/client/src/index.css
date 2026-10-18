@@ -17,6 +17,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
 
   /* Animation durations */
   --animate-fade-in: fade-in 0.2s ease-out;
@@ -168,7 +170,7 @@
   }
 
   ::selection {
-    background-color: color-mix(in oklch, var(--primary) 20%, transparent);
+    background-color: color-mix(in oklch, var(--highlight) 20%, transparent);
   }
 }
 
@@ -223,6 +225,9 @@
   --success: oklch(0.55 0.14 150);
   --warning: oklch(0.68 0.14 75);
   --error: oklch(0.55 0.2 26);
+  /* The one accent for selection and attention cues. Never a button fill: that is --primary. */
+  --highlight: oklch(0.5 0.15 250);
+  --highlight-foreground: oklch(0.99 0 0);
   /* File icons */
   --file-icon-ts: oklch(0.48 0.17 255);
   --file-icon-js: oklch(0.68 0.16 85);
@@ -269,6 +274,8 @@
   --success: oklch(0.7 0.15 150);
   --warning: oklch(0.8 0.13 80);
   --error: oklch(0.65 0.19 25);
+  --highlight: oklch(0.7 0.12 250);
+  --highlight-foreground: oklch(0.15 0.03 250);
   /* File icons */
   --file-icon-ts: oklch(0.7 0.15 255);
   --file-icon-js: oklch(0.8 0.15 85);
@@ -325,6 +332,8 @@
    SCHEME: OCEAN (cool blue-teal palette)
    -------------------------------------------------------------------------- */
 .light.ocean {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle blue undertones on large areas */
   --background: oklch(0.955 0.008 230);
   --foreground: oklch(0.15 0.01 240);
@@ -372,6 +381,8 @@
 }
 
 .dark.ocean {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle blue undertones on large areas */
   --background: oklch(0.165 0.022 235);
   --foreground: oklch(0.90 0.003 240);
@@ -422,6 +433,8 @@
    SCHEME: FOREST (natural green palette)
    -------------------------------------------------------------------------- */
 .light.forest {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle green undertones on large areas */
   --background: oklch(0.955 0.008 155);
   --foreground: oklch(0.15 0.01 160);
@@ -469,6 +482,8 @@
 }
 
 .dark.forest {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle green undertones on large areas */
   --background: oklch(0.165 0.022 158);
   --foreground: oklch(0.90 0.003 160);
@@ -519,6 +534,8 @@
    SCHEME: SUNSET (warm orange-amber palette)
    -------------------------------------------------------------------------- */
 .light.sunset {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle warm amber undertones on large areas */
   --background: oklch(0.955 0.008 50);
   --foreground: oklch(0.15 0.01 45);
@@ -566,6 +583,8 @@
 }
 
 .dark.sunset {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle warm amber undertones on large areas */
   --background: oklch(0.165 0.022 45);
   --foreground: oklch(0.90 0.003 50);
@@ -616,6 +635,8 @@
    SCHEME: AMETHYST (rich purple-violet palette)
    -------------------------------------------------------------------------- */
 .light.amethyst {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle purple undertones on large areas */
   --background: oklch(0.955 0.008 290);
   --foreground: oklch(0.15 0.01 295);
@@ -663,6 +684,8 @@
 }
 
 .dark.amethyst {
+  --highlight: var(--primary);
+  --highlight-foreground: var(--primary-foreground);
   /* Surface tints - subtle purple undertones on large areas */
   --background: oklch(0.165 0.022 288);
   --foreground: oklch(0.90 0.003 295);
@@ -756,6 +779,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --color-file-ts: var(--file-icon-ts);
   --color-file-js: var(--file-icon-js);
   --color-file-json: var(--file-icon-json);

@@ -53,7 +53,7 @@ export function ResponseFormatSelector({
           title={tooltip}
         >
           {selectedFormat ? (
-            <Braces className="size-4 text-primary" />
+            <Braces className="size-4 text-highlight" />
           ) : (
             <MessageSquareText className="size-4 text-muted-foreground" />
           )}
@@ -77,7 +77,7 @@ export function ResponseFormatSelector({
               onClick={() => onSelect(format.id)}
               className={isActive ? 'bg-accent' : ''}
             >
-              <Braces className="size-4 text-primary shrink-0" />
+              <Braces className="size-4 text-highlight shrink-0" />
               <div className="ml-2 flex flex-col min-w-0">
                 <span className="truncate">{format.name}</span>
                 {format.description && (

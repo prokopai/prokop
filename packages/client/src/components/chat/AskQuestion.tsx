@@ -45,20 +45,20 @@ function SingleSelectView({
             onClick={() => setSelectedIndex(index)}
             className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
               selectedIndex === index
-                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                ? 'border-highlight bg-highlight/10 ring-1 ring-highlight/30'
+                : 'border-border hover:border-highlight/50 hover:bg-muted/50'
             }`}
           >
             <div className="flex items-center gap-2 w-full">
               <div
                 className={`size-4 rounded-full border-2 flex items-center justify-center transition-colors ${
                   selectedIndex === index
-                    ? 'border-primary bg-primary'
+                    ? 'border-highlight bg-highlight'
                     : 'border-muted-foreground'
                 }`}
               >
                 {selectedIndex === index && (
-                  <div className="size-2 rounded-full bg-primary-foreground" />
+                  <div className="size-2 rounded-full bg-highlight-foreground" />
                 )}
               </div>
               <span className="font-medium">{option.label}</span>
@@ -134,8 +134,8 @@ function MultiSelectView({
                 isDisabled
                   ? 'border-border opacity-50 cursor-not-allowed'
                   : selectedIndices.has(index)
-                    ? 'border-primary bg-primary/5 hover:bg-primary/10'
-                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                    ? 'border-highlight bg-highlight/5 hover:bg-highlight/10'
+                    : 'border-border hover:border-highlight/50 hover:bg-muted/50'
               }`}
             >
               <div className="flex items-center gap-2 w-full">
@@ -299,7 +299,7 @@ function FormView({
       )}
       <div className="flex flex-col gap-4">
         {question.questions.map((subQuestion, index) => (
-          <div key={index} className="border-l-2 border-primary/30 pl-3">
+          <div key={index} className="border-l-2 border-highlight/30 pl-3">
             <p className="text-xs text-muted-foreground mb-2">Question {index + 1} of {question.questions.length}</p>
             <SubQuestionView
               question={subQuestion}
@@ -348,17 +348,17 @@ function SubQuestionView({
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border transition-colors ${
                   selectedIndices.has(index)
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary/50'
+                    ? 'border-highlight bg-highlight/10'
+                    : 'border-border hover:border-highlight/50'
                 }`}
               >
                 <span
                   className={`size-3.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                    selectedIndices.has(index) ? 'border-primary' : 'border-muted-foreground/50'
+                    selectedIndices.has(index) ? 'border-highlight' : 'border-muted-foreground/50'
                   }`}
                 >
                   {selectedIndices.has(index) && (
-                    <span className="size-1.5 rounded-full bg-primary" />
+                    <span className="size-1.5 rounded-full bg-highlight" />
                   )}
                 </span>
                 {option.label}
@@ -402,17 +402,17 @@ function SubQuestionView({
                     isDisabled
                       ? 'border-border opacity-50 cursor-not-allowed'
                       : selectedIndices.has(index)
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/50'
+                        ? 'border-highlight bg-highlight/10'
+                        : 'border-border hover:border-highlight/50'
                   }`}
                 >
                   <span
                     className={`size-3.5 rounded-[3px] border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      selectedIndices.has(index) ? 'border-primary bg-primary' : 'border-muted-foreground/50'
+                      selectedIndices.has(index) ? 'border-highlight bg-highlight' : 'border-muted-foreground/50'
                     }`}
                   >
                     {selectedIndices.has(index) && (
-                      <svg className="size-2.5 text-primary-foreground" viewBox="0 0 12 12" fill="none">
+                      <svg className="size-2.5 text-highlight-foreground" viewBox="0 0 12 12" fill="none">
                         <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
@@ -906,7 +906,7 @@ export function AskQuestion({ request, onRespond }: AskQuestionProps) {
         case 'text':
         case 'confirm':
         case 'form':
-          return { icon: HelpCircle, borderClass: 'border-primary/30 bg-primary/5', iconClass: 'text-primary' };
+          return { icon: HelpCircle, borderClass: 'border-highlight/30 bg-highlight/5', iconClass: 'text-highlight' };
         case 'permission':
           return permissionSeverityStyle(ask);
         case 'client_capability':

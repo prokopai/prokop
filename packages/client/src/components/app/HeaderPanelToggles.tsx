@@ -87,7 +87,7 @@ export function HeaderPanelToggles({
       >
         <Settings className="size-4" />
         {updateVersion && (
-          <span aria-hidden="true" data-update-available className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-background" />
+          <span aria-hidden="true" data-update-available className="absolute right-1 top-1 size-1.5 rounded-full bg-highlight ring-2 ring-background" />
         )}
       </Button>
     </div>

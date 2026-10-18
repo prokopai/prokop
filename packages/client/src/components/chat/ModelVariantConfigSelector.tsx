@@ -229,7 +229,7 @@ export function ModelVariantConfigSelector({
         {selectedPreconfig && !lockPreconfig && (
           <span className={cn(
             'shrink-0 text-muted-foreground',
-            isAgentPreconfig(selectedPreconfig.id) && 'text-primary font-medium',
+            isAgentPreconfig(selectedPreconfig.id) && 'text-highlight font-medium',
           )}>
             · {preconfigDisplayName(selectedPreconfig.name)}
           </span>
@@ -332,7 +332,7 @@ export function ModelVariantConfigSelector({
           showCheck={false}
           onSelect={() => handleSelectPreconfig(preconfig.id)}
         >
-          <Bot className={cn('mr-2 size-4 shrink-0', isAgent ? 'text-primary' : 'text-muted-foreground')} />
+          <Bot className={cn('mr-2 size-4 shrink-0', isAgent ? 'text-highlight' : 'text-muted-foreground')} />
           <span>
             {preconfig.name}
             {preconfig.isDefault && (
@@ -466,7 +466,7 @@ export function ModelVariantConfigSelector({
     ...(preconfigs.length > 0 && !lockPreconfig
       ? [{ icon: (() => {
             const isSelectedAgent = selectedPreconfig ? isAgentPreconfig(selectedPreconfig.id) : false;
-            return <Bot className={cn('size-3.5', isSelectedAgent && 'text-primary')} />;
+            return <Bot className={cn('size-3.5', isSelectedAgent && 'text-highlight')} />;
           })(), label: 'Agent', value: selectedPreconfig ? preconfigDisplayName(selectedPreconfig.name) : 'None', section: 'config' as const }]
       : []),
   ];

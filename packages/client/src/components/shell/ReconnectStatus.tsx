@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { useConnectionStore } from '@/stores/connectionStore';
+
+export const RECONNECT_TOAST_ID = 'reconnect-status';
 
 interface ReconnectStatusProps {
   authError: string | null;
@@ -11,7 +13,9 @@ interface ReconnectStatusProps {
 /**
  * Mount only while disconnected, keyed by server. A brief drop or a server
  * switch stays quiet for 1.5 s; a drop found on return to the foreground shows
- * at once, since the user is already looking at a stale screen.
+ * at once, since the user is already looking at a stale screen. The status is
+ * a persistent toast that cannot be closed, only retried; it leaves with the
+ * component once the connection is back.
  */
 export function ReconnectStatus({ authError, nextRetryIn, onRetry }: ReconnectStatusProps) {
   const foregroundRecovery = useConnectionStore((state) => state.foregroundRecovery);
@@ -21,16 +25,28 @@ export function ReconnectStatus({ authError, nextRetryIn, onRetry }: ReconnectSt
     return () => clearTimeout(timer);
   }, []);
 
-  if (!settled && !foregroundRecovery) return null;
+  const visible = settled || foregroundRecovery;
+  const message = authError ?? (nextRetryIn > 0 ? `Reconnecting in ${nextRetryIn}s...` : 'Reconnecting...');
 
-  return (
-    <div className="absolute right-2 top-full z-40 mt-1 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md">
-      <span role="status">
-        {authError ?? (nextRetryIn > 0 ? `Reconnecting in ${nextRetryIn}s...` : 'Reconnecting...')}
-      </span>
-      <Button variant="ghost" size="sm" onClick={onRetry}>
-        Retry now
-      </Button>
-    </div>
-  );
+  useEffect(() => {
+    if (!visible) return;
+    toast(message, {
+      id: RECONNECT_TOAST_ID,
+      duration: Infinity,
+      dismissible: false,
+      action: {
+        label: 'Retry now',
+        onClick: (event) => {
+          event.preventDefault();
+          onRetry();
+        },
+      },
+    });
+  }, [visible, message, onRetry]);
+
+  useEffect(() => () => {
+    toast.dismiss(RECONNECT_TOAST_ID);
+  }, []);
+
+  return null;
 }

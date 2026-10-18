@@ -157,7 +157,7 @@ export function PrSelect({
 const stateStyles = {
   draft: { icon: GitPullRequestDraft, label: 'Draft', className: 'text-muted-foreground' },
   open: { icon: GitPullRequest, label: 'Open', className: 'text-success' },
-  merged: { icon: GitMerge, label: 'Merged', className: 'text-primary' },
+  merged: { icon: GitMerge, label: 'Merged', className: 'text-highlight' },
   closed: { icon: GitPullRequestClosed, label: 'Closed', className: 'text-error' },
 };
 function stateStyle(pr: Pick<PullRequestSummary, 'state' | 'draft'>) {

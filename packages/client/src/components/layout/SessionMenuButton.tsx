@@ -275,7 +275,7 @@ const SessionStatusDot = React.memo(function SessionStatusDot({ state }: { state
     return (
       <span
         aria-hidden
-        className="size-2 shrink-0 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent"
+        className="size-2 shrink-0 animate-spin rounded-full border-[1.5px] border-highlight border-t-transparent"
       />
     );
   }
@@ -285,7 +285,7 @@ const SessionStatusDot = React.memo(function SessionStatusDot({ state }: { state
         className={cn(
           'rounded-full',
           state === 'unread' || state === 'warning' ? 'size-2' : 'size-1.5',
-          state === 'unread' && 'bg-primary',
+          state === 'unread' && 'bg-highlight',
           state === 'error' && 'bg-error',
           state === 'interrupted' && 'bg-muted-foreground/50',
           state === 'warning' && 'bg-warning',
@@ -500,9 +500,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
       Needs approval
     </span>
   );
-  else if (derived.isRunning) metaParts.push(<span key="status" className="text-primary">Running</span>);
+  else if (derived.isRunning) metaParts.push(<span key="status" className="text-highlight">Running</span>);
   else if (unread?.failed) metaParts.push(<span key="status" className="text-error">Failed</span>);
-  else if (unread) metaParts.push(<span key="status" className="text-primary">Finished</span>);
+  else if (unread) metaParts.push(<span key="status" className="text-highlight">Finished</span>);
   else if (session.subagentStatus === 'error') metaParts.push(<span key="status" className="text-error">Errored</span>);
   else if (session.subagentStatus === 'interrupted') metaParts.push(<span key="status">Interrupted</span>);
   const worktreeId = session.workspaceRootId && worktreeLabel ? session.workspaceRootId : null;
@@ -558,7 +558,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               className={cn(
                 'peer/menu-button group/row flex min-w-0 flex-1 flex-col gap-1 rounded-md px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'bg-primary/10 hover:bg-primary/15',
+                isActive && 'bg-highlight/10 hover:bg-highlight/15',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-7">
@@ -570,7 +570,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                     aria-label={selected ? 'Deselect session' : 'Select session'}
                   >
                     {selected ? (
-                      <CheckSquare className="size-4 text-primary" />
+                      <CheckSquare className="size-4 text-highlight" />
                     ) : (
                       <Square className="size-4 text-muted-foreground" />
                     )}
@@ -654,7 +654,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               className={cn(
                 'peer/menu-button group/row relative flex min-w-0 flex-1 flex-col gap-1 rounded-md px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'bg-primary/10 hover:bg-primary/15',
+                isActive && 'bg-highlight/10 hover:bg-highlight/15',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-14">
@@ -666,7 +666,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                     aria-label={selected ? 'Deselect session' : 'Select session'}
                   >
                     {selected ? (
-                      <CheckSquare className="size-4 text-primary" />
+                      <CheckSquare className="size-4 text-highlight" />
                     ) : (
                       <Square className="size-4 text-muted-foreground" />
                     )}

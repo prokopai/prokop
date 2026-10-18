@@ -3,7 +3,7 @@ import type { Terminal } from '@xterm/xterm';
 import { MessageSquarePlus } from 'lucide-react';
 import { createContextReferenceId } from '@prokopai/sdk';
 import { insertIntoComposer } from '@/lib/composerTargets';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 /** Captured output beyond this keeps its last lines; prompts stay a sane size. */
 export const TERMINAL_CONTEXT_MAX_CHARS = 32_000;
@@ -53,20 +53,18 @@ export function TerminalAddToChat({ terminal, label, cwd, sessionId }: TerminalA
   };
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="xs"
       // Keep the selection: a mousedown here would otherwise clear it before the click.
       onMouseDown={(event) => event.preventDefault()}
       onClick={add}
       disabled={!sessionId}
       title={sessionId ? 'Add the selected output to the chat' : 'Open a session to add output to its chat'}
-      className={cn(
-        'absolute top-2 right-3 z-10 flex items-center gap-1.5 rounded-md border bg-popover/95 px-2 py-1 text-xs text-popover-foreground shadow-md',
-        'transition-colors hover:bg-accent disabled:opacity-50 disabled:hover:bg-popover/95',
-      )}
+      className="absolute top-2 right-3 z-10 bg-popover shadow-md dark:bg-popover"
     >
       <MessageSquarePlus className="size-3.5" />
       Add to chat
-    </button>
+    </Button>
   );
 }

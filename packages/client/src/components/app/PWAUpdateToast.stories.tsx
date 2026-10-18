@@ -1,9 +1,10 @@
 import type { ComponentType } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PWAUpdateBanner } from './PWAUpdateBanner';
+import { PWAUpdateToast } from './PWAUpdateToast';
+import { ThemedToaster } from '@/components/providers/ThemedToaster';
 import { usePWAUpdateStore } from '@/pwa/updateStore';
 
-/** The "update ready" banner over the app once a new service worker is waiting. */
+/** The "update ready" notice once a new service worker is waiting. It is a toast like every other notice the app raises on its own. */
 
 function withUpdate(state: { needRefresh: boolean; dismissed?: boolean; isUpdating?: boolean }) {
   return function UpdateDecorator(Story: ComponentType) {
@@ -13,11 +14,12 @@ function withUpdate(state: { needRefresh: boolean; dismissed?: boolean; isUpdati
 }
 
 const meta = {
-  title: 'Shell/PWAUpdateBanner',
-  component: PWAUpdateBanner,
-  parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <div className="h-screen bg-background"><Story /></div>],
-} satisfies Meta<typeof PWAUpdateBanner>;
+  title: 'Shell/PWAUpdateToast',
+  component: PWAUpdateToast,
+  parameters: { layout: 'fullscreen', smoke: 'skip: sonner measures toast heights in a real browser' },
+  // The toaster mounts first so it is subscribed when the notice fires.
+  decorators: [(Story) => <div className="h-screen bg-background"><ThemedToaster /><Story /></div>],
+} satisfies Meta<typeof PWAUpdateToast>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

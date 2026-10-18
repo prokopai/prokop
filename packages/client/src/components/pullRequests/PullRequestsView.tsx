@@ -341,7 +341,7 @@ function RepositoryInbox({
           >
             {accountName}
           </span>
-          <Button
+          <Button variant="outline"
             size="sm"
             onClick={() => {
               setCreating(true);

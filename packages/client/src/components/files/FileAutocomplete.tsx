@@ -48,7 +48,7 @@ function HighlightedName({ name, query }: { name: string; query: string }) {
   return (
     <>
       {Array.from(name, (char, index) => (
-        marked.has(index) ? <mark key={index} className="bg-transparent font-semibold text-primary">{char}</mark> : char
+        marked.has(index) ? <mark key={index} className="bg-transparent font-semibold text-highlight">{char}</mark> : char
       ))}
     </>
   );
@@ -202,7 +202,7 @@ export function FileAutocomplete({
               className={cn(
                 'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm',
                 // bg-accent is nearly the popover color in dark themes; the selection must be unmistakable.
-                index === selectedIndex && 'bg-primary/15 text-foreground',
+                index === selectedIndex && 'bg-accent text-accent-foreground',
               )}
             >
               <Icon className={cn('size-4 shrink-0', isFolder ? FOLDER_ICON_COLOR : fileIconColor(file.path))} />

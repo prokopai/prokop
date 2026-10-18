@@ -312,7 +312,7 @@ function RefChips({ refs }: { refs: GitBranchInfo[] }) {
   if (refs.length === 0) return null;
   const shown = refs.slice(0, MAX_CHIPS);
   return <span className="flex shrink-0 items-center gap-1">
-    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded-md px-1 text-2xs leading-4', b.kind === 'remote' ? 'border text-muted-foreground' : b.current ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
+    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded-md px-1 text-2xs leading-4', b.kind === 'remote' ? 'border text-muted-foreground' : b.current ? 'bg-highlight/15 text-highlight' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
     {refs.length > MAX_CHIPS && <span className="text-2xs text-muted-foreground" title={refs.slice(MAX_CHIPS).map((b) => b.name).join(', ')}>+{refs.length - MAX_CHIPS}</span>}
   </span>;
 }

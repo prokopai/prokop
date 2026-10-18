@@ -193,7 +193,7 @@ function pictureImageProps(node: HastElement | undefined, mode: 'dark' | 'light'
 export function MarkdownLink({ className, ...props }: ComponentProps<'a'>) {
   const openFile = useContext(MarkdownFileLinkContext);
   const filePath = openFile && props.href ? localFileLinkPath(props.href) : null;
-  const linkClassName = cn('underline underline-offset-2 transition-colors text-primary hover:text-primary/80', className);
+  const linkClassName = cn('underline underline-offset-2 transition-colors text-foreground hover:text-foreground/80', className);
   if (openFile && filePath) {
     // A file path is not a URL on this origin: open it in the file preview.
     return (

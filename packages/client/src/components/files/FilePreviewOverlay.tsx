@@ -297,7 +297,7 @@ export default function FilePreviewOverlay({
               >
                 <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
               </Button>
-              <Button
+              <Button variant="outline"
                 size="sm"
                 onClick={onOpenEdit}
                 disabled={!onOpenEdit || isDeletedFile || isBinaryImage || isOutsideWorkspace}

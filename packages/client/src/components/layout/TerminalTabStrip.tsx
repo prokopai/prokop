@@ -126,7 +126,7 @@ export function TerminalTabStrip({
     <div ref={scrollerRef} {...drag.stripEvents} className={cn(
       'relative flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto',
       compact ? 'min-h-0' : 'min-h-[32px] px-1',
-      drag.insertion && 'bg-primary/5 ring-1 ring-inset ring-primary/30',
+      drag.insertion && 'bg-highlight/5 ring-1 ring-inset ring-highlight/30',
     )}>
       <div role="tablist" aria-label="Terminals" className="flex items-center gap-0.5">
         {tabs.map((tab, index) => {
@@ -185,7 +185,7 @@ export function TerminalTabStrip({
         })}
       </div>
       {trailing}
-      {drag.insertion && <span data-tab-insertion-marker aria-hidden="true" className="pointer-events-none absolute top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" style={{ left: Math.max(0, drag.insertion.left - 1) }} />}
+      {drag.insertion && <span data-tab-insertion-marker aria-hidden="true" className="pointer-events-none absolute top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-highlight" style={{ left: Math.max(0, drag.insertion.left - 1) }} />}
     </div>
   );
 }

@@ -714,7 +714,7 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
         <p className="text-sm text-muted-foreground">
           {formats.length} format{formats.length !== 1 ? 's' : ''}
         </p>
-        <Button size="sm" onClick={editor.startCreate}>
+        <Button variant="outline" size="sm" onClick={editor.startCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Format
         </Button>

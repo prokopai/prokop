@@ -40,6 +40,7 @@ const LINE_TOKENS: TokenPair[] = [
 ];
 
 const STATUS_TOKENS: TokenPair[] = [
+  { token: 'highlight', foreground: 'highlight-foreground', note: 'selection and attention cues' },
   { token: 'success' },
   { token: 'warning' },
   { token: 'error' },
@@ -94,7 +95,7 @@ function TokensPage() {
   );
 }
 
-const MATRIX_TOKENS = ['background', 'card', 'popover', 'primary', 'accent', 'muted', 'border', 'success', 'warning', 'error'];
+const MATRIX_TOKENS = ['background', 'card', 'popover', 'primary', 'highlight', 'accent', 'muted', 'border', 'success', 'warning', 'error'];
 
 /** Every mode and scheme at once, independent of the toolbar. */
 function SchemeMatrix() {

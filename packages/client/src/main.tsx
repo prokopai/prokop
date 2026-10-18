@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { ThemedToaster } from '@/components/providers/ThemedToaster';
-import { PWAUpdateBanner } from '@/components/app/PWAUpdateBanner';
+import { PWAUpdateToast } from '@/components/app/PWAUpdateToast';
 import { TitleTooltipLayer } from '@/components/shared/TitleTooltipLayer';
 import { RouterApp, router } from './router';
 import { registerProkopServiceWorker } from '@/pwa/registerServiceWorker';
@@ -68,7 +68,7 @@ startSessionCacheSync();
 function App() {
   return (
     <ErrorBoundary>
-      <PWAUpdateBanner />
+      <PWAUpdateToast />
       <RouterApp />
       <TitleTooltipLayer />
     </ErrorBoundary>
@@ -80,10 +80,11 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <QueryProvider>
         <ThemeProvider defaultMode="system" defaultScheme="neutral">
+          {/* Mounted first so it is subscribed before any notice fires on mount. */}
+          <ThemedToaster />
           <PierreWorkerPoolProvider>
             <App />
           </PierreWorkerPoolProvider>
-          <ThemedToaster />
         </ThemeProvider>
       </QueryProvider>
     </ErrorBoundary>

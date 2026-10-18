@@ -28,7 +28,7 @@ export function LearningSourcePicker({ workspaces, selectedIds, onChange }: Lear
         const denied = workspace.settings.allowPersonalLearning !== undefined && workspace.settings.allowPersonalLearning !== true;
         return <button key={workspace.id} type="button" aria-pressed={selected} disabled={denied && !selected}
           onClick={() => onChange(selected ? selectedIds.filter(id => id !== workspace.id) : [...selectedIds, workspace.id])}
-          className={cn('flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-accent disabled:opacity-50', selected && 'bg-primary/10')}>
+          className={cn('flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-accent disabled:opacity-50', selected && 'bg-highlight/10')}>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-xs">{workspace.name}</span>
             <span className="truncate text-xs text-muted-foreground">{denied ? 'Personal learning disabled' : workspace.path}</span>

@@ -145,7 +145,7 @@ export default function PullRequestFilesView({
 }
 
 const fileStatuses: [RegExp, string, string][] = [
-  [/rename/i, 'R', 'text-primary'],
+  [/rename/i, 'R', 'text-highlight'],
   [/add/i, 'A', 'text-success'],
   [/delete|remove/i, 'D', 'text-error'],
 ];

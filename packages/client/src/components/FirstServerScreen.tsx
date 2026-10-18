@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 // packages/client/src/components/FirstServerScreen.tsx
 import { useState } from 'react';
@@ -149,13 +150,9 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
             )}
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isValidating}
-              className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" size="lg" className="w-full" disabled={isValidating}>
               {isValidating ? 'Connecting...' : 'Add Server'}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

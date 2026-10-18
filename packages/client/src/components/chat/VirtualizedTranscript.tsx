@@ -193,7 +193,7 @@ export function VirtualizedTranscript({
     <div
       className={cn(
         'mx-auto w-full max-w-3xl px-4 py-4',
-        item.message.id === targetMessageId && 'rounded-lg ring-2 ring-primary/40 bg-primary/5',
+        item.message.id === targetMessageId && 'rounded-lg ring-2 ring-highlight/40 bg-highlight/5',
       )}
     >
       <MessageRow

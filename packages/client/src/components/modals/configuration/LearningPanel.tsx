@@ -183,14 +183,15 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
   /** One preview control for both layouts: a quiet link ending the learner's section. */
   const previewLink = (item: LearningReviewer, bordered: boolean) => {
     const link = (
-      <button
-        type="button"
-        className="text-xs text-primary transition-opacity hover:opacity-80 disabled:pointer-events-none disabled:opacity-50"
+      <Button
+        variant="link"
+        size="xs"
+        className="h-auto p-0"
         disabled={preview.isPending}
         onClick={() => preview.mutate(item.id)}
       >
         Preview prompt
-      </button>
+      </Button>
     );
     return bordered ? <div className="border-t px-3 py-2">{link}</div> : link;
   };
@@ -204,14 +205,15 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
             {'Study conversations during quiet periods and maintain shared project knowledge. '}
             Enabling also turns on Memory. The first run covers the last seven days.
           </p>
-          <button
-            type="button"
+          <Button
+            variant="link"
+            size="xs"
+            className="h-auto w-fit p-0"
             aria-label="Learning history"
-            className="w-fit text-xs text-primary transition-opacity hover:opacity-80"
             onClick={() => setHistoryOpen(true)}
           >
             History
-          </button>
+          </Button>
         </div>
         <Switch
           id="learning-enabled"

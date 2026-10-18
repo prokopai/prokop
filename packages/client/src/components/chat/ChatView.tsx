@@ -452,18 +452,19 @@ function ChatViewContent({
 
         {/* Only free mode needs a way back; following is the quiet default. */}
         {!autoFollow && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={handleToggleAutoFollow}
-            className="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground pointer-events-auto"
+            className="pointer-events-auto absolute bottom-4 left-1/2 z-50 -translate-x-1/2 bg-popover text-muted-foreground shadow-md dark:bg-popover"
             title="Jump to latest and follow (Cmd+Shift+F)"
           >
             <ArrowDown className="size-3.5" />
             Latest
             {hasUnseenOutput && (
-              <span className="size-1.5 rounded-full bg-primary" data-testid="unseen-output" />
+              <span className="size-1.5 rounded-full bg-highlight" data-testid="unseen-output" />
             )}
-          </button>
+          </Button>
         )}
         </DeferredConversation>
       </div>

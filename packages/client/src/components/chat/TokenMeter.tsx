@@ -42,7 +42,7 @@ export function TokenMeter({ usage = null }: TokenMeterProps) {
       ? 'text-error'
       : status === 'warning'
         ? 'text-warning'
-        : 'text-primary';
+        : 'text-highlight';
 
   const usageRows: Array<[string, string]> = usage && usage.rows.length > 0
     ? usage.rows.map((row) => [row.label, row.value])

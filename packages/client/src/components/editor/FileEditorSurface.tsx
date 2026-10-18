@@ -413,7 +413,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
               className={cn(
                 'group/tab flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs transition-colors',
                 isActive
-                  ? 'border-primary text-foreground'
+                  ? 'border-foreground text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
               title={doc.identity.path}
@@ -425,7 +425,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
               >
                 {doc.name}
               </button>
-              {dirty && <span className="size-1.5 rounded-full bg-primary" />}
+              {dirty && <span className="size-1.5 rounded-full bg-highlight" />}
               <button
                 type="button"
                 onClick={() => requestClose(id)}

@@ -172,7 +172,7 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
                 <div className="flex flex-col">
                   {sourceSessions.map(source => (
                     <button key={source.sessionId} type="button"
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm text-primary hover:bg-muted/50"
+                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/50"
                       onClick={() => openSession(source.sessionId)}>
                       <span className="truncate">{sessionTitle(source.title)}</span>
                       {source.count > 1 && <span className="shrink-0 text-xs text-muted-foreground">{source.count} messages</span>}

@@ -584,14 +584,15 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                     />
                   </div>
                   {homeWorkspaceId && (
-                    <button
-                      type="button"
-                      className="w-fit text-xs text-primary transition-opacity hover:opacity-80"
+                    <Button
+                      variant="link"
+                      size="xs"
+                      className="h-auto w-fit p-0"
                       aria-label="Learning history"
                       onClick={() => setHistoryOpen(true)}
                     >
                       History
-                    </button>
+                    </Button>
                   )}
                   {form.learningEnabled && (
                     <div className="space-y-2">
@@ -790,7 +791,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                         }))}
                         className={cn(
                           'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-accent',
-                          selected && 'bg-primary/10',
+                          selected && 'bg-highlight/10',
                         )}
                       >
                         <div className="flex flex-col min-w-0">
@@ -966,7 +967,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         <p className="text-sm text-muted-foreground">
           {preconfigs.length} agent{preconfigs.length !== 1 ? 's' : ''}
         </p>
-        <Button size="sm" onClick={handleCreate}>
+        <Button variant="outline" size="sm" onClick={handleCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Agent
         </Button>

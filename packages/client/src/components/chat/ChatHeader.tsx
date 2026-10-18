@@ -260,7 +260,7 @@ export function ChatHeader({
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={handleKeyDown}
-                className="text-base font-semibold leading-none bg-background border border-primary rounded-md px-2 py-1.5 outline-none min-w-0 flex-1"
+                className="text-base font-semibold leading-none bg-background border border-ring rounded-md px-2 py-1.5 outline-none min-w-0 flex-1"
                 autoFocus
               />
             ) : (

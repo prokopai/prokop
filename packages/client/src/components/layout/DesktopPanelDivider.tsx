@@ -43,7 +43,7 @@ export function DesktopPanelDivider({
       <div
         data-slot="desktop-panel-divider-indicator"
         className={cn(
-          'absolute rounded-full bg-transparent transition-colors group-hover/divider:bg-primary group-focus-visible/divider:bg-primary',
+          'absolute rounded-full bg-transparent transition-colors group-hover/divider:bg-highlight group-focus-visible/divider:bg-highlight',
           orientation === 'vertical'
             ? 'inset-y-0 left-1/2 w-0.5 -translate-x-1/2'
             : 'inset-x-0 top-1/2 h-0.5 -translate-y-1/2',

@@ -236,7 +236,7 @@ export function MessageBubble({
           onClick={onTogglePin}
           disabled={isPinningMessage}
           className={cn('size-5', isPinned
-            ? 'text-primary hover:text-primary/80'
+            ? 'text-highlight hover:text-highlight/80'
             : 'text-muted-foreground hover:text-foreground',
           !isPinned && hoverActionClass)}
           title={isPinned ? 'Unpin message' : 'Pin message'}

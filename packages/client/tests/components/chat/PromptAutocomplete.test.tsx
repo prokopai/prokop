@@ -88,8 +88,7 @@ describe('PromptAutocomplete', () => {
       />,
     );
     const fixBtn = screen.getByText('/fix').closest('button');
-    expect(fixBtn?.className).toContain('bg-primary/20');
-    expect(fixBtn?.className).toContain('ring-1');
+    expect(fixBtn?.className).toContain('bg-accent');
   });
 
   it('displays prompt descriptions', () => {
