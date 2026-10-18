@@ -101,7 +101,7 @@ export default function PullRequestFilesView({
                     <bdi>{displayPath(f.path)}</bdi>
                   </span>
                   {f.additions !== null && (
-                    <span className="shrink-0 font-mono text-[10px]">
+                    <span className="shrink-0 font-mono text-2xs">
                       <span className="text-success">+{f.additions}</span>{' '}
                       <span className="text-destructive">−{f.deletions}</span>
                     </span>
@@ -156,7 +156,7 @@ function FileStatus({ status }: { status: string }) {
     'text-warning',
   ];
   return (
-    <span title={status} className={cn('w-3 shrink-0 text-center font-mono text-[10px] font-semibold', className)}>
+    <span title={status} className={cn('w-3 shrink-0 text-center font-mono text-2xs font-semibold', className)}>
       {letter}
     </span>
   );

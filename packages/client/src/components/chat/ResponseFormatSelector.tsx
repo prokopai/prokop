@@ -47,7 +47,7 @@ export function ResponseFormatSelector({
               disabled
               aria-label={tooltip}
             >
-              <MessageSquareText className="size-4 text-muted-foreground/60" />
+              <MessageSquareText className="size-4 text-muted-foreground/70" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{tooltip}</TooltipContent>

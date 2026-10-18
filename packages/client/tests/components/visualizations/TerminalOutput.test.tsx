@@ -1,95 +1,80 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { TerminalOutput } from '@/components/visualizations/TerminalOutput';
 
+function lines(count: number, prefix = 'line'): string {
+  return Array.from({ length: count }, (_, i) => `${prefix} ${i + 1}`).join('\n');
+}
+
 describe('TerminalOutput', () => {
-  it('renders command with $ prompt', () => {
-    render(<TerminalOutput command="npm test" exitCode={0} />);
-    expect(screen.getByText('$')).toBeInTheDocument();
-    expect(screen.getByText('npm test')).toBeInTheDocument();
-  });
-
-  it('renders exit code in brackets', () => {
-    render(<TerminalOutput command="ls" exitCode={0} />);
-    expect(screen.getByText('[0]')).toBeInTheDocument();
-  });
-
-  it('shows error styling for non-zero exit code', () => {
-    render(<TerminalOutput command="fail" exitCode={1} />);
-    const exitBadge = screen.getByText('[1]');
-    expect(exitBadge.className).toContain('bg-destructive/10');
-    expect(exitBadge.className).toContain('text-destructive');
-  });
-
-  it('shows muted styling for zero exit code', () => {
-    render(<TerminalOutput command="ls" exitCode={0} />);
-    const exitBadge = screen.getByText('[0]');
-    expect(exitBadge.className).toContain('bg-muted');
-  });
-
-  it('renders stdout when provided', () => {
-    render(<TerminalOutput command="echo hello" exitCode={0} stdout="hello" />);
+  it('renders stdout as output lines', () => {
+    render(<TerminalOutput exitCode={0} stdout="hello" />);
     expect(screen.getByText('hello')).toBeInTheDocument();
   });
 
-  it('renders stderr when provided', () => {
-    render(<TerminalOutput command="err" exitCode={1} stderr="error occurred" />);
-    const stderrEl = screen.getByText('error occurred');
-    expect(stderrEl.className).toContain('text-destructive');
+  it('shows no command header: the tool row carries command and exit code', () => {
+    render(<TerminalOutput exitCode={1} stdout="out" />);
+    expect(screen.queryByText('$')).not.toBeInTheDocument();
+    expect(screen.queryByText(/\[1\]|exit 1/)).not.toBeInTheDocument();
   });
 
-  it('renders both stdout and stderr', () => {
-    render(
-      <TerminalOutput
-        command="cmd"
-        exitCode={1}
-        stdout="output"
-        stderr="error"
-      />,
-    );
-    expect(screen.getByText('output')).toBeInTheDocument();
-    expect(screen.getByText('error')).toBeInTheDocument();
+  it('colors stderr only when the command failed', () => {
+    const { unmount } = render(<TerminalOutput exitCode={1} stderr="error occurred" />);
+    expect(screen.getByText('error occurred').className).toContain('text-destructive');
+    unmount();
+
+    render(<TerminalOutput exitCode={0} stderr="warning only" />);
+    const warning = screen.getByText('warning only');
+    expect(warning.className).not.toContain('text-destructive');
+    expect(warning.className).toContain('text-muted-foreground');
   });
 
-  it('hides output section when no stdout or stderr', () => {
-    const { container } = render(
-      <TerminalOutput command="noop" exitCode={0} />,
-    );
-    const outputSection = container.querySelector('pre');
-    expect(outputSection).not.toBeInTheDocument();
+  it('treats a killed command as failed', () => {
+    render(<TerminalOutput status="killed" stderr="stopped" />);
+    expect(screen.getByText('stopped').className).toContain('text-destructive');
   });
 
-  it('renders nothing for whitespace-only output (no header)', () => {
-    const { container } = render(<TerminalOutput stdout="   " />);
-    expect(container.querySelector('pre')).not.toBeInTheDocument();
+  it('renders stdout before stderr', () => {
+    render(<TerminalOutput exitCode={1} stdout="output" stderr="error" />);
+    const out = screen.getByText('output');
+    const err = screen.getByText('error');
+    expect(out.compareDocumentPosition(err) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders no output body for whitespace-only stdout with header', () => {
-    const { container } = render(<TerminalOutput command="silent-cmd" exitCode={0} stdout="   " />);
-    expect(screen.getByText('silent-cmd')).toBeInTheDocument();
-    expect(container.querySelector('pre')).not.toBeInTheDocument();
+  it('renders nothing for empty or whitespace-only output', () => {
+    const { container, unmount } = render(<TerminalOutput exitCode={0} />);
+    expect(container.firstChild).toBeNull();
+    unmount();
+    const second = render(<TerminalOutput stdout="   " />);
+    expect(second.container.firstChild).toBeNull();
   });
 
-  it('applies font-mono to command area', () => {
-    render(<TerminalOutput command="test" exitCode={0} />);
-    const commandArea = screen.getByText('test').closest('div');
-    expect(commandArea?.className).toContain('font-mono');
+  it('folds long output to its last lines with a count of the earlier ones', () => {
+    render(<TerminalOutput exitCode={0} stdout={lines(40)} vizKey="fold" />);
+    expect(screen.getByText('… 28 earlier lines')).toBeInTheDocument();
+    expect(screen.queryByText('line 28')).not.toBeInTheDocument();
+    expect(screen.getByText('line 29')).toBeInTheDocument();
+    expect(screen.getByText('line 40')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all 40 lines' })).toBeInTheDocument();
   });
 
-  it('caps output body height with an inner scroll area (header variant)', () => {
-    const { container } = render(
-      <TerminalOutput command="cat big-file.ts" exitCode={0} stdout={'line\n'.repeat(200)} />,
-    );
-    const scrollBody = container.querySelector('.tool-output-scroll');
-    expect(scrollBody).toBeInTheDocument();
-    // Command header stays outside the scroll area.
-    expect(screen.getByText('cat big-file.ts').closest('.tool-output-scroll')).toBeNull();
+  it('shows everything inline after Show all, with no nested scroller', async () => {
+    const { container } = render(<TerminalOutput exitCode={0} stdout={lines(40)} vizKey="show-all" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 40 lines' }));
+    expect(screen.getByText('line 1')).toBeInTheDocument();
+    expect(screen.queryByText(/earlier lines/)).not.toBeInTheDocument();
+    expect(container.querySelector('.tool-output-scroll')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
   });
 
-  it('caps output body height with an inner scroll area (no header variant)', () => {
-    const { container } = render(
-      <TerminalOutput stdout={'line\n'.repeat(200)} />,
-    );
-    expect(container.querySelector('.tool-output-scroll')).toBeInTheDocument();
+  it('does not offer Show all when the output fits the budget', () => {
+    render(<TerminalOutput exitCode={0} stdout={lines(5)} />);
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
+  it('uses a monospace output body', () => {
+    const { container } = render(<TerminalOutput exitCode={0} stdout="mono" />);
+    expect(container.querySelector('pre')?.className).toContain('font-mono');
   });
 });

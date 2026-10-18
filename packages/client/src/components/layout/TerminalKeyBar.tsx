@@ -25,7 +25,7 @@ const TERMINAL_KEYS: TerminalKey[] = [
  */
 export function TerminalKeyBar({ terminal }: { terminal: Terminal }) {
   return (
-    <div role="toolbar" aria-label="Terminal keys" className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border/40 px-1 py-1">
+    <div role="toolbar" aria-label="Terminal keys" className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border/50 px-1 py-1">
       {TERMINAL_KEYS.map((key) => (
         <button
           key={key.label}

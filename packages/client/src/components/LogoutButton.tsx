@@ -14,7 +14,7 @@ export default function LogoutButton({ token, onLogout }: LogoutButtonProps) {
         <div className="flex items-center gap-2 text-xs">
           {/* Paired devices hold a `pkd_` token; anything else is the shared PROKOPAI_AUTH_TOKEN. */}
           <span className="text-muted-foreground">{token.startsWith('pkd_') ? 'Paired device' : 'Shared token'}</span>
-          <code className="font-mono text-foreground bg-background px-1.5 py-0.5 rounded text-[10px]">
+          <code className="font-mono text-foreground bg-background px-1.5 py-0.5 rounded text-2xs">
             {maskToken(token)}
           </code>
         </div>

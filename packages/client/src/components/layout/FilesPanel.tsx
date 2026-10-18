@@ -332,7 +332,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
           )}
           {isChangesTab && (gitStatusQuery.data || changesStats.fileCount > 0) && (
             <span
-              className="flex shrink-0 items-center gap-1 text-[10px] tabular-nums text-muted-foreground/70"
+              className="flex shrink-0 items-center gap-1 text-2xs tabular-nums text-muted-foreground/70"
               title={`${changesStats.fileCount} changed ${changesStats.fileCount === 1 ? 'file' : 'files'}${changesStats.hasCounts ? `, +${changesStats.additions} −${changesStats.deletions}` : ''}`}
             >
               <span>{changesStats.fileCount}</span>

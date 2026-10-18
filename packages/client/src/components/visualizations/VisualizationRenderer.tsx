@@ -11,7 +11,7 @@ import { HtmlRenderFrame } from './HtmlRenderFrame';
 import { ToolImage } from './ToolImage';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
 
-interface VisualizationRendererProps {
+export interface VisualizationRendererProps {
   visualization?: AnyVisualization;
   /**
    * Stable identity (tool-call part id) scoping persisted expansion state.
@@ -41,6 +41,7 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
       );
 
     case 'diffs':
+      // Several files under one tool row: each peek names its own file.
       return (
         <div className="space-y-3">
           {visualization.items.map((diff, index) => (
@@ -52,6 +53,7 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
               additions={diff.additions}
               deletions={diff.deletions}
               matchInfo={diff.matchInfo}
+              showPath
               vizKey={persistKey ? `${persistKey}:${index}` : undefined}
             />
           ))}
@@ -64,7 +66,6 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
           path={visualization.path}
           content={visualization.content}
           language={visualization.language}
-          created={visualization.created}
           highlightLines={visualization.highlightLines}
           vizKey={persistKey}
         />
@@ -102,11 +103,11 @@ export const VisualizationRenderer = memo(function VisualizationRenderer({ visua
     case 'shell-output':
       return (
         <TerminalOutput
-          command={visualization.command}
           stdout={visualization.stdout}
           stderr={visualization.stderr}
           exitCode={visualization.exitCode}
           status={visualization.status}
+          vizKey={persistKey}
         />
       );
 

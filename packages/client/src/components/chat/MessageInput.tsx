@@ -425,13 +425,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         isDragOver && 'ring-2 ring-primary'
       )}
     >
+      {/* A soft tint, no border until focus: the composer is part of the page, not a box on it. */}
       <div
         className={cn(
-          'relative z-10 rounded-2xl bg-background/50 overflow-hidden',
-          'focus-within:ring-1 focus-within:ring-ring/30',
-          'transition-shadow',
-          'border border-border/60',
-          isDragOver && 'ring-2 ring-primary border-primary'
+          'relative z-10 overflow-hidden rounded-xl bg-muted/40 transition-colors',
+          'focus-within:bg-card focus-within:ring-1 focus-within:ring-border',
+          isDragOver && 'ring-2 ring-primary'
         )}
       >
         {pendingAttachments.length > 0 && (
@@ -567,26 +566,29 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             )}
           </div>
 
-          <div className="flex h-7 items-center rounded-full border border-border/70">
+          <div className="flex items-center gap-1">
+            {/* Goal mode is a quiet toggle beside the arrow; it only takes color while selected. */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   disabled={goalActive}
                   className={cn(
-                    'flex h-full items-center gap-0.5 rounded-l-full pl-2 pr-1 text-xs font-medium transition-colors disabled:opacity-50',
+                    'flex h-7 items-center gap-1 rounded-md px-1.5 text-xs transition-colors disabled:opacity-50',
                     sendMode === 'goal'
-                      ? 'bg-warning/15 text-warning'
-                      : 'bg-muted text-muted-foreground hover:bg-accent',
+                      ? 'text-warning hover:bg-warning/10'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                   )}
                   aria-label={`Send mode: ${sendMode}`}
+                  title={sendMode === 'goal' ? 'Sending as a goal' : 'Send mode'}
                 >
-                  <span className="capitalize">{sendMode}</span>
+                  <Target className="size-3.5" />
+                  {sendMode === 'goal' && <span>Goal</span>}
                   <ChevronDown className="size-2.5 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56">
-                <DropdownMenuLabel>Send Mode</DropdownMenuLabel>
+                <DropdownMenuLabel>Send mode</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(e) => e.preventDefault()}
@@ -641,23 +643,23 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               <button
                 type="button"
                 onClick={onStopStreaming}
-                className="flex h-full items-center justify-center rounded-r-full border-l border-border/70 bg-muted px-2.5 transition-colors text-destructive hover:bg-accent"
+                className="flex size-7 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
                 aria-label="Stop"
                 title="Stop (double Esc)"
               >
-                <Square className="size-4" fill="currentColor" />
+                <Square className="size-3" fill="currentColor" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={isDisabled}
                 className={cn(
-                  'flex h-full items-center justify-center rounded-r-full border-l border-border/70 bg-muted px-2.5 transition-colors hover:bg-accent disabled:opacity-50',
+                  'flex size-7 items-center justify-center rounded-full transition-colors',
                   isDisabled
-                    ? 'text-muted-foreground'
+                    ? 'bg-muted text-muted-foreground/70'
                     : sendMode === 'goal'
-                      ? 'text-warning'
-                      : 'text-primary',
+                      ? 'bg-warning text-background hover:opacity-80'
+                      : 'bg-foreground text-background hover:opacity-80',
                 )}
                 aria-label={isStreaming ? (steerByDefault ? 'Steer message' : 'Queue message')
                   : sendMode === 'goal' ? 'Set goal' : 'Send message'}

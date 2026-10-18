@@ -1,5 +1,5 @@
 import { type FC, memo, useState, useMemo, useCallback, type ComponentProps } from 'react';
-import { Check, AlertCircle, ChevronDown, ChevronRight, ExternalLink, Copy } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { File as PierreFile } from '@pierre/diffs/react';
 import type { SelectedLineRange } from '@pierre/diffs/react';
 import { useUIStore } from '@/stores/uiStore';
@@ -11,6 +11,7 @@ import { RENDER_BUDGETS } from '@/lib/renderBudgets';
 import { PIERRE_THEME_PAIR, resolvePierreLang } from '@/lib/pierreDiffsTheme';
 import { pierreCacheKey } from '@/lib/pierreCacheKey';
 import { useVizExpanded } from '@/lib/vizExpansion';
+import { PreviewAction, PreviewCornerButton, PreviewFrame } from './PreviewFrame';
 
 type PierreFileOptions = ComponentProps<typeof PierreFile>['options'];
 
@@ -18,24 +19,29 @@ interface CodeBlockProps {
   content: string;
   path: string;
   language?: string;
-  created?: boolean;
   highlightLines?: number[];
-  showOverwriteIndicator?: boolean;
+  /** Name the file above the body; off when the tool row already does. */
+  showPath?: boolean;
   /** Stable identity (tool-call part id) for persisted expansion state. */
   vizKey?: string;
 }
 
+/**
+ * A written file as a peek: the first lines behind a fade, "Show all" to grow
+ * it inline, "Open file" for the real editor. Created or overwrote is a chip
+ * on the tool row, not a badge here.
+ */
 export const CodeBlock: FC<CodeBlockProps> = memo(({
   content,
   path,
   language,
-  created,
   highlightLines = [],
+  showPath = false,
   vizKey,
 }) => {
   const [expanded, setExpanded] = useVizExpanded(
     vizKey ? `code:${vizKey}` : `code:${path}:${content.length}`,
-    true,
+    false,
   );
   const [copied, setCopied] = useState(false);
   const openFilePreview = useUIStore((s) => s.openFilePreview);
@@ -43,7 +49,7 @@ export const CodeBlock: FC<CodeBlockProps> = memo(({
 
   const { resolvedMode } = useTheme();
 
-  const handlePathClick = () => {
+  const handleOpenFile = () => {
     if (!activeWorkspace) return;
     openFilePreview({
       workspaceId: activeWorkspace.id,
@@ -92,7 +98,7 @@ export const CodeBlock: FC<CodeBlockProps> = memo(({
   // Write-tool highlight tint. highlightLines is 1-based; Pierre's selection
   // is a single { start, end } range, so contiguous line sets (the common
   // case for a written block) map exactly and sparse sets tint the gap.
-  // Clamped to the preview length so collapsed mode never selects past the
+  // Clamped to the preview length so the folded peek never selects past the
   // rendered slice.
   const selectedLines = useMemo<SelectedLineRange | null>(() => {
     if (highlightLines.length === 0) return null;
@@ -103,72 +109,30 @@ export const CodeBlock: FC<CodeBlockProps> = memo(({
   }, [highlightLines, previewContent]);
 
   return (
-    <div className="visualization-container max-w-full border border-border rounded-md">
-      <div>
-        <div className="group/path flex items-center gap-2 px-1 bg-muted/50 text-xs text-muted-foreground whitespace-nowrap">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="shrink-0 flex items-center gap-2 px-2 py-1 hover:bg-muted"
-          >
-            {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-          </button>
-
-          {/* Path truncates from a nested span: text-overflow does not apply
-              to the flex button itself, only to a block/inline child. */}
-          <button
-            type="button"
-            onClick={handlePathClick}
-            className="flex items-center gap-1 font-mono hover:text-foreground transition-colors rounded px-1 py-0.5 -mx-1 hover:bg-muted min-w-0 flex-1 text-left"
-            title={path}
-          >
-            <span className="truncate">{path}</span>
-            <ExternalLink className="size-2.5 shrink-0 opacity-0 group-hover/path:opacity-100 transition-opacity" />
-          </button>
-
-          {!expanded && (
-            <span className="shrink-0 text-xs text-muted-foreground/70">
-              {lineCount} lines
-            </span>
-          )}
-          <div className="shrink-0 ml-auto mr-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Copy code"
-            >
-              {copied ? (
-                <Check className="size-3 text-success" />
-              ) : (
-                <Copy className="size-3" />
-              )}
-            </button>
-            {created === false ? (
-              <span className="flex items-center gap-1 text-warning">
-                <AlertCircle className="size-3" />
-                Overwrote
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-success">
-                <Check className="size-3" />
-                Created
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Capped scroll body: an expanded long file stays a preview the user
-            scrolls inside, never a full-screen block in the transcript. The
-            collapsed 20-line budget never needs the cap, so it stays uncapped. */}
-        <div className={expanded ? 'tool-output-scroll' : undefined}>
-          <PierreFile
-            file={file}
-            options={options}
-            selectedLines={selectedLines}
-            className="pierre-viz-host"
-          />
-        </div>
-      </div>
-    </div>
+    <PreviewFrame
+      totalLines={lineCount}
+      budget={RENDER_BUDGETS.codePreviewLines}
+      expanded={expanded}
+      onToggle={setExpanded}
+      caption={showPath && <span className="truncate" title={path}>{path}</span>}
+      corner={(
+        <>
+          <span className="select-none pl-1 font-mono text-2xs text-muted-foreground/70">{lang ?? 'text'}</span>
+          <PreviewCornerButton onClick={handleCopy} label="Copy code">
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          </PreviewCornerButton>
+        </>
+      )}
+      actions={activeWorkspace && (
+        <PreviewAction onClick={handleOpenFile} title={path}>Open file</PreviewAction>
+      )}
+    >
+      <PierreFile
+        file={file}
+        options={options}
+        selectedLines={selectedLines}
+        className="pierre-viz-host"
+      />
+    </PreviewFrame>
   );
 });

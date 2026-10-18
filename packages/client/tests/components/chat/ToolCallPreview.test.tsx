@@ -15,11 +15,8 @@ vi.mock('@/hooks/queries', () => ({
 vi.mock('@/components/visualizations', () => ({
   VisualizationRenderer: ({ visualization }: { visualization: AnyVisualization }) => {
     renderPreview();
-    return <div>{visualization.title}</div>;
+    return <div>{'title' in visualization && visualization.title ? visualization.title : `${visualization.type} preview`}</div>;
   },
-}));
-vi.mock('@/components/visualizations/TerminalOutput', () => ({
-  TerminalOutput: () => { renderPreview(); return <div>Shell preview</div>; },
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -108,8 +105,8 @@ describe('historical tool previews', () => {
     const part = makePart('shell-preview');
     part.presentation!.visualization = { type: 'shell-output', command: 'echo hello', exitCode: 0, stdout: 'hello', stderr: '' };
     const result = render(view(part, false));
-    expect(screen.getByText('Shell preview')).toBeInTheDocument();
+    expect(screen.getByText('shell-output preview')).toBeInTheDocument();
     result.rerender(view(part, true));
-    expect(screen.queryByText('Shell preview')).not.toBeInTheDocument();
+    expect(screen.queryByText('shell-output preview')).not.toBeInTheDocument();
   });
 });

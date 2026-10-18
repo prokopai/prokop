@@ -67,7 +67,7 @@ export default function ImagePreview({ src, name }: ImagePreviewProps) {
         />
       </div>
       {size && size.width > 0 && (
-        <span className="pointer-events-none absolute right-3 bottom-2 rounded bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums">
+        <span className="pointer-events-none absolute right-3 bottom-2 rounded bg-background/80 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground tabular-nums">
           {size.width} × {size.height}{upscale > 1 ? ` · ${upscale}×` : ''}
         </span>
       )}

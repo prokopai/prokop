@@ -3,7 +3,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeDecorator } from './theme-addon/ThemeDecorator';
 import { THEME_MODES, THEME_SCHEMES, SCHEME_LABELS } from './theme-addon/constants';
 import { resetAllStores } from './mocks/storeCleanup';
+import { ServerClientProvider, type ServerClientValue } from '../src/contexts/ServerClientContext';
 import '../src/index.css';
+
+// Global decorator: components under a session (tool rows, transcript) read the
+// server client from context; stories have no server, so provide an offline one.
+const OFFLINE_SERVER_CLIENT: ServerClientValue = { sdkClient: null, serverUrl: 'https://storybook.local', apiToken: null, connected: false };
+function ServerClientDecorator(Story: ComponentType) {
+  return (
+    <ServerClientProvider value={OFFLINE_SERVER_CLIENT}>
+      <Story />
+    </ServerClientProvider>
+  );
+}
 
 // Global decorator: reset all Zustand stores before each story to prevent state leaking
 function StoreCleanupDecorator(Story: ComponentType) {
@@ -28,7 +40,7 @@ function QueryClientDecorator(Story: ComponentType) {
 }
 
 export default {
-  decorators: [QueryClientDecorator, StoreCleanupDecorator, ThemeDecorator],
+  decorators: [QueryClientDecorator, ServerClientDecorator, StoreCleanupDecorator, ThemeDecorator],
   globalTypes: {
     themeMode: {
       name: 'Theme Mode',

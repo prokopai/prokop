@@ -307,7 +307,7 @@ export const WorkspaceOverview = React.memo(function WorkspaceOverview({
                                           {tagName}
                                         </button>
                                       </CollapsibleTrigger>
-                                      <Badge variant="secondary" className="ml-auto text-[10px]">{sessions.length}</Badge>
+                                      <Badge variant="secondary" className="ml-auto text-2xs">{sessions.length}</Badge>
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                           <button

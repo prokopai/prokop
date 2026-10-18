@@ -138,7 +138,7 @@ export function ScheduledJobsSection({
       >
         <div className="flex items-center gap-0.5">
           <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/job-collapsible:rotate-90" />
-          <Badge variant="secondary" className="text-[10px] px-1 py-0">{runs.length}</Badge>
+          <Badge variant="secondary" className="text-2xs px-1 py-0">{runs.length}</Badge>
         </div>
       </button>
     </CollapsibleTrigger>
@@ -156,7 +156,7 @@ export function ScheduledJobsSection({
           >
             <MessageSquare className="size-3 shrink-0 text-muted-foreground" />
             <span className="truncate">{runTitle(session) ?? 'Run'}</span>
-            <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+            <span className="ml-auto text-2xs text-muted-foreground shrink-0">
               {relativeTime(session.updatedAt, now)}
             </span>
           </SidebarMenuButton>
@@ -171,10 +171,10 @@ export function ScheduledJobsSection({
         <SidebarGroup>
           <SidebarGroupLabel asChild>
             <CollapsibleTrigger asChild>
-              <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                 <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 <span>Scheduled</span>
-                <span className="text-[10px] tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
+                <span className="text-2xs tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
                 <span className="flex-1" />
                 <div className="flex items-center">
                   <DropdownMenu>

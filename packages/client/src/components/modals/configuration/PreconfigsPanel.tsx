@@ -987,13 +987,13 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
               onOpen={() => handleEdit(preconfig)}
               badges={<>
                 {preconfig.isDefault && (
-                  <Badge variant="outline" className="h-4 shrink-0 gap-0.5 px-1.5 py-0 text-[10px]">
+                  <Badge variant="outline" className="h-4 shrink-0 gap-0.5 px-1.5 py-0 text-2xs">
                     <Star className="size-2.5" />
                     Default
                   </Badge>
                 )}
                 {preconfig.mode && preconfig.mode !== 'primary' && (
-                  <Badge variant="secondary" className="h-4 shrink-0 px-1.5 py-0 text-[10px]">
+                  <Badge variant="secondary" className="h-4 shrink-0 px-1.5 py-0 text-2xs">
                     {preconfig.mode === 'subagent' ? 'Subagent' : 'Primary + subagent'}
                   </Badge>
                 )}

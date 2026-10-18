@@ -107,7 +107,7 @@ export function ProviderCard({
             : 'no models'}
         </span>
         {isDefaultProvider && (
-          <Badge variant="outline" className="text-[10px] shrink-0 px-1.5 py-0 h-4 gap-0.5">
+          <Badge variant="outline" className="text-2xs shrink-0 px-1.5 py-0 h-4 gap-0.5">
             <Star className="size-2.5" />
             Default
           </Badge>
@@ -149,7 +149,7 @@ export function ProviderCard({
                       <ModelStatusDot status={model.runtimeStatus} />
                       <span className="text-sm truncate min-w-0" title={model.id}>{model.name}</span>
                       {isDefault && (
-                        <Badge variant="outline" className="text-[10px] shrink-0 px-1.5 py-0 h-4 gap-0.5">
+                        <Badge variant="outline" className="text-2xs shrink-0 px-1.5 py-0 h-4 gap-0.5">
                           <Star className="size-2.5" />
                           Default
                         </Badge>

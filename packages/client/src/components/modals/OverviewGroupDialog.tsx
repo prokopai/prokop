@@ -255,7 +255,7 @@ export function OverviewGroupDialog({
                       )}
                       <span className="truncate text-sm">{displayName}</span>
                       {isAgentHomeWorkspace(workspace) && (
-                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                        <Badge variant="secondary" className="shrink-0 text-2xs">
                           {AGENT_HOME_LABEL}
                         </Badge>
                       )}

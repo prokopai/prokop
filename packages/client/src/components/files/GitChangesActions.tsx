@@ -167,20 +167,20 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
               <button type="button" aria-label={collapsedRow ? `Expand directory ${row.path}` : `Collapse directory ${row.path}`} aria-expanded={!collapsedRow} className="shrink-0 text-muted-foreground/50 hover:text-foreground" onClick={() => toggleDir(row.path)}>
                 {collapsedRow ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
               </button>
-              <button type="button" className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground/80 hover:text-foreground" onClick={() => toggleDir(row.path)}>{row.path.split('/').pop()}</button>
-              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/50" title={`${paths.length} changed files`}>{paths.length}</span>
+              <button type="button" className="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground/70 hover:text-foreground" onClick={() => toggleDir(row.path)}>{row.path.split('/').pop()}</button>
+              <span className="shrink-0 text-2xs tabular-nums text-muted-foreground/50" title={`${paths.length} changed files`}>{paths.length}</span>
             </> : <>
               <button type="button" className="min-w-0 flex-1 truncate text-left text-xs" title={`Preview ${row.path}`} disabled={busy} onClick={() => onPreview(row.path)}>
                 {row.path.split('/').pop()}
                 {row.path.includes('/') && <span className="ml-1.5 text-muted-foreground/70">{row.path.slice(0, row.path.lastIndexOf('/'))}</span>}
               </button>
-              <span className={cn('shrink-0 font-mono text-[10px] font-medium uppercase', badge.className)} title={status}>{badge.letter}</span>
+              <span className={cn('shrink-0 font-mono text-2xs font-medium uppercase', badge.className)} title={status}>{badge.letter}</span>
             </>}
           </div>;
         })}
         {visible.length === 0 && <p className="px-3 py-4 text-xs text-muted-foreground">No matching files</p>}
       </div>
-      <div className="flex shrink-0 flex-col gap-2 border-t border-border/60 p-2">
+      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-2">
         {retryPush ? <p className="text-xs text-muted-foreground">Committed {retryPush.expectedHead.slice(0, 8)}. Push has not completed.</p> : <Textarea aria-label="Commit message" className="min-h-14 text-xs" placeholder="Commit message" value={draft.message} rows={2} disabled={busy} maxLength={8192} onChange={(event) => update({ message: event.target.value })} />}
         {!retryPush && <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <Checkbox checked={draft.runHooks ?? true} disabled={busy} onCheckedChange={(checked) => update({ runHooks: checked === true })} />

@@ -105,7 +105,7 @@ export function SettingsDialogShell({
             {groups.map((group, groupIndex) => (
               <div key={group.key} className="flex shrink-0 flex-col" role="group" aria-label={group.label ?? 'System'}>
                 {group.label ? (
-                  <span className={groupIndex === 0 ? 'px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground' : 'px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'}>
+                  <span className={groupIndex === 0 ? 'px-3 pt-1 pb-0.5 text-2xs font-medium text-muted-foreground' : 'px-3 pt-2 pb-0.5 text-2xs font-medium text-muted-foreground'}>
                     {group.label}
                   </span>
                 ) : (

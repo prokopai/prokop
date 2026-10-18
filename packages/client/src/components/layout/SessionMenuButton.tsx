@@ -301,7 +301,7 @@ function WorktreeChip({ worktreeId, label, available }: { worktreeId: string; la
   return (
     <span
       className={cn(
-        'worktree-tone shrink-0 max-w-[7.5rem] truncate rounded px-1.5 text-[11px] leading-4',
+        'worktree-tone shrink-0 max-w-[7.5rem] truncate rounded px-1.5 text-2xs leading-4',
         available ? 'worktree-chip' : 'bg-destructive/10 text-destructive line-through',
       )}
       style={worktreeToneStyle(worktreeId)}
@@ -587,7 +587,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                 </span>
                 {worktreeChip}
               </div>
-              <div className="flex min-w-0 items-center gap-1.5 pl-3.5 text-[10px] leading-none text-muted-foreground/80">
+              <div className="flex min-w-0 items-center gap-1.5 pl-3.5 text-2xs leading-none text-muted-foreground/70">
                 {metaParts.map((part, index) => (
                   <React.Fragment key={index}>
                     {index > 0 && <span className="text-muted-foreground/40">·</span>}
@@ -686,7 +686,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                   <CollapsibleTrigger asChild>
                     <button
                       type="button"
-                      className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      className="absolute top-1/2 right-7 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       aria-label="Toggle subagent runs"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -695,7 +695,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                   </CollapsibleTrigger>
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-1.5 pl-3.5 text-[10px] leading-none text-muted-foreground/80">
+              <div className="flex min-w-0 items-center gap-1.5 pl-3.5 text-2xs leading-none text-muted-foreground/70">
                 {metaParts.map((part, index) => (
                   <React.Fragment key={index}>
                     {index > 0 && <span className="text-muted-foreground/40">·</span>}

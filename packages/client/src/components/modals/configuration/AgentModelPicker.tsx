@@ -159,7 +159,7 @@ export function AgentModelPicker({ models, codexModels, claudeModels, value, onC
                     title={isMobile ? label : undefined}
                     onClick={() => setTab(id)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-sm text-xs font-medium transition-colors',
+                      'flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors',
                       isMobile ? 'h-9 w-9 justify-center p-0' : 'justify-start px-2 py-1.5',
                       activeTab === id
                         ? 'bg-accent text-foreground'

@@ -7,12 +7,13 @@ function item(role: 'user' | 'assistant', isQueued = false) {
 }
 
 describe('getToolPreviewCutoff', () => {
-  test('keeps the latest three submitted prompt windows', () => {
+  test('keeps the latest five submitted prompt windows', () => {
     expect(getToolPreviewCutoff([
       item('user'), item('assistant'), item('assistant'),
       item('user'), item('assistant'), item('user'), item('assistant'),
-      item('user'), item('assistant'),
-    ])).toBe(3);
+      item('user'), item('assistant'), item('user'), item('assistant'),
+      item('user'), item('assistant'), item('user'), item('assistant'),
+    ])).toBe(5);
   });
 
   test('queued prompts do not age the current conversation', () => {
@@ -22,7 +23,7 @@ describe('getToolPreviewCutoff', () => {
     ])).toBe(0);
   });
 
-  test('partial pages without three prompts retain previews', () => {
+  test('partial pages without five prompts retain previews', () => {
     expect(getToolPreviewCutoff([])).toBe(0);
     expect(getToolPreviewCutoff([item('assistant')])).toBe(0);
     expect(getToolPreviewCutoff([item('assistant'), item('user'), item('assistant')])).toBe(0);

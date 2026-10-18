@@ -24,7 +24,7 @@ export function PendingAttachment({ id, kind, filename, size, previewUrl, isUplo
       )}
       <div className="min-w-0 flex-1">
         <div className="text-xs truncate">{filename}</div>
-        <div className="text-[10px] text-muted-foreground">{formatSize(size)}</div>
+        <div className="text-2xs text-muted-foreground">{formatSize(size)}</div>
       </div>
       <button
         type="button"

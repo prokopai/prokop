@@ -100,7 +100,7 @@ function useSessionCheckout({ session, sdkClient }: CheckoutProps) {
 function RowMeta({ worktree }: { worktree: ManagedWorktree }) {
   const running = worktree.attachments.filter((attachment) => attachment.running).length;
   return (
-    <span className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+    <span className="ml-auto flex shrink-0 items-center gap-2 text-2xs text-muted-foreground">
       {worktree.dirty && (
         <span className="size-1.5 rounded-full bg-warning" title="Has uncommitted changes" />
       )}
@@ -192,7 +192,7 @@ export function CheckoutMenu({ session, sdkClient, onClose }: {
             <CommandItem disabled value={`${bound.name} unavailable`}>
               <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{bound.name}</span>
-              <span className="ml-auto text-[11px] text-destructive">{bound.state}</span>
+              <span className="ml-auto text-2xs text-destructive">{bound.state}</span>
             </CommandItem>
           )}
           {available.map((worktree) => (
@@ -205,7 +205,7 @@ export function CheckoutMenu({ session, sdkClient, onClose }: {
               <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{worktree.name}</span>
               {worktree.branch && worktree.branch !== worktree.name && (
-                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                <span className="truncate font-mono text-2xs text-muted-foreground">
                   {worktree.branch}
                 </span>
               )}
@@ -297,7 +297,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
       <GitBranch className="size-3 shrink-0" />
       <span className="min-w-0 truncate font-medium">{label}</span>
       {bound?.branch && bound.branch !== label && (
-        <span className="hidden min-w-0 truncate text-muted-foreground/80 sm:inline">
+        <span className="hidden min-w-0 truncate text-muted-foreground/70 sm:inline">
           (<span className="font-mono">{bound.branch}</span>)
         </span>
       )}
@@ -313,9 +313,9 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
         <div
           title={boundAvailable ? 'Session checkout' : `Worktree is ${bound?.state ?? 'unavailable'}`}
           className={cn(
-            'flex w-full select-none items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-[11px]',
+            'flex w-full select-none items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-2xs',
             boundAvailable
-              ? 'border-border/60 bg-muted text-muted-foreground'
+              ? 'border-border/50 bg-muted text-muted-foreground'
               : 'border-destructive/40 bg-destructive/15 text-destructive',
           )}
         >
@@ -334,9 +334,9 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
             disabled={pending}
             title="Change session checkout"
             className={cn(
-              'flex w-full items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-[11px] transition-colors disabled:opacity-60',
+              'flex w-full items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-2xs transition-colors disabled:opacity-60',
               boundAvailable
-                ? 'border-border/60 bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                ? 'border-border/50 bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                 : 'border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/20',
               open && boundAvailable && 'border-ring/30',
             )}
@@ -344,7 +344,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
             <GitBranch className="size-3 shrink-0" />
             <span className="min-w-0 truncate font-medium">{label}</span>
             {bound?.branch && bound.branch !== label && (
-              <span className="hidden min-w-0 truncate text-muted-foreground/80 sm:inline">
+              <span className="hidden min-w-0 truncate text-muted-foreground/70 sm:inline">
                 (<span className="font-mono">{bound.branch}</span>)
               </span>
             )}

@@ -45,13 +45,13 @@ export function HarnessesPanel({ sdkClient }: HarnessesPanelProps) {
                   {meta.external ? (
                     harness.available ? (
                       harness.version && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">CLI {harness.version}</Badge>
+                        <Badge variant="secondary" className="text-2xs px-1.5 py-0 h-5">CLI {harness.version}</Badge>
                       )
                     ) : (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground">Not installed</Badge>
+                      <Badge variant="outline" className="text-2xs px-1.5 py-0 h-5 text-muted-foreground">Not installed</Badge>
                     )
                   ) : (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground">Built-in</Badge>
+                    <Badge variant="outline" className="text-2xs px-1.5 py-0 h-5 text-muted-foreground">Built-in</Badge>
                   )}
                 </div>
                 {!meta.external && (

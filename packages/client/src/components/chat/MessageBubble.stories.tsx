@@ -329,7 +329,7 @@ export const ConversationWithQueuedMessages: Story = {
 };
 
 // =============================================================================
-// User Messages with Markdown — realistic pasted content (inverted bubbles)
+// User Messages with Markdown — realistic pasted content
 // =============================================================================
 
 export const UserWithLogOutput: Story = {
@@ -337,7 +337,7 @@ export const UserWithLogOutput: Story = {
   args: {
     message: userMessage,
     textContent: "The deploy failed, here is the log:\n\n```text\n2025-03-15T09:42:11.890Z ERROR 18234 --- [app-server] [         worker-1] db.migrate : Migration \"add-user-table\" failed\nDatabaseException: ERROR: relation \"users\" already exists\n  Position: 214 [Failed SQL: (0)\n--changeset app:add-user-table splitStatements:false\n\ncreate table users (\n    id bigint primary key,\n    email varchar(255) unique,\n    created_at timestamp default now()\n);\n```",
-    children: <MarkdownRenderer inverted>{logOutputMarkdown}</MarkdownRenderer>,
+    children: <MarkdownRenderer>{logOutputMarkdown}</MarkdownRenderer>,
   },
 };
 
@@ -346,7 +346,7 @@ export const UserWithCodeError: Story = {
   args: {
     message: userMessage,
     textContent: userCodeSnippetMarkdown,
-    children: <MarkdownRenderer inverted>{userCodeSnippetMarkdown}</MarkdownRenderer>,
+    children: <MarkdownRenderer>{userCodeSnippetMarkdown}</MarkdownRenderer>,
   },
 };
 
@@ -355,7 +355,7 @@ export const UserWithRichMarkdown: Story = {
   args: {
     message: userMessage,
     textContent: richMarkdown,
-    children: <MarkdownRenderer inverted>{richMarkdown}</MarkdownRenderer>,
+    children: <MarkdownRenderer>{richMarkdown}</MarkdownRenderer>,
   },
 };
 
@@ -364,7 +364,7 @@ export const UserWithCodeBlocks: Story = {
   args: {
     message: userMessage,
     textContent: codeBlocksMarkdown,
-    children: <MarkdownRenderer inverted>{codeBlocksMarkdown}</MarkdownRenderer>,
+    children: <MarkdownRenderer>{codeBlocksMarkdown}</MarkdownRenderer>,
   },
 };
 
@@ -373,6 +373,6 @@ export const UserWithLongMarkdown: Story = {
   args: {
     message: userMessage,
     textContent: generateLongMarkdown(10),
-    children: <MarkdownRenderer inverted>{generateLongMarkdown(10)}</MarkdownRenderer>,
+    children: <MarkdownRenderer>{generateLongMarkdown(10)}</MarkdownRenderer>,
   },
 };

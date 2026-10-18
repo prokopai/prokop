@@ -250,7 +250,7 @@ export function ChatHeader({
             {workspaceLabel && !isEditing && (
               <span className="flex min-w-0 shrink items-center gap-1 text-sm text-muted-foreground" title={`Workspace: ${workspaceLabel}`}>
                 <span className="max-w-[10rem] truncate">{workspaceLabel}</span>
-                <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
+                <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/70" />
               </span>
             )}
 
@@ -262,15 +262,17 @@ export function ChatHeader({
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={handleKeyDown}
-                className="text-base font-semibold leading-none bg-background border border-primary rounded px-2 py-1.5 outline-none min-w-0 flex-1"
+                className="text-sm font-medium leading-none bg-card border border-ring/40 rounded-md px-2 py-1.5 outline-none min-w-0 flex-1"
                 autoFocus
               />
             ) : (
+              // The title is chrome, not content: it stays quiet until the pointer reaches it.
               <h2
-                className="text-base font-semibold leading-none px-2 py-1.5 -mx-2 rounded hover:bg-accent transition-colors truncate min-w-0"
+                className="text-sm font-medium leading-none px-2 py-1.5 -mx-2 rounded-md text-muted-foreground hover:text-foreground transition-colors truncate min-w-0"
                 onDoubleClick={handleTitleDoubleClick}
+                title="Double-click to rename"
               >
-                {session.title || 'Untitled Session'}
+                {session.title || 'Untitled session'}
               </h2>
             )}
 

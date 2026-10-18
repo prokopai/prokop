@@ -44,7 +44,7 @@ function transcript(sessionId: string, item: DisplayItem) {
 test('a finished turn folds its tool calls into one row and keeps the answer visible', () => {
   render(transcript('fold', turn([tool('t1'), tool('t2'), text('answer', 'Done.')])));
 
-  expect(screen.getByText('2 tool calls')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /2 tool calls/ })).toBeInTheDocument();
   expect(screen.getByText('Done.')).toBeInTheDocument();
   expect(screen.queryByTestId('t1')).not.toBeInTheDocument();
 

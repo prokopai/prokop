@@ -22,7 +22,7 @@ export function MessageSkeleton() {
       <div className="flex items-center gap-2">
         <Skeleton className="h-3 w-12" />
       </div>
-      <Skeleton className="h-20 w-[70%] rounded-2xl" />
+      <Skeleton className="h-20 w-[70%] rounded-xl" />
     </div>
   );
 }

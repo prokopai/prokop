@@ -162,7 +162,7 @@ const PromptMarker = memo(function PromptMarker({
           type="button"
           aria-label={label}
           onClick={() => onNavigate(messageId)}
-          className="group pointer-events-auto flex h-3 w-8 shrink-0 items-center justify-end rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="group pointer-events-auto flex h-3 w-8 shrink-0 items-center justify-end rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <span
             className={cn(

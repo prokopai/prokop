@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 test('references render as chips and the envelope stays hidden', () => {
-  render(<UserPromptText text={prompt} sessionId="s1" inverted />);
+  render(<UserPromptText text={prompt} sessionId="s1" />);
   expect(screen.getByTitle('src/auth.ts:12-40')).toHaveTextContent('auth.ts:12-40');
   expect(screen.getByRole('button', { name: 'Terminal output: zsh · 2 lines' })).toBeInTheDocument();
   expect(screen.getByTitle('Terminal output was not included')).toHaveTextContent('zsh · 3 lines');

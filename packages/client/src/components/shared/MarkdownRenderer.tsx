@@ -17,10 +17,15 @@ import { MermaidDiagram } from './MermaidDiagram';
 import { MarkdownFileLinkContext } from './markdownFileLinks';
 import { rehypeStreamReveal } from './markdownStreamReveal';
 
-const CODE_THEME_DARK = themes.oneDark;
-const CODE_THEME_LIGHT = themes.oneLight;
-const CODE_THEME_INVERTED_DARK = themes.nightOwl;
-const CODE_THEME_INVERTED_LIGHT = themes.nightOwlLight;
+type CodeTheme = typeof themes.oneDark;
+
+/** Token colors from the theme, background from the app surface, so code sits in the palette. */
+function onAppSurface(theme: CodeTheme): CodeTheme {
+  return { ...theme, plain: { ...theme.plain, backgroundColor: 'transparent' } };
+}
+
+const CODE_THEME_DARK = onAppSurface(themes.oneDark);
+const CODE_THEME_LIGHT = onAppSurface(themes.oneLight);
 
 const COPY_RESET_DELAY_MS = 2000;
 
@@ -34,8 +39,7 @@ export function extractText(children: ReactNode): string {
 interface MarkdownCodeBlockProps {
   code: string;
   language: string;
-  theme: typeof themes.oneDark;
-  inverted?: boolean;
+  theme: CodeTheme;
   /** The closing fence has not arrived: the block is still growing. */
   streaming?: boolean;
 }
@@ -56,7 +60,7 @@ export function splitStreamingCodeChunks(code: string): string[] {
   return chunks;
 }
 
-const HighlightedLines = memo(function HighlightedLines({ code, language, theme }: { code: string; language: string; theme: typeof themes.oneDark }) {
+const HighlightedLines = memo(function HighlightedLines({ code, language, theme }: { code: string; language: string; theme: CodeTheme }) {
   return (
     <Highlight theme={theme} code={code} language={language}>
       {({ tokens, getLineProps, getTokenProps }) => (
@@ -74,7 +78,7 @@ const HighlightedLines = memo(function HighlightedLines({ code, language, theme 
   );
 });
 
-const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, theme, inverted = false, streaming = false }: MarkdownCodeBlockProps) {
+const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, theme, streaming = false }: MarkdownCodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,31 +93,33 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
     }
   }, [code]);
 
+  // No header bar: the block is one quiet surface. Language and copy sit in
+  // the corner and show on hover (always on touch).
   return (
-    <div className="w-full max-w-full my-2 min-w-0">
-      <div className="flex items-center justify-between gap-2 rounded-t-lg bg-muted/50 px-3 py-1">
-        <span className={cn('text-xs font-mono select-none', inverted ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
+    <div className="group/code relative my-2 w-full min-w-0 max-w-full rounded-lg bg-(--code-block-bg)">
+      <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-card/90 px-1 opacity-0 transition-opacity group-hover/code:opacity-100 group-focus-within/code:opacity-100 pointer-coarse:opacity-100">
+        <span className="select-none pl-1 font-mono text-2xs text-muted-foreground/70">
           {language || 'text'}
         </span>
         <button
           type="button"
           onClick={handleCopy}
           className={cn(
-            'flex items-center gap-1 rounded p-1 text-muted-foreground transition-colors',
-            copied ? 'text-success' : inverted ? 'hover:text-primary-foreground' : 'hover:text-foreground',
+            'flex items-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground',
+            copied && 'text-foreground',
           )}
           title="Copy code"
           aria-label="Copy code"
         >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
         </button>
       </div>
-      <div className="overflow-x-auto rounded-b-lg" style={{ backgroundColor: theme.plain.backgroundColor }}>
+      <div className="overflow-x-auto rounded-lg">
         {streaming ? (
           // Chunk boundaries can split a multi-line token (a long comment or
           // string) for as long as the block streams; the closed block below
           // highlights as one piece.
-          <pre className={cn('rounded-none text-sm p-3 m-0', `prism-code language-${language || 'text'}`)} style={theme.plain}>
+          <pre className={cn('m-0 rounded-none p-3 text-sm', `prism-code language-${language || 'text'}`)} style={theme.plain}>
             {splitStreamingCodeChunks(code).map((chunk, index) => (
               <HighlightedLines key={index} code={chunk} language={language || 'text'} theme={theme} />
             ))}
@@ -121,7 +127,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
         ) : (
           <Highlight theme={theme} code={code} language={language || 'text'}>
             {({ className: hlClassName, style, tokens, getLineProps, getTokenProps }) => (
-              <pre className={cn('rounded-none text-sm p-3 m-0', hlClassName)} style={style}>
+              <pre className={cn('m-0 rounded-none p-3 text-sm', hlClassName)} style={style}>
                 {tokens.map((line, i) => (
                   <div key={i} {...getLineProps({ line })}>
                     {line.map((token, key) => (
@@ -184,10 +190,10 @@ function pictureImageProps(node: HastElement | undefined, mode: 'dark' | 'light'
 }
 
 /** The renderer's link, for overrides that only special-case some links. */
-export function MarkdownLink({ inverted = false, className, ...props }: ComponentProps<'a'> & { inverted?: boolean }) {
+export function MarkdownLink({ className, ...props }: ComponentProps<'a'>) {
   const openFile = useContext(MarkdownFileLinkContext);
   const filePath = openFile && props.href ? localFileLinkPath(props.href) : null;
-  const linkClassName = cn('underline underline-offset-2 transition-colors', inverted ? 'text-primary-foreground hover:text-primary-foreground/85' : 'text-primary hover:text-primary/80', className);
+  const linkClassName = cn('underline underline-offset-2 transition-colors text-primary hover:text-primary/80', className);
   if (openFile && filePath) {
     // A file path is not a URL on this origin: open it in the file preview.
     return (
@@ -220,7 +226,6 @@ function DefaultMarkdownImage({ node: _node, className, ...props }: ComponentPro
 export interface MarkdownRendererProps {
   children: string;
   className?: string;
-  inverted?: boolean;
   /**
    * Render raw HTML in the markdown (README-style `<p align>`, `<picture>`,
    * `<img width>`), sanitized to GitHub's allowlist. Leave off for streamed
@@ -273,13 +278,9 @@ const REMARK_PLUGINS: NonNullable<Options['remarkPlugins']> = [remarkGfm, [remar
 const REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [[rehypeKatex, { throwOnError: false, strict: 'ignore' }]];
 const HTML_REHYPE_PLUGINS: NonNullable<Options['rehypePlugins']> = [rehypeRaw, rehypeSanitize, ...REHYPE_PLUGINS];
 
-export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, inverted = false, allowHtml = false, overrides, revealBatches }: MarkdownRendererProps) {
+export const MarkdownRenderer = memo(function MarkdownRenderer({ children, className, allowHtml = false, overrides, revealBatches }: MarkdownRendererProps) {
   const { resolvedMode } = useTheme();
-  const isDark = resolvedMode === 'dark';
-
-  const codeTheme = inverted
-    ? (isDark ? CODE_THEME_INVERTED_DARK : CODE_THEME_INVERTED_LIGHT)
-    : (isDark ? CODE_THEME_DARK : CODE_THEME_LIGHT);
+  const codeTheme = resolvedMode === 'dark' ? CODE_THEME_DARK : CODE_THEME_LIGHT;
 
   const components: Components = useMemo(() => ({
     code({ node, className: codeClassName, children: codeChildren, ...props }) {
@@ -295,24 +296,23 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
             code={code}
             language={language}
             theme={codeTheme}
-            inverted={inverted}
             streaming={Boolean(node?.properties.dataFenceOpen)}
           />
         );
-        if (language === 'mermaid' && !inverted && !node?.properties.dataFenceOpen) {
+        if (language === 'mermaid' && !node?.properties.dataFenceOpen) {
           return <MermaidDiagram code={code} source={block} />;
         }
         return block;
       }
 
       return (
-        <code className={cn('px-1.5 py-0.5 rounded text-sm font-mono', inverted ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted', codeClassName)} {...props}>
+        <code className={cn('px-1.5 py-0.5 rounded text-sm font-mono bg-(--code-inline-bg)', codeClassName)} {...props}>
           {codeChildren}
         </code>
       );
     },
     a({ href, children, ...props }) {
-      return <MarkdownLink href={href} inverted={inverted} {...props}>{children}</MarkdownLink>;
+      return <MarkdownLink href={href} {...props}>{children}</MarkdownLink>;
     },
     p({ node, children }: ComponentProps<'p'> & ExtraProps) {
       return <p className={cn('last:mb-0 leading-relaxed break-words', alignClass(node))}>{children}</p>;
@@ -345,7 +345,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     },
     blockquote({ children }: ComponentProps<'blockquote'>) {
       return (
-        <blockquote className={cn('border-l-2 pl-3 my-1.5 italic', inverted ? 'border-primary-foreground/40 text-primary-foreground' : 'border-foreground/20 text-foreground/70')}>
+        <blockquote className="border-l-2 border-border pl-3 my-1.5 text-muted-foreground">
           {children}
         </blockquote>
       );
@@ -357,7 +357,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       return <em className="italic">{children}</em>;
     },
     hr() {
-      return <hr className={cn('my-3', inverted ? 'border-primary-foreground/30' : 'border-border')} />;
+      return <hr className="my-3 border-border" />;
     },
     table({ children }: ComponentProps<'table'>) {
       return (
@@ -370,20 +370,20 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     },
     th({ children }: ComponentProps<'th'>) {
       return (
-        <th className={cn('border border-border px-2 py-1.5 text-left font-semibold', inverted ? 'bg-primary-foreground/10 text-primary-foreground' : 'bg-muted')}>
+        <th className="border border-border bg-muted px-2 py-1.5 text-left font-semibold">
           {children}
         </th>
       );
     },
     td({ children }: ComponentProps<'td'>) {
       return (
-        <td className={cn('border px-2 py-1.5', inverted ? 'border-primary-foreground/20' : 'border-border')}>
+        <td className="border border-border px-2 py-1.5">
           {children}
         </td>
       );
     },
     ...overrides,
-  }), [inverted, codeTheme, overrides, resolvedMode]);
+  }), [codeTheme, overrides, resolvedMode]);
 
   const basePlugins = allowHtml ? HTML_REHYPE_PLUGINS : REHYPE_PLUGINS;
   const rehypePlugins = useMemo<NonNullable<Options['rehypePlugins']>>(

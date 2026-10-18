@@ -1,63 +1,87 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
+import { RENDER_BUDGETS } from '@/lib/renderBudgets';
+import { useVizExpanded } from '@/lib/vizExpansion';
+import { cn } from '@/lib/utils';
+import { PreviewAction, PreviewFrame } from './PreviewFrame';
+
 interface TerminalOutputProps {
-  command?: string;
   stdout?: string;
   stderr?: string;
   exitCode?: number;
   /** Absent means the command completed. */
   status?: 'running' | 'killed';
+  /** Stable identity (tool-call part id) for persisted expansion state. */
+  vizKey?: string;
+}
+
+interface OutputLine {
+  text: string;
+  stream: 'out' | 'err';
+}
+
+function splitLines(text: string | undefined, stream: OutputLine['stream']): OutputLine[] {
+  const trimmed = text?.replace(/\s+$/, '') ?? '';
+  if (!trimmed) return [];
+  return trimmed.split('\n').map((line) => ({ text: line, stream }));
 }
 
 /**
- * Tonally themed terminal output. Follows the app surface tokens instead of a
- * hardcoded black panel so it reads correctly in light/dark and every scheme.
+ * Command output as a peek. The command and its exit code live on the tool
+ * row, so the body is output only. Folded, it shows the last lines, because
+ * that is where a result or a failure sits; stderr takes color only when the
+ * command failed.
  */
-export function TerminalOutput({ command, stdout, stderr, exitCode, status }: TerminalOutputProps) {
-  const hasHeader = command !== undefined || exitCode !== undefined || status !== undefined;
-  // A command still running in the background is neither success nor failure.
-  const isSuccess = status === 'running' || (status !== 'killed' && (exitCode ?? 0) === 0);
-  const badge = status === 'running' ? 'running' : status === 'killed' ? 'killed' : `[${exitCode ?? 0}]`;
-  // Whitespace-only output renders nothing: an empty body block is noise.
-  const hasStdout = !!stdout?.trim();
-  const hasStderr = !!stderr?.trim();
+export function TerminalOutput({ stdout, stderr, exitCode, status, vizKey }: TerminalOutputProps) {
+  const lines = useMemo(() => [...splitLines(stdout, 'out'), ...splitLines(stderr, 'err')], [stdout, stderr]);
+  const [expanded, setExpanded] = useVizExpanded(
+    vizKey ? `shell:${vizKey}` : `shell:${stdout?.length ?? 0}:${stderr?.length ?? 0}`,
+    false,
+  );
+  const [copied, setCopied] = useState(false);
 
-  if (!hasHeader) {
-    if (!hasStdout && !hasStderr) return null;
-    return (
-      <div className="visualization-container tool-output-scroll rounded-md border border-border/60 bg-muted/50 px-3 py-2 font-mono text-xs overflow-x-auto">
-        {hasStdout && <pre className="whitespace-pre-wrap text-foreground/80">{stdout}</pre>}
-        {hasStderr && <pre className="whitespace-pre-wrap mt-1 text-destructive">{stderr}</pre>}
-      </div>
-    );
-  }
+  const failed = status === 'killed' || (exitCode ?? 0) !== 0;
+  const budget = RENDER_BUDGETS.shellPreviewLines;
+  const hidden = expanded ? 0 : Math.max(0, lines.length - budget);
+  const visible = hidden > 0 ? lines.slice(hidden) : lines;
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(lines.map((line) => line.text).join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [lines]);
+
+  if (lines.length === 0) return null;
 
   return (
-    <div className="visualization-container border border-border/60 rounded-md overflow-hidden">
-      <div className="bg-muted px-3 py-2 flex items-center justify-between">
-        <div className="font-mono text-xs text-muted-foreground truncate flex-1 mr-2">
-          <span>$ </span>
-          <span className="text-foreground">{command}</span>
-        </div>
-        <span
-          className={`text-xs font-mono px-2 py-0.5 rounded tabular-nums ${
-            isSuccess
-              ? 'bg-muted text-muted-foreground'
-              : 'bg-destructive/10 text-destructive'
-          }`}
-        >
-          {badge}
-        </span>
-      </div>
-
-      {(hasStdout || hasStderr) && (
-        <div className="tool-output-scroll bg-muted/50 px-3 py-2 font-mono text-xs overflow-x-auto">
-          {hasStdout && (
-            <pre className="whitespace-pre-wrap text-foreground/80">{stdout}</pre>
-          )}
-          {hasStderr && (
-            <pre className="whitespace-pre-wrap mt-1 text-destructive">{stderr}</pre>
-          )}
-        </div>
+    <PreviewFrame
+      totalLines={lines.length}
+      budget={budget}
+      expanded={expanded}
+      onToggle={setExpanded}
+      actions={(
+        <PreviewAction onClick={handleCopy} title="Copy output">
+          <span className="flex items-center gap-1">
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            Copy
+          </span>
+        </PreviewAction>
       )}
-    </div>
+    >
+      <pre className="m-0 overflow-x-auto whitespace-pre-wrap px-3 py-2 font-mono text-xs leading-relaxed text-foreground/85">
+        {hidden > 0 && (
+          <span className="block select-none text-muted-foreground/70">… {hidden} earlier {hidden === 1 ? 'line' : 'lines'}</span>
+        )}
+        {visible.map((line, index) => (
+          <span
+            key={index}
+            data-stream={line.stream}
+            className={cn('block min-h-[1lh]', line.stream === 'err' && (failed ? 'text-destructive' : 'text-muted-foreground'))}
+          >
+            {line.text}
+          </span>
+        ))}
+      </pre>
+    </PreviewFrame>
   );
 }

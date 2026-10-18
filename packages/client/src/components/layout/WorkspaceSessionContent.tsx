@@ -229,7 +229,7 @@ export function WorkspaceSessionContent({
 
   // Micro-label + muted tabular count instead of badge chips and dividers.
   const renderCount = (count: number) => (
-    <span className="text-[10px] tabular-nums text-muted-foreground/70">{count}</span>
+    <span className="text-2xs tabular-nums text-muted-foreground/70">{count}</span>
   );
 
   const renderActiveSection = () => (
@@ -237,7 +237,7 @@ export function WorkspaceSessionContent({
       <SidebarGroup>
         <SidebarGroupLabel asChild>
           <CollapsibleTrigger asChild>
-            <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
               <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
               <span>Active</span>
               {renderCount(activeSessions.length)}
@@ -357,7 +357,7 @@ export function WorkspaceSessionContent({
                   }
                   return (
                     <Collapsible key={tagName} open={isTagOpen(tagName)} onOpenChange={(open) => toggleTag(tagName, open)} className="group/tag-collapsible">
-                      <div className="group/head flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                      <div className="group/head flex items-center gap-1.5 px-2 py-1 text-2xs font-medium text-muted-foreground">
                         <CollapsibleTrigger asChild>
                           <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
                             <ChevronRight className="size-3 transition-transform group-data-[state=open]/tag-collapsible:rotate-90" />
@@ -449,7 +449,7 @@ export function WorkspaceSessionContent({
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger asChild>
-                <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                   <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   <span>Archived</span>
                   {categories && !categories.counts ? <span className="text-xs">…</span> : renderCount(categories?.counts?.archived ?? archivedSessions.length)}
@@ -530,7 +530,7 @@ export function WorkspaceSessionContent({
 
       {/* Bulk Action Bar */}
       {selectionMode && selectedIds.size > 0 && (
-        <div className="sticky bottom-0 z-10 mx-2 mb-2 flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-popover px-2.5 py-1.5 shadow-md">
+        <div className="sticky bottom-0 z-10 mx-2 mb-2 flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-popover px-2.5 py-1.5 shadow-md">
           <span className="text-xs text-muted-foreground truncate min-w-0 tabular-nums">
             {selectedIds.size} selected
           </span>
@@ -589,18 +589,18 @@ function CheckoutGroupedSessions({ workspaceId, sessions, renderSession, renderC
     const collapseKey = `checkout:${group.worktreeId ?? 'main'}`;
     return (
       <Collapsible key={collapseKey} open={isOpen(collapseKey)} onOpenChange={(open) => onOpenChange(collapseKey, open)} className="group/tag-collapsible">
-        <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+        <div className="flex items-center gap-1.5 px-2 py-1 text-2xs font-medium text-muted-foreground">
           <CollapsibleTrigger asChild>
             <button className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-foreground">
               <ChevronRight className="size-3 shrink-0 transition-transform group-data-[state=open]/tag-collapsible:rotate-90" />
               {group.worktreeId ? (
                 <span
                   aria-hidden
-                  className={cn('worktree-tone size-2 shrink-0 rounded-sm', group.available ? 'worktree-lane' : 'bg-destructive')}
+                  className={cn('worktree-tone size-2 shrink-0 rounded-md', group.available ? 'worktree-lane' : 'bg-destructive')}
                   style={worktreeToneStyle(group.worktreeId)}
                 />
               ) : (
-                <span aria-hidden className="size-2 shrink-0 rounded-sm border border-muted-foreground/40" />
+                <span aria-hidden className="size-2 shrink-0 rounded-md border border-muted-foreground/40" />
               )}
               <span className={cn('truncate normal-case tracking-normal', !group.available && 'text-destructive line-through')}>{group.name}</span>
               {renderCount(group.sessions.length)}

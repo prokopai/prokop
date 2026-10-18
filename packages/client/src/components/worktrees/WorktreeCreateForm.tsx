@@ -101,10 +101,10 @@ export function WorktreeCreateForm({
                 <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate font-mono text-xs">{option.name}</span>
                 {option.current && (
-                  <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">current</span>
+                  <span className="ml-auto shrink-0 text-2xs text-muted-foreground">current</span>
                 )}
                 {option.checkedOut && (
-                  <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">in use</span>
+                  <span className="ml-auto shrink-0 text-2xs text-muted-foreground">in use</span>
                 )}
                 {option.ref === branch && (
                   <Check className={option.current || option.checkedOut ? '' : 'ml-auto'} />

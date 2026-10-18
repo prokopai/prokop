@@ -11,9 +11,9 @@ function assistant(overrides: Partial<AssistantMessage>): AssistantMessage {
   };
 }
 
-test('a finished turn shows model, duration and tokens beside the label', () => {
+test('a finished turn shows model, duration and tokens under the message', () => {
   render(<MessageBubble message={assistant({})} />);
-  expect(screen.getByTestId('turn-meta')).toHaveTextContent('· claude-sonnet· 3.0s· 1.2k tok');
+  expect(screen.getByTestId('turn-meta')).toHaveTextContent('claude-sonnet· 3.0s· 1.2k tok');
   expect(screen.getByText('· 1.2k tok')).toHaveAttribute('title', '900 in · 300 out');
 });
 

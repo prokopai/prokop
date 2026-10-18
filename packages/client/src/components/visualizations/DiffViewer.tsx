@@ -1,9 +1,7 @@
-import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { memo, useMemo, type ComponentProps } from 'react';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff, PatchDiff } from '@pierre/diffs/react';
 import type { DiffHunk } from '@/utils/diff';
-import { cn } from '@/lib/utils';
 import { pathBasename } from '@/lib/platform';
 import { toWorkspaceFileTarget } from '@/lib/path';
 import { useUIStore } from '@/stores/uiStore';
@@ -14,6 +12,7 @@ import { hunksToPatch } from '@/lib/hunksToPatch';
 import { useVizExpanded } from '@/lib/vizExpansion';
 import { PIERRE_THEME_PAIR } from '@/lib/pierreDiffsTheme';
 import { pierreCacheKey } from '@/lib/pierreCacheKey';
+import { PreviewAction, PreviewFrame } from './PreviewFrame';
 
 type DiffOptions = ComponentProps<typeof FileDiff>['options'];
 
@@ -24,6 +23,8 @@ interface DiffViewerProps {
   additions?: number;
   deletions?: number;
   disablePathOpen?: boolean;
+  /** Name the file (and its counts) above the body; off when the tool row already does. */
+  showPath?: boolean;
   /** Stable identity (tool-call part id) for persisted expansion state. */
   vizKey?: string;
   matchInfo?: {
@@ -32,12 +33,17 @@ interface DiffViewerProps {
   };
 }
 
+/**
+ * An edit as a peek: the first diff lines behind a fade, "Show all" to grow
+ * it inline, "Open file" for the real editor.
+ */
 export const DiffViewer = memo(function DiffViewer({
   hunks,
   path,
   additions,
   deletions,
   disablePathOpen,
+  showPath = false,
   vizKey,
 }: DiffViewerProps) {
   const totalDiffLines = useMemo(
@@ -47,7 +53,7 @@ export const DiffViewer = memo(function DiffViewer({
 
   const [expanded, setExpanded] = useVizExpanded(
     vizKey ? `diff:${vizKey}` : `diff:${path}:${totalDiffLines}`,
-    true,
+    false,
   );
 
   const openFilePreview = useUIStore((s) => s.openFilePreview);
@@ -94,7 +100,7 @@ export const DiffViewer = memo(function DiffViewer({
     [resolvedMode],
   );
 
-  const handlePathClick = () => {
+  const handleOpenFile = () => {
     if (!activeWorkspace) return;
     openFilePreview({
       workspaceId: activeWorkspace.id,
@@ -103,66 +109,29 @@ export const DiffViewer = memo(function DiffViewer({
     });
   };
 
+  const counts = additions !== undefined && deletions !== undefined ? `+${additions} -${deletions}` : null;
+
   return (
-    <div className="visualization-container max-w-full border border-border rounded-md">
-      <div>
-        <div className="group/path flex items-center gap-2 px-1 bg-muted/50 text-xs text-muted-foreground whitespace-nowrap">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="shrink-0 px-1 py-1 hover:bg-muted rounded"
-          >
-            {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-          </button>
-
-          {/* Path truncates from a nested span: text-overflow does not apply
-              to the flex button itself, only to a block/inline child. */}
-          {disablePathOpen ? (
-            <span
-              className="flex items-center gap-1 font-mono min-w-0 flex-1"
-              title={path}
-            >
-              <span className="truncate">{path}</span>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={handlePathClick}
-              className="flex items-center gap-1 font-mono hover:text-foreground transition-colors rounded px-1 py-0.5 -mx-1 hover:bg-muted min-w-0 flex-1 text-left"
-              title={path}
-            >
-              <span className="truncate">{path}</span>
-              <ExternalLink className="size-2.5 shrink-0 opacity-0 group-hover/path:opacity-100 transition-opacity" />
-            </button>
-          )}
-
-          <div className={cn('shrink-0 mr-2 flex items-center gap-2')}>
-            {!expanded && totalDiffLines > RENDER_BUDGETS.diffPreviewLines && (
-              <span className="text-xs text-muted-foreground/70">
-                {totalDiffLines} lines
-              </span>
-            )}
-            {additions !== undefined && deletions !== undefined && (
-              <span className="text-muted-foreground">
-                +{additions} -{deletions}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Capped scroll body: an expanded long diff stays a preview the user
-            scrolls inside, never a full-screen block in the transcript or
-            modal. Collapsed mode renders no diff body at all, so the cap
-            applies whenever the body is visible. */}
-        {expanded && (
-          <div className="tool-output-scroll">
-            {fileDiff ? (
-              <FileDiff fileDiff={fileDiff} options={options} className="pierre-viz-host" />
-            ) : (
-              <PatchDiff patch={patch} options={options} className="pierre-viz-host" />
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <PreviewFrame
+      totalLines={totalDiffLines}
+      budget={RENDER_BUDGETS.diffPreviewLines}
+      expanded={expanded}
+      onToggle={setExpanded}
+      caption={showPath && (
+        <>
+          <span className="min-w-0 truncate" title={path}>{path}</span>
+          {counts && <span className="shrink-0 tabular-nums">{counts}</span>}
+        </>
+      )}
+      actions={!disablePathOpen && activeWorkspace && (
+        <PreviewAction onClick={handleOpenFile} title={path}>Open file</PreviewAction>
+      )}
+    >
+      {fileDiff ? (
+        <FileDiff fileDiff={fileDiff} options={options} className="pierre-viz-host" />
+      ) : (
+        <PatchDiff patch={patch} options={options} className="pierre-viz-host" />
+      )}
+    </PreviewFrame>
   );
 });

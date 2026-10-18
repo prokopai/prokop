@@ -1,10 +1,9 @@
 import { memo, useEffect, useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, ExternalLink, Copy, Check, Loader2, CheckCircle, XCircle, Clock, Pause } from 'lucide-react';
+import { ChevronRight, ExternalLink, Copy, Check, Loader2 } from 'lucide-react';
 import type { ToolPart } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { VisualizationRenderer } from '@/components/visualizations';
-import { TerminalOutput } from '@/components/visualizations/TerminalOutput';
 import { RENDER_BUDGETS } from '@/lib/renderBudgets';
 import { getToolPartVisualization, getToolRowInfo, isAnswerVisualization, showToolRawData, toolChipToneClass } from '@/lib/toolSummaries';
 import { firstLine, formatDuration, formatElapsed, getInterruptReasonLabel, getToolDurationMs } from '@/lib/turnStats';
@@ -55,21 +54,9 @@ interface ToolCallProps {
   onNavigateToSubagent?: (sessionId: string) => void;
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case 'pending':
-      return <Clock className="size-3 text-warning" />;
-    case 'running':
-      return <Loader2 className="size-3 text-warning animate-spin" />;
-    case 'completed':
-      return <CheckCircle className="size-3 text-success" />;
-    case 'error':
-      return <XCircle className="size-3 text-destructive" />;
-    case 'interrupted':
-      return <Pause className="size-3 text-warning" />;
-    default:
-      return null;
-  }
+/** Section heading inside an expanded tool row: sentence case, same gray as the meta text. */
+function SectionLabel({ children }: { children: string }) {
+  return <div className="mb-1 text-2xs font-medium text-muted-foreground/70">{children}</div>;
 }
 
 function extractTaskSessionId(part: ToolPart): string | null {
@@ -100,7 +87,7 @@ function ElapsedTime({ startedAt }: { startedAt: number }) {
   }, []);
 
   return (
-    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/70">
+    <span className="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70">
       {formatElapsed(now - startedAt)}
     </span>
   );
@@ -192,22 +179,26 @@ export const ToolCall = memo(function ToolCall({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <div
-            className="group/tool-row flex items-center gap-2 py-1 hover:text-foreground transition-colors text-muted-foreground"
+            className={cn(
+              'group/tool-row flex items-center gap-2 py-1 text-xs transition-colors',
+              status === 'error'
+                ? 'text-destructive'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
           >
-            {getStatusIcon(status)}
-
-            {isOpen ? (
-              <ChevronDown className="size-4 text-muted-foreground" />
+            {/* Success is silent: only a running call spins. The chevron is the one disclosure glyph. */}
+            {status === 'running' || status === 'pending' ? (
+              <Loader2 className="size-3 shrink-0 animate-spin" />
             ) : (
-              <ChevronRight className="size-4 text-muted-foreground" />
+              <ChevronRight className={cn('size-3 shrink-0 opacity-60 transition-transform', isOpen && 'rotate-90')} />
             )}
 
-            <span className="flex min-w-0 flex-1 items-baseline">
-              <span className="text-xs truncate shrink-0 max-w-[90px] sm:max-w-none">{part.name}</span>
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+              <span className="truncate shrink-0 max-w-[90px] sm:max-w-none">{part.name}</span>
 
               {summary && (
-                <span className="text-xs text-muted-foreground font-mono truncate min-w-0 flex-1">
-                  {`: ${summary}`}
+                <span className={cn('font-mono truncate min-w-0 flex-1', status !== 'error' && 'text-muted-foreground/70')}>
+                  {summary}
                 </span>
               )}
             </span>
@@ -215,14 +206,14 @@ export const ToolCall = memo(function ToolCall({
             {chips.map((chip) => (
               <span
                 key={chip.label}
-                className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 hidden sm:inline ${toolChipToneClass[chip.tone]}`}
+                className={`text-2xs font-mono tabular-nums shrink-0 hidden sm:inline ${toolChipToneClass[chip.tone]}`}
               >
                 {chip.label}
               </span>
             ))}
 
             {interruptReason && (
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${toolChipToneClass.neutral}`}>
+              <span className={`text-2xs font-mono shrink-0 ${toolChipToneClass.neutral}`}>
                 {interruptReason}
               </span>
             )}
@@ -230,7 +221,7 @@ export const ToolCall = memo(function ToolCall({
             {state.status === 'running' && <ElapsedTime startedAt={state.startedAt} />}
 
             {durationMs !== undefined && (
-              <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/70 sm:inline">
+              <span className="hidden shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70 sm:inline">
                 {formatDuration(durationMs)}
               </span>
             )}
@@ -257,7 +248,7 @@ export const ToolCall = memo(function ToolCall({
         </CollapsibleTrigger>
 
         {!isOpen && errorLine && (
-          <div className="truncate pl-9 text-xs text-destructive/90" title={errorLine}>
+          <div className="truncate pl-5 text-xs text-destructive/90" title={errorLine}>
             {errorLine}
           </div>
         )}
@@ -270,7 +261,7 @@ export const ToolCall = memo(function ToolCall({
             {/* Pretty body for collapsed visualizations (chip-only while collapsed) */}
             {visualization && (visualization.collapsed || previewCollapsed) && visualization.type !== 'none' && (
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1">Result</div>
+                <SectionLabel>Result</SectionLabel>
                 <VisualizationRenderer visualization={visualization} persistKey={part.id} />
               </div>
             )}
@@ -310,7 +301,7 @@ export const ToolCall = memo(function ToolCall({
 
             {debugOpen && debugReady && (
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1">Input</div>
+                <SectionLabel>Input</SectionLabel>
                 <LazyOutput
                   content={serializedInput}
                   className="text-xs bg-background border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
@@ -336,7 +327,7 @@ export const ToolCall = memo(function ToolCall({
             {debugOpen && debugReady && status === 'completed' && serializedOutput !== null && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">Output</div>
+                  <SectionLabel>Output</SectionLabel>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -352,7 +343,7 @@ export const ToolCall = memo(function ToolCall({
                 </div>
                 <LazyOutput
                   content={serializedOutput}
-                  className="text-xs bg-muted/50 border border-border/60 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
+                  className="text-xs bg-muted/50 border border-border/50 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
                 />
               </div>
             )}
@@ -360,7 +351,7 @@ export const ToolCall = memo(function ToolCall({
             {/* Error */}
             {status === 'error' && 'error' in state && (
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mb-1">Error</div>
+                <SectionLabel>Error</SectionLabel>
                 <pre className="text-xs bg-destructive/10 border border-destructive/20 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words text-destructive">
                   {state.error as string}
                 </pre>
@@ -373,11 +364,7 @@ export const ToolCall = memo(function ToolCall({
       {/* Older previews mount inside the existing expandable row, not hidden DOM. */}
       {status === 'completed' && visualization && !visualization.collapsed && !previewCollapsed && visualization.type !== 'none' && (
         <div className="mt-1">
-          {visualization.type === 'shell-output' ? (
-            <TerminalOutput stdout={visualization.stdout} stderr={visualization.stderr} />
-          ) : (
-            <VisualizationRenderer visualization={visualization} persistKey={part.id} />
-          )}
+          <VisualizationRenderer visualization={visualization} persistKey={part.id} />
         </div>
       )}
     </div>

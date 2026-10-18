@@ -1,11 +1,10 @@
 import { useState, memo } from 'react';
 import type { ReactNode } from 'react';
 import { buildApiUrl } from '@/config/urls';
-import { ChevronDown, ChevronRight, Download, FileIcon, Braces } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Download, FileIcon, RotateCcw } from 'lucide-react';
 import type { Part, TextPart, Message, CompactionPart, AssistantMessage, StructuredOutputData } from '@prokopai/sdk';
 import { isAssistantMessage } from '@prokopai/sdk';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Minimize2, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
 import { UserPromptText } from './UserPromptText';
@@ -33,7 +32,7 @@ function getTextContent(parts: Part[]): string {
  * Double single newlines for markdown line breaks in user messages,
  * but preserve original formatting inside fenced code blocks.
  */
-function formatInvertedText(text: string): string {
+function formatUserText(text: string): string {
   const segments = text.split(/```/);
   return segments
     .map((segment, i) => {
@@ -47,20 +46,14 @@ function formatInvertedText(text: string): string {
     .join('');
 }
 
-export function CompactionInProgressBanner() {
+/** Hairline divider with a short status, the same shape as harness-switch markers. */
+export function TranscriptDivider({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted rounded-lg px-3 py-2 border border-border shadow-sm">
-      <Minimize2 className="size-4 animate-pulse" />
-      <span>Compacting conversation...</span>
-    </div>
-  );
-}
-
-export function CompactionSuccessBanner() {
-  return (
-    <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400 bg-green-500/15 rounded-lg px-3 py-2 border border-green-500/30 shadow-sm">
-      <CheckCircle2 className="size-4" />
-      <span>Compaction complete</span>
+    <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground" role="status">
+      <span className="h-px w-8 bg-border" />
+      {icon}
+      {children}
+      <span className="h-px w-8 bg-border" />
     </div>
   );
 }
@@ -75,23 +68,21 @@ function CompactionFailedMessage({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-1 min-w-0">
-      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-destructive ml-3">
-        <AlertTriangle className="size-3" />
-        Compaction Failed
-      </div>
-      <div className="rounded-2xl px-4 py-3 max-w-full bg-destructive/10 border border-destructive/30 rounded-bl-md">
-        <p className="text-sm text-destructive/90">
-          {textContent || message.error || 'Compaction failed. The conversation could not be summarized.'}
+    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-xs font-medium text-destructive">Compaction failed</span>
+        <p className="break-words text-destructive/90">
+          {textContent || message.error || 'The conversation could not be summarized.'}
         </p>
         {onRetry && (
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="xs"
             onClick={onRetry}
-            className="mt-2 h-7 text-xs gap-1.5"
+            className="mt-1 self-start text-muted-foreground hover:text-foreground"
           >
-            <RotateCcw className="size-3" />
+            <RotateCcw className="size-3" data-icon="inline-start" />
             Retry
           </Button>
         )}
@@ -114,15 +105,18 @@ function CompactionDivider({ part }: { part: CompactionPart }) {
     <div className="flex flex-col items-center py-3">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        <span className="border-b border-dashed border-muted-foreground/40 pb-px">
+        <span className="h-px w-8 bg-border" />
+        <ChevronRight className={cn('size-3 opacity-60 transition-transform', expanded && 'rotate-90')} />
+        <span>
           {reason === 'overflow' ? 'Context overflow' : reason === 'auto' ? 'Auto' : 'Manual'} compaction
         </span>
+        <span className="h-px w-8 bg-border" />
       </button>
       {expanded && (
-        <div className="mt-2 text-xs text-muted-foreground italic">
+        <div className="mt-2 text-xs text-muted-foreground">
           Summary available in the assistant message below
         </div>
       )}
@@ -140,7 +134,6 @@ const MessageParts = memo(function MessageParts({
   sessionId,
   parts,
   onNavigateToSubagent,
-  inverted = false,
   userPrompt = false,
   isStreaming = false,
   serverUrl,
@@ -148,8 +141,7 @@ const MessageParts = memo(function MessageParts({
   sessionId: string;
   parts: Part[];
   onNavigateToSubagent?: (sessionId: string) => void;
-  inverted?: boolean;
-  /** Text parts of a user message: context references render as chips. */
+  /** Text parts of a sent user message: context references render as chips, single newlines break lines. */
   userPrompt?: boolean;
   isStreaming?: boolean;
   serverUrl?: string;
@@ -164,22 +156,21 @@ const MessageParts = memo(function MessageParts({
         if (userPrompt && part.text) {
           return (
             <div key={part.id} className="min-w-0">
-              <UserPromptText text={part.text} sessionId={sessionId} inverted={inverted}
-                formatBody={inverted ? formatInvertedText : undefined} />
+              <UserPromptText text={part.text} sessionId={sessionId} formatBody={formatUserText} />
             </div>
           );
         }
-        const text = inverted && part.text
-          ? formatInvertedText(part.text)
+        const text = userPrompt && part.text
+          ? formatUserText(part.text)
           : (part.text || '...');
-        if (isStreaming && !inverted) STREAMED_PART_IDS.add(part.id);
-        const streamingPath = !inverted && (isStreaming || STREAMED_PART_IDS.has(part.id));
+        if (isStreaming && !userPrompt) STREAMED_PART_IDS.add(part.id);
+        const streamingPath = !userPrompt && (isStreaming || STREAMED_PART_IDS.has(part.id));
         return (
           <div key={part.id} className="min-w-0">
             {streamingPath ? (
               <StreamingText text={text} active={animate} />
             ) : (
-              <MarkdownRenderer inverted={inverted}>{text}</MarkdownRenderer>
+              <MarkdownRenderer>{text}</MarkdownRenderer>
             )}
           </div>
         );
@@ -200,7 +191,7 @@ const MessageParts = memo(function MessageParts({
         return (
           <div
             key={part.id}
-            className="visualization-container text-muted-foreground text-sm italic border-l-2 border-muted-foreground/30 pl-3 my-2 wrap-break-word"
+            className="visualization-container my-2 ml-1.5 border-l border-border/50 pl-3 text-sm text-muted-foreground wrap-break-word"
           >
             <StreamingReasoning text={part.text} active={animate} />
           </div>
@@ -224,10 +215,7 @@ const MessageParts = memo(function MessageParts({
             key={part.id}
             src={fullUrl}
             alt=""
-            className={cn(
-              'max-w-full max-h-64 rounded-xl mt-2 object-contain',
-              inverted && 'ring-2 ring-white/20'
-            )}
+            className="max-w-full max-h-64 rounded-xl mt-2 object-contain"
           />
         );
       }
@@ -243,28 +231,18 @@ const MessageParts = memo(function MessageParts({
           <a
             key={part.id}
             href={fullUrl}
-            className={cn(
-              'mt-2 p-2 rounded-lg text-sm flex items-center gap-2 transition-colors',
-              inverted
-                ? 'bg-white/15 hover:bg-white/25 text-primary-foreground'
-                : 'bg-muted hover:bg-accent'
-            )}
+            className="mt-2 flex items-center gap-2 rounded-lg border border-border/50 bg-card p-2 text-sm transition-colors hover:bg-accent"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <FileIcon className="size-4 shrink-0" />
+            <FileIcon className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{displayName}</span>
             {ext && (
-              <span className={cn(
-                'px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ml-auto shrink-0',
-                inverted
-                  ? 'bg-white/25 text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground'
-              )}>
+              <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground/70">
                 {ext}
               </span>
             )}
-            <Download className="size-3.5 shrink-0 opacity-60" />
+            <Download className="size-3.5 shrink-0 text-muted-foreground/70" />
           </a>
         );
       }
@@ -274,7 +252,7 @@ const MessageParts = memo(function MessageParts({
     }
   };
 
-  if (inverted) return <>{parts.map(renderPart)}</>;
+  if (userPrompt) return <>{parts.map(renderPart)}</>;
 
   return (
     <>
@@ -296,7 +274,7 @@ const MessageParts = memo(function MessageParts({
   if (prev.sessionId !== next.sessionId) return false;
   if (prev.parts !== next.parts) return false;
   if (prev.collapseToolPreviews !== next.collapseToolPreviews) return false;
-  if (prev.inverted !== next.inverted) return false;
+  if (prev.userPrompt !== next.userPrompt) return false;
   if (prev.isStreaming !== next.isStreaming) return false;
   if (prev.onNavigateToSubagent !== next.onNavigateToSubagent) return false;
   if (prev.serverUrl !== next.serverUrl) return false;
@@ -325,20 +303,15 @@ const StructuredOutputMessage = memo(function StructuredOutputMessage({
     <>
       <Collapsible open={rawOpen} onOpenChange={setRawOpen}>
         <CollapsibleTrigger asChild>
-          <div className="flex items-center gap-2 py-1 hover:text-foreground transition-colors text-muted-foreground">
-            <Braces className="size-3 text-primary" />
-            {rawOpen ? (
-              <ChevronDown className="size-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="size-4 text-muted-foreground" />
-            )}
-            <span className="text-xs">
-              Raw Output
+          <button type="button" className="flex items-center gap-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+            <ChevronRight className={cn('size-3 opacity-60 transition-transform', rawOpen && 'rotate-90')} />
+            <span>
+              Raw output
               {structuredOutput.formatName && (
-                <span className="text-muted-foreground"> · {structuredOutput.formatName}</span>
+                <span className="text-muted-foreground/70"> · {structuredOutput.formatName}</span>
               )}
             </span>
-          </div>
+          </button>
         </CollapsibleTrigger>
         {rawOpen && (
           <CollapsibleContent>
@@ -347,7 +320,6 @@ const StructuredOutputMessage = memo(function StructuredOutputMessage({
                 sessionId={sessionId}
                 parts={parts}
                 onNavigateToSubagent={onNavigateToSubagent}
-                inverted={false}
                 collapseToolPreviews={collapseToolPreviews}
                 serverUrl={serverUrl}
               />
@@ -496,7 +468,6 @@ export const MessageRow = memo(function MessageRow({
             sessionId={sessionId}
             parts={item.parts}
             onNavigateToSubagent={onNavigateToSubagent}
-            inverted={item.message.role === 'user' && !item.isQueued}
             userPrompt={item.message.role === 'user'}
             isStreaming={isAssistantMessage(item.message) && item.message.status === 'streaming'}
             collapseToolPreviews={item.collapseToolPreviews}

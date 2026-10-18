@@ -65,14 +65,14 @@ function FileRows({ files, copyLabel }: { files: FileListItem[]; copyLabel: stri
             {file.path}
           </span>
           {file.line !== undefined && (
-            <span className="shrink-0 tabular-nums text-muted-foreground/60">
+            <span className="shrink-0 tabular-nums text-muted-foreground/70">
               :{file.line}
             </span>
           )}
           {file.action && (
             <span
               className={cn(
-                'shrink-0 rounded px-1 text-[10px]',
+                'shrink-0 rounded px-1 text-2xs',
                 file.action === 'created' && 'bg-success/15 text-success',
                 file.action === 'modified' && 'bg-warning/15 text-warning',
                 file.action === 'deleted' && 'bg-destructive/15 text-destructive',
@@ -139,7 +139,7 @@ export function FileListViewer({
       {visibleGroups.map((group, groupIndex) => (
         <div key={groupIndex} className="flex flex-col gap-1">
           {showGroupHeaders && (
-            <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+            <div className="flex items-center gap-1.5 text-2xs font-medium text-muted-foreground/70">
               {group.icon && (() => {
                 const Icon = iconMap[group.icon];
                 return <Icon className="size-3" />;
@@ -171,7 +171,7 @@ export function FileListViewer({
 
   // Large list: collapsed header row, expand on demand.
   return (
-    <div className="overflow-hidden rounded-md border border-border/60">
+    <div className="overflow-hidden rounded-md border border-border/50">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
@@ -192,7 +192,7 @@ export function FileListViewer({
           </span>
         )}
         {serverTruncated && (
-          <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+          <span className="ml-auto shrink-0 text-2xs tabular-nums text-muted-foreground/70">
             first {totalItemCount} shown
           </span>
         )}
@@ -201,7 +201,7 @@ export function FileListViewer({
         <div className="flex flex-col gap-2 px-2.5 py-2">
           {renderGroups()}
           {serverTruncated && (
-            <div className="text-[10px] italic tabular-nums text-muted-foreground/60">
+            <div className="text-2xs italic tabular-nums text-muted-foreground/70">
               Showing first {totalItemCount} of {reportedTotal}.
             </div>
           )}

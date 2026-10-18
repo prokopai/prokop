@@ -411,7 +411,7 @@ export function ModelVariantConfigSelector({
                   title={isMobile ? label : undefined}
                   onClick={() => setModelTab(id)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-sm text-xs font-medium transition-colors',
+                    'flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors',
                     isMobile ? 'h-9 w-9 justify-center p-0' : 'justify-start px-2 py-1.5',
                     activeModelTab === id
                       ? 'bg-accent text-foreground'

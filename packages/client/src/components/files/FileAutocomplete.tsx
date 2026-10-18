@@ -178,7 +178,7 @@ export function FileAutocomplete({
 
   return (
     <div className="flex flex-col">
-      {!searchQuery && <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">Changed files</div>}
+      {!searchQuery && <div className="px-3 pt-2 pb-1 text-2xs font-medium text-muted-foreground">Changed files</div>}
       <div ref={listRef} role="listbox" aria-label="Files" className={cn('relative overflow-y-auto p-1', LIST_MAX_HEIGHT)}>
         {files.map((file, index) => {
           const { fileName, dirPath } = splitPath(file.path);
@@ -220,7 +220,7 @@ export function FileAutocomplete({
           );
         })}
       </div>
-      <div className="flex items-center gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-3 border-t px-3 py-1.5 text-2xs text-muted-foreground">
         <span><kbd className="font-sans">↵</kbd> insert</span>
         <span><kbd className="font-sans">⇥</kbd> open folder</span>
         <span><kbd className="font-sans">esc</kbd></span>

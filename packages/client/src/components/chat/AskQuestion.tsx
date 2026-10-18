@@ -575,7 +575,7 @@ function ShellCommandView({
               {runs.map((run, runIndex) => run.marked ? (
                 <mark
                   key={runIndex}
-                  className={`rounded-sm text-foreground underline decoration-2 underline-offset-2 ${markClass}`}
+                  className={`rounded-md text-foreground underline decoration-2 underline-offset-2 ${markClass}`}
                 >
                   {run.text}
                 </mark>

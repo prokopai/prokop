@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Brain, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { formatElapsed } from '@/lib/turnStats';
 import { useVizExpanded } from '@/lib/vizExpansion';
+import { cn } from '@/lib/utils';
 
 interface ReasoningBlockProps {
   expansionKey: string;
@@ -21,12 +22,11 @@ export function ReasoningBlock({ expansionKey, durationMs, children }: Reasoning
         onClick={() => setOpen(value => !value)}
         className="flex items-center gap-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
-        <Brain className="size-3 shrink-0" />
-        {open ? <ChevronDown className="size-4 shrink-0" /> : <ChevronRight className="size-4 shrink-0" />}
+        <ChevronRight className={cn('size-3 shrink-0 opacity-60 transition-transform', open && 'rotate-90')} />
         <span>{durationMs !== undefined ? `Thought for ${formatElapsed(durationMs)}` : 'Thought'}</span>
       </button>
       {open && (
-        <div className="visualization-container my-2 border-l-2 border-muted-foreground/30 pl-3 text-sm italic text-muted-foreground wrap-break-word">
+        <div className="visualization-container my-2 ml-1.5 border-l border-border/50 pl-3 text-sm text-muted-foreground wrap-break-word">
           {children}
         </div>
       )}

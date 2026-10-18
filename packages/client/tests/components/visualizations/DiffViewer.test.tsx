@@ -4,16 +4,18 @@ import { describe, it, expect, vi } from 'vitest';
 import type { FileDiffMetadata } from '@pierre/diffs';
 import { DiffViewer } from '@/components/visualizations/DiffViewer';
 
+const openFilePreview = vi.fn();
+
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ openFilePreview: vi.fn() }),
+    selector({ openFilePreview }),
   ),
 }));
 
 vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
   selectActiveWorkspace: (await importOriginal<typeof import('@/stores/serverDataStore')>()).selectActiveWorkspace,
   useServerDataStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ workspaces: [{ id: 'ws-1', name: 'test' }], activeWorkspaceId: 'ws-1' }),
+    selector({ workspaces: [{ id: 'ws-1', name: 'test', path: '/repo' }], activeWorkspaceId: 'ws-1' }),
   ),
 }));
 
@@ -48,9 +50,22 @@ const sampleHunks = [
   },
 ];
 
+function addedHunk(lines: number) {
+  return {
+    oldStart: 1,
+    oldLines: 0,
+    newStart: 1,
+    newLines: lines,
+    changes: Array.from({ length: lines }, (_, i) => ({ type: 'added' as const, content: `added ${i + 1}`, newLineNumber: i + 1 })),
+  };
+}
+
 describe('DiffViewer', () => {
-  it('renders file path in header', () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-header.tsx" />);
+  it('names the file only when asked to (several files under one row)', () => {
+    const { unmount } = render(<DiffViewer hunks={sampleHunks} path="src/app-header.tsx" />);
+    expect(screen.queryByText('src/app-header.tsx')).not.toBeInTheDocument();
+    unmount();
+    render(<DiffViewer hunks={sampleHunks} path="src/app-header.tsx" showPath />);
     expect(screen.getByText('src/app-header.tsx')).toBeInTheDocument();
   });
 
@@ -89,33 +104,36 @@ describe('DiffViewer', () => {
     expect(screen.getByTestId('patch-diff').getAttribute('data-cache-key')).not.toBe(firstKey);
   });
 
-  it('displays additions and deletions count', () => {
+  it('shows additions and deletions beside the named file', () => {
     render(
-      <DiffViewer hunks={sampleHunks} path="src/app-counts.tsx" additions={5} deletions={3} />,
+      <DiffViewer hunks={sampleHunks} path="src/app-counts.tsx" additions={5} deletions={3} showPath />,
     );
     expect(screen.getByText('+5 -3')).toBeInTheDocument();
   });
 
   it('hides additions/deletions when not provided', () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-nocounts.tsx" />);
+    render(<DiffViewer hunks={sampleHunks} path="src/app-nocounts.tsx" showPath />);
     expect(screen.queryByText(/^\+\d+ -\d+$/)).not.toBeInTheDocument();
   });
 
-  it('collapses diff when expand button clicked', async () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-collapse.tsx" />);
-    const expandBtn = screen.getAllByRole('button')[0];
-    await userEvent.click(expandBtn);
+  it('peeks at the first diff lines and grows inline on Show all', async () => {
+    const { container } = render(<DiffViewer hunks={[addedHunk(45)]} path="src/app-long.tsx" vizKey="long" />);
+    let patchEl = screen.getByTestId('patch-diff');
+    expect(patchEl.textContent).toContain('+added 30');
+    expect(patchEl.textContent).not.toContain('+added 31');
 
-    expect(screen.queryByTestId('patch-diff')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 45 lines' }));
+    patchEl = screen.getByTestId('patch-diff');
+    expect(patchEl.textContent).toContain('+added 45');
+    expect(container.querySelector('.tool-output-scroll')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getByTestId('patch-diff').textContent).not.toContain('+added 31');
   });
 
-  it('expands diff again when button clicked twice', async () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-twice.tsx" />);
-    const expandBtn = screen.getAllByRole('button')[0];
-    await userEvent.click(expandBtn);
-    await userEvent.click(expandBtn);
-
-    expect(screen.getByTestId('patch-diff')).toBeInTheDocument();
+  it('offers no Show all for a diff within the budget', () => {
+    render(<DiffViewer hunks={sampleHunks} path="src/app-short.tsx" />);
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
   });
 
   it('renders multiple hunks', () => {
@@ -145,25 +163,15 @@ describe('DiffViewer', () => {
     expect(patchEl.textContent).toContain('+hunk2 line');
   });
 
-  it('has file path button with title', () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-title.tsx" />);
-    const pathButton = screen.getByTitle('src/app-title.tsx');
-    expect(pathButton).toBeInTheDocument();
-  });
+  it('opens the file from the Open file action unless opening is disabled', async () => {
+    const { unmount } = render(<DiffViewer hunks={sampleHunks} path="src/app-title.tsx" />);
+    const open = screen.getByRole('button', { name: 'Open file' });
+    expect(open).toHaveAttribute('title', 'src/app-title.tsx');
+    await userEvent.click(open);
+    expect(openFilePreview).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws-1', name: 'app-title.tsx' }));
+    unmount();
 
-  it('wraps the expanded diff body in the capped scroll area', () => {
-    render(<DiffViewer hunks={sampleHunks} path="src/app-scroll.tsx" />);
-    const patchEl = screen.getByTestId('patch-diff');
-    expect(patchEl.parentElement?.className).toContain('tool-output-scroll');
-    // Header row stays outside the scroll area.
-    expect(screen.getByTitle('src/app-scroll.tsx').closest('.tool-output-scroll')).toBeNull();
-  });
-
-  it('renders no scroll area when collapsed', async () => {
-    const { container } = render(<DiffViewer hunks={sampleHunks} path="src/app-noscroll.tsx" />);
-    const expandBtn = screen.getAllByRole('button')[0];
-    await userEvent.click(expandBtn);
-
-    expect(container.querySelector('.tool-output-scroll')).not.toBeInTheDocument();
+    render(<DiffViewer hunks={sampleHunks} path="src/app-locked.tsx" disablePathOpen />);
+    expect(screen.queryByRole('button', { name: 'Open file' })).not.toBeInTheDocument();
   });
 });

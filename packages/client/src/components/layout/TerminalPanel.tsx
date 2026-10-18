@@ -708,7 +708,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
               <Folder className={cn('size-3.5 shrink-0', FOLDER_ICON_COLOR)} />
               <span className="min-w-0">
                 <span className="block truncate">{root.label}</span>
-                <span className="block truncate text-[10px] text-muted-foreground">{root.path}</span>
+                <span className="block truncate text-2xs text-muted-foreground">{root.path}</span>
               </span>
             </DropdownMenuItem>
           ))}

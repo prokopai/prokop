@@ -82,7 +82,7 @@ function UsageRefreshButton({ label, fetching, disabled = false, onRefresh, upda
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
       {updatedAt > 0 && !disabled && (
-        <span className="text-[10px] text-muted-foreground tabular-nums" title={`Checked ${new Date(updatedAt).toLocaleString()}`}>
+        <span className="text-2xs text-muted-foreground tabular-nums" title={`Checked ${new Date(updatedAt).toLocaleString()}`}>
           {formatCheckedAgo(updatedAt, now)}
         </span>
       )}
@@ -128,7 +128,7 @@ function HarnessUsageCard({ sdkClient, harness, status, now }: {
         <harness.Mark className="size-5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium">{harness.name}</span>
         {data?.plan && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 capitalize">{data.plan}</Badge>
+          <Badge variant="secondary" className="text-2xs px-1.5 py-0 h-5 capitalize">{data.plan}</Badge>
         )}
         {ready && (
           <UsageRefreshButton label={`Refresh ${harness.name} usage`} fetching={isFetching}

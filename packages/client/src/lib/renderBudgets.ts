@@ -9,11 +9,15 @@
  */
 
 export const RENDER_BUDGETS = {
-  /** Submitted user prompts whose following tool previews mount automatically */
-  toolPreviewRecentPrompts: 3,
+  /** Submitted user prompts whose following tool previews mount automatically.
+   * Previews are line-budgeted peeks, so a few more turns cost little height. */
+  toolPreviewRecentPrompts: 5,
 
   /** Lines of code to highlight in a collapsed preview */
   codePreviewLines: 20,
+
+  /** Trailing command output lines shown while a shell preview is folded */
+  shellPreviewLines: 12,
 
   /** Lines of code above which expanded mode renders plain text instead of highlighted */
   codePlainTextThreshold: 500,

@@ -62,9 +62,10 @@ test('cutoff changes reach mounted memoized rows, while queued prompts and runni
   expect(screen.getByTestId('tool-a1')).toHaveAttribute('data-collapsed', 'false');
   view.rerender(transcript([...items, user('queued', true)]));
   expect(screen.getByTestId('tool-a1')).toHaveAttribute('data-collapsed', 'false');
-  view.rerender(transcript([...items, user('u3')]));
+  // Previews stay open for the five most recent prompts.
+  view.rerender(transcript([...items, user('u3'), user('u4'), user('u5')]));
   expect(screen.getByTestId('tool-a1')).toHaveAttribute('data-collapsed', 'false');
-  view.rerender(transcript([...items, user('u3'), user('u4')]));
+  view.rerender(transcript([...items, user('u3'), user('u4'), user('u5'), user('u6')]));
   expect(screen.getByTestId('tool-a1')).toHaveAttribute('data-collapsed', 'true');
   expect(screen.getByTestId('tool-a2')).toHaveAttribute('data-collapsed', 'false');
   expect(screen.getByTestId('tool-running')).toHaveAttribute('data-collapsed', 'false');

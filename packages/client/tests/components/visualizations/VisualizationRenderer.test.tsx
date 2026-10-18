@@ -26,7 +26,8 @@ describe('VisualizationRenderer', () => {
       stdout: 'hi',
     };
     render(<VisualizationRenderer visualization={viz} />);
-    expect(screen.getByText('echo hi')).toBeInTheDocument();
+    // The command is on the tool row; the preview is output only.
+    expect(screen.queryByText('echo hi')).not.toBeInTheDocument();
     expect(screen.getByText('hi')).toBeInTheDocument();
   });
 

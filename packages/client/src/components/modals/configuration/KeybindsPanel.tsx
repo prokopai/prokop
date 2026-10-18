@@ -181,7 +181,7 @@ export function KeybindsPanel() {
 
       {CATEGORIES.map((category) => (
         <section key={category} className="flex flex-col gap-2" aria-labelledby={`keybindings-${category}`}>
-          <h3 id={`keybindings-${category}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <h3 id={`keybindings-${category}`} className="text-xs font-medium text-muted-foreground">
             {category}
           </h3>
           {CATEGORY_NOTES[category] && (

@@ -18,7 +18,6 @@ const meta = {
   },
   argTypes: {
     children: { control: 'text' },
-    inverted: { control: 'boolean' },
   },
   args: {
     children: shortMarkdown,
@@ -58,11 +57,11 @@ export const CodeBlocks: Story = {
   },
 };
 
-export const Inverted: Story = {
+/** The same renderer inside a tinted user bubble: code and chips stay in the palette. */
+export const InUserBubble: Story = {
   args: {
-    children: richMarkdown,
-    inverted: true,
-    className: 'bg-primary text-primary-foreground p-4 rounded-lg',
+    children: codeBlocksMarkdown,
+    className: 'on-muted-surface bg-muted p-3 rounded-xl',
   },
 };
 
@@ -78,14 +77,6 @@ export const LongContent: Story = {
   },
 };
 
-export const InvertedCodeBlocks: Story = {
-  args: {
-    children: codeBlocksMarkdown,
-    inverted: true,
-    className: 'bg-primary text-primary-foreground p-4 rounded-lg',
-  },
-};
-
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-col gap-8 max-w-2xl">
@@ -94,8 +85,8 @@ export const AllVariants: Story = {
         <MarkdownRenderer>{simpleMarkdown}</MarkdownRenderer>
       </div>
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-2">Inverted</h3>
-        <MarkdownRenderer inverted className="bg-primary text-primary-foreground p-4 rounded-lg">
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">In a user bubble</h3>
+        <MarkdownRenderer className="on-muted-surface bg-muted p-3 rounded-xl">
           {richMarkdown}
         </MarkdownRenderer>
       </div>

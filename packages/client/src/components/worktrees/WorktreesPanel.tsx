@@ -76,26 +76,26 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{worktree.name}</span>
           {worktree.branch && worktree.branch !== worktree.name && (
-            <span className="hidden min-w-0 truncate font-mono text-[11px] text-muted-foreground sm:inline">
+            <span className="hidden min-w-0 truncate font-mono text-2xs text-muted-foreground sm:inline">
               ({worktree.branch})
             </span>
           )}
           {unavailable && (
-            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-2xs font-medium text-destructive">
               {worktree.state}
             </span>
           )}
           {removed && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
               removed
             </span>
           )}
         </div>
         {blocked && !removed && (
-          <span className="truncate text-[11px] text-muted-foreground">{blocked}</span>
+          <span className="truncate text-2xs text-muted-foreground">{blocked}</span>
         )}
         {!blocked && !removed && worktree.attachments.length > 0 && (
-          <span className="truncate text-[11px] text-muted-foreground/70">
+          <span className="truncate text-2xs text-muted-foreground/70">
             {worktree.attachments.length} session{worktree.attachments.length > 1 ? 's' : ''} attached
           </span>
         )}
@@ -200,7 +200,7 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" data-worktrees-panel>
       <div className="flex items-center justify-between px-2 pb-1 pt-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="text-2xs font-medium text-muted-foreground">
           Worktrees
         </span>
         <Button

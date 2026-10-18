@@ -639,7 +639,7 @@ function ActiveFileBody({
           {(gitDiff || diffFetching || diffData) && (
             <>
               {gitDiff && (
-                <span className="flex items-center gap-1 text-[10px] font-medium shrink-0">
+                <span className="flex items-center gap-1 text-2xs font-medium shrink-0">
                   {gitDiff.additions > 0 && (
                     <span className="text-green-600 dark:text-green-400">+{gitDiff.additions}</span>
                   )}
@@ -779,13 +779,13 @@ function ConflictBanner({ conflict, localContent, saving, onOverwrite, onReload,
       {showCompare && (
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="min-h-0 overflow-hidden rounded-md border border-border">
-            <div className="border-b border-border bg-muted/50 px-2 py-1 text-[10px] font-medium uppercase text-muted-foreground">
+            <div className="border-b border-border bg-muted/50 px-2 py-1 text-2xs font-medium uppercase text-muted-foreground">
               Your changes
             </div>
             <pre className="max-h-48 overflow-auto p-2 text-xs dialog-scrollbar">{localContent}</pre>
           </div>
           <div className="min-h-0 overflow-hidden rounded-md border border-border">
-            <div className="border-b border-border bg-muted/50 px-2 py-1 text-[10px] font-medium uppercase text-muted-foreground">
+            <div className="border-b border-border bg-muted/50 px-2 py-1 text-2xs font-medium uppercase text-muted-foreground">
               On disk
             </div>
             <pre className="max-h-48 overflow-auto p-2 text-xs dialog-scrollbar">{conflict.currentContent}</pre>

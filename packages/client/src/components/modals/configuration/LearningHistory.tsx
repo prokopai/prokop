@@ -41,7 +41,7 @@ function ChangeDiff({ change }: { change: LearningChange }) {
     <div className="flex flex-col gap-2">
       {fileState && <p className="text-xs text-muted-foreground">{fileState}</p>}
       {hunks.length
-        ? <DiffViewer hunks={hunks} path={change.path} additions={additions} deletions={deletions} disablePathOpen vizKey={`learning-${change.id}`} />
+        ? <DiffViewer hunks={hunks} path={change.path} additions={additions} deletions={deletions} disablePathOpen showPath vizKey={`learning-${change.id}`} />
         : <p className="text-sm text-muted-foreground">No content changes.</p>}
     </div>
   );

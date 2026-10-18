@@ -85,7 +85,7 @@ function DefaultModelRow({
 
   return (
     <div className="flex items-center gap-2 flex-wrap min-w-0">
-      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Default</span>
+      <span className="text-xs font-medium text-muted-foreground">Default</span>
       <Select
         value={provider}
         onValueChange={(id) => setDraftProvider(id === defaultProvider ? null : id)}

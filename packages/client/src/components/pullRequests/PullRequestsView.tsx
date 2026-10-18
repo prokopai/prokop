@@ -424,7 +424,7 @@ function RepositoryInbox({
                     {pr.updatedAt && ` · ${relativeTime(pr.updatedAt)}`}
                   </span>
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-mono text-[11px] text-muted-foreground">
+                    <span className="truncate font-mono text-2xs text-muted-foreground">
                       {pr.sourceBranch} → {pr.targetBranch}
                     </span>
                     {pr.requestedReviewerIds?.includes(ctx.accountId) && (

@@ -265,7 +265,7 @@ function CommentMeta({ name, createdAt, copy }: { name: string; createdAt: strin
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <span className="flex-1">{title}</span>
         {aside}
       </h3>

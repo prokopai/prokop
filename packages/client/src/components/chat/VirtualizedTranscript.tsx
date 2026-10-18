@@ -5,13 +5,13 @@ import { Loader2 } from 'lucide-react';
 import type { MessageWithParts, Part, Message } from '@prokopai/sdk';
 import { type SessionHarness, type SessionHarnessSwitch } from '@prokopai/sdk';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeftRight, Minimize2 } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownFileLinkContext } from '@/components/shared/markdownFileLinks';
 import { useFileLinkOpener } from '@/hooks/useContextFileOpener';
 import { getToolPreviewCutoff } from '@/lib/toolPreviewPolicy';
 import type { PendingSend } from '@/stores/pendingSendStore';
-import { CompactionInProgressBanner, CompactionSuccessBanner, MessageRow } from './TranscriptRow';
+import { MessageRow, TranscriptDivider } from './TranscriptRow';
 import { useTranscriptFollow } from './useTranscriptFollow';
 import type { TranscriptAnchor } from '@/lib/transcriptFollow';
 
@@ -222,20 +222,12 @@ export function VirtualizedTranscript({
         isPinningMessage={isPinningMessage}
       />
       {switchMarkers.has(item.message.id) && (
-        <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground" role="status">
-          <span className="h-px w-8 bg-border" />
-          <ArrowLeftRight className="size-3" />
+        <TranscriptDivider icon={<ArrowLeftRight className="size-3" />}>
           {switchMarkers.get(item.message.id)}
-          <span className="h-px w-8 bg-border" />
-        </div>
+        </TranscriptDivider>
       )}
       {item.message.id === compactedAfterMessageId && (
-        <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground" role="status">
-          <span className="h-px w-8 bg-border" />
-          <Minimize2 className="size-3" />
-          Context compacted
-          <span className="h-px w-8 bg-border" />
-        </div>
+        <TranscriptDivider>Context compacted</TranscriptDivider>
       )}
     </div>
   ), [
@@ -306,15 +298,16 @@ export function VirtualizedTranscript({
         </div>
       )}
 
+      {/* Compaction state is a hairline like every other transcript marker, pinned while it runs. */}
       {showCompactionBanner && (
-        <div className="sticky top-0 z-10 px-4 pt-4 pb-1 bg-gradient-to-b from-background via-background/95 to-transparent">
-          <CompactionInProgressBanner />
+        <div className="sticky top-0 z-10 bg-card">
+          <TranscriptDivider icon={<Loader2 className="size-3 animate-spin" />}>Compacting</TranscriptDivider>
         </div>
       )}
 
       {compactionSuccess && (
-        <div className="sticky top-0 z-10 px-4 pt-4 pb-1 bg-gradient-to-b from-background via-background/95 to-transparent">
-          <CompactionSuccessBanner />
+        <div className="sticky top-0 z-10 bg-card">
+          <TranscriptDivider>Compacted</TranscriptDivider>
         </div>
       )}
 

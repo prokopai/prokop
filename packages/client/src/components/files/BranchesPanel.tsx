@@ -156,16 +156,16 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
   const showRecent = !search && localBranches.length > recent.length && recent.length > 1;
   const pickerItem = (b: GitBranchInfo, label: string, value: string, indent = false) => <CommandItem key={value} value={value} onSelect={() => selectBranch(b.ref)}>
     <span className={cn('min-w-0 flex-1 truncate', indent && 'pl-4')}>{label}</span>
-    {!!b.ahead && <span className="shrink-0 text-[10px] tabular-nums text-success" title={`${b.ahead} to push`}>↑{b.ahead}</span>}
-    {!!b.behind && <span className="shrink-0 text-[10px] tabular-nums text-warning" title={`${b.behind} to pull`}>↓{b.behind}</span>}
-    {b.committedAt && <span className="min-w-8 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/70" title={`Last commit ${timestampLabel(b.committedAt)}`}>{relativeAge(b.committedAt, now)}</span>}
+    {!!b.ahead && <span className="shrink-0 text-2xs tabular-nums text-success" title={`${b.ahead} to push`}>↑{b.ahead}</span>}
+    {!!b.behind && <span className="shrink-0 text-2xs tabular-nums text-warning" title={`${b.behind} to pull`}>↓{b.behind}</span>}
+    {b.committedAt && <span className="min-w-8 shrink-0 text-right text-2xs tabular-nums text-muted-foreground/70" title={`Last commit ${timestampLabel(b.committedAt)}`}>{relativeAge(b.committedAt, now)}</span>}
     <span className="flex w-10 shrink-0 justify-end">{b.current ? <Check /> : b.checkedOut ? <span className="text-xs text-muted-foreground">In use</span> : null}</span>
   </CommandItem>;
 
   const sync = selected && data ? branchSync(selected, data.branches, data.repository.remotes) : null;
   const stale = isFetchStale(data?.lastFetchedAt ?? null, now);
   const fetched = fetchedLabel(data?.lastFetchedAt ?? null, now);
-  const countClass = 'shrink-0 rounded-sm font-medium tabular-nums enabled:hover:text-foreground disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  const countClass = 'shrink-0 rounded-md font-medium tabular-nums enabled:hover:text-foreground disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
   const syncTitle = stale ? `May be outdated: ${fetched.toLowerCase()}. Fetch to update.` : `Relative to the last fetch (${fetched.toLowerCase()})`;
   const syncStatus = (() => {
     if (!sync) return null;
@@ -194,7 +194,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
   if (showCurrentBranch) context.push(<button
     key="current"
     type="button"
-    className="min-w-0 truncate rounded-sm text-left underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="min-w-0 truncate rounded-md text-left underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     aria-label={`View checked-out branch ${currentBranch.name}`}
     title={`View ${currentBranch.name} history without switching branches`}
     onClick={() => selectBranch(currentBranch.ref)}
@@ -262,11 +262,11 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
           return <Button variant="ghost" size="sm" disabled={busy || !data.repository.head || !target} title={target?.existing ? `Switch to existing local branch ${target.localName}` : `Create ${target?.localName ?? ''} tracking ${selected.name}, then switch to it`} onClick={() => void checkoutRemote(selected)}>{busy && (mutation.variables?.action === 'track' || mutation.variables?.action === 'switch') ? 'Checking out…' : 'Checkout'}</Button>;
         })()}
       </div>
-      {context.length > 0 && <div className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+      {context.length > 0 && <div className="flex min-w-0 items-center gap-1 text-2xs text-muted-foreground">
         {context.flatMap((node, index) => index ? [<span key={`sep-${index}`} aria-hidden="true">·</span>, node] : [node])}
       </div>}
     </div>}
-    {createFrom && <form className="flex shrink-0 flex-col gap-1.5 border-b border-border/60 px-2 py-2" onSubmit={(event) => { event.preventDefault(); if (createFrom && name.trim() && !busy) mutation.mutate({ action: 'create', name: name.trim(), startHead: createFrom }); }}>
+    {createFrom && <form className="flex shrink-0 flex-col gap-1.5 border-b border-border/50 px-2 py-2" onSubmit={(event) => { event.preventDefault(); if (createFrom && name.trim() && !busy) mutation.mutate({ action: 'create', name: name.trim(), startHead: createFrom }); }}>
       <div className="flex items-center gap-1">
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">New branch from <span className="font-mono">{createFrom.slice(0, 8)}</span>. Checkout stays unchanged.</span>
         <Button type="button" size="icon-xs" variant="ghost" aria-label="Cancel new branch" disabled={busy} onClick={() => { setCreateFrom(null); setName(''); }}><X /></Button>
@@ -309,8 +309,8 @@ function RefChips({ refs }: { refs: GitBranchInfo[] }) {
   if (refs.length === 0) return null;
   const shown = refs.slice(0, MAX_CHIPS);
   return <span className="flex shrink-0 items-center gap-1">
-    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded px-1 text-[10px] leading-4', b.kind === 'remote' ? 'border border-border text-muted-foreground' : b.current ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
-    {refs.length > MAX_CHIPS && <span className="text-[10px] text-muted-foreground" title={refs.slice(MAX_CHIPS).map((b) => b.name).join(', ')}>+{refs.length - MAX_CHIPS}</span>}
+    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded px-1 text-2xs leading-4', b.kind === 'remote' ? 'border border-border text-muted-foreground' : b.current ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
+    {refs.length > MAX_CHIPS && <span className="text-2xs text-muted-foreground" title={refs.slice(MAX_CHIPS).map((b) => b.name).join(', ')}>+{refs.length - MAX_CHIPS}</span>}
   </span>;
 }
 
@@ -329,12 +329,12 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
       // Only the leading day heading sits above every commit; later ones bridge the rail.
       if (row.type === 'day') return <div key={row.key} className="sticky top-0 z-10 flex h-6 items-center gap-2 bg-background px-3">
         <Rail top={index > 0} bottom={index > 0} />
-        <span className="text-[10px] font-medium text-muted-foreground/70">{row.label}</span>
+        <span className="text-2xs font-medium text-muted-foreground/70">{row.label}</span>
       </div>;
       if (row.type === 'upstream') return <div key={row.key} className="flex h-5 items-center gap-2 px-3" title={`${row.label} points at the commit below`}>
         <Rail top bottom />
         <span className="flex-1 border-t border-dashed border-border" />
-        <span className="max-w-[60%] shrink-0 truncate text-[10px] text-muted-foreground">{row.label}</span>
+        <span className="max-w-[60%] shrink-0 truncate text-2xs text-muted-foreground">{row.label}</span>
       </div>;
       const { entry, first, last } = row;
       // The divider already names the upstream on any row below the first.
@@ -344,8 +344,8 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
         {entry.sync && <span className="sr-only">{syncHint[entry.sync]}.</span>}
         <span className={cn('min-w-0 flex-1 truncate text-xs transition-colors group-hover:text-foreground', entry.sync ? 'text-foreground/80' : 'text-muted-foreground')}>{entry.subject}</span>
         <RefChips refs={refs} />
-        <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60 @xs:inline">{entry.head.slice(0, 7)}</span>
-        <span className="min-w-6 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/60">{relativeAge(entry.date, now)}</span>
+        <span className="hidden shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70 @xs:inline">{entry.head.slice(0, 7)}</span>
+        <span className="min-w-6 shrink-0 text-right text-2xs tabular-nums text-muted-foreground/70">{relativeAge(entry.date, now)}</span>
       </button>;
     })}
     {history.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-5 w-full" key={i} />)}</div>}
@@ -404,13 +404,13 @@ function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchNa
       {files.length > 0 && <>
         <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">{files.length} changed {files.length === 1 ? 'file' : 'files'}</span>
-          {totals.additions > 0 && <span className="font-mono text-[10px] text-success">+{totals.additions}</span>}
-          {totals.deletions > 0 && <span className="font-mono text-[10px] text-destructive">−{totals.deletions}</span>}
+          {totals.additions > 0 && <span className="font-mono text-2xs text-success">+{totals.additions}</span>}
+          {totals.deletions > 0 && <span className="font-mono text-2xs text-destructive">−{totals.deletions}</span>}
           <span className="ml-1 tabular-nums">{index + 1}/{files.length}</span>
           <Button variant="ghost" size="icon-xs" aria-label="Previous file" disabled={index === 0} onClick={() => step(-1)}><ChevronLeft /></Button>
           <Button variant="ghost" size="icon-xs" aria-label="Next file" disabled={index >= files.length - 1} onClick={() => step(1)}><ChevronRight /></Button>
         </div>
-        <ul ref={listRef} aria-label="Changed files" className="dialog-scrollbar max-h-44 shrink-0 overflow-y-auto border-b border-border/60 pb-1">
+        <ul ref={listRef} aria-label="Changed files" className="dialog-scrollbar max-h-44 shrink-0 overflow-y-auto border-b border-border/50 pb-1">
           {files.map((file) => {
             const { name, folder } = splitPath(file.path);
             const active = file === current;
@@ -420,16 +420,16 @@ function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchNa
                 aria-current={active ? 'true' : undefined}
                 title={`${file.path} (${COMMIT_STATUS_LABEL[file.status]})`}
                 data-path={file.path}
-                className={cn('flex h-6 w-full min-w-0 items-center gap-1.5 rounded-sm px-1 text-left text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none', active && 'bg-muted')}
+                className={cn('flex h-6 w-full min-w-0 items-center gap-1.5 rounded-md px-1 text-left text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none', active && 'bg-muted')}
                 onClick={() => setSelectedPath(file.path)}
               >
-                <span className={cn('w-3 shrink-0 text-center font-mono text-[10px] font-semibold', COMMIT_STATUS_CLASS[file.status])}>{file.status}</span>
+                <span className={cn('w-3 shrink-0 text-center font-mono text-2xs font-semibold', COMMIT_STATUS_CLASS[file.status])}>{file.status}</span>
                 <span className="min-w-0 flex-1 truncate">{name}{folder && <span className="ml-1.5 text-muted-foreground/70">{folder}</span>}</span>
-                {file.diff ? <span className="shrink-0 font-mono text-[10px] tabular-nums">
+                {file.diff ? <span className="shrink-0 font-mono text-2xs tabular-nums">
                   {file.additions > 0 && <span className="text-success">+{file.additions}</span>}
                   {file.additions > 0 && file.deletions > 0 && ' '}
                   {file.deletions > 0 && <span className="text-destructive">−{file.deletions}</span>}
-                </span> : <span className="shrink-0 text-[10px] text-muted-foreground/70">binary</span>}
+                </span> : <span className="shrink-0 text-2xs text-muted-foreground/70">binary</span>}
               </button>
             </li>;
           })}
@@ -496,7 +496,7 @@ function BranchPush({ sdkClient, serverId, workspaceId, root, source, remotes, o
           <Button size="sm" variant="outline" disabled={busy} title="Push the same reviewed commit with --no-verify" onClick={() => { if (push.variables) push.mutate({ ...push.variables, runHooks: false }); }}>Push without hooks</Button>
         </div>}
       </div>}
-      {review && <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
+      {review && <div className="flex flex-col gap-2 border-t border-border/50 pt-2.5">
         <p className="font-mono text-xs text-muted-foreground">{source.name} → {review.target.remote}/{review.target.branch}</p>
         <p className="text-xs text-muted-foreground">{review.result.outgoingCount} outgoing · {review.result.remoteOnlyCount} remote-only{review.result.outgoingCount === 0 && review.result.remoteOnlyCount === 0 ? ' · Nothing to push' : ''}</p>
         {review.result.outgoing.length > 0 && <ul className="text-xs">{review.result.outgoing.map((entry) => <li className="truncate py-0.5" key={entry.head} title={entry.subject}><span className="font-mono text-muted-foreground">{entry.head.slice(0, 8)}</span> {entry.subject}</li>)}</ul>}

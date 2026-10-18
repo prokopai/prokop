@@ -7,10 +7,11 @@ import {
 
 export type ToolRowChipTone = 'neutral' | 'success' | 'error';
 
+// Chips are plain meta text. Success is silent; only failure takes color.
 export const toolChipToneClass: Record<ToolRowChipTone, string> = {
-  neutral: 'bg-muted text-muted-foreground',
-  success: 'bg-success/15 text-success',
-  error: 'bg-destructive/10 text-destructive',
+  neutral: 'text-muted-foreground/70',
+  success: 'text-muted-foreground/70',
+  error: 'text-destructive',
 };
 
 export interface ToolRowChip {
@@ -61,9 +62,10 @@ export function chipsFromVisualization(viz: AnyVisualization): ToolRowChip[] {
       break;
     }
     case 'shell-output': {
-      // Success is the norm and the status icon already shows it.
-      const code = viz.exitCode ?? 0;
-      if (code !== 0) chips.push({ label: `[${code}]`, tone: 'error' });
+      // Success is silent; the preview below has no header, so the row carries the state.
+      if (viz.status === 'running') chips.push({ label: 'running', tone: 'neutral' });
+      else if (viz.status === 'killed') chips.push({ label: 'killed', tone: 'neutral' });
+      else if ((viz.exitCode ?? 0) !== 0) chips.push({ label: `exit ${viz.exitCode}`, tone: 'error' });
       break;
     }
     case 'file-list': {
@@ -83,6 +85,8 @@ export function chipsFromVisualization(viz: AnyVisualization): ToolRowChip[] {
       if (lines !== undefined && viz.badge === undefined) {
         chips.push({ label: `${lines} ${lines === 1 ? 'line' : 'lines'}`, tone: 'neutral' });
       }
+      // A new file is the quiet case; replacing one is worth a word.
+      if (viz.created === false) chips.push({ label: 'overwrote', tone: 'neutral' });
       break;
     }
     case 'markdown': {

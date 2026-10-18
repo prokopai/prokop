@@ -31,7 +31,7 @@ export function GitOutput({ output }: { output?: string }) {
   if (!output) return null;
   return <details className="text-xs">
     <summary className="cursor-pointer text-muted-foreground">Git output</summary>
-    <pre className="dialog-scrollbar mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground/80">{output}</pre>
+    <pre className="dialog-scrollbar mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted px-2 py-1.5 font-mono text-2xs text-foreground/80">{output}</pre>
   </details>;
 }
 

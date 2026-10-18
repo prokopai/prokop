@@ -267,7 +267,7 @@ export default function FilePreviewOverlay({
                 </span>
               )}
               {diffData && (diffData.additions > 0 || diffData.deletions > 0) && (
-                <span className="flex items-center gap-1 text-[10px] font-medium">
+                <span className="flex items-center gap-1 text-2xs font-medium">
                   {diffData.additions > 0 && (
                     <span className="text-green-600 dark:text-green-400">+{diffData.additions}</span>
                   )}

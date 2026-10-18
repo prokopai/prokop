@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { CheckCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 import type { Part } from '@prokopai/sdk';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { toolChipToneClass } from '@/lib/toolSummaries';
 import { formatDuration } from '@/lib/turnStats';
 import { getToolGroupStats } from '@/lib/turnParts';
 import { useVizExpandedOverride } from '@/lib/vizExpansion';
+import { cn } from '@/lib/utils';
 
 interface ToolGroupProps {
   expansionKey: string;
@@ -17,7 +17,8 @@ interface ToolGroupProps {
 
 /**
  * One row for a run of tool calls. Open while the agent works in it, folded
- * once it finishes, unless the user has toggled it.
+ * once it finishes, unless the user has toggled it. Success is silent: only a
+ * running group spins and only failures take color.
  */
 export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProps) {
   const stats = getToolGroupStats(parts);
@@ -25,6 +26,7 @@ export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProp
   const names = stats.names
     .map(({ name, count }) => (count > 1 ? `${name} ×${count}` : name))
     .join(' · ');
+  const countLabel = `${stats.toolCount} tool ${stats.toolCount === 1 ? 'call' : 'calls'}`;
 
   return (
     <div className="my-1">
@@ -32,35 +34,28 @@ export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProp
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center gap-2 py-1 text-left text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={`${countLabel}: ${names}`}
+            title={countLabel}
+            className="flex w-full items-center gap-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             {stats.active
-              ? <Loader2 className="size-3 shrink-0 animate-spin text-warning" />
-              : <CheckCircle className="size-3 shrink-0 text-success" />}
-            {open
-              ? <ChevronDown className="size-4 shrink-0" />
-              : <ChevronRight className="size-4 shrink-0" />}
-            <span className="flex min-w-0 flex-1 items-baseline">
-              <span className="shrink-0 text-xs">{stats.toolCount} tool calls</span>
-              <span className="min-w-0 flex-1 truncate font-mono text-xs">{`: ${names}`}</span>
-            </span>
+              ? <Loader2 className="size-3 shrink-0 animate-spin" />
+              : <ChevronRight className={cn('size-3 shrink-0 opacity-60 transition-transform', open && 'rotate-90')} />}
+            <span className="min-w-0 flex-1 truncate font-mono">{names}</span>
             {stats.failedCount > 0 && (
-              <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${toolChipToneClass.error}`}>
+              <span className="shrink-0 text-2xs text-destructive">
                 {stats.failedCount} failed
               </span>
             )}
-            {stats.additions > 0 && (
-              <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-success/80 sm:inline">
-                +{stats.additions}
-              </span>
-            )}
-            {stats.deletions > 0 && (
-              <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-destructive/80 sm:inline">
-                -{stats.deletions}
+            {(stats.additions > 0 || stats.deletions > 0) && (
+              <span className="hidden shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70 sm:inline">
+                {stats.additions > 0 && `+${stats.additions}`}
+                {stats.additions > 0 && stats.deletions > 0 && ' '}
+                {stats.deletions > 0 && `−${stats.deletions}`}
               </span>
             )}
             {stats.durationMs !== undefined && (
-              <span className="hidden shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/70 sm:inline">
+              <span className="hidden shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70 sm:inline">
                 {formatDuration(stats.durationMs)}
               </span>
             )}
@@ -68,7 +63,7 @@ export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProp
         </CollapsibleTrigger>
         {open && (
           <CollapsibleContent>
-            <div className="ml-1.5 border-l border-border/60 pl-3">
+            <div className="ml-1.5 border-l border-border/50 pl-3">
               {children}
             </div>
           </CollapsibleContent>

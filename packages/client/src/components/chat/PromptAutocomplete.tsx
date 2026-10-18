@@ -48,9 +48,9 @@ export function PromptAutocomplete({
       ))}
       <div className="mt-1 pt-1 border-t text-xs text-muted-foreground px-2">
         {filtered.length} prompt{filtered.length !== 1 ? 's' : ''} •
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-[10px]">↑↓</kbd> navigate
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-[10px]">↵</kbd> select
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-[10px]">esc</kbd> close
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">↑↓</kbd> navigate
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">↵</kbd> select
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">esc</kbd> close
       </div>
     </div>
   );

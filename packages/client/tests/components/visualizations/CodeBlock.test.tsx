@@ -3,16 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { CodeBlock } from '@/components/visualizations/CodeBlock';
 
+const openFilePreview = vi.fn();
+
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ openFilePreview: vi.fn() }),
+    selector({ openFilePreview }),
   ),
 }));
 
 vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
   selectActiveWorkspace: (await importOriginal<typeof import('@/stores/serverDataStore')>()).selectActiveWorkspace,
   useServerDataStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ workspaces: [{ id: 'ws-1', name: 'test' }], activeWorkspaceId: 'ws-1' }),
+    selector({ workspaces: [{ id: 'ws-1', name: 'test', path: '/repo' }], activeWorkspaceId: 'ws-1' }),
   ),
 }));
 
@@ -40,100 +42,82 @@ function makeContent(lines: number): string {
   return Array.from({ length: lines }, (_, i) => `line ${i + 1}`).join('\n');
 }
 
-async function collapseCurrent() {
-  const expandBtn = screen.getAllByRole('button')[0];
-  await userEvent.click(expandBtn);
-}
+const showAll = (lines: number) => screen.getByRole('button', { name: `Show all ${lines} lines` });
 
 describe('CodeBlock', () => {
-  it('renders file path in header', () => {
-    render(<CodeBlock content="hello" path="src/main.ts" />);
-    expect(screen.getByText('src/main.ts')).toBeInTheDocument();
-  });
-
   it('renders code content via text match', () => {
     render(<CodeBlock content="console.log" path="src/render.ts" />);
     expect(screen.getByTestId('pierre-file').textContent).toContain('console.log');
   });
 
-  it('shows "Created" badge by default', () => {
+  it('has no header: the path shows only when asked for', () => {
+    const { unmount } = render(<CodeBlock content="hello" path="src/main.ts" />);
+    expect(screen.queryByText('src/main.ts')).not.toBeInTheDocument();
+    unmount();
+    render(<CodeBlock content="hello" path="src/main.ts" showPath />);
+    expect(screen.getByText('src/main.ts')).toBeInTheDocument();
+  });
+
+  it('carries no created or overwrote badge', () => {
     render(<CodeBlock content="hello" path="src/created.ts" />);
-    expect(screen.getByText('Created')).toBeInTheDocument();
+    expect(screen.queryByText(/Created|Overwrote/)).not.toBeInTheDocument();
   });
 
-  it('shows "Overwrote" badge when created is false', () => {
-    render(<CodeBlock content="hello" path="src/overwrote.ts" created={false} />);
-    expect(screen.getByText('Overwrote')).toBeInTheDocument();
-  });
-
-  it('is expanded by default and shows full content', () => {
-    const content = makeContent(30);
-    render(<CodeBlock content={content} path="src/default-open.ts" />);
-    expect(screen.queryByText('30 lines')).not.toBeInTheDocument();
-    expect(screen.getByTestId('pierre-file').textContent).toContain('line 30');
-  });
-
-  it('shows line count when collapsed', async () => {
-    const content = makeContent(30);
-    render(<CodeBlock content={content} path="src/collapsed-count.ts" />);
-    await collapseCurrent();
-    expect(screen.getByText('30 lines')).toBeInTheDocument();
-  });
-
-  it('truncates the preview to the budget when collapsed', async () => {
-    const content = makeContent(30);
-    render(<CodeBlock content={content} path="src/collapsed-truncate.ts" />);
-    await collapseCurrent();
+  it('peeks at the first lines by default and offers Show all', () => {
+    render(<CodeBlock content={makeContent(30)} path="src/peek.ts" />);
     const fileEl = screen.getByTestId('pierre-file');
     expect(fileEl.textContent).toContain('line 20');
     expect(fileEl.textContent).not.toContain('line 21');
+    expect(showAll(30)).toBeInTheDocument();
   });
 
-  it('has file path button with title', () => {
-    render(<CodeBlock content="hello" path="src/title.ts" />);
-    const pathButton = screen.getByTitle('src/title.ts');
-    expect(pathButton).toBeInTheDocument();
-  });
-
-  it('expands again after collapsing', async () => {
-    const content = makeContent(30);
-    render(<CodeBlock content={content} path="src/toggle.ts" />);
-    await collapseCurrent();
-    expect(screen.getByText('30 lines')).toBeInTheDocument();
-
-    const expandBtn = screen.getAllByRole('button')[0];
-    await userEvent.click(expandBtn);
-
-    expect(screen.queryByText('30 lines')).not.toBeInTheDocument();
+  it('shows the whole file inline after Show all, with no nested scroller', async () => {
+    const { container } = render(<CodeBlock content={makeContent(30)} path="src/full.ts" />);
+    await userEvent.click(showAll(30));
     expect(screen.getByTestId('pierre-file').textContent).toContain('line 30');
+    expect(container.querySelector('.tool-output-scroll')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getByTestId('pierre-file').textContent).not.toContain('line 21');
+  });
+
+  it('offers no Show all for a file within the budget', () => {
+    render(<CodeBlock content={makeContent(10)} path="src/short.ts" />);
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
+  it('opens the file preview from the Open file action', async () => {
+    render(<CodeBlock content="hello" path="src/title.ts" />);
+    const open = screen.getByRole('button', { name: 'Open file' });
+    expect(open).toHaveAttribute('title', 'src/title.ts');
+    await userEvent.click(open);
+    expect(openFilePreview).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws-1', name: 'title.ts' }));
   });
 
   it('keeps expansion state across remounts (virtualizer recycling)', async () => {
     const content = makeContent(30);
     const path = 'src/persist.ts';
     const { unmount } = render(<CodeBlock content={content} path={path} />);
-    await collapseCurrent();
+    await userEvent.click(showAll(30));
     unmount();
 
-    // Remount (fresh component instance): the collapsed choice must hold.
+    // Remount (fresh component instance): the expanded choice must hold.
     render(<CodeBlock content={content} path={path} />);
-    expect(screen.getByText('30 lines')).toBeInTheDocument();
+    expect(screen.getByTestId('pierre-file').textContent).toContain('line 30');
   });
 
   it('scopes expansion state by vizKey, not path+length', async () => {
     const content = makeContent(30);
     const path = 'src/shared.ts';
 
-    // Tool call A (vizKey a): user collapses it.
+    // Tool call A (vizKey a): user expands it.
     const { unmount } = render(<CodeBlock content={content} path={path} vizKey="part-a" />);
-    await collapseCurrent();
-    expect(screen.getByText('30 lines')).toBeInTheDocument();
+    await userEvent.click(showAll(30));
+    expect(screen.getByTestId('pierre-file').textContent).toContain('line 30');
     unmount();
 
-    // Tool call B: same path, same content, different part id → must be open.
+    // Tool call B: same path, same content, different part id: still a peek.
     render(<CodeBlock content={content} path={path} vizKey="part-b" />);
-    expect(screen.queryByText('30 lines')).not.toBeInTheDocument();
-    expect(screen.getByTestId('pierre-file').textContent).toContain('line 30');
+    expect(screen.getByTestId('pierre-file').textContent).not.toContain('line 21');
   });
 
   it('maps highlightLines onto the selection range', () => {
@@ -143,31 +127,13 @@ describe('CodeBlock', () => {
     expect(screen.getByTestId('pierre-file')).toHaveAttribute('data-selected', '2-2');
   });
 
-  it('clamps the selection to the collapsed preview length', async () => {
-    const content = makeContent(30);
-    render(<CodeBlock content={content} path="src/clamp.ts" highlightLines={[25]} />);
-    await collapseCurrent();
+  it('clamps the selection to the folded peek length', () => {
+    render(<CodeBlock content={makeContent(30)} path="src/clamp.ts" highlightLines={[25]} />);
     expect(screen.getByTestId('pierre-file')).toHaveAttribute('data-selected', '20-20');
   });
 
   it('passes no selection when highlightLines is empty', () => {
     render(<CodeBlock content="hello" path="src/noselect.ts" />);
     expect(screen.getByTestId('pierre-file')).toHaveAttribute('data-selected', 'none');
-  });
-
-  it('wraps the file body in the capped scroll area', () => {
-    render(<CodeBlock content={makeContent(200)} path="src/long.ts" />);
-    const fileEl = screen.getByTestId('pierre-file');
-    const scrollBody = fileEl.parentElement;
-    expect(scrollBody?.className).toContain('tool-output-scroll');
-    // Header row stays outside the scroll area.
-    expect(screen.getByText('src/long.ts').closest('.tool-output-scroll')).toBeNull();
-  });
-
-  it('does not cap the collapsed preview', async () => {
-    render(<CodeBlock content={makeContent(200)} path="src/long.ts" />);
-    await collapseCurrent();
-    const fileEl = screen.getByTestId('pierre-file');
-    expect(fileEl.parentElement?.className).not.toContain('tool-output-scroll');
   });
 });

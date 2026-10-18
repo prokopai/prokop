@@ -68,7 +68,7 @@ function PinnedMessageItem({
           <span className="text-xs text-muted-foreground line-clamp-2 break-words [overflow-wrap:anywhere]">
             {pin.preview}
           </span>
-          <span className="text-[10px] text-muted-foreground/60">
+          <span className="text-2xs text-muted-foreground/70">
             {formatRelativeTime(pin.createdAt)}
           </span>
         </div>

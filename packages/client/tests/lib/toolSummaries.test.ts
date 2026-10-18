@@ -48,7 +48,21 @@ describe('tool summaries', () => {
   test('only a failing exit code earns a chip', () => {
     const failed = makeProjectedPart();
     failed.presentation!.visualization = { type: 'shell-output', command: 'false', stderr: 'boom', exitCode: 2 };
-    expect(getToolRowInfo(failed).chips).toEqual([{ label: '[2]', tone: 'error' }]);
+    expect(getToolRowInfo(failed).chips).toEqual([{ label: 'exit 2', tone: 'error' }]);
+  });
+
+  test('a background command reports running or killed without color', () => {
+    expect(chipsFromVisualization({ type: 'shell-output', command: 'bun dev', status: 'running' }))
+      .toEqual([{ label: 'running', tone: 'neutral' }]);
+    expect(chipsFromVisualization({ type: 'shell-output', command: 'bun dev', status: 'killed', exitCode: 137 }))
+      .toEqual([{ label: 'killed', tone: 'neutral' }]);
+  });
+
+  test('a written file notes an overwrite on the row, never a creation', () => {
+    expect(chipsFromVisualization({ type: 'code', path: 'a.ts', content: 'x\ny', created: true }))
+      .toEqual([{ label: '2 lines', tone: 'neutral' }]);
+    expect(chipsFromVisualization({ type: 'code', path: 'a.ts', content: 'x', created: false }))
+      .toEqual([{ label: '1 line', tone: 'neutral' }, { label: 'overwrote', tone: 'neutral' }]);
   });
 
   test('keeps dotted summary template resolution', () => {

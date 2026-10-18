@@ -130,9 +130,9 @@ function HumanValue({ data, depth = 0 }: { data: unknown; depth?: number }) {
     return (
       <div className="space-y-2">
         {visibleData.map((item, i) => (
-          <div key={i} className="rounded-md border border-border/60 bg-muted/20 p-2.5">
+          <div key={i} className="rounded-md border border-border/50 bg-muted/20 p-2.5">
             <div className="flex gap-2.5">
-              <span className="inline-flex items-center justify-center shrink-0 size-5 rounded bg-background text-[10px] font-semibold tabular-nums text-muted-foreground mt-0.5">
+              <span className="inline-flex items-center justify-center shrink-0 size-5 rounded bg-background text-2xs font-medium tabular-nums text-muted-foreground mt-0.5">
                 {i + 1}
               </span>
               <div className="flex-1 min-w-0">
@@ -167,7 +167,7 @@ function HumanValue({ data, depth = 0 }: { data: unknown; depth?: number }) {
         <div className="space-y-2.5">
           {entries.map(([key, value]) => (
             <div key={key}>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+              <div className="text-xs font-semibold text-muted-foreground mb-0.5">
                 {formatLabel(key)}
               </div>
               <HumanValue data={value} depth={depth + 1} />

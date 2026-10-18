@@ -1,4 +1,4 @@
-import { Copy, Check, X, Clock, CornerDownRight, Undo2, GitBranch, Pin, PinOff, Pencil, X as XIcon, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Copy, Check, X, Clock, CornerDownRight, Undo2, GitBranch, Pin, PinOff, Pencil, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { Message } from '@prokopai/sdk';
 import { contextMessagePlainText, isAssistantMessage, joinContextEnvelope, splitContextEnvelope } from '@prokopai/sdk';
@@ -53,7 +53,7 @@ function SendStatus({ status, error, onRetry, onEdit, onDiscard }: {
 }) {
   if (status === 'sending') {
     return (
-      <div className="mr-1 flex items-center gap-1 text-[10px] text-muted-foreground/70 animate-in fade-in-0 [--tw-animation-delay:700ms] [--tw-animation-fill-mode:both]">
+      <div className="mr-1 flex items-center gap-1 text-2xs text-muted-foreground/70 animate-in fade-in-0 [--tw-animation-delay:700ms] [--tw-animation-fill-mode:both]">
         <Loader2 className="size-3 animate-spin" />
         Sending
       </div>
@@ -261,128 +261,43 @@ export function MessageBubble({
     </>
   );
 
+  // No role labels: a right-aligned tinted bubble is the user, full-width text
+  // is the assistant. Actions and turn meta sit under the message and appear
+  // on hover (always on touch).
+  const showUserActions = isUser && !isQueued && !isEditing && !isEditingPending;
+
   return (
     <div
       className={cn(
-        'group/msg flex flex-col gap-0.5 min-w-0',
+        'group/msg flex flex-col gap-1 min-w-0',
         isUser ? 'items-end' : 'items-stretch'
       )}
     >
-      <div
-        className={cn(
-          'flex items-center gap-1 text-[10px] font-medium text-muted-foreground/70',
-          isUser ? 'mr-1' : 'ml-1'
-        )}
-      >
-        {isUser ? (
-          <>
-            <span>You</span>
-            <span
-              className={cn(
-                'ml-auto flex items-center gap-0.5',
-                'opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100',
-              )}
-            >
-              {!isQueued && (
-                <>
-                  {canRevert && onRevert && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowRevertConfirm(true)}
-                      className="size-5 text-muted-foreground hover:text-foreground"
-                      title="Revert to this point"
-                    >
-                      <Undo2 className="size-3" />
-                    </Button>
-                  )}
-                  {canFork && (onFork || forkDisabled) && (
-                    <span title={forkDisabled ? forkUnavailableReason : undefined}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowForkConfirm(true)}
-                        disabled={forkDisabled}
-                        className="size-5 text-muted-foreground hover:text-foreground"
-                        title={forkDisabled ? undefined : 'Fork from this point'}
-                      >
-                        <GitBranch className="size-3" />
-                      </Button>
-                    </span>
-                  )}
-                  {showEditButton && !isEditing && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleStartEdit}
-                      className="size-5 text-muted-foreground hover:text-foreground"
-                      title="Edit and resubmit"
-                    >
-                      <Pencil className="size-3" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleCopy}
-                    className="size-5 text-muted-foreground hover:text-foreground"
-                    title="Copy message"
-                  >
-                    {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-                  </Button>
-                </>
-              )}
-            </span>
-          </>
-        ) : (
-          <>
-            <span>Assistant</span>
-            {turnMetaParts.length > 0 && (
-              <span
-                className={cn('flex min-w-0 items-center gap-1 font-normal text-muted-foreground/60', hoverActionClass)}
-                data-testid="turn-meta"
-              >
-                {turnMetaParts.map(({ key, label, title }) => (
-                  <span key={key} className="truncate tabular-nums" title={title}>
-                    · {label}
-                  </span>
-                ))}
-              </span>
-            )}
-          </>
-        )}
-      </div>
-
       {isEditing && isUser ? (
         <div className="w-full max-w-[90%] self-end">
-          <div className="flex items-center gap-1.5 text-xs text-primary mb-1.5 mr-3 justify-end">
-            <Pencil className="size-3" />
-            Editing
-          </div>
           <Textarea
             ref={editTextareaRef}
             value={editText}
             onChange={handleEditTextChange}
             onKeyDown={handleEditKeydown}
-            className="rounded-2xl rounded-br-md bg-background border-2 border-primary/40 text-foreground resize-none min-h-[60px] shadow-lg shadow-primary/5 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+            aria-label="Edit message"
+            className="rounded-xl rounded-br-md bg-card border border-border text-foreground resize-none min-h-[60px] focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/30"
           />
-          <div className="flex items-center justify-end gap-2 mt-1.5">
+          <div className="flex items-center justify-end gap-1 mt-1.5">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={handleCancelEdit}
-              className="h-7 text-xs gap-1"
+              className="h-7 text-xs"
             >
-              <XIcon className="size-3" />
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleSaveEdit}
               disabled={!editText.trim()}
-              className="h-7 text-xs gap-1"
+              className="h-7 text-xs"
             >
-              <Check className="size-3" />
               Send
             </Button>
           </div>
@@ -398,13 +313,13 @@ export function MessageBubble({
             'relative group min-w-0 overflow-hidden',
             isUser
               ? isQueued
-                ? 'rounded-2xl px-4 py-3 max-w-[90%] bg-muted text-foreground border-2 border-dashed border-muted-foreground/30 opacity-80 rounded-br-md'
-                : 'rounded-2xl px-4 py-3 max-w-[90%] bg-primary text-primary-foreground rounded-br-md'
+                ? 'on-muted-surface rounded-xl rounded-br-md px-3.5 py-2.5 max-w-[90%] bg-muted/60 text-foreground border border-dashed border-border'
+                : 'on-muted-surface rounded-xl rounded-br-md px-3.5 py-2.5 max-w-[90%] bg-muted text-foreground'
               : 'w-full overflow-visible'
           )}
         >
           {isQueued && (
-            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-muted-foreground/20">
+            <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/50">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {isSteering ? <CornerDownRight className="size-3 animate-pulse" /> : <Clock className="size-3 animate-pulse" />}
                 <span>{isSteering ? 'Steering' : 'Pending'}</span>
@@ -451,9 +366,71 @@ export function MessageBubble({
         />
       )}
 
-      {showAssistantFork && (
-        <div className="flex items-center gap-0.5 pt-0.5">
-          {renderAssistantActions()}
+      {showUserActions && (
+        <div className={cn('mr-1 flex items-center gap-0.5', hoverActionClass)}>
+          {canRevert && onRevert && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowRevertConfirm(true)}
+              className="size-5 text-muted-foreground hover:text-foreground"
+              title="Revert to this point"
+            >
+              <Undo2 className="size-3" />
+            </Button>
+          )}
+          {canFork && (onFork || forkDisabled) && (
+            <span title={forkDisabled ? forkUnavailableReason : undefined}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowForkConfirm(true)}
+                disabled={forkDisabled}
+                className="size-5 text-muted-foreground hover:text-foreground"
+                title={forkDisabled ? undefined : 'Fork from this point'}
+              >
+                <GitBranch className="size-3" />
+              </Button>
+            </span>
+          )}
+          {showEditButton && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleStartEdit}
+              className="size-5 text-muted-foreground hover:text-foreground"
+              title="Edit and resubmit"
+            >
+              <Pencil className="size-3" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleCopy}
+            className="size-5 text-muted-foreground hover:text-foreground"
+            title="Copy message"
+          >
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          </Button>
+        </div>
+      )}
+
+      {(showAssistantFork || turnMetaParts.length > 0) && (
+        <div className="ml-1 flex min-w-0 items-center gap-0.5">
+          {showAssistantFork && renderAssistantActions()}
+          {turnMetaParts.length > 0 && (
+            <span
+              className={cn('flex min-w-0 items-center gap-1 pl-1 text-2xs text-muted-foreground/70', hoverActionClass)}
+              data-testid="turn-meta"
+            >
+              {turnMetaParts.map(({ key, label, title }, index) => (
+                <span key={key} className="truncate tabular-nums" title={title}>
+                  {index > 0 && '· '}{label}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       )}
 

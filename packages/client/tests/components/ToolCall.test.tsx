@@ -68,7 +68,7 @@ describe('ToolCall debug loading', () => {
     );
 
     expect(debugRequests).toBe(0);
-    const summary = screen.getByText(': echo hello');
+    const summary = screen.getByText('echo hello');
     expect(summary).toBeInTheDocument();
     expect(summary.className).not.toContain('hidden');
     fireEvent.click(screen.getByText('shell'));
