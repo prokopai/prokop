@@ -7,6 +7,19 @@ import { checkUpdate, parseVersion } from '@/utils/version';
 
 const notified = new Set<string>();
 
+/** The one wording for a newer server release, shared by the toast, the header dot and the settings footer. */
+export function serverUpdateNotice(version: string): { title: string; hint: string } {
+  return {
+    title: `Prokop v${version} is available`,
+    hint: 'Run prokop update on the machine hosting this server.',
+  };
+}
+
+/** Forget which notices were shown, so a story or test can raise the toast again. */
+export function resetServerUpdateNotices(): void {
+  notified.clear();
+}
+
 export function useServerUpdate(): string | null {
   const { sdkClient, serverUrl, connected } = useServerClient();
   const { data } = useQuery({
@@ -40,11 +53,8 @@ export function useServerUpdate(): string | null {
       // Storage may be unavailable in private browsers. In-memory deduplication still works.
     }
     notified.add(key);
-    toast(`Prokop v${latestVersion} is available`, {
-      id: key,
-      description: 'Run prokop update in a terminal on the machine hosting this server.',
-      duration: 8000,
-    });
+    const notice = serverUpdateNotice(latestVersion);
+    toast(notice.title, { id: key, description: notice.hint, duration: 8000 });
   }, [latestVersion, serverUrl]);
 
   return latestVersion;

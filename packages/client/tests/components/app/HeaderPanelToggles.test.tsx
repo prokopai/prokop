@@ -30,7 +30,7 @@ describe('HeaderPanelToggles', () => {
   test('shows a quiet update dot and opens settings directly', async () => {
     const user = userEvent.setup();
     const props = renderToggles({ updateVersion: '1.15.0' });
-    const button = screen.getByRole('button', { name: 'Settings, Prokop v1.15.0 update available' });
+    const button = screen.getByRole('button', { name: 'Settings, Prokop v1.15.0 is available' });
     expect(button.querySelector('[data-update-available]')).not.toBeNull();
     await user.click(button);
     expect(props.onOpenSettings).toHaveBeenCalledOnce();

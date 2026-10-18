@@ -3,7 +3,7 @@ import type { ProkopaiClient } from '@prokopai/sdk';
 import { Bell, Boxes, Cpu, FileText, Cog, GraduationCap, Shield, Bot, Braces, MonitorCog, Palette, Keyboard, CircuitBoard, Gauge, Smartphone } from 'lucide-react';
 import { getSelectableWorkspaces } from '@/lib/workspaceKind';
 import { useServerDataStore } from '@/stores/serverDataStore';
-import { useServerUpdate } from '@/hooks/useServerUpdate';
+import { serverUpdateNotice, useServerUpdate } from '@/hooks/useServerUpdate';
 import { useUIStore } from '@/stores/uiStore';
 import type { ConfigurationSection } from '@/stores/uiStore';
 import { SettingsDialogShell, PanelLoadingFallback, type SettingsGroup, type SettingsSection } from './SettingsDialogShell';
@@ -165,7 +165,7 @@ export function ConfigurationDialog({
       renderPanel={renderPanel}
       footer={updateVersion ? (
         <p className="text-xs text-muted-foreground">
-          Prokop v{updateVersion} available. Run <code>prokop update</code> on the machine hosting this server.
+          {serverUpdateNotice(updateVersion).title}. {serverUpdateNotice(updateVersion).hint}
         </p>
       ) : undefined}
     />

@@ -223,7 +223,7 @@ export function FolderPickerDialog({
                   <HardDrive className="size-4" />
                 </Button>
                 {showDrives && (
-                  <div className="absolute top-full left-0 mt-1 bg-popover border rounded-md shadow-md z-50 min-w-[120px]">
+                  <div className="absolute top-full left-0 z-50 mt-1 min-w-30 rounded-lg bg-popover shadow-md ring-1 ring-foreground/10">
                     {drives.map(drive => (
                       <button
                         key={drive}

@@ -666,12 +666,12 @@ function ActiveFileBody({
           )}
           {(isMd || isSvg) && (
             <Tabs value={mdView} onValueChange={(v) => setMdView(v as 'source' | 'preview')}>
-              <TabsList className="h-7">
-                <TabsTrigger value="source" className="px-2 text-xs">
+              <TabsList size="sm">
+                <TabsTrigger value="source">
                   <Code2 className="size-3" />
                   Source
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="px-2 text-xs">
+                <TabsTrigger value="preview">
                   <Eye className="size-3" />
                   Preview
                 </TabsTrigger>

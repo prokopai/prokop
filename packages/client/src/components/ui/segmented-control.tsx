@@ -13,8 +13,9 @@ export interface SegmentedOption<T extends string> {
 
 /**
  * Pick one of two to four short options shown inline: theme mode, workspace
- * or overview, open or merged. Longer lists use `Select`; navigation between
- * views uses a tab strip.
+ * or overview, open or merged. Longer lists use `Select`; switching between
+ * content panels uses `Tabs`, whose default variant draws the same track and
+ * chip as this control (keep the two in step).
  */
 function SegmentedControl<T extends string>({
   label,
@@ -48,10 +49,10 @@ function SegmentedControl<T extends string>({
           disabled={disabled}
           onClick={() => onChange(option)}
           className={cn(
-            "flex items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+            "flex items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
             size === "sm" ? "h-6 px-2" : "h-7",
             value === option
-              ? "bg-background text-foreground shadow-sm"
+              ? "bg-background text-foreground ring-1 ring-foreground/10"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

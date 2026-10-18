@@ -1,3 +1,4 @@
+import { serverUpdateNotice } from '@/hooks/useServerUpdate';
 import { PanelBottom, PanelLeft, PanelRight, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -82,8 +83,8 @@ export function HeaderPanelToggles({
         size="icon-sm"
         className="relative"
         onClick={onOpenSettings}
-        aria-label={updateVersion ? `Settings, Prokop v${updateVersion} update available` : 'Settings'}
-        title={updateVersion ? `Prokop v${updateVersion} available. Run prokop update on this server.` : 'Settings'}
+        aria-label={updateVersion ? `Settings, ${serverUpdateNotice(updateVersion).title}` : 'Settings'}
+        title={updateVersion ? `${serverUpdateNotice(updateVersion).title}. ${serverUpdateNotice(updateVersion).hint}` : 'Settings'}
       >
         <Settings className="size-4" />
         {updateVersion && (

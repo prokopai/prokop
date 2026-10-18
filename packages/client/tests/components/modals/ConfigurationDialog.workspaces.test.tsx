@@ -8,7 +8,7 @@ import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { ServerClientProvider } from '@/contexts/ServerClientContext';
 
-vi.mock('@/hooks/useServerUpdate', () => ({ useServerUpdate: () => '2.0.0' }));
+vi.mock(import('@/hooks/useServerUpdate'), async (importOriginal) => ({ ...(await importOriginal()), useServerUpdate: () => '2.0.0' }));
 
 function makeWorkspace(id: string, name: string, settings: Workspace['settings'] = {}): Workspace {
   return { id, name, path: `/projects/${name}`, isVirtual: false, additionalPaths: [`/extra/${id}`],
@@ -158,7 +158,7 @@ describe('workspaces in shared settings', () => {
     await waitFor(() => expect(list).toHaveBeenCalledWith('b', true));
     expect(within(screen.getByRole('group', { name: 'Workspace' })).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('combobox', { name: 'Workspace settings section' })).not.toBeInTheDocument();
-    expect(screen.getByText('prokop update')).toBeInTheDocument();
+    expect(screen.getByText(/prokop update/)).toBeInTheDocument();
   });
 
   test('captures the opening workspace even if the active workspace later changes', async () => {
