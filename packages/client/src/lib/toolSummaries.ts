@@ -7,10 +7,10 @@ import {
 
 export type ToolRowChipTone = 'neutral' | 'success' | 'error';
 
-// Chips are plain meta text. Success is silent; only failure takes color.
+// Chips are plain meta text. Added and removed line counts keep their diff colors.
 export const toolChipToneClass: Record<ToolRowChipTone, string> = {
   neutral: 'text-muted-foreground/70',
-  success: 'text-muted-foreground/70',
+  success: 'text-success',
   error: 'text-destructive',
 };
 

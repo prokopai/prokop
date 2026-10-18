@@ -48,10 +48,9 @@ export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProp
               </span>
             )}
             {(stats.additions > 0 || stats.deletions > 0) && (
-              <span className="hidden shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/70 sm:inline">
-                {stats.additions > 0 && `+${stats.additions}`}
-                {stats.additions > 0 && stats.deletions > 0 && ' '}
-                {stats.deletions > 0 && `−${stats.deletions}`}
+              <span className="hidden shrink-0 items-center gap-1 font-mono text-2xs tabular-nums sm:inline-flex">
+                {stats.additions > 0 && <span className="text-success">+{stats.additions}</span>}
+                {stats.deletions > 0 && <span className="text-destructive">−{stats.deletions}</span>}
               </span>
             )}
             {stats.durationMs !== undefined && (

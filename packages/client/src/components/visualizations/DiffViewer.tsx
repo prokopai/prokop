@@ -109,7 +109,12 @@ export const DiffViewer = memo(function DiffViewer({
     });
   };
 
-  const counts = additions !== undefined && deletions !== undefined ? `+${additions} -${deletions}` : null;
+  const counts = additions !== undefined && deletions !== undefined ? (
+    <span className="flex shrink-0 items-center gap-1 tabular-nums" aria-label={`+${additions} -${deletions}`}>
+      <span className="text-success">+{additions}</span>
+      <span className="text-destructive">-{deletions}</span>
+    </span>
+  ) : null;
 
   return (
     <PreviewFrame
@@ -120,7 +125,7 @@ export const DiffViewer = memo(function DiffViewer({
       caption={showPath && (
         <>
           <span className="min-w-0 truncate" title={path}>{path}</span>
-          {counts && <span className="shrink-0 tabular-nums">{counts}</span>}
+          {counts}
         </>
       )}
       actions={!disablePathOpen && activeWorkspace && (

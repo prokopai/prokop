@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { SessionHarnessUsageState } from '@prokopai/sdk';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 
 interface TokenMeterProps {
   /** Server-normalized usage from the session's harnessState. The context
@@ -9,9 +8,6 @@ interface TokenMeterProps {
    * (prokop: from the model catalog). Null renders the empty ring. */
   usage?: SessionHarnessUsageState | null;
 }
-
-/** Below this share of the context window the meter is a faint ring without a number. */
-const QUIET_BELOW_PERCENT = 50;
 
 function formatCompact(num: number): string {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -35,19 +31,18 @@ export function TokenMeter({ usage = null }: TokenMeterProps) {
     : Math.min(100, Math.round((used / effectiveContext) * 100));
 
   const status = getUsageStatus(percentage);
-  const quiet = percentage < QUIET_BELOW_PERCENT;
 
   const radius = 8;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - percentage / 100);
 
-  const ringColorClass = quiet
-    ? 'text-muted-foreground/40'
+  const ringColorClass = percentage === 0
+    ? 'text-muted-foreground/30'
     : status === 'critical'
       ? 'text-destructive'
       : status === 'warning'
         ? 'text-warning'
-        : 'text-foreground';
+        : 'text-primary';
 
   const usageRows: Array<[string, string]> = usage && usage.rows.length > 0
     ? usage.rows.map((row) => [row.label, row.value])
@@ -65,7 +60,7 @@ export function TokenMeter({ usage = null }: TokenMeterProps) {
           >
             <svg
               viewBox="0 0 20 20"
-              className="size-4"
+              className="size-5"
               fill="none"
             >
               <circle
@@ -90,12 +85,9 @@ export function TokenMeter({ usage = null }: TokenMeterProps) {
                 style={{ transition: 'stroke-dashoffset 0.3s ease' }}
               />
             </svg>
-            {/* The number appears once context is half used, or on click. */}
-            {(!quiet || showTokens) && (
-              <span className={cn('font-mono text-2xs tabular-nums', quiet ? 'text-muted-foreground/70' : 'text-muted-foreground')}>
-                {showTokens ? `${formatCompact(used)}/${formatCompact(effectiveContext)}` : `${percentage}%`}
-              </span>
-            )}
+            <span className="text-xs font-mono text-muted-foreground">
+              {showTokens ? `${formatCompact(used)}/${formatCompact(effectiveContext)}` : `${percentage}%`}
+            </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6} className="flex-col items-stretch gap-1.5">

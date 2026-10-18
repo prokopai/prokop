@@ -108,12 +108,15 @@ describe('DiffViewer', () => {
     render(
       <DiffViewer hunks={sampleHunks} path="src/app-counts.tsx" additions={5} deletions={3} showPath />,
     );
-    expect(screen.getByText('+5 -3')).toBeInTheDocument();
+    const counts = screen.getByLabelText('+5 -3');
+    expect(screen.getByText('+5').className).toContain('text-success');
+    expect(screen.getByText('-3').className).toContain('text-destructive');
+    expect(counts).toContainElement(screen.getByText('+5'));
   });
 
   it('hides additions/deletions when not provided', () => {
     render(<DiffViewer hunks={sampleHunks} path="src/app-nocounts.tsx" showPath />);
-    expect(screen.queryByText(/^\+\d+ -\d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
   });
 
   it('peeks at the first diff lines and grows inline on Show all', async () => {

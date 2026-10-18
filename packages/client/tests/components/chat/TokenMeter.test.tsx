@@ -25,15 +25,10 @@ describe('TokenMeter (server-normalized usage)', () => {
     expect(svg?.getAttribute('viewBox')).toBe('0 0 20 20');
   });
 
-  it('stays a quiet ring below half the context window, with the usage aria label', () => {
+  it('shows the context percentage with the usage aria label', () => {
     render(<TokenMeter usage={usage()} />);
-    expect(screen.queryByText('25%')).not.toBeInTheDocument();
+    expect(screen.getByText('25%')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Token usage: 25% of context window' })).toBeInTheDocument();
-  });
-
-  it('shows the percentage once half the context window is used', () => {
-    render(<TokenMeter usage={usage({ used: 110000 })} />);
-    expect(screen.getByText('55%')).toBeInTheDocument();
   });
 
   it('click reveals compact counts and toggles back', async () => {
@@ -42,15 +37,15 @@ describe('TokenMeter (server-normalized usage)', () => {
     await userEvent.click(button);
     expect(screen.getByText('50.0k/200.0k')).toBeInTheDocument();
     await userEvent.click(button);
-    expect(screen.queryByText('50.0k/200.0k')).not.toBeInTheDocument();
+    expect(screen.getByText('25%')).toBeInTheDocument();
   });
 
-  it('uses a faint ring color for low usage', () => {
+  it('uses normal ring color for low usage', () => {
     const { container } = render(
       <TokenMeter usage={usage({ used: 1000, contextWindow: 10000, rows: [] })} />,
     );
     const progressRing = container.querySelectorAll('circle')[1];
-    expect(progressRing?.className.baseVal ?? progressRing?.getAttribute('class') ?? '').toContain('text-muted-foreground/40');
+    expect(progressRing?.className.baseVal ?? progressRing?.getAttribute('class') ?? '').toContain('text-primary');
   });
 
   it('uses warning ring color for 40%+ usage', () => {
@@ -84,8 +79,8 @@ describe('TokenMeter (server-normalized usage)', () => {
 
   it('shows 0/0 when no usage and clicked', async () => {
     render(<TokenMeter />);
-    expect(screen.queryByText('0%')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Token usage: 0% of context window' }));
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('0%'));
     expect(screen.getByText('0/0')).toBeInTheDocument();
   });
 });
