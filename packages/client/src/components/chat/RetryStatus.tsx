@@ -33,10 +33,10 @@ export function RetryStatus({ sessionId }: RetryStatusProps) {
     : `Retry ${retry.retryNumber} of ${retry.maxRetries} in progress`;
 
   return (
-    <div className="flex items-center gap-2 border-t border-amber-500/30 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+    <div className="flex items-center gap-2 border-t border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning">
       <RefreshCw className={`size-3.5 shrink-0 ${retry.status === 'started' ? 'animate-spin' : ''}`} />
       <span className="font-medium">{statusText}</span>
-      <span className="truncate text-amber-700/80 dark:text-amber-400/80">
+      <span className="truncate text-warning/80">
         {ERROR_LABELS[retry.errorType] ?? retry.errorType}: {retry.message}
       </span>
     </div>

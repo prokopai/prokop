@@ -81,7 +81,7 @@ export function PermissionListItem({
   const patternDisplay = formatPatternDisplay(permission.patterns);
 
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0 min-w-0">
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/50 last:border-0 min-w-0">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <Badge variant={isRevoked ? 'outline' : 'secondary'}>

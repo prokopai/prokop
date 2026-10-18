@@ -41,15 +41,15 @@ function formatLastChecked(timestamp: number | null): string {
 function StatusBadge({ status }: { status: UpdateStatus }) {
   if (status === 'up-to-date') {
     return (
-      <span className="text-xs text-green-500 flex items-center gap-1">
-        <span className="inline-block size-1.5 rounded-full bg-green-500" />
+      <span className="flex items-center gap-1 text-xs text-success">
+        <span className="inline-block size-1.5 rounded-full bg-success" />
         Up to date
       </span>
     );
   }
   if (status === 'update-available') {
     return (
-      <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-xs text-warning">
         Update available
       </span>
     );

@@ -329,7 +329,7 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
       )}
 
       {preview.error && (
-        <Alert variant="destructive">
+        <Alert variant="error">
           <AlertTitle>Preview failed</AlertTitle>
           <AlertDescription>{preview.error.message}</AlertDescription>
         </Alert>

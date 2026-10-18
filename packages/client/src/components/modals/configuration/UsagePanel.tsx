@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/shared/States';
 import type { HarnessStatus, HarnessUsageLimits, ProviderAccountSummary, ProviderUsageWindow, UsageProvider, ProkopaiClient } from '@prokopai/sdk';
 import { useCodexAccountUsageQuery, useProvidersQuery, useProviderCredentialsQuery, useProviderUsageQuery } from '@/hooks/queries/useProvidersQueries';
 import { Loader2, RefreshCw } from 'lucide-react';
@@ -56,7 +57,7 @@ function UsageWindowRow({ window, now }: { window: ProviderUsageWindow; now: num
       <Progress
         value={used}
         aria-label={`${window.label} usage`}
-        className={cn(used >= 90 && '[&_[data-slot=progress-indicator]]:bg-destructive')}
+        className={cn(used >= 90 && '[&_[data-slot=progress-indicator]]:bg-error')}
       />
     </div>
   );
@@ -217,9 +218,9 @@ export function UsagePanel({ sdkClient }: UsagePanelProps) {
 
   return (
     <div className="p-3 sm:p-4 space-y-4">
-      {credentials.isLoading && <p className="text-xs text-muted-foreground">Loading provider accounts…</p>}
+      {credentials.isLoading && <LoadingState inline label="Loading provider accounts…" />}
       {credentials.isError && <p className="text-xs text-muted-foreground">Could not load configured provider accounts.</p>}
-      {providers.isLoading && <p className="text-xs text-muted-foreground">Loading Codex accounts…</p>}
+      {providers.isLoading && <LoadingState inline label="Loading Codex accounts…" />}
       {providers.isError && <p className="text-xs text-muted-foreground">Could not load Codex accounts.</p>}
       <div className="flex flex-col gap-2">
         {codex?.accounts?.map(account => <CodexAccountUsageCard key={`${account.id}:${account.connectionId}`} sdkClient={sdkClient}

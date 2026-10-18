@@ -183,7 +183,7 @@ export function SessionPane({
       )}
       {contentStatus === 'error' && (
         <div className="flex flex-col h-full items-center justify-center gap-3 text-muted-foreground">
-          <AlertCircle className="size-6 text-destructive" />
+          <AlertCircle className="size-6 text-error" />
           <p className="text-xs">{contentMeta?.error || 'Failed to load'}</p>
           <Button
             variant="outline"

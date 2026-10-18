@@ -29,14 +29,14 @@ const statusConfig: Record<TodoListItem['status'], StatusConfig> = {
   },
   cancelled: {
     icon: XCircle,
-    color: 'text-destructive',
+    color: 'text-error',
   },
 };
 
 const priorityConfig = {
   high: {
     label: 'high',
-    className: 'bg-destructive/20 text-destructive',
+    className: 'bg-error/20 text-error',
   },
   medium: {
     label: '',
@@ -99,7 +99,7 @@ export function TodoList({ title, items }: TodoListProps) {
               </span>
               {priority.label && item.priority === 'high' && (
                 <span className={cn(
-                  'text-xs px-1.5 py-0.5 rounded shrink-0',
+                  'text-xs px-1.5 py-0.5 rounded-md shrink-0',
                   priority.className,
                 )}>
                   {priority.label}

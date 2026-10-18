@@ -800,7 +800,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                           )}
                         </div>
                         <div className={cn(
-                          'flex size-4 shrink-0 items-center justify-center rounded border',
+                          'flex size-4 shrink-0 items-center justify-center rounded-md border',
                           selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30',
                         )}>
                           {selected && <Check className="size-3" />}
@@ -975,7 +975,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
       {error && <SettingsError>{error}</SettingsError>}
 
       {preconfigs.length === 0 ? (
-        <SettingsEmpty>No agents yet. Create one to get started.</SettingsEmpty>
+        <SettingsEmpty>No agents yet. Add one to give sessions a role.</SettingsEmpty>
       ) : (
         <div className="space-y-1.5">
           {preconfigs.map((preconfig) => (

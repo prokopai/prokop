@@ -110,7 +110,7 @@ describe('DiffViewer', () => {
     );
     const counts = screen.getByLabelText('+5 -3');
     expect(screen.getByText('+5').className).toContain('text-success');
-    expect(screen.getByText('-3').className).toContain('text-destructive');
+    expect(screen.getByText('-3').className).toContain('text-error');
     expect(counts).toContainElement(screen.getByText('+5'));
   });
 

@@ -34,12 +34,12 @@ export function PromptAutocomplete({
           key={prompt.name}
           onClick={() => onSelect(prompt)}
           className={cn(
-            'flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-left',
+            'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-left',
             'hover:bg-muted',
             index === selectedIndex && 'bg-primary/20 text-primary font-medium ring-1 ring-primary/50'
           )}
         >
-          <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <MessageSquare className="size-4 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-mono text-xs">/{prompt.name}</div>
             <div className="text-xs text-muted-foreground truncate">{prompt.description}</div>
@@ -48,9 +48,9 @@ export function PromptAutocomplete({
       ))}
       <div className="mt-1 pt-1 border-t text-xs text-muted-foreground px-2">
         {filtered.length} prompt{filtered.length !== 1 ? 's' : ''} •
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">↑↓</kbd> navigate
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">↵</kbd> select
-        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded text-2xs">esc</kbd> close
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded-md text-2xs">↑↓</kbd> navigate
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded-md text-2xs">↵</kbd> select
+        <kbd className="ml-1 px-1 py-0.5 bg-muted rounded-md text-2xs">esc</kbd> close
       </div>
     </div>
   );

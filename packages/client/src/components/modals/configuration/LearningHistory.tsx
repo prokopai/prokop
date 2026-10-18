@@ -1,3 +1,4 @@
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
@@ -13,10 +14,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-const STATUS_META: Record<LearningRunSummary['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+const STATUS_META: Record<LearningRunSummary['status'], { label: string; variant: 'default' | 'secondary' | 'error' | 'outline' }> = {
   running: { label: 'Running', variant: 'default' },
   completed: { label: 'Completed', variant: 'secondary' },
-  failed: { label: 'Failed', variant: 'destructive' },
+  failed: { label: 'Failed', variant: 'error' },
   interrupted: { label: 'Interrupted', variant: 'outline' },
 };
 
@@ -115,11 +116,9 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
           <ArrowLeft className="size-4" /> Back to runs
         </Button>
 
-        {detail.isPending && <p role="status" className="text-sm text-muted-foreground">Loading run...</p>}
+        {detail.isPending && <LoadingState inline label="Loading run…" />}
         {error && (
-          <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error.message}
-          </p>
+          <ErrorState>{error.message}</ErrorState>
         )}
 
         {detail.data && (
@@ -131,10 +130,9 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {detail.data.sessionId && (
-                  <button type="button" className="text-sm text-primary transition-opacity hover:opacity-80"
-                    onClick={() => openSession(detail.data.sessionId!)}>
+                  <Button variant="link" size="sm" onClick={() => openSession(detail.data.sessionId!)}>
                     Open learning session
-                  </button>
+                  </Button>
                 )}
                 <RunStatusBadge status={detail.data.run.status} />
               </div>
@@ -196,15 +194,13 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
       </p>
 
       {runs.error && (
-        <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {runs.error.message}
-        </p>
+        <ErrorState>{runs.error.message}</ErrorState>
       )}
-      {runs.isPending && <p role="status" className="text-sm text-muted-foreground">Loading runs...</p>}
+      {runs.isPending && <LoadingState inline label="Loading runs…" />}
       {runs.data?.blocked && (
         <p role="status" className="text-sm text-muted-foreground">Learning is running or recovering automatically. No action is needed.</p>
       )}
-      {runs.data && runs.data.runs.length === 0 && <p className="text-sm text-muted-foreground">No learning runs yet.</p>}
+      {runs.data && runs.data.runs.length === 0 && <EmptyState>No learning runs yet. Runs appear here after the first idle review.</EmptyState>}
 
       {runs.data && runs.data.runs.length > 0 && (
         <div className="flex flex-col gap-1" aria-label="Learning runs">

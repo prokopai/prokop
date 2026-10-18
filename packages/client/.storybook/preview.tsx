@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from 'react';
+import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeDecorator } from './theme-addon/ThemeDecorator';
 import { THEME_MODES, THEME_SCHEMES, SCHEME_LABELS } from './theme-addon/constants';
@@ -8,6 +9,7 @@ import '../src/index.css';
 
 // Global decorator: components under a session (tool rows, transcript) read the
 // server client from context; stories have no server, so provide an offline one.
+// Stories that need answers from the server wrap themselves in `withSdkClient`.
 const OFFLINE_SERVER_CLIENT: ServerClientValue = { sdkClient: null, serverUrl: 'https://storybook.local', apiToken: null, connected: false };
 function ServerClientDecorator(Story: ComponentType) {
   return (
@@ -39,7 +41,37 @@ function QueryClientDecorator(Story: ComponentType) {
   );
 }
 
-export default {
+/**
+ * App viewports. The shell has one breakpoint (640 px, `lib/viewport.ts`):
+ * below it mobile surfaces replace docks. `phone` sits under it, `tablet`
+ * just above it, `laptop` is the non-fullscreen 13 inch window.
+ */
+export const APP_VIEWPORTS = {
+  phone: { name: 'Phone 390', styles: { width: '390px', height: '844px' }, type: 'mobile' },
+  phoneLandscape: { name: 'Phone landscape 844', styles: { width: '844px', height: '390px' }, type: 'mobile' },
+  tablet: { name: 'Tablet 768', styles: { width: '768px', height: '1024px' }, type: 'tablet' },
+  laptop: { name: 'Laptop 1280', styles: { width: '1280px', height: '800px' }, type: 'desktop' },
+  desktop: { name: 'Desktop 1600', styles: { width: '1600px', height: '1000px' }, type: 'desktop' },
+} as const;
+
+/** Section order in the sidebar: bottom of the stack first. */
+export const STORY_SECTIONS = [
+  'Foundations',
+  'Primitives',
+  'Shared',
+  'Visualizations',
+  'Chat',
+  'Files & Git',
+  'Terminal',
+  'Sessions',
+  'Workspace',
+  'Settings',
+  'Dialogs',
+  'Shell',
+  'Screens',
+] as const;
+
+const preview: Preview = {
   decorators: [QueryClientDecorator, ServerClientDecorator, StoreCleanupDecorator, ThemeDecorator],
   globalTypes: {
     themeMode: {
@@ -78,19 +110,31 @@ export default {
     backgrounds: {
       disable: true,
     },
+    viewport: {
+      options: APP_VIEWPORTS,
+    },
     options: {
+      // Storybook reads this list statically; keep it a literal that matches STORY_SECTIONS.
       storySort: {
         method: 'alphabetical',
         order: [
-          'UI Primitives',
+          'Foundations',
+          'Primitives',
           'Shared',
           'Visualizations',
           'Chat',
-          'Layout',
-          'Modals',
-          'Composite',
+          'Files & Git',
+          'Terminal',
+          'Sessions',
+          'Workspace',
+          'Settings',
+          'Dialogs',
+          'Shell',
+          'Screens',
         ],
       },
     },
   },
 };
+
+export default preview;

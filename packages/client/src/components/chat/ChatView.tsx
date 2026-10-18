@@ -455,7 +455,7 @@ function ChatViewContent({
           <button
             type="button"
             onClick={handleToggleAutoFollow}
-            className="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground pointer-events-auto"
+            className="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground pointer-events-auto"
             title="Jump to latest and follow (Cmd+Shift+F)"
           >
             <ArrowDown className="size-3.5" />

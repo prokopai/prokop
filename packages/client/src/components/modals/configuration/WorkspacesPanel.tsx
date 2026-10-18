@@ -1,3 +1,4 @@
+import { ErrorState } from '@/components/shared/States';
 import type { Dispatch, SetStateAction } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { ProkopaiClient, Workspace, WorkspaceSettings } from '@prokopai/sdk';
@@ -45,7 +46,7 @@ export function WorkspacesPanel({ workspace, section, sdkClient, drafts, setDraf
 
   return (
     <div className="flex min-w-0 flex-col">
-      {save.error && save.variables?.id === workspace.id && <p role="alert" className="p-3 text-sm text-destructive">{save.error.message}</p>}
+      {save.error && save.variables?.id === workspace.id && <ErrorState className="m-3">{save.error.message}</ErrorState>}
       <WorkspaceSettingsEditor key={workspace.id} section={section} workspace={workspace} sdkClient={sdkClient} draft={draft}
         onChange={next => setDrafts(current => ({ ...current, [workspace.id]: next }))}
         onDiscard={discard} isSaving={save.isPending && save.variables?.id === workspace.id}

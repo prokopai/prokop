@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sun, Moon, Monitor, Eye, Pencil, CornerDownRight, Clock } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -38,7 +39,7 @@ function SchemeButton({ scheme, currentScheme, onClick }: {
       )}
     >
       {/* Light mode preview: card on background with primary chip */}
-      <div className={cn('light', scheme, 'flex w-full flex-col gap-1 rounded-md border border-border bg-background p-1.5')}>
+      <div className={cn('light', scheme, 'flex w-full flex-col gap-1 rounded-md border bg-background p-1.5')}>
         <div className="flex items-center justify-between gap-1">
           <div className="h-1.5 w-8 rounded-full bg-primary" />
           <div className="size-3 rounded-full bg-card ring-1 ring-border" />
@@ -49,7 +50,7 @@ function SchemeButton({ scheme, currentScheme, onClick }: {
         </div>
       </div>
       {/* Dark mode preview: same structure from the dark tokens */}
-      <div className={cn('dark', scheme, 'flex w-full flex-col gap-1 rounded-md border border-border bg-background p-1.5')}>
+      <div className={cn('dark', scheme, 'flex w-full flex-col gap-1 rounded-md border bg-background p-1.5')}>
         <div className="flex items-center justify-between gap-1">
           <div className="h-1.5 w-8 rounded-full bg-primary" />
           <div className="size-3 rounded-full bg-card ring-1 ring-border" />
@@ -79,36 +80,6 @@ const FOLLOW_UP_MODES: { value: FollowUpMode; icon: typeof Sun; label: string }[
   { value: 'steer', icon: CornerDownRight, label: 'Steer' },
   { value: 'queue', icon: Clock, label: 'Queue' },
 ];
-
-/** Segmented pill matching the shell's tab idiom. */
-function SegmentedControl<T extends string>({ label, options, value, onChange }: {
-  label: string;
-  options: { value: T; icon: typeof Sun; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="inline-flex items-center rounded-lg bg-muted p-0.5" role="group" aria-label={label}>
-      {options.map(({ value: option, icon: Icon, label: optionLabel }) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={value === option}
-          onClick={() => onChange(option)}
-          className={cn(
-            'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors',
-            value === option
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Icon className="size-3.5" />
-          {optionLabel}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function AppearancePanel() {
   const { mode, scheme, setMode, setScheme } = useTheme();

@@ -1,6 +1,6 @@
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import type { ReactNode } from 'react';
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -10,28 +10,15 @@ import { cn } from '@/lib/utils';
  */
 
 export function SettingsError({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <Alert variant="destructive" className={className}>
-      <AlertCircle />
-      <AlertDescription>{children}</AlertDescription>
-    </Alert>
-  );
+  return <ErrorState className={className}>{children}</ErrorState>;
 }
 
 export function SettingsEmpty({ children }: { children: ReactNode }) {
-  return (
-    <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
-      {children}
-    </p>
-  );
+  return <EmptyState>{children}</EmptyState>;
 }
 
 export function SettingsLoading() {
-  return (
-    <div className="animate-appear-late flex items-center justify-center p-8" role="status" aria-label="Loading">
-      <Loader2 className="size-5 animate-spin text-muted-foreground" />
-    </div>
-  );
+  return <LoadingState />;
 }
 
 interface SettingsListRowProps {
@@ -64,7 +51,7 @@ export function SettingsListRow({ title, onOpen, badges, description, meta, acti
       {actions && (
         <div className={cn(
           'flex shrink-0 items-center gap-0.5 transition-opacity',
-          'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100',
+          'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
         )}>
           {actions}
         </div>

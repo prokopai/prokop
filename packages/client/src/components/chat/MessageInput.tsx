@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input';
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { ContextReference, ProkopaiClient, Session } from '@prokopai/sdk';
 import { ArrowUp, Square, Paperclip, AlertTriangle, Target, ChevronDown } from 'lucide-react';
@@ -427,10 +428,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     >
       <div
         className={cn(
-          'relative z-10 rounded-2xl bg-background/50 overflow-hidden',
+          'relative z-10 rounded-xl bg-background/50 overflow-hidden',
           'focus-within:ring-1 focus-within:ring-ring/30',
           'transition-shadow',
-          'border border-border/60',
+          'border',
           isDragOver && 'ring-2 ring-primary border-primary'
         )}
       >
@@ -567,7 +568,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             )}
           </div>
 
-          <div className="flex h-7 items-center rounded-full border border-border/70">
+          <div className="flex h-7 items-center rounded-full border">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -609,15 +610,15 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                     <DropdownMenuSeparator />
                     {codexSession ? <div className="px-2 py-1.5 flex items-center justify-between gap-2">
                       <label htmlFor="codex-goal-budget" className="text-xs text-muted-foreground">Token budget</label>
-                      <input id="codex-goal-budget" type="number" min={1} max={1_000_000} step={1000}
+                      <Input id="codex-goal-budget" type="number" min={1} max={1_000_000} step={1000}
                         value={goalTokenBudget} onChange={event => setGoalTokenBudget(Number(event.target.value))}
-                        className="w-24 rounded bg-muted px-1 text-xs tabular-nums" />
+                        className="h-6 w-24 px-1.5 text-xs tabular-nums md:text-xs" />
                     </div> : <div className="px-2 py-1.5 flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">Max turns</span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          className="flex items-center justify-center size-5 rounded bg-muted text-foreground hover:bg-accent text-xs"
+                          className="flex items-center justify-center size-5 rounded-md bg-muted text-foreground hover:bg-accent text-xs"
                           onClick={() => setGoalMaxTurns(Math.max(1, goalMaxTurns - 1))}
                         >
                           −
@@ -625,7 +626,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                         <span className="w-6 text-center text-xs tabular-nums">{goalMaxTurns}</span>
                         <button
                           type="button"
-                          className="flex items-center justify-center size-5 rounded bg-muted text-foreground hover:bg-accent text-xs"
+                          className="flex items-center justify-center size-5 rounded-md bg-muted text-foreground hover:bg-accent text-xs"
                           onClick={() => setGoalMaxTurns(Math.min(100, goalMaxTurns + 1))}
                         >
                           +
@@ -641,7 +642,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               <button
                 type="button"
                 onClick={onStopStreaming}
-                className="flex h-full items-center justify-center rounded-r-full border-l border-border/70 bg-muted px-2.5 transition-colors text-destructive hover:bg-accent"
+                className="flex h-full items-center justify-center rounded-r-full border-l border-border/50 bg-muted px-2.5 transition-colors text-destructive hover:bg-accent"
                 aria-label="Stop"
                 title="Stop (double Esc)"
               >
@@ -652,7 +653,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 type="submit"
                 disabled={isDisabled}
                 className={cn(
-                  'flex h-full items-center justify-center rounded-r-full border-l border-border/70 bg-muted px-2.5 transition-colors hover:bg-accent disabled:opacity-50',
+                  'flex h-full items-center justify-center rounded-r-full border-l border-border/50 bg-muted px-2.5 transition-colors hover:bg-accent disabled:opacity-50',
                   isDisabled
                     ? 'text-muted-foreground'
                     : sendMode === 'goal'

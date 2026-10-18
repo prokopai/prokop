@@ -11,7 +11,7 @@ import {
 } from './select';
 
 const meta = {
-  title: 'UI Primitives/Select',
+  title: 'Primitives/Select',
   component: Select,
   parameters: {
     layout: 'centered',

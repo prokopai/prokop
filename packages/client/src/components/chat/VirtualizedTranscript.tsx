@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 import { LegendList } from '@legendapp/list/react';
@@ -292,9 +293,9 @@ export function VirtualizedTranscript({
       )}
 
       {loadOlderError && (
-        <div className="flex items-center justify-center gap-2 py-2 text-xs text-destructive">
+        <div className="flex items-center justify-center gap-2 py-2 text-xs text-error">
           <span>Failed to load older messages</span>
-          <button onClick={onLoadOlder} className="underline hover:text-foreground">Retry</button>
+          <Button variant="link" size="xs" onClick={onLoadOlder}>Retry</Button>
         </div>
       )}
 

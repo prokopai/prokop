@@ -15,7 +15,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -152,7 +151,7 @@ export const WorkspaceOverview = React.memo(function WorkspaceOverview({
         <SidebarGroupLabel>Overview</SidebarGroupLabel>
         <SidebarGroupContent>
           <div className="px-2 py-4">
-            <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-5 w-32 rounded-md bg-muted animate-pulse" />
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -242,47 +241,37 @@ export const WorkspaceOverview = React.memo(function WorkspaceOverview({
                         {getWorkspaceDisplayName(workspace, agents)}
                       </span>
                     </CollapsibleTrigger>
-                    <TooltipProvider>
-                      {onOpenPullRequests && !workspace.isVirtual && !isAgentHomeWorkspace(workspace) && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => onOpenPullRequests(workspace.id)}
-                              disabled={!connected}
-                              className="ml-auto shrink-0"
-                              aria-label={`Pull requests in ${getWorkspaceDisplayName(workspace, agents)}`}
-                            >
-                              <GitPullRequest className="size-3.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Pull requests</TooltipContent>
-                        </Tooltip>
+                    {onOpenPullRequests && !workspace.isVirtual && !isAgentHomeWorkspace(workspace) && (
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => onOpenPullRequests(workspace.id)}
+                        disabled={!connected}
+                        className="ml-auto shrink-0"
+                        aria-label={`Pull requests in ${getWorkspaceDisplayName(workspace, agents)}`}
+                        title="Pull requests"
+                      >
+                        <GitPullRequest className="size-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(event) => onCreateSessionInWorkspace(
+                        workspace.id,
+                        getCreateSessionOptions(event),
                       )}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={(event) => onCreateSessionInWorkspace(
-                              workspace.id,
-                              getCreateSessionOptions(event),
-                            )}
-                            disabled={!connected}
-                            className={cn('shrink-0', !(onOpenPullRequests && !workspace.isVirtual && !isAgentHomeWorkspace(workspace)) && 'ml-auto')}
-                            aria-label={`New Chat in ${getWorkspaceDisplayName(workspace, agents)}`}
-                          >
-                            <SquarePen className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>New Chat</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                      disabled={!connected}
+                      className={cn('shrink-0', !(onOpenPullRequests && !workspace.isVirtual && !isAgentHomeWorkspace(workspace)) && 'ml-auto')}
+                      aria-label={`New Chat in ${getWorkspaceDisplayName(workspace, agents)}`}
+                      title="New Chat"
+                    >
+                      <SquarePen className="size-3.5" />
+                    </Button>
                   </SidebarGroupLabel>
                   <CollapsibleContent>
                     {/* Guide line: rows visibly hang off their workspace header. */}
-                    <SidebarGroupContent className="ml-3.5 w-auto border-l border-sidebar-border/70 pl-1">
+                    <SidebarGroupContent className="ml-3.5 w-auto border-l border-sidebar-border/50 pl-1">
                       {isWsOpen && (
                         <>
                           {activeSessions.length === 0 ? (
@@ -299,7 +288,7 @@ export const WorkspaceOverview = React.memo(function WorkspaceOverview({
                                 const isTagGroupOpen = isTagOpen(tagName);
                                 return (
                                   <Collapsible key={tagName} open={isTagGroupOpen} onOpenChange={(open) => toggleTag(tagName, open)} className="group/tag-collapsible">
-                                    <div className="flex items-center px-2 py-1 text-xs font-medium text-muted-foreground">
+                                    <div className="flex items-center px-2 py-1 text-2xs font-medium text-muted-foreground">
                                       <CollapsibleTrigger asChild>
                                         <button className="flex items-center gap-1 hover:text-foreground transition-colors">
                                           <ChevronRight className="size-3 transition-transform group-data-[state=open]/tag-collapsible:rotate-90" />
@@ -310,14 +299,16 @@ export const WorkspaceOverview = React.memo(function WorkspaceOverview({
                                       <Badge variant="secondary" className="ml-auto text-2xs">{sessions.length}</Badge>
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <button
-                                            type="button"
+                                          <Button
+                                            variant="ghost"
+                                            size="icon-xs"
                                             onClick={e => e.stopPropagation()}
-                                            className="p-0.5 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-opacity opacity-0 group-hover/tag-collapsible:opacity-100"
+                                            className="opacity-0 transition-opacity group-hover/tag-collapsible:opacity-100 group-focus-within/tag-collapsible:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                                            aria-label="Tag actions"
                                             title="Tag actions"
                                           >
                                             <MoreHorizontal className="size-3.5" />
-                                          </button>
+                                          </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="min-w-48">
                                           <DropdownMenuItem onClick={e => { e.stopPropagation(); setArchiveTagDialog({ workspaceId: workspace.id, tagName }); }}>

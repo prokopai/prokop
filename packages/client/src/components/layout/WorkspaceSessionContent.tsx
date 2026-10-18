@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/shared/States';
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { ChevronRight, CheckSquare, X, Archive, MoreHorizontal, Trash2, Tag } from 'lucide-react';
 import type { Session, ScheduledJob } from '@prokopai/sdk';
@@ -237,7 +238,7 @@ export function WorkspaceSessionContent({
       <SidebarGroup>
         <SidebarGroupLabel asChild>
           <CollapsibleTrigger asChild>
-            <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+            <div className="group/head flex w-full items-center gap-1.5 py-0.5">
               <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
               <span>Active</span>
               {renderCount(activeSessions.length)}
@@ -367,7 +368,7 @@ export function WorkspaceSessionContent({
                           </button>
                         </CollapsibleTrigger>
                         <span className="flex-1" />
-                        <span className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100">
+                        <span className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 pointer-coarse:opacity-100">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
@@ -449,12 +450,12 @@ export function WorkspaceSessionContent({
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger asChild>
-                <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+                <div className="group/head flex w-full items-center gap-1.5 py-0.5">
                   <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   <span>Archived</span>
                   {categories && !categories.counts ? <span className="text-xs">…</span> : renderCount(categories?.counts?.archived ?? archivedSessions.length)}
                   <span className="flex-1" />
-                  <span className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100">
+                  <span className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 pointer-coarse:opacity-100">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -514,23 +515,19 @@ export function WorkspaceSessionContent({
       )}
 
       {categories?.countsError && (
-        <p role="alert" className="px-2 text-xs text-destructive">
+        <p role="alert" className="px-2 text-xs text-error">
           Session counts unavailable.
           <Button variant="ghost" size="sm" onClick={categories.retryCounts}>Retry counts</Button>
         </p>
       )}
       {/* Empty State */}
       {activeSessions.length === 0 && (categories ? categories.counts?.active === 0 && categories.counts.archived === 0 && categories.counts.scheduled === 0 : archivedSessions.length === 0) && (
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          No sessions yet.
-          <br />
-          Start a new chat to begin.
-        </div>
+        <EmptyState variant="plain">No sessions yet. Start a new chat to begin.</EmptyState>
       )}
 
       {/* Bulk Action Bar */}
       {selectionMode && selectedIds.size > 0 && (
-        <div className="sticky bottom-0 z-10 mx-2 mb-2 flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-popover px-2.5 py-1.5 shadow-md">
+        <div className="sticky bottom-0 z-10 mx-2 mb-2 flex items-center justify-between gap-2 rounded-lg border bg-popover px-2.5 py-1.5 shadow-md">
           <span className="text-xs text-muted-foreground truncate min-w-0 tabular-nums">
             {selectedIds.size} selected
           </span>
@@ -596,13 +593,13 @@ function CheckoutGroupedSessions({ workspaceId, sessions, renderSession, renderC
               {group.worktreeId ? (
                 <span
                   aria-hidden
-                  className={cn('worktree-tone size-2 shrink-0 rounded-md', group.available ? 'worktree-lane' : 'bg-destructive')}
+                  className={cn('worktree-tone size-2 shrink-0 rounded-md', group.available ? 'worktree-lane' : 'bg-error')}
                   style={worktreeToneStyle(group.worktreeId)}
                 />
               ) : (
                 <span aria-hidden className="size-2 shrink-0 rounded-md border border-muted-foreground/40" />
               )}
-              <span className={cn('truncate normal-case tracking-normal', !group.available && 'text-destructive line-through')}>{group.name}</span>
+              <span className={cn('truncate normal-case tracking-normal', !group.available && 'text-error line-through')}>{group.name}</span>
               {renderCount(group.sessions.length)}
             </button>
           </CollapsibleTrigger>

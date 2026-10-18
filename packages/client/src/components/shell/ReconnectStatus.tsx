@@ -24,7 +24,7 @@ export function ReconnectStatus({ authError, nextRetryIn, onRetry }: ReconnectSt
   if (!settled && !foregroundRecovery) return null;
 
   return (
-    <div className="absolute right-2 top-full z-40 mt-1 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
+    <div className="absolute right-2 top-full z-40 mt-1 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md">
       <span role="status">
         {authError ?? (nextRetryIn > 0 ? `Reconnecting in ${nextRetryIn}s...` : 'Reconnecting...')}
       </span>

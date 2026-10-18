@@ -1,3 +1,4 @@
+import { ErrorState } from '@/components/shared/States';
 import { useState } from 'react';
 import type { ProkopaiClient, ProviderCredentialStatus } from '@prokopai/sdk';
 import { useProviderCredentialsQuery, useSetProviderCredential, useClearProviderCredential } from '@/hooks/queries';
@@ -73,7 +74,7 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
 
   if (error && providers.length === 0) {
     return (
-      <div className="p-4 text-sm text-destructive">{error}</div>
+      <ErrorState className="m-4">{error}</ErrorState>
     );
   }
 

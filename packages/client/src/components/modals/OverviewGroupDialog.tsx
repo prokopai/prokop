@@ -211,7 +211,7 @@ export function OverviewGroupDialog({
             aria-invalid={!!nameError}
           />
           {nameError && (
-            <p className="text-xs text-destructive">{nameError}</p>
+            <p className="text-xs text-error">{nameError}</p>
           )}
           <p className="text-xs text-muted-foreground">
             {name.length}/{NAME_LIMIT}
@@ -266,7 +266,7 @@ export function OverviewGroupDialog({
                           type="button"
                           onClick={() => moveWorkspace(workspace.id, -1)}
                           disabled={selectedIndex === 0}
-                          className="rounded p-1 hover:bg-secondary disabled:opacity-30"
+                          className="rounded-md p-1 hover:bg-secondary disabled:opacity-30"
                           aria-label={`Move ${displayName} up`}
                           title="Move up"
                         >
@@ -276,7 +276,7 @@ export function OverviewGroupDialog({
                           type="button"
                           onClick={() => moveWorkspace(workspace.id, 1)}
                           disabled={selectedIndex === visibleSelectedWorkspaceIds.length - 1}
-                          className="rounded p-1 hover:bg-secondary disabled:opacity-30"
+                          className="rounded-md p-1 hover:bg-secondary disabled:opacity-30"
                           aria-label={`Move ${displayName} down`}
                           title="Move down"
                         >

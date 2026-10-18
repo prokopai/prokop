@@ -24,7 +24,6 @@ import { PinnedMessagesPanel } from '@/components/layout/PinnedMessagesPanel';
 import { AppPanels } from '@/components/app/AppPanels';
 import { WorkspaceContentArea } from '@/components/app/WorkspaceContentArea';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMobileSessionSelection } from '@/hooks/useMobileSessionSelection';
 import { getWorkspaceDefaultPreconfigId } from '@/lib/workspacePreconfigs';
 import { getCreateSessionOptions } from '@/lib/sessionCreate';
@@ -225,31 +224,22 @@ function WorkspaceSidebar() {
           deletingWorkspaceId={deletingWorkspaceId}
           isUpdatingWorkspace={isUpdatingWorkspace}
         />
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild><Button variant="ghost" size="icon-xs" aria-label="Pull requests" disabled={!sidebarData.connected || !activeWorkspace} onClick={openPullRequests}><GitPullRequest /></Button></TooltipTrigger>
-            <TooltipContent>Pull requests</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={(event) => createSession(
-                  newChatPreconfigId,
-                  undefined,
-                  getCreateSessionOptions(event),
-                )}
-                disabled={!sidebarData.connected}
-                className="ml-auto shrink-0"
-                aria-label="New Chat"
-              >
-                <SquarePen className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>New Chat</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button variant="ghost" size="icon-xs" aria-label="Pull requests" title="Pull requests" disabled={!sidebarData.connected || !activeWorkspace} onClick={openPullRequests}><GitPullRequest /></Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={(event) => createSession(
+            newChatPreconfigId,
+            undefined,
+            getCreateSessionOptions(event),
+          )}
+          disabled={!sidebarData.connected}
+          className="ml-auto shrink-0"
+          aria-label="New Chat"
+          title="New Chat"
+        >
+          <SquarePen className="size-3.5" />
+        </Button>
       </div>
     </SidebarHeader>
   );

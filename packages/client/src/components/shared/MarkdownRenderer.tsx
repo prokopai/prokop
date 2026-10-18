@@ -97,7 +97,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
   // the corner and show on hover (always on touch).
   return (
     <div className="group/code relative my-2 w-full min-w-0 max-w-full rounded-lg bg-(--code-block-bg)">
-      <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-card/90 px-1 opacity-0 transition-opacity group-hover/code:opacity-100 group-focus-within/code:opacity-100 pointer-coarse:opacity-100">
+      <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-card/90 px-1 opacity-0 transition-opacity group-hover/code:opacity-100 group-focus-within/code:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100">
         <span className="select-none pl-1 font-mono text-2xs text-muted-foreground/70">
           {language || 'text'}
         </span>
@@ -105,7 +105,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({ code, language, them
           type="button"
           onClick={handleCopy}
           className={cn(
-            'flex items-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground',
+            'flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground',
             copied && 'text-foreground',
           )}
           title="Copy code"
@@ -306,7 +306,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       }
 
       return (
-        <code className={cn('px-1.5 py-0.5 rounded text-sm font-mono bg-(--code-inline-bg)', codeClassName)} {...props}>
+        <code className={cn('px-1.5 py-0.5 rounded-md text-sm font-mono bg-(--code-inline-bg)', codeClassName)} {...props}>
           {codeChildren}
         </code>
       );
@@ -345,7 +345,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     },
     blockquote({ children }: ComponentProps<'blockquote'>) {
       return (
-        <blockquote className="border-l-2 border-border pl-3 my-1.5 text-muted-foreground">
+        <blockquote className="border-l-2 border-border/50 pl-3 my-1.5 text-muted-foreground">
           {children}
         </blockquote>
       );
@@ -370,14 +370,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
     },
     th({ children }: ComponentProps<'th'>) {
       return (
-        <th className="border border-border bg-muted px-2 py-1.5 text-left font-semibold">
+        <th className="border bg-muted px-2 py-1.5 text-left font-semibold">
           {children}
         </th>
       );
     },
     td({ children }: ComponentProps<'td'>) {
       return (
-        <td className="border border-border px-2 py-1.5">
+        <td className="border px-2 py-1.5">
           {children}
         </td>
       );

@@ -118,7 +118,7 @@ export function PairDeviceScreen({ server, onPaired }: PairDeviceScreenProps) {
         )}
         {(approval.kind === 'denied' || approval.kind === 'expired' || approval.kind === 'failed') && (
           <div className="space-y-3">
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-xs text-error">
               {approval.kind === 'denied' ? 'The request was declined.'
                 : approval.kind === 'expired' ? 'The request expired before anyone approved it.'
                   : approval.message}
@@ -136,13 +136,13 @@ export function PairDeviceScreen({ server, onPaired }: PairDeviceScreenProps) {
                 onChange={(event) => { setCode(event.target.value); setCodeError(null); }} />
               <Button type="submit" disabled={redeeming || !code.trim()}>{redeeming ? 'Pairing…' : 'Pair'}</Button>
             </div>
-            {codeError && <p role="alert" className="text-sm text-destructive">{codeError}</p>}
+            {codeError && <p role="alert" className="text-xs text-error">{codeError}</p>}
             <p className="text-xs text-muted-foreground">Run <code>prokop pair</code> on the server, or open Settings → Devices there.</p>
           </form>
         ) : (
-          <button type="button" className="text-sm underline underline-offset-4" onClick={() => setShowCode(true)}>
+          <Button variant="link" size="sm" onClick={() => setShowCode(true)}>
             Use a pairing code instead
-          </button>
+          </Button>
         )}
 
         <Link to="/" search={{ select: true }} replace className="block text-sm text-muted-foreground underline underline-offset-4">

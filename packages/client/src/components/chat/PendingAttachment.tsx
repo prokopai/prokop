@@ -14,9 +14,9 @@ interface PendingAttachmentProps {
 
 export function PendingAttachment({ id, kind, filename, size, previewUrl, isUploading, onRemove }: PendingAttachmentProps) {
   return (
-    <div className={cn("flex items-center gap-2 px-2 py-1.5 bg-muted rounded-lg border border-border max-w-[180px]", isUploading && "opacity-50")}>
+    <div className={cn("flex items-center gap-2 px-2 py-1.5 bg-muted rounded-lg border max-w-[180px]", isUploading && "opacity-50")}>
       {kind === 'image' && previewUrl ? (
-        <img src={previewUrl} alt={filename} className="size-8 rounded object-cover shrink-0" />
+        <img src={previewUrl} alt={filename} className="size-8 rounded-md object-cover shrink-0" />
       ) : kind === 'image' ? (
         <ImageIcon className="size-4 text-muted-foreground shrink-0" />
       ) : (
@@ -29,7 +29,7 @@ export function PendingAttachment({ id, kind, filename, size, previewUrl, isUplo
       <button
         type="button"
         onClick={() => onRemove(id)}
-        className="shrink-0 p-0.5 hover:bg-accent rounded"
+        className="shrink-0 p-0.5 hover:bg-accent rounded-md"
       >
         <X className="size-3 text-muted-foreground" />
       </button>

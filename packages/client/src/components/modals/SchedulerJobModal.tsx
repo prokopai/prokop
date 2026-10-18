@@ -1,3 +1,4 @@
+import { ErrorState } from '@/components/shared/States';
 import { useState, useEffect, useCallback } from 'react';
 import type { ProkopaiClient, ScheduledJob, ScheduleKind, ScheduleConfig, PermissionMode } from '@prokopai/sdk';
 import {
@@ -406,7 +407,7 @@ export function SchedulerJobModal({
                 <span>{formatLastRun(editingJob)}</span>
               </div>
               {editingJob.lastError && (
-                <div className="text-destructive pt-1">
+                <div className="text-error pt-1">
                   <span className="text-muted-foreground">Error: </span>
                   {editingJob.lastError}
                 </div>
@@ -416,9 +417,7 @@ export function SchedulerJobModal({
         </div>
 
         {error && (
-          <div role="alert" className="shrink-0 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
+          <ErrorState className="shrink-0">{error}</ErrorState>
         )}
 
         <DialogFooter className="shrink-0">

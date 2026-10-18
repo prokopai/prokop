@@ -108,8 +108,8 @@ const MARKER_CLASS: Record<UserPromptMapItemKind, { idle: string; active: string
     active: 'h-0.5 bg-foreground',
   },
   error: {
-    idle: 'h-0.5 rounded-full bg-destructive/70 group-hover:bg-destructive',
-    active: 'bg-destructive',
+    idle: 'h-0.5 rounded-full bg-error/70 group-hover:bg-error',
+    active: 'bg-error',
   },
   compaction: {
     idle: 'h-0 border-t border-dashed border-muted-foreground/50 group-hover:border-foreground',

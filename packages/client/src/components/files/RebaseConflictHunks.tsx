@@ -66,7 +66,7 @@ export function MergePane({ title, fileName, value, id, onChange, disabled = fal
 }) {
   const instanceId = useId();
   return <section className="min-w-0 overflow-hidden rounded-md border" aria-label={title}>
-    <h4 className="bg-muted px-2 py-1 text-xs font-medium">{title}</h4>
+    <h4 className="bg-muted px-2 py-1 text-2xs font-medium text-muted-foreground">{title}</h4>
     <div className="h-48 min-w-0"><Suspense fallback={null}><PierreCodeEditor key={id} docId={`${instanceId}:${id}`} fileName={fileName} value={value} saving={!onChange || disabled} onChange={onChange ?? (() => {})} showGitDiff={false} selectedLines={selectedLines} /></Suspense></div>
   </section>;
 }

@@ -63,7 +63,7 @@ describe('TokenMeter (server-normalized usage)', () => {
     );
     const progressRing = container.querySelectorAll('circle')[1];
     const cls = progressRing?.className.baseVal ?? progressRing?.getAttribute('class') ?? '';
-    expect(cls).toContain('text-destructive');
+    expect(cls).toContain('text-error');
   });
 
   it('clamps the percentage at 100', () => {

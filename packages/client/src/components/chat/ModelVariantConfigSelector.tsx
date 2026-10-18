@@ -366,7 +366,7 @@ export function ModelVariantConfigSelector({
       onClick={() => toggleSection(section)}
       className={cn(
         'flex min-w-0 items-center gap-1.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
-        isMobile ? 'w-full border-b border-border' : 'flex-1 flex-col items-start gap-0.5 border-r border-border last:border-r-0',
+        isMobile ? 'w-full border-b border-border/50' : 'flex-1 flex-col items-start gap-0.5 border-r border-border/50 last:border-r-0',
         openSection === section && 'bg-accent',
       )}
     >
@@ -397,7 +397,7 @@ export function ModelVariantConfigSelector({
               aria-label="Model source"
               aria-orientation="vertical"
               className={cn(
-                'flex shrink-0 flex-col gap-0.5 border-r border-border p-1',
+                'flex shrink-0 flex-col gap-0.5 border-r border-border/50 p-1',
                 isMobile ? 'w-12 items-center' : 'w-28',
               )}
             >
@@ -487,7 +487,7 @@ export function ModelVariantConfigSelector({
       <div className="flex flex-col">
         {pickerSections}
         {openSection && (
-          <div className="border-t border-border">
+          <div className="border-t border-border/50">
             {expandedList(openSection)}
           </div>
         )}
@@ -514,7 +514,7 @@ export function ModelVariantConfigSelector({
           side="bottom"
           className="max-h-[85dvh] gap-0 overflow-hidden rounded-t-xl"
         >
-          <SheetHeader className="shrink-0 border-b border-border pr-12">
+          <SheetHeader className="shrink-0 border-b border-border/50 pr-12">
             <SheetTitle>Model and configuration</SheetTitle>
             <SheetDescription className="break-words">
               {fullSelectionLabel}

@@ -5,7 +5,7 @@ import { Checkbox } from './checkbox';
 import { Switch } from './switch';
 
 const meta = {
-  title: 'UI Primitives/Label',
+  title: 'Primitives/Label',
   component: Label,
   parameters: {
     layout: 'centered',

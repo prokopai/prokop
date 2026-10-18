@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Check, LayoutGrid, LayoutList } from 'lucide-react';
 import { useRouter, useParams, useLocation } from '@tanstack/react-router';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -9,14 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ServerSwitcher } from '@/components/layout/ServerSwitcher';
 import { HeaderPanelToggles } from '@/components/app/HeaderPanelToggles';
 import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { isRegionOpen, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
-import { cn } from '@/lib/utils';
 
 /**
  * Single title bar: server context and view navigation on the left, shell
@@ -68,68 +67,40 @@ export function AppHeader() {
         style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
       >
         <ServerSwitcher compact />
-        <TooltipProvider>
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label="View">
-                      {isOverview ? <LayoutGrid className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>View</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="w-48 min-w-48">
-                <DropdownMenuItem onClick={goWorkspace}>
-                  <span className="flex-1">Single workspace</span>
-                  {!isOverview && <Check className="size-4" />}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={goOverview}>
-                  <span className="flex-1">Overview</span>
-                  {isOverview && <Check className="size-4" />}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {panelToggles}
-          </div>
-        </TooltipProvider>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="View" title="View">
+                {isOverview ? <LayoutGrid className="size-4" /> : <LayoutList className="size-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 min-w-48">
+              <DropdownMenuItem onClick={goWorkspace}>
+                <span className="flex-1">Single workspace</span>
+                {!isOverview && <Check className="size-4" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={goOverview}>
+                <span className="flex-1">Overview</span>
+                {isOverview && <Check className="size-4" />}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {panelToggles}
+        </div>
       </header>
 
       <header className="app-titlebar hidden sm:flex h-11 shrink-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <ServerSwitcher compact />
-          <div className="flex items-center rounded-lg bg-muted p-0.5">
-            <button
-              type="button"
-              onClick={goWorkspace}
-              aria-pressed={!isOverview}
-              className={cn(
-                'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors',
-                isOverview
-                  ? 'text-muted-foreground hover:text-foreground'
-                  : 'bg-background text-foreground shadow-sm',
-              )}
-            >
-              <LayoutList className="size-3.5" />
-              Workspace
-            </button>
-            <button
-              type="button"
-              onClick={goOverview}
-              aria-pressed={isOverview}
-              className={cn(
-                'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors',
-                isOverview
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <LayoutGrid className="size-3.5" />
-              Overview
-            </button>
-          </div>
+          <SegmentedControl
+            label="View"
+            options={[
+              { value: 'workspace', label: 'Workspace', icon: LayoutList },
+              { value: 'overview', label: 'Overview', icon: LayoutGrid },
+            ]}
+            value={isOverview ? 'overview' : 'workspace'}
+            onChange={(view) => { if (view === 'overview') goOverview(); else goWorkspace(); }}
+          />
         </div>
 
         {panelToggles}

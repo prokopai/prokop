@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Unplug, Copy, Check, ClipboardPaste, RefreshCw } from 'lucide-react';
@@ -247,13 +248,13 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
               {!filter && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`size-2 rounded-full ${provider.reauthRequired ? 'bg-amber-500' : provider.connected ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+                    <div className={`size-2 rounded-full ${provider.reauthRequired ? 'bg-warning' : provider.connected ? 'bg-success' : 'bg-muted-foreground'}`} />
                     <span className="text-sm font-medium">
                       {provider.displayName || provider.provider}
                     </span>
                   </div>
                   {provider.reauthRequired ? (
-                    <span className="text-xs text-amber-600 dark:text-amber-400">Reauthentication required</span>
+                    <span className="text-xs text-warning">Reauthentication required</span>
                   ) : provider.connected ? (
                     <span className="text-xs text-muted-foreground">Connected</span>
                   ) : null}
@@ -261,7 +262,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
               )}
 
               {provider.error && (
-                <p className={`text-xs ${provider.reauthRequired ? 'text-amber-700 dark:text-amber-300' : 'text-destructive'}`}>
+                <p className={`text-xs ${provider.reauthRequired ? 'text-warning' : 'text-error'}`}>
                   {provider.error}
                 </p>
               )}
@@ -384,7 +385,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                         href={pendingAuth.authorizationUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-xs text-blue-500 underline break-all"
+                        className="break-all font-mono text-xs underline underline-offset-4"
                       >
                         {pendingAuth.authorizationUrl}
                       </a>
@@ -411,12 +412,12 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                       After authenticating, paste the redirect URL from your browser:
                     </p>
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         type="text"
                         value={pasteUrl}
                         onChange={(e) => setPasteUrl(e.target.value)}
                         placeholder="http://localhost:1455/oauth/.../callback?code=...&state=..."
-                        className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono"
+                        className="h-7 flex-1 font-mono text-xs md:text-xs"
                       />
                       <Button
                         size="sm"

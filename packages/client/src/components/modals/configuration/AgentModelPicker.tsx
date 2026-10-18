@@ -145,7 +145,7 @@ export function AgentModelPicker({ models, codexModels, claudeModels, value, onC
                 aria-label="Model source"
                 aria-orientation="vertical"
                 className={cn(
-                  'flex shrink-0 flex-col gap-0.5 border-r border-border p-1',
+                  'flex shrink-0 flex-col gap-0.5 border-r border-border/50 p-1',
                   isMobile ? 'w-12 items-center' : 'w-28',
                 )}
               >

@@ -43,14 +43,14 @@ export function ToolGroup({ expansionKey, parts, live, children }: ToolGroupProp
               : <ChevronRight className={cn('size-3 shrink-0 opacity-60 transition-transform', open && 'rotate-90')} />}
             <span className="min-w-0 flex-1 truncate font-mono">{names}</span>
             {stats.failedCount > 0 && (
-              <span className="shrink-0 text-2xs text-destructive">
+              <span className="shrink-0 text-2xs text-error">
                 {stats.failedCount} failed
               </span>
             )}
             {(stats.additions > 0 || stats.deletions > 0) && (
               <span className="hidden shrink-0 items-center gap-1 font-mono text-2xs tabular-nums sm:inline-flex">
                 {stats.additions > 0 && <span className="text-success">+{stats.additions}</span>}
-                {stats.deletions > 0 && <span className="text-destructive">−{stats.deletions}</span>}
+                {stats.deletions > 0 && <span className="text-error">−{stats.deletions}</span>}
               </span>
             )}
             {stats.durationMs !== undefined && (

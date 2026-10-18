@@ -113,8 +113,8 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, source }: { c
         <button
           type="button"
           onClick={() => setShowSource(value => !value)}
-          className={cn('absolute right-1 top-1 rounded p-1 text-muted-foreground transition-opacity hover:text-foreground',
-            'opacity-0 group-hover/mermaid:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
+          className={cn('absolute right-1 top-1 rounded-md p-1 text-muted-foreground transition-opacity hover:text-foreground',
+            'opacity-0 transition-opacity group-hover/mermaid:opacity-100 group-focus-within/mermaid:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
             showSource && 'right-9')}
           title={showSource ? 'Show diagram' : 'Show source'}
           aria-label={showSource ? 'Show diagram' : 'Show source'}

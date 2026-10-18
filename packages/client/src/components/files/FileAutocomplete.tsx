@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { useState, useEffect, useRef } from 'react';
 import { File, Folder, Loader2 } from 'lucide-react';
 import type { FileEntry } from '@prokopai/sdk';
@@ -178,7 +179,7 @@ export function FileAutocomplete({
 
   return (
     <div className="flex flex-col">
-      {!searchQuery && <div className="px-3 pt-2 pb-1 text-2xs font-medium text-muted-foreground">Changed files</div>}
+      {!searchQuery && <SectionLabel className="px-3 pt-2 pb-1">Changed files</SectionLabel>}
       <div ref={listRef} role="listbox" aria-label="Files" className={cn('relative overflow-y-auto p-1', LIST_MAX_HEIGHT)}>
         {files.map((file, index) => {
           const { fileName, dirPath } = splitPath(file.path);

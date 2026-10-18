@@ -42,15 +42,15 @@ afterEach(cleanup);
 describe('permission card severity chrome (classified asks)', () => {
   test('catastrophic findings get the strongest red despite a pinned medium risk', () => {
     const classes = cardClasses(classifiedRequest(['destructive'], true));
-    expect(classes).toContain('bg-destructive/10');
-    expect(classes).toContain('border-destructive/50');
+    expect(classes).toContain('bg-error/10');
+    expect(classes).toContain('border-error/50');
   });
 
   test('secrets and destructive asks read red, the color of Full access that runs them', () => {
     for (const concerns of [['sensitive'], ['destructive'], ['destructive', 'escape']]) {
       const classes = cardClasses(classifiedRequest(concerns));
-      expect(classes).toContain('bg-destructive/5');
-      expect(classes).toContain('border-destructive/30');
+      expect(classes).toContain('bg-error/5');
+      expect(classes).toContain('border-error/30');
       expect(classes).not.toContain('warning');
     }
   });
@@ -58,12 +58,12 @@ describe('permission card severity chrome (classified asks)', () => {
   test('outside-workspace asks read amber, the color of Extended that runs them', () => {
     const classes = cardClasses(classifiedRequest(['escape']));
     expect(classes).toContain('bg-warning/5');
-    expect(classes).not.toContain('destructive');
+    expect(classes).not.toContain('error');
   });
 
   test('concern chips use the same mode colors', () => {
     const { getByText } = render(<AskQuestion request={classifiedRequest(['sensitive', 'escape'])} onRespond={() => {}} />);
-    expect(getByText('Secrets').className).toContain('text-destructive');
+    expect(getByText('Secrets').className).toContain('text-error');
     expect(getByText('Outside workspace').className).toContain('text-warning');
   });
 
@@ -79,9 +79,9 @@ describe('permission card severity chrome (legacy asks)', () => {
   test('each risk level gets a distinct, escalating card tint', () => {
     expect(cardClasses(legacyRequest('low'))).toContain('bg-success/5');
     expect(cardClasses(legacyRequest('medium'))).toContain('bg-warning/5');
-    expect(cardClasses(legacyRequest('high'))).toContain('bg-destructive/5');
-    expect(cardClasses(legacyRequest('critical'))).toContain('bg-destructive/10');
-    expect(cardClasses(legacyRequest('critical'))).toContain('border-destructive/50');
+    expect(cardClasses(legacyRequest('high'))).toContain('bg-error/5');
+    expect(cardClasses(legacyRequest('critical'))).toContain('bg-error/10');
+    expect(cardClasses(legacyRequest('critical'))).toContain('border-error/50');
   });
 
   test('classified-none reads neutral instead of amber', () => {

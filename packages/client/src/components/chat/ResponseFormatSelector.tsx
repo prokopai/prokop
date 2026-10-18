@@ -8,12 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type { ResponseFormat } from '@prokopai/sdk';
 
 interface ResponseFormatSelectorProps {
@@ -37,48 +31,34 @@ export function ResponseFormatSelector({
 
   if (disabled) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-accent"
-              disabled
-              aria-label={tooltip}
-            >
-              <MessageSquareText className="size-4 text-muted-foreground/70" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{tooltip}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        aria-label={tooltip}
+        title={tooltip}
+      >
+        <MessageSquareText className="size-4 text-muted-foreground/70" />
+      </Button>
     );
   }
 
   return (
     <DropdownMenu>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-accent"
-                aria-label={tooltip}
-              >
-                {selectedFormat ? (
-                  <Braces className="size-4 text-primary" />
-                ) : (
-                  <MessageSquareText className="size-4 text-muted-foreground" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>{tooltip}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={tooltip}
+          title={tooltip}
+        >
+          {selectedFormat ? (
+            <Braces className="size-4 text-primary" />
+          ) : (
+            <MessageSquareText className="size-4 text-muted-foreground" />
+          )}
+        </Button>
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4} className="w-80">
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
         <DropdownMenuSeparator />

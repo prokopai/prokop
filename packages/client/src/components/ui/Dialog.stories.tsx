@@ -15,7 +15,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
-  title: 'UI Primitives/Dialog',
+  title: 'Primitives/Dialog',
   component: Dialog,
   parameters: {
     layout: 'centered',

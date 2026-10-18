@@ -51,7 +51,7 @@ function HumanValue({ data, depth = 0 }: { data: unknown; depth?: number }) {
       <span
         className={cn(
           'inline-flex items-center gap-1 text-sm font-medium',
-          data ? 'text-success' : 'text-destructive',
+          data ? 'text-success' : 'text-error',
         )}
       >
         {data ? '✓ Yes' : '✗ No'}
@@ -101,7 +101,7 @@ function HumanValue({ data, depth = 0 }: { data: unknown; depth?: number }) {
                   'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                   item
                     ? 'bg-success/15 text-success'
-                    : 'bg-destructive/10 text-destructive',
+                    : 'bg-error/10 text-error',
                 )}>
                   {item ? 'Yes' : 'No'}
                 </span>
@@ -130,9 +130,9 @@ function HumanValue({ data, depth = 0 }: { data: unknown; depth?: number }) {
     return (
       <div className="space-y-2">
         {visibleData.map((item, i) => (
-          <div key={i} className="rounded-md border border-border/50 bg-muted/20 p-2.5">
+          <div key={i} className="rounded-md border bg-muted/20 p-2.5">
             <div className="flex gap-2.5">
-              <span className="inline-flex items-center justify-center shrink-0 size-5 rounded bg-background text-2xs font-medium tabular-nums text-muted-foreground mt-0.5">
+              <span className="inline-flex items-center justify-center shrink-0 size-5 rounded-md bg-background text-2xs font-medium tabular-nums text-muted-foreground mt-0.5">
                 {i + 1}
               </span>
               <div className="flex-1 min-w-0">
@@ -242,7 +242,7 @@ export const StructuredResponse = memo(function StructuredResponse({
           {schema && (
             <button
               onClick={() => setShowSchema(!showSchema)}
-              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               title="Toggle schema"
             >
               {showSchema ? (
@@ -254,7 +254,7 @@ export const StructuredResponse = memo(function StructuredResponse({
           )}
           <button
             onClick={handleCopy}
-            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Copy JSON"
           >
             {copied ? (

@@ -124,6 +124,77 @@ export {
 } from './mockWorktree';
 export type { MockWorktreeOverrides, MockRefOverrides } from './mockWorktree';
 
+// --- Git, files and pull requests ---
+export {
+  MOCK_ROOT,
+  createGitRepository,
+  createGitStatus,
+  createGitStatusFile,
+  gitStatusPresets,
+  createBranch,
+  createBranches,
+  createHistory,
+  createHistoryEntry,
+  createCommitDetails,
+  samplePatch,
+  conflictedText,
+  createRebaseState,
+  rebasePresets,
+  createRebaseConflict,
+  projectPaths,
+  createFileTreeResponse,
+  filePreviewPresets,
+  createEditableFile,
+  createGitFileDiff,
+  createPullRequestRepository,
+  createPullRequestDiscovery,
+  createPullRequestSummary,
+  createPullRequestDetail,
+  createPullRequestList,
+  createPullRequestFiles,
+} from './mockGit';
+
+// --- Sidebar, overview, terminals ---
+export {
+  createSidebarSessions,
+  groupByTag,
+  createScheduledJob,
+  scheduledJobPresets,
+  createPinnedMessage,
+  createAgent,
+  createTerminalTab,
+  createTerminalTabs,
+  createAttentionSnapshot,
+} from './mockSidebar';
+
+// --- Settings ---
+export {
+  createPermissionGrant,
+  createPermissionGrantList,
+  mcpConfigs,
+  createMcpStatus,
+  createMcpTools,
+  createModelsConfig,
+  createProviderCredentials,
+  createOAuthProviders,
+  createProviderUsage,
+  createCodexAccountUsage,
+  createHarnessUsage,
+  createAccessStatus,
+  createPairedDevice,
+  createAccessRequest,
+  createAccessOverview,
+  createPairingCode,
+  createRemoteAccessStatus,
+  createNotificationConfig,
+  createLearningSettings,
+  createLearningRun,
+  createLearningRuns,
+  createLearningRunDetail,
+  createPromptList,
+  createResponseFormatList,
+} from './mockSettings';
+
 // --- Markdown Content ---
 export {
   simpleMarkdown,

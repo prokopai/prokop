@@ -1,3 +1,6 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { dockHeaderClassName } from '@/components/ui/dock-header';
+import { SectionLabel } from '@/components/ui/section-label';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Download, GitBranch, GitMerge, Loader2, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
@@ -210,7 +213,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
   // would only take space from the diff. Alerts below stay visible.
   const readingCommit = !!commit && !pushBranch;
   return <div className="flex min-h-0 flex-1 flex-col">
-    {!readingCommit && <div className="flex shrink-0 items-center gap-1 px-2 py-1.5">
+    {!readingCommit && <div className={dockHeaderClassName()}>
       <Popover open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) setSearch(''); }}>
         <PopoverTrigger asChild><Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" disabled={busy || !data} aria-label="Select branch history"><GitBranch data-icon="inline-start" /><span className="min-w-0 flex-1 truncate text-left">{selected?.name ?? data?.repository.branch ?? 'Branches'}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-0"><Command>
@@ -241,12 +244,12 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
     {pendingPush && <PushProgress label={`Pushing ${pendingPush.input.sourceBranch} to ${pendingPush.input.remote}/${pendingPush.input.branch}`} startedAt={pendingPush.submittedAt} runHooks={pendingPush.input.runHooks !== false} />}
     {!pushBranch && lastPush?.status === 'error' && (() => {
       const failure = pushFailure(lastPush.error);
-      return <div className="flex flex-col gap-1 px-3 pb-2"><p role="alert" className="text-xs text-destructive">Push failed: {failure.message}</p><GitOutput output={failure.output} /></div>;
+      return <div className="flex flex-col gap-1 px-3 pb-2"><p role="alert" className="text-xs text-error">Push failed: {failure.message}</p><GitOutput output={failure.output} /></div>;
     })()}
-    {!pushBranch && lastPush?.result?.warning && <p role="alert" className="px-3 pb-2 text-xs text-destructive">{lastPush.result.warning}</p>}
-    {rebase.error && <p role="alert" className="px-3 pb-1 text-xs text-destructive">Unable to read rebase state. <button type="button" className="underline underline-offset-2" onClick={() => void rebase.refetch()}>Retry</button></p>}
+    {!pushBranch && lastPush?.result?.warning && <p role="alert" className="px-3 pb-2 text-xs text-error">{lastPush.result.warning}</p>}
+    {rebase.error && <p role="alert" className="px-3 pb-1 text-xs text-error">Unable to read rebase state. <Button variant="link" size="xs" onClick={() => void rebase.refetch()}>Retry</Button></p>}
     {branches.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-9 w-full" key={i} />)}</div>}
-    {branches.error && <div className="p-3 text-xs text-destructive" role="alert">{branches.error.message} <Button size="sm" variant="ghost" onClick={() => void branches.refetch()}>Retry</Button></div>}
+    {branches.error && <div className="p-3 text-xs text-error" role="alert">{branches.error.message} <Button size="sm" variant="ghost" onClick={() => void branches.refetch()}>Retry</Button></div>}
     {data && selected && !pushBranch && !readingCommit && <div className="flex shrink-0 flex-col gap-0.5 px-3 pb-1.5">
       <div className="flex min-w-0 items-center gap-1">
         <div className="flex min-w-0 flex-1 items-baseline text-xs">{syncStatus}</div>
@@ -278,9 +281,9 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
     </form>}
     {mutation.error && (() => {
       const failure = pushFailure(mutation.error);
-      return <div className="flex flex-col gap-1 px-3 py-2"><p role="alert" className="text-xs text-destructive">{mutation.error.message}</p><GitOutput output={failure.output} /></div>;
+      return <div className="flex flex-col gap-1 px-3 py-2"><p role="alert" className="text-xs text-error">{mutation.error.message}</p><GitOutput output={failure.output} /></div>;
     })()}
-    {mutation.data?.warning && <p role="alert" className="px-3 py-2 text-xs text-destructive">{mutation.data.warning}</p>}
+    {mutation.data?.warning && <p role="alert" className="px-3 py-2 text-xs text-error">{mutation.data.warning}</p>}
     {pushBranch && data ? <BranchPush key={`${pushBranch.ref}:${pushBranch.head}`} sdkClient={sdkClient} serverId={serverId} workspaceId={workspaceId} root={root} source={pushBranch} remotes={data.repository.remotes} onClose={() => setPushBranch(null)} onChanged={refresh} /> : commit ? <CommitDetails key={commit.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} entry={commit} branchName={selected?.name} busy={busy} onBack={() => setCommit(null)} onCreateBranch={selected ? () => { setCreateFrom(commit.head); setPushBranch(null); } : undefined} /> : selected && data ? <BranchHistory key={selected.head} sdkClient={sdkClient} workspaceId={workspaceId} serverId={serverId} root={root} head={selected.head} upstream={selected.upstream} branches={data.branches} selected={selected} now={now} onSelect={setCommit} /> : data && <p className="p-3 text-xs text-muted-foreground">{selectedRef ? 'This branch no longer exists. Choose another branch.' : 'No commits yet. Create the first commit in Changes.'}</p>}
   </div>;
 }
@@ -309,7 +312,7 @@ function RefChips({ refs }: { refs: GitBranchInfo[] }) {
   if (refs.length === 0) return null;
   const shown = refs.slice(0, MAX_CHIPS);
   return <span className="flex shrink-0 items-center gap-1">
-    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded px-1 text-2xs leading-4', b.kind === 'remote' ? 'border border-border text-muted-foreground' : b.current ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
+    {shown.map((b) => <span key={b.ref} title={b.current ? `${b.name} (checked out)` : b.name} className={cn('max-w-28 truncate rounded-md px-1 text-2xs leading-4', b.kind === 'remote' ? 'border text-muted-foreground' : b.current ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80')}>{b.name}</span>)}
     {refs.length > MAX_CHIPS && <span className="text-2xs text-muted-foreground" title={refs.slice(MAX_CHIPS).map((b) => b.name).join(', ')}>+{refs.length - MAX_CHIPS}</span>}
   </span>;
 }
@@ -329,7 +332,7 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
       // Only the leading day heading sits above every commit; later ones bridge the rail.
       if (row.type === 'day') return <div key={row.key} className="sticky top-0 z-10 flex h-6 items-center gap-2 bg-background px-3">
         <Rail top={index > 0} bottom={index > 0} />
-        <span className="text-2xs font-medium text-muted-foreground/70">{row.label}</span>
+        <SectionLabel>{row.label}</SectionLabel>
       </div>;
       if (row.type === 'upstream') return <div key={row.key} className="flex h-5 items-center gap-2 px-3" title={`${row.label} points at the commit below`}>
         <Rail top bottom />
@@ -350,12 +353,12 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
     })}
     {history.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-5 w-full" key={i} />)}</div>}
     {!history.isPending && commits.length === 0 && <p className="p-3 text-xs text-muted-foreground">No commits.</p>}
-    {history.error && <p role="alert" className="p-3 text-xs text-destructive">{history.error.message}</p>}
+    {history.error && <p role="alert" className="p-3 text-xs text-error">{history.error.message}</p>}
     {history.hasNextPage && <Button className="m-2" variant="ghost" size="sm" disabled={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>Load older commits</Button>}
   </div>;
 }
 
-const COMMIT_STATUS_CLASS: Record<CommitFile['status'], string> = { A: 'text-success', M: 'text-warning', D: 'text-destructive', R: 'text-muted-foreground' };
+const COMMIT_STATUS_CLASS: Record<CommitFile['status'], string> = { A: 'text-success', M: 'text-warning', D: 'text-error', R: 'text-muted-foreground' };
 const COMMIT_STATUS_LABEL: Record<CommitFile['status'], string> = { A: 'added', M: 'modified', D: 'deleted', R: 'renamed' };
 
 /** Header, file list and one diff at a time; only the diff scrolls. */
@@ -398,14 +401,14 @@ function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchNa
         <p className="truncate text-xs text-muted-foreground"><span className="font-mono tabular-nums" title="Diff against first parent">{entry.head.slice(0, 8)}</span> · {entry.author} · {entry.date.slice(0, 10)}</p>
       </div>
       {details.isPending && <p className="px-1 pb-2 text-xs text-muted-foreground">Loading commit…</p>}
-      {details.error && <p role="alert" className="px-1 pb-2 text-xs text-destructive">{details.error.message}</p>}
-      {parsed.error && <p role="alert" className="px-1 pb-2 text-xs text-destructive">{parsed.error}</p>}
+      {details.error && <p role="alert" className="px-1 pb-2 text-xs text-error">{details.error.message}</p>}
+      {parsed.error && <p role="alert" className="px-1 pb-2 text-xs text-error">{parsed.error}</p>}
       {details.data && files.length === 0 && <p className="px-1 pb-2 text-xs text-muted-foreground">No file changes</p>}
       {files.length > 0 && <>
         <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">{files.length} changed {files.length === 1 ? 'file' : 'files'}</span>
           {totals.additions > 0 && <span className="font-mono text-2xs text-success">+{totals.additions}</span>}
-          {totals.deletions > 0 && <span className="font-mono text-2xs text-destructive">−{totals.deletions}</span>}
+          {totals.deletions > 0 && <span className="font-mono text-2xs text-error">−{totals.deletions}</span>}
           <span className="ml-1 tabular-nums">{index + 1}/{files.length}</span>
           <Button variant="ghost" size="icon-xs" aria-label="Previous file" disabled={index === 0} onClick={() => step(-1)}><ChevronLeft /></Button>
           <Button variant="ghost" size="icon-xs" aria-label="Next file" disabled={index >= files.length - 1} onClick={() => step(1)}><ChevronRight /></Button>
@@ -428,7 +431,7 @@ function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchNa
                 {file.diff ? <span className="shrink-0 font-mono text-2xs tabular-nums">
                   {file.additions > 0 && <span className="text-success">+{file.additions}</span>}
                   {file.additions > 0 && file.deletions > 0 && ' '}
-                  {file.deletions > 0 && <span className="text-destructive">−{file.deletions}</span>}
+                  {file.deletions > 0 && <span className="text-error">−{file.deletions}</span>}
                 </span> : <span className="shrink-0 text-2xs text-muted-foreground/70">binary</span>}
               </button>
             </li>;
@@ -482,15 +485,15 @@ function BranchPush({ sdkClient, serverId, workspaceId, root, source, remotes, o
         </div>
       </div>
       <div className="flex gap-2">
-        <select aria-label="Push remote" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={remote} disabled={busy} onChange={(e) => { setRemote(e.target.value); setReview(null); }}><option value="">Choose remote</option>{remotes.map((r) => <option key={r}>{r}</option>)}</select>
+        <Select value={remote} disabled={busy} onValueChange={(value) => { setRemote(value); setReview(null); }}><SelectTrigger size="sm" aria-label="Push remote" className="h-7 min-w-0 flex-1 text-xs"><SelectValue placeholder="Choose remote" /></SelectTrigger><SelectContent>{remotes.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
         <Input aria-label="Destination branch" className="h-7 flex-1 text-xs" value={branch} disabled={busy} onChange={(e) => { setBranch(e.target.value); setReview(null); }} />
       </div>
       <div className="flex justify-end">
         <Button variant="outline" size="sm" disabled={busy || !remote || !branch.trim()} onClick={() => { setReview(null); inspect.mutate({ root, sourceBranch: source.name, expectedHead: source.head, remote, branch: branch.trim() }); }}>{inspect.isPending ? 'Reviewing…' : 'Review push'}</Button>
       </div>
-      {error && <p role="alert" className="text-xs text-destructive">{error.message}</p>}
+      {error && <p role="alert" className="text-xs text-error">{error.message}</p>}
       {!error && failure && <div className="flex flex-col gap-1.5">
-        <p role="alert" className="text-xs text-destructive">{failure.message}</p>
+        <p role="alert" className="text-xs text-error">{failure.message}</p>
         <GitOutput output={failure.output} />
         {push.variables && canRetryWithoutHooks(failure, push.variables.runHooks !== false) && <div className="flex justify-end">
           <Button size="sm" variant="outline" disabled={busy} title="Push the same reviewed commit with --no-verify" onClick={() => { if (push.variables) push.mutate({ ...push.variables, runHooks: false }); }}>Push without hooks</Button>

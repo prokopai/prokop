@@ -40,7 +40,7 @@ function PairingCodeCard({ pairing, onDone }: { pairing: CreatePairingCodeRespon
   const qr = `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(link, { border: 2 }))}`;
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border p-4 text-center">
-      <img src={qr} alt="Pairing QR code" className="size-44 rounded bg-white p-1" />
+      <img src={qr} alt="Pairing QR code" className="size-44 rounded-md bg-white p-1" />
       <p className="text-sm">Scan with the other device&apos;s camera, or open the link there.</p>
       <div className="w-full space-y-1">
         {pairing.links.map((item) => (

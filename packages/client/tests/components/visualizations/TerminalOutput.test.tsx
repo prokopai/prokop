@@ -21,18 +21,18 @@ describe('TerminalOutput', () => {
 
   it('colors stderr only when the command failed', () => {
     const { unmount } = render(<TerminalOutput exitCode={1} stderr="error occurred" />);
-    expect(screen.getByText('error occurred').className).toContain('text-destructive');
+    expect(screen.getByText('error occurred').className).toContain('text-error');
     unmount();
 
     render(<TerminalOutput exitCode={0} stderr="warning only" />);
     const warning = screen.getByText('warning only');
-    expect(warning.className).not.toContain('text-destructive');
+    expect(warning.className).not.toContain('text-error');
     expect(warning.className).toContain('text-muted-foreground');
   });
 
   it('treats a killed command as failed', () => {
     render(<TerminalOutput status="killed" stderr="stopped" />);
-    expect(screen.getByText('stopped').className).toContain('text-destructive');
+    expect(screen.getByText('stopped').className).toContain('text-error');
   });
 
   it('renders stdout before stderr', () => {

@@ -61,7 +61,7 @@ export function TerminalAddToChat({ terminal, label, cwd, sessionId }: TerminalA
       disabled={!sessionId}
       title={sessionId ? 'Add the selected output to the chat' : 'Open a session to add output to its chat'}
       className={cn(
-        'absolute top-2 right-3 z-10 flex items-center gap-1.5 rounded-md border border-border/50 bg-popover/95 px-2 py-1 text-xs text-popover-foreground shadow-sm',
+        'absolute top-2 right-3 z-10 flex items-center gap-1.5 rounded-md border bg-popover/95 px-2 py-1 text-xs text-popover-foreground shadow-md',
         'transition-colors hover:bg-accent disabled:opacity-50 disabled:hover:bg-popover/95',
       )}
     >

@@ -36,7 +36,7 @@ export function PreviewFrame({ totalLines, budget, expanded, onToggle, caption, 
       )}
       <div className="group/peek relative overflow-hidden rounded-lg bg-muted/40">
         {corner && (
-          <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-card/90 px-1 opacity-0 transition-opacity group-hover/peek:opacity-100 group-focus-within/peek:opacity-100 pointer-coarse:opacity-100">
+          <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md bg-card/90 px-1 opacity-0 transition-opacity group-hover/peek:opacity-100 group-focus-within/peek:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100">
             {corner}
           </div>
         )}
@@ -71,7 +71,7 @@ export function PreviewAction({ onClick, title, className, children }: {
       type="button"
       onClick={onClick}
       title={title}
-      className={cn('rounded transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)}
+      className={cn('rounded-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)}
     >
       {children}
     </button>
@@ -90,7 +90,7 @@ export function PreviewCornerButton({ onClick, label, children }: {
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="flex items-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+      className="flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
     >
       {children}
     </button>

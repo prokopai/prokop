@@ -4,7 +4,7 @@ import { Button } from './button';
 import { PlusIcon } from 'lucide-react';
 
 const meta = {
-  title: 'UI Primitives/Tooltip',
+  title: 'Primitives/Tooltip',
   component: Tooltip,
   parameters: {
     layout: 'centered',

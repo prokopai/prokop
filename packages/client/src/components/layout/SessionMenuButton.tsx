@@ -199,12 +199,12 @@ const SessionActionsDropdown = React.memo(function SessionActionsDropdown({
                   }
                 }}
                 placeholder="Tag name..."
-                className="flex-1 min-w-0 h-6 px-2 text-xs bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 min-w-0 h-6 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 type="button"
                 onClick={commitTag}
-                className="p-0.5 hover:bg-accent rounded"
+                className="p-0.5 hover:bg-accent rounded-md"
               >
                 <Plus className="size-3" />
               </button>
@@ -222,7 +222,7 @@ const SessionActionsDropdown = React.memo(function SessionActionsDropdown({
                         setTagInputOpen(false);
                       }
                     }}
-                    className="w-full text-left text-xs px-2 py-1 hover:bg-accent rounded"
+                    className="w-full text-left text-xs px-2 py-1 hover:bg-accent rounded-md"
                   >
                     {suggestion}
                   </button>
@@ -286,7 +286,7 @@ const SessionStatusDot = React.memo(function SessionStatusDot({ state }: { state
           'rounded-full',
           state === 'unread' || state === 'warning' ? 'size-2' : 'size-1.5',
           state === 'unread' && 'bg-primary',
-          state === 'error' && 'bg-destructive',
+          state === 'error' && 'bg-error',
           state === 'interrupted' && 'bg-muted-foreground/50',
           state === 'warning' && 'bg-warning',
           state === 'idle' && 'bg-muted-foreground/25',
@@ -301,8 +301,8 @@ function WorktreeChip({ worktreeId, label, available }: { worktreeId: string; la
   return (
     <span
       className={cn(
-        'worktree-tone shrink-0 max-w-[7.5rem] truncate rounded px-1.5 text-2xs leading-4',
-        available ? 'worktree-chip' : 'bg-destructive/10 text-destructive line-through',
+        'worktree-tone shrink-0 max-w-[7.5rem] truncate rounded-md px-1.5 text-2xs leading-4',
+        available ? 'worktree-chip' : 'bg-error/10 text-error line-through',
       )}
       style={worktreeToneStyle(worktreeId)}
       title={available ? `Worktree: ${label}` : `Worktree unavailable: ${label}`}
@@ -501,9 +501,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
     </span>
   );
   else if (derived.isRunning) metaParts.push(<span key="status" className="text-primary">Running</span>);
-  else if (unread?.failed) metaParts.push(<span key="status" className="text-destructive">Failed</span>);
+  else if (unread?.failed) metaParts.push(<span key="status" className="text-error">Failed</span>);
   else if (unread) metaParts.push(<span key="status" className="text-primary">Finished</span>);
-  else if (session.subagentStatus === 'error') metaParts.push(<span key="status" className="text-destructive">Errored</span>);
+  else if (session.subagentStatus === 'error') metaParts.push(<span key="status" className="text-error">Errored</span>);
   else if (session.subagentStatus === 'interrupted') metaParts.push(<span key="status">Interrupted</span>);
   const worktreeId = session.workspaceRootId && worktreeLabel ? session.workspaceRootId : null;
   const worktreeChip = worktreeId && !hideWorktreeChip ? (
@@ -565,7 +565,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                 {selectionMode ? (
                   <button
                     type="button"
-                    className="flex size-4 shrink-0 items-center justify-center rounded transition-colors hover:bg-accent/70"
+                    className="flex size-4 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent/70"
                     onClick={handleCheckboxClick}
                     aria-label={selected ? 'Deselect session' : 'Select session'}
                   >
@@ -661,7 +661,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
                 {selectionMode ? (
                   <button
                     type="button"
-                    className="flex size-4 shrink-0 items-center justify-center rounded transition-colors hover:bg-accent/70"
+                    className="flex size-4 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent/70"
                     onClick={handleCheckboxClick}
                     aria-label={selected ? 'Deselect session' : 'Select session'}
                   >

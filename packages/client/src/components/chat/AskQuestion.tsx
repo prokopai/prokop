@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import React, { useState, useCallback } from 'react';
 import { HelpCircle, Shield, ShieldAlert, Monitor } from 'lucide-react';
 import type { HumanQuestion, FormQuestion, PermissionAsk, ClientCapabilityAsk, AskFormResponse, AskPermissionResponse, AskResponse } from '@prokopai/sdk';
@@ -475,8 +476,8 @@ function SubQuestionView({
  * outside workspace is Extended (amber), secrets and destructive are Full
  * access (red); complex commands run in every mode. */
 const CONCERN_CHIPS: Record<PermissionAskConcern, { label: string; className: string }> = {
-  destructive: { label: 'Destructive', className: 'text-destructive' },
-  sensitive: { label: 'Secrets', className: 'text-destructive' },
+  destructive: { label: 'Destructive', className: 'text-error' },
+  sensitive: { label: 'Secrets', className: 'text-error' },
   escape: { label: 'Outside workspace', className: 'text-warning' },
   opaque: { label: 'Complex command', className: 'text-muted-foreground' },
 };
@@ -487,8 +488,8 @@ const PERMISSION_SEVERITY_STYLES = {
   none: { icon: Shield, borderClass: 'border-border bg-muted/40', iconClass: 'text-muted-foreground' },
   low: { icon: Shield, borderClass: 'border-success/30 bg-success/5', iconClass: 'text-success' },
   medium: { icon: Shield, borderClass: 'border-warning/30 bg-warning/5', iconClass: 'text-warning' },
-  high: { icon: ShieldAlert, borderClass: 'border-destructive/30 bg-destructive/5', iconClass: 'text-destructive' },
-  critical: { icon: ShieldAlert, borderClass: 'border-destructive/50 bg-destructive/10', iconClass: 'text-destructive' },
+  high: { icon: ShieldAlert, borderClass: 'border-error/30 bg-error/5', iconClass: 'text-error' },
+  critical: { icon: ShieldAlert, borderClass: 'border-error/50 bg-error/10', iconClass: 'text-error' },
 } as const;
 
 /** Card severity for a permission ask. Classified asks (permissions v2)
@@ -557,7 +558,7 @@ function ShellCommandView({
   red: boolean;
 }) {
   const marks = highlights.filter(highlight => highlight.end <= command.length);
-  const markClass = red ? 'bg-destructive/20 decoration-destructive' : 'bg-warning/20 decoration-warning';
+  const markClass = red ? 'bg-error/20 decoration-error' : 'bg-warning/20 decoration-warning';
   const reasons = [...new Map(marks.map(({ start, end, reason }) => {
     const text = command.slice(start, end).trim();
     return [`${text}\0${reason}`, { text, reason }] as const;
@@ -611,8 +612,8 @@ function PermissionAskView({
     none: 'text-muted-foreground',
     low: 'text-success',
     medium: 'text-warning',
-    high: 'text-destructive',
-    critical: 'text-destructive',
+    high: 'text-error',
+    critical: 'text-error',
   };
 
   // Extract intent info for better UX
@@ -700,7 +701,7 @@ function PermissionAskView({
     }
     return (
       <div>
-        <div className="text-xs uppercase text-muted-foreground mb-1">{operationLabel ?? 'Accessing'}</div>
+        <SectionLabel className="mb-1">{operationLabel ?? 'Accessing'}</SectionLabel>
         <pre className="text-xs bg-muted/50 border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-all font-mono">
           {paths.join('\n')}
         </pre>
@@ -715,7 +716,7 @@ function PermissionAskView({
     }
     return (
       <div>
-        <div className="text-xs uppercase text-muted-foreground mb-1">URL</div>
+        <SectionLabel className="mb-1">URL</SectionLabel>
         <pre className="text-xs bg-muted/50 border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-all font-mono">
           {ask.metadata.url}
         </pre>
@@ -729,7 +730,7 @@ function PermissionAskView({
     return (
       <div className="flex flex-wrap gap-1">
         {displayTargets.map((target, i) => (
-          <code key={i} className="text-xs bg-muted/50 border rounded px-1.5 py-0.5 font-mono">
+          <code key={i} className="text-xs bg-muted/50 border rounded-md px-1.5 py-0.5 font-mono">
             {target}
           </code>
         ))}
@@ -747,7 +748,7 @@ function PermissionAskView({
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap gap-1.5">
               {details.catastrophic && (
-                <Badge variant="destructive">Catastrophic</Badge>
+                <Badge variant="error">Catastrophic</Badge>
               )}
               {highlights.length === 0 && details.concerns.map(concern => (
                 <Badge key={concern} variant="outline" className={CONCERN_CHIPS[concern].className}>
@@ -762,7 +763,7 @@ function PermissionAskView({
         )
       ) : ask.risk && (
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium uppercase ${riskColors[ask.risk ?? 'none'] ?? 'text-muted-foreground'}`}>
+          <span className={`text-2xs font-medium ${riskColors[ask.risk ?? 'none'] ?? 'text-muted-foreground'}`}>
             Risk: {ask.risk}
           </span>
         </div>
@@ -822,7 +823,7 @@ function ClientCapabilityAskView({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        Client capability request: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{ask.capability}</code>
+        Client capability request: <code className="text-xs bg-muted px-1.5 py-0.5 rounded-md">{ask.capability}</code>
       </p>
       {ask.metadata && (
         <pre className="text-xs bg-background border rounded-md p-2 overflow-x-auto">

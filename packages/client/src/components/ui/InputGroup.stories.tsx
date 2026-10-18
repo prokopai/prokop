@@ -10,7 +10,7 @@ import {
 import { SearchIcon, XIcon, ArrowRightIcon } from 'lucide-react';
 
 const meta = {
-  title: 'UI Primitives/InputGroup',
+  title: 'Primitives/InputGroup',
   component: InputGroup,
   parameters: {
     layout: 'centered',

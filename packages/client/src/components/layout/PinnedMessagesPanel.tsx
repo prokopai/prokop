@@ -79,7 +79,7 @@ function PinnedMessageItem({
             e.stopPropagation();
             onUnpin();
           }}
-          className="size-6 shrink-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+          className="size-6 shrink-0 text-muted-foreground hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
           title="Unpin message"
         >
           <PinOff className="size-3" />

@@ -4,7 +4,7 @@ import { ConfirmationDialog } from './confirmation-dialog';
 import { Button } from './button';
 
 const meta = {
-  title: 'UI Primitives/ConfirmationDialog',
+  title: 'Primitives/ConfirmationDialog',
   component: ConfirmationDialog,
   parameters: {
     layout: 'centered',

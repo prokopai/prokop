@@ -112,7 +112,7 @@ export const DiffViewer = memo(function DiffViewer({
   const counts = additions !== undefined && deletions !== undefined ? (
     <span className="flex shrink-0 items-center gap-1 tabular-nums" aria-label={`+${additions} -${deletions}`}>
       <span className="text-success">+{additions}</span>
-      <span className="text-destructive">-{deletions}</span>
+      <span className="text-error">-{deletions}</span>
     </span>
   ) : null;
 

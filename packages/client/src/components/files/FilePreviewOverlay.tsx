@@ -154,7 +154,7 @@ export default function FilePreviewOverlay({
     if (isDeletedFile && diffData) {
       return (
         <div className="flex flex-col h-full">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50 shrink-0">
             <FileX className="size-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">
               This file was deleted. Showing the deletion diff.
@@ -251,7 +251,7 @@ export default function FilePreviewOverlay({
         >
           {/* Toolbar: icon, name, diff stats, markdown toggle, actions.
               pr-12 keeps the cluster clear of the dialog close button. */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2 pr-12">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-3 py-2 pr-12">
             <FileIcon className={cn('size-4 shrink-0', fileIconColor(target.path))} />
             <DialogTitle
               className="min-w-0 flex-1 truncate text-sm font-medium"
@@ -262,17 +262,17 @@ export default function FilePreviewOverlay({
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               {isDeletedFile && (
-                <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                <span className="rounded-md bg-error/10 px-1.5 py-0.5 text-xs text-error">
                   deleted
                 </span>
               )}
               {diffData && (diffData.additions > 0 || diffData.deletions > 0) && (
                 <span className="flex items-center gap-1 text-2xs font-medium">
                   {diffData.additions > 0 && (
-                    <span className="text-green-600 dark:text-green-400">+{diffData.additions}</span>
+                    <span className="text-success">+{diffData.additions}</span>
                   )}
                   {diffData.deletions > 0 && (
-                    <span className="text-red-600 dark:text-red-400">-{diffData.deletions}</span>
+                    <span className="text-error">-{diffData.deletions}</span>
                   )}
                 </span>
               )}
@@ -312,7 +312,7 @@ export default function FilePreviewOverlay({
 
           {/* Meta line: path, size, language, rename. Stable two-row header
               (path is always known) so loading does not shift layout. */}
-          <DialogDescription className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/30 px-3 py-1.5 pr-12 text-xs text-muted-foreground">
+          <DialogDescription className="flex shrink-0 items-center gap-2 border-b border-border/50 bg-muted/30 px-3 py-1.5 pr-12 text-xs text-muted-foreground">
             <span className="min-w-0 flex-1 truncate font-mono" title={target.path}>
               {target.path}
             </span>

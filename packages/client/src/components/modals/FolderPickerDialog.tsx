@@ -209,7 +209,7 @@ export function FolderPickerDialog({
               onClick={handleNavigateUp}
               disabled={loading || !currentPath || isRoot}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="size-4" />
             </Button>
             {drives.length > 1 && (
               <div className="relative">
@@ -220,7 +220,7 @@ export function FolderPickerDialog({
                   onClick={() => setShowDrives(prev => !prev)}
                   disabled={loading}
                 >
-                  <HardDrive className="w-4 h-4" />
+                  <HardDrive className="size-4" />
                 </Button>
                 {showDrives && (
                   <div className="absolute top-full left-0 mt-1 bg-popover border rounded-md shadow-md z-50 min-w-[120px]">
@@ -239,7 +239,7 @@ export function FolderPickerDialog({
                           currentPath === drive && 'bg-primary/20 text-primary font-medium'
                         )}
                       >
-                        <Folder className={cn('w-3.5 h-3.5', FOLDER_ICON_COLOR)} />
+                        <Folder className={cn('size-3.5', FOLDER_ICON_COLOR)} />
                         {drive}
                       </button>
                     ))}
@@ -259,7 +259,7 @@ export function FolderPickerDialog({
           </div>
           
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
               placeholder="Filter folders..."
@@ -272,12 +272,12 @@ export function FolderPickerDialog({
           <ScrollArea className="h-64 border rounded-md">
             {loading ? (
               <div className="animate-appear-late flex items-center justify-center h-full text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <Loader2 className="size-4 animate-spin mr-2" />
                 Loading...
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <span className="text-destructive">{error.message}</span>
+                <span className="text-error">{error.message}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -300,15 +300,15 @@ export function FolderPickerDialog({
                     onClick={() => setSelectedIndex(index)}
                     onDoubleClick={() => handleNavigateInto(file)}
                     className={cn(
-                      'flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-left',
+                      'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-left',
                       'hover:bg-muted',
                       index === selectedIndex && 'bg-primary/20 text-primary font-medium ring-1 ring-primary/50'
                     )}
                   >
-                    <Folder className={cn('w-4 h-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
+                    <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
                     <span className="truncate flex-1">{file.name}</span>
                     {index === selectedIndex && (
-                      <Check className="w-4 h-4 text-primary" />
+                      <Check className="size-4 text-primary" />
                     )}
                   </button>
                 ))}
@@ -317,7 +317,7 @@ export function FolderPickerDialog({
           </ScrollArea>
           
           {error && (
-            <p className="text-xs text-destructive">{error.message}</p>
+            <p className="text-xs text-error">{error.message}</p>
           )}
         </div>
         

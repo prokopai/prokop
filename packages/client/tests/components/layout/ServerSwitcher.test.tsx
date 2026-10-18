@@ -53,6 +53,6 @@ describe('ServerSwitcher', () => {
     ).toBeInTheDocument();
     expect(
       container.querySelector('[data-connection-status="disconnected"]'),
-    ).toHaveClass('bg-destructive');
+    ).toHaveClass('bg-error');
   });
 });

@@ -6,7 +6,6 @@ import { ArrowLeft, Archive, ChevronRight, Minimize2, Loader2, AlertTriangle } f
 import type { Session, Preconfig, ProkopaiClient } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TokenMeter } from './TokenMeter';
 import { ModelVariantConfigSelector } from './ModelVariantConfigSelector';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
@@ -232,8 +231,7 @@ export function ChatHeader({
 
   return (
     <div ref={headerRef} className="flex-1 min-w-0 flex items-center justify-between gap-1">
-      <TooltipProvider>
-        <div className="flex items-center justify-between gap-1 w-full min-w-0">
+      <div className="flex items-center justify-between gap-1 w-full min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {session.parentId && onNavigateBack && (
               <Button
@@ -262,12 +260,12 @@ export function ChatHeader({
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={handleKeyDown}
-                className="text-base font-semibold leading-none bg-background border border-primary rounded px-2 py-1.5 outline-none min-w-0 flex-1"
+                className="text-base font-semibold leading-none bg-background border border-primary rounded-md px-2 py-1.5 outline-none min-w-0 flex-1"
                 autoFocus
               />
             ) : (
               <h2
-                className="text-base font-semibold leading-none px-2 py-1.5 -mx-2 rounded hover:bg-accent transition-colors truncate min-w-0"
+                className="text-base font-semibold leading-none px-2 py-1.5 -mx-2 rounded-md hover:bg-accent transition-colors truncate min-w-0"
                 onDoubleClick={handleTitleDoubleClick}
               >
                 {session.title || 'Untitled Session'}
@@ -313,30 +311,23 @@ export function ChatHeader({
             />
 
             {onCompact && !isObserver && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onCompact}
-                    disabled={isStreaming || compactBusy || compactUncertain || !canCompact}
-                    aria-label={compactUncertain ? 'Compaction outcome unknown' : 'Compact older messages'}
-                  >
-                    {compactUncertain ? <AlertTriangle className="size-4 text-warning" />
-                      : compactBusy ? <Loader2 className="size-4 animate-spin" />
-                        : <Minimize2 className="size-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {compactUncertain ? 'Compaction outcome unknown. This session is locked to avoid replay.'
-                    : compactBusy ? 'Compacting...' : 'Compact older messages'}
-                </TooltipContent>
-              </Tooltip>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onCompact}
+                disabled={isStreaming || compactBusy || compactUncertain || !canCompact}
+                aria-label={compactUncertain ? 'Compaction outcome unknown' : 'Compact older messages'}
+                title={compactUncertain ? 'Compaction outcome unknown. This session is locked to avoid replay.'
+                  : compactBusy ? 'Compacting...' : 'Compact older messages'}
+              >
+                {compactUncertain ? <AlertTriangle className="size-4 text-warning" />
+                  : compactBusy ? <Loader2 className="size-4 animate-spin" />
+                    : <Minimize2 className="size-4" />}
+              </Button>
             )}
 
           </div>
-        </div>
-      </TooltipProvider>
+      </div>
     </div>
   );
 }

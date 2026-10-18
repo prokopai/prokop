@@ -90,7 +90,7 @@ export default function PullRequestFilesView({
                   title={displayPath(f.path)}
                   onClick={() => setSelected(f.path)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-muted',
                     f.path === current?.path && 'bg-muted',
                     isViewed(f) && 'text-muted-foreground',
                   )}
@@ -103,7 +103,7 @@ export default function PullRequestFilesView({
                   {f.additions !== null && (
                     <span className="shrink-0 font-mono text-2xs">
                       <span className="text-success">+{f.additions}</span>{' '}
-                      <span className="text-destructive">−{f.deletions}</span>
+                      <span className="text-error">−{f.deletions}</span>
                     </span>
                   )}
                   {isViewed(f) && <Check aria-label="Viewed" className="size-3 shrink-0 text-success" />}
@@ -147,7 +147,7 @@ export default function PullRequestFilesView({
 const fileStatuses: [RegExp, string, string][] = [
   [/rename/i, 'R', 'text-primary'],
   [/add/i, 'A', 'text-success'],
-  [/delete|remove/i, 'D', 'text-destructive'],
+  [/delete|remove/i, 'D', 'text-error'],
 ];
 function FileStatus({ status }: { status: string }) {
   const [, letter, className] = fileStatuses.find(([pattern]) => pattern.test(status)) ?? [

@@ -1,3 +1,4 @@
+import { ErrorState } from '@/components/shared/States';
 import { useMemo } from 'react';
 import { Bell, BellOff, AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,10 +77,7 @@ export function NotificationSettings() {
         )}
 
         {error && registrationState === 'error' && (
-          <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
+          <ErrorState>{error}</ErrorState>
         )}
 
         {/* Enable / Disable button */}

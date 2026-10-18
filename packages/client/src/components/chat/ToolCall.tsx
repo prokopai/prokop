@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { memo, useEffect, useState, useMemo } from 'react';
 import { ChevronRight, ExternalLink, Copy, Check, Loader2 } from 'lucide-react';
 import type { ToolPart } from '@prokopai/sdk';
@@ -54,10 +55,6 @@ interface ToolCallProps {
   onNavigateToSubagent?: (sessionId: string) => void;
 }
 
-/** Section heading inside an expanded tool row: sentence case, same gray as the meta text. */
-function SectionLabel({ children }: { children: string }) {
-  return <div className="mb-1 text-2xs font-medium text-muted-foreground/70">{children}</div>;
-}
 
 function extractTaskSessionId(part: ToolPart): string | null {
   if (part.name !== 'task' && part.name !== 'subagent') return null;
@@ -182,7 +179,7 @@ export const ToolCall = memo(function ToolCall({
             className={cn(
               'group/tool-row flex items-center gap-2 py-1 text-xs transition-colors',
               status === 'error'
-                ? 'text-destructive'
+                ? 'text-error'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -232,7 +229,7 @@ export const ToolCall = memo(function ToolCall({
                 size="icon-xs"
                 className={cn(
                   'ml-auto shrink-0',
-                  'opacity-0 transition-opacity group-hover/tool-row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
+                  'opacity-0 transition-opacity group-hover/tool-row:opacity-100 group-focus-within/tool-row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -248,7 +245,7 @@ export const ToolCall = memo(function ToolCall({
         </CollapsibleTrigger>
 
         {!isOpen && errorLine && (
-          <div className="truncate pl-5 text-xs text-destructive/90" title={errorLine}>
+          <div className="truncate pl-5 text-xs text-error/90" title={errorLine}>
             {errorLine}
           </div>
         )}
@@ -261,7 +258,7 @@ export const ToolCall = memo(function ToolCall({
             {/* Pretty body for collapsed visualizations (chip-only while collapsed) */}
             {visualization && (visualization.collapsed || previewCollapsed) && visualization.type !== 'none' && (
               <div>
-                <SectionLabel>Result</SectionLabel>
+                <SectionLabel className="mb-1">Result</SectionLabel>
                 <VisualizationRenderer visualization={visualization} persistKey={part.id} />
               </div>
             )}
@@ -286,7 +283,7 @@ export const ToolCall = memo(function ToolCall({
             )}
 
             {debugOpen && shouldLoadDebug && debugQuery.isError && (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-2 text-xs text-destructive">
+              <div className="flex items-center justify-between gap-2 rounded-md border border-error/20 bg-error/10 p-2 text-xs text-error">
                 <span>Raw data could not be loaded.</span>
                 <Button
                   variant="ghost"
@@ -301,7 +298,7 @@ export const ToolCall = memo(function ToolCall({
 
             {debugOpen && debugReady && (
               <div>
-                <SectionLabel>Input</SectionLabel>
+                <SectionLabel className="mb-1">Input</SectionLabel>
                 <LazyOutput
                   content={serializedInput}
                   className="text-xs bg-background border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
@@ -327,7 +324,7 @@ export const ToolCall = memo(function ToolCall({
             {debugOpen && debugReady && status === 'completed' && serializedOutput !== null && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <SectionLabel>Output</SectionLabel>
+                  <SectionLabel className="mb-1">Output</SectionLabel>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -343,7 +340,7 @@ export const ToolCall = memo(function ToolCall({
                 </div>
                 <LazyOutput
                   content={serializedOutput}
-                  className="text-xs bg-muted/50 border border-border/50 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
+                  className="text-xs bg-muted/50 border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words"
                 />
               </div>
             )}
@@ -351,8 +348,8 @@ export const ToolCall = memo(function ToolCall({
             {/* Error */}
             {status === 'error' && 'error' in state && (
               <div>
-                <SectionLabel>Error</SectionLabel>
-                <pre className="text-xs bg-destructive/10 border border-destructive/20 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words text-destructive">
+                <SectionLabel className="mb-1">Error</SectionLabel>
+                <pre className="text-xs bg-error/10 border border-error/20 rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words text-error">
                   {state.error as string}
                 </pre>
               </div>

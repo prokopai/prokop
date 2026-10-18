@@ -21,7 +21,7 @@ export function createPreconfig(
       provider: null,
       variant: null,
       settings: null,
-      isDefault: true,
+      isDefault: false,
       mode: 'primary',
       canSpawnSubagents: true,
       skills: null,

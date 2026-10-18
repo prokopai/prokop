@@ -90,7 +90,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
               {tab?.dirty && <span role="img" aria-label="Unsaved changes" className="size-1.5 shrink-0 rounded-full bg-primary" />}
             </button>
             {tab?.onClose && (
-              <button type="button" className="mr-1 rounded p-0.5 outline-none hover:bg-background focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:opacity-40" aria-label={`Close ${name}`} tabIndex={id === activeId ? 0 : -1} disabled={tab.closeDisabled} onClick={() => onClose(id)}>
+              <button type="button" className="mr-1 rounded-md p-0.5 outline-none hover:bg-background focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:opacity-40" aria-label={`Close ${name}`} tabIndex={id === activeId ? 0 : -1} disabled={tab.closeDisabled} onClick={() => onClose(id)}>
                 <X className="size-3" />
               </button>
             )}

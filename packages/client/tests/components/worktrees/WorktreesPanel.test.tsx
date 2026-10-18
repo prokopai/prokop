@@ -123,6 +123,6 @@ describe('WorktreesPanel', () => {
     mockWorktrees = [];
     render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
 
-    expect(screen.getByText('No worktrees yet')).toBeInTheDocument();
+    expect(screen.getByText(/No worktrees yet/)).toBeInTheDocument();
   });
 });

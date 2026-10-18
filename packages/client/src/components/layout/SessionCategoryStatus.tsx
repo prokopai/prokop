@@ -7,7 +7,7 @@ export function SessionCategoryStatus({ category }: { category?: SessionCategori
     <div className="flex flex-col gap-1 px-2">
       {category.isLoading && <p role="status" className="text-xs text-muted-foreground">Loading sessions...</p>}
       {category.error && (
-        <div role="alert" className="text-xs text-destructive">
+        <div role="alert" className="text-xs text-error">
           Failed to load sessions.
           <Button variant="ghost" size="sm" onClick={category.retry}>Retry</Button>
         </div>

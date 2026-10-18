@@ -39,7 +39,7 @@ export function TokenMeter({ usage = null }: TokenMeterProps) {
   const ringColorClass = percentage === 0
     ? 'text-muted-foreground/30'
     : status === 'critical'
-      ? 'text-destructive'
+      ? 'text-error'
       : status === 'warning'
         ? 'text-warning'
         : 'text-primary';

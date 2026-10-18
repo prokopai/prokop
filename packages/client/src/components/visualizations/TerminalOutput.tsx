@@ -76,7 +76,7 @@ export function TerminalOutput({ stdout, stderr, exitCode, status, vizKey }: Ter
           <span
             key={index}
             data-stream={line.stream}
-            className={cn('block min-h-[1lh]', line.stream === 'err' && (failed ? 'text-destructive' : 'text-muted-foreground'))}
+            className={cn('block min-h-[1lh]', line.stream === 'err' && (failed ? 'text-error' : 'text-muted-foreground'))}
           >
             {line.text}
           </span>

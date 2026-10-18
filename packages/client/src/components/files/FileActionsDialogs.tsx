@@ -106,7 +106,7 @@ function NameEntryForm({
         {helper && <p className="text-xs text-muted-foreground">{helper}</p>}
       </div>
       {footerExtra}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-xs text-error">{error}</p>}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={mutating}>
           Cancel
@@ -241,7 +241,7 @@ function DeleteDialog({
               : `Delete file ${target?.name ?? ''}? This cannot be undone.`}
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-xs text-error">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={mutating}>
             Cancel

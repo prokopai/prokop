@@ -333,7 +333,7 @@ export function ModelEditorForm({ sdkClient, providerId, providerName, model, on
           {form.variants && Object.keys(form.variants).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(form.variants).map(([key, variant]) => (
-                <div key={key} className="border rounded p-2 space-y-2">
+                <div key={key} className="border rounded-md p-2 space-y-2">
                   <div className="flex items-center gap-2">
                     <Input
                       value={key}
@@ -354,7 +354,7 @@ export function ModelEditorForm({ sdkClient, providerId, providerName, model, on
                     rows={3}
                   />
                   {variantJsonErrors[key] && (
-                    <p className="text-xs text-destructive">Invalid JSON</p>
+                    <p className="text-xs text-error">Invalid JSON</p>
                   )}
                 </div>
               ))}

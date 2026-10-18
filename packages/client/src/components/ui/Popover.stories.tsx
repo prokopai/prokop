@@ -12,7 +12,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
-  title: 'UI Primitives/Popover',
+  title: 'Primitives/Popover',
   component: Popover,
   parameters: {
     layout: 'centered',

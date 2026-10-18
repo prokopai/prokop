@@ -1,3 +1,4 @@
+import { Checkbox } from '@/components/ui/checkbox';
 import { useState } from 'react';
 import { useMutation, useMutationState } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -109,11 +110,10 @@ export function PullRequestCreateForm({
         />
       </div>
       <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+        <Checkbox
           disabled={pending}
           checked={draft}
-          onChange={(e) => setMode(e.target.checked ? '' : 'ready')}
+          onCheckedChange={(checked) => setMode(checked === true ? '' : 'ready')}
         />
         Create as draft
       </label>

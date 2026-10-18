@@ -1,3 +1,5 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, GitCommitHorizontal, X } from 'lucide-react';
@@ -132,7 +134,7 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
     modified: { letter: 'M', className: 'text-warning' },
     added: { letter: 'A', className: 'text-success' },
     untracked: { letter: 'U', className: 'text-success/80' },
-    deleted: { letter: 'D', className: 'text-destructive' },
+    deleted: { letter: 'D', className: 'text-error' },
     renamed: { letter: 'R', className: 'text-muted-foreground' },
     copied: { letter: 'C', className: 'text-warning' },
   };
@@ -144,7 +146,7 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
   };
   const toggleDir = (path: string) => setCollapsed((current) => current.includes(path) ? current.filter((item) => item !== path) : [...current, path]);
   return <>
-    <div className="flex shrink-0 items-center gap-1 px-2 py-1">
+    <div className={dockHeaderClassName()}>
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{repository.data?.branch ?? (repository.isPending ? 'Loading Git…' : 'Git unavailable')}</span>
       <Button variant="ghost" size="sm" disabled={busy || !repository.data?.branch || (!editing && !selectable.length && !retryPush)} onClick={() => setEditing(!editing)}>
         {editing ? <X data-icon="inline-start" /> : <GitCommitHorizontal data-icon="inline-start" />}{editing ? 'Cancel' : 'Commit…'}
@@ -188,7 +190,7 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
         </label>}
         {mode !== 'commit' && !retryPush && <>
           {!repository.data?.upstream && <div className="flex gap-2">
-            <select aria-label="Remote" className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-xs" value={destination.remote} disabled={busy} onChange={(event) => setRemote(event.target.value)}><option value="">Remote</option>{repository.data?.remotes.map((name) => <option key={name}>{name}</option>)}</select>
+            <Select value={destination.remote} disabled={busy} onValueChange={setRemote}><SelectTrigger size="sm" aria-label="Remote" className="h-7 min-w-0 flex-1 text-xs"><SelectValue placeholder="Remote" /></SelectTrigger><SelectContent>{repository.data?.remotes.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
             <Input aria-label="Remote branch" className="h-7 flex-1 text-xs" value={destination.branch} disabled={busy} onChange={(event) => setBranch(event.target.value)} />
           </div>}
           <p className="text-xs text-muted-foreground" title="Push includes all unpushed branch commits, not only these files">{repository.data?.branch} → {destination.remote || 'remote'}/{destination.branch}</p>
@@ -210,7 +212,7 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
       </div>
     </>}
     {(error || repository.error) && <div className="flex flex-col gap-1 px-3 py-2">
-      <p role="alert" className="text-xs text-destructive">{error?.message ?? repository.error?.message}</p>
+      <p role="alert" className="text-xs text-error">{error?.message ?? repository.error?.message}</p>
       <GitOutput output={error?.output} />
     </div>}
     <ConfirmationDialog open={confirmation !== null} onOpenChange={(open) => { if (!open) setConfirmation(null); }} title="Commit and force push?" description={`Commit the selected files and replace ${confirmation?.remote}/${confirmation?.branch} at ${confirmation?.expectedRemoteHead?.slice(0, 8) ?? 'a missing branch'}. Remote commits can be removed. The push is rejected if the remote changes after this review.`} variant="destructive" confirmLabel="Commit & force push" onConfirm={() => { if (confirmation) void submit(confirmation); }} />

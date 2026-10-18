@@ -99,7 +99,7 @@ export function ServerSwitcher({ compact }: ServerSwitcherProps) {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="rounded p-1 transition-colors hover:bg-secondary"
+                    className="rounded-md p-1 transition-colors hover:bg-secondary"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <MoreHorizontal className="size-4" />
@@ -156,7 +156,7 @@ export function ServerSwitcher({ compact }: ServerSwitcherProps) {
               data-connection-status={connected ? 'connected' : 'disconnected'}
               className={cn(
                 'absolute -right-1 -bottom-1 size-2 rounded-full ring-2 ring-background',
-                connected ? 'bg-success' : 'bg-destructive',
+                connected ? 'bg-success' : 'bg-error',
               )}
             />
           </span>

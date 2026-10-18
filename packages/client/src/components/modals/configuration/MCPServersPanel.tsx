@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/shared/States';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
@@ -24,7 +25,7 @@ const statusLabels: Record<McpStatus['status'], string> = {
 };
 
 export function MCPServersPanel({ workspaceId, sdkClient }: Props) {
-  if (workspaceId === undefined || !sdkClient) return <p className="p-4 text-sm text-muted-foreground">Connect to a server to manage MCP.</p>;
+  if (workspaceId === undefined || !sdkClient) return <EmptyState variant="plain">Connect to a server to manage MCP.</EmptyState>;
   return <McpSettings key={workspaceId ?? 'global'} workspaceId={workspaceId} client={sdkClient} />;
 }
 
@@ -52,7 +53,7 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
         <Plus data-icon="inline-start" />Add server
       </Button>
     </div>
-    {error && <Alert variant="destructive"><AlertDescription>{error.message}</AlertDescription></Alert>}
+    {error && <Alert variant="error"><AlertDescription>{error.message}</AlertDescription></Alert>}
     {authLink && status.data?.status[authLink.name]?.status.status !== 'connected' && <p className="text-sm">
       <a className="underline" href={authLink.url} target="_blank" rel="noopener noreferrer">Continue sign-in</a>
     </p>}
@@ -76,7 +77,7 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
                   onCheckedChange={enabled => run(() => client.http.mcp.save(workspaceId, name, { ...config, enabled }))} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={connection.status === 'failed' ? 'destructive' : 'secondary'}>
+                <Badge variant={connection.status === 'failed' ? 'error' : 'secondary'}>
                   {config.enabled === false ? 'Disabled' : config.type === 'builtin' && config.id === 'browser' && connection.status !== 'connected' ? 'Extension not connected' : statusLabels[connection.status]}
                 </Badge>
                 {config.type === 'builtin' && <Badge variant="outline">Built-in</Badge>}
@@ -109,7 +110,7 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
                   <li>Enable Prokop Browser here, then start a new turn. Existing Prokop agents should use this MCP entry instead of their old browser tool selections.</li>
                 </ol>
               </details>}
-              {'error' in connection && <p className="text-xs text-destructive">{connection.error}</p>}
+              {'error' in connection && <p className="text-xs text-error">{connection.error}</p>}
               {(connection.status === 'connected' || config.type === 'builtin') && config.enabled !== false && <McpTools workspaceId={workspaceId} name={name} client={client} />}
             </div>
           ))}
@@ -136,7 +137,7 @@ function McpTools({ workspaceId, name, client }: { workspaceId: string | null; n
       {open ? 'Hide tools' : 'Choose tools'}{tools.data ? ' (' + all.filter(tool => tool.enabled).length + '/' + all.length + ')' : ''}
     </Button>
     {open && <>
-      {(tools.error || toggle.error) && <Alert variant="destructive"><AlertDescription>{(tools.error ?? toggle.error)?.message}</AlertDescription></Alert>}
+      {(tools.error || toggle.error) && <Alert variant="error"><AlertDescription>{(tools.error ?? toggle.error)?.message}</AlertDescription></Alert>}
       {tools.isLoading ? <Skeleton className="h-12" /> : <>
         <Input aria-label={'Search tools in ' + name} placeholder="Search tools…" value={search} onChange={e => setSearch(e.target.value)} />
         <div className="dialog-scrollbar flex max-h-80 min-w-0 flex-col overflow-x-hidden overflow-y-auto px-3 py-2">

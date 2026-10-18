@@ -39,7 +39,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/fl-row:opacity-100"
+      className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/fl-row:opacity-100 group-focus-within/fl-row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
       title={`Copy ${label}`}
       aria-label={`Copy ${label}`}
     >
@@ -72,10 +72,10 @@ function FileRows({ files, copyLabel }: { files: FileListItem[]; copyLabel: stri
           {file.action && (
             <span
               className={cn(
-                'shrink-0 rounded px-1 text-2xs',
+                'shrink-0 rounded-md px-1 text-2xs',
                 file.action === 'created' && 'bg-success/15 text-success',
                 file.action === 'modified' && 'bg-warning/15 text-warning',
-                file.action === 'deleted' && 'bg-destructive/15 text-destructive',
+                file.action === 'deleted' && 'bg-error/15 text-error',
               )}
             >
               {file.action}
@@ -139,7 +139,7 @@ export function FileListViewer({
       {visibleGroups.map((group, groupIndex) => (
         <div key={groupIndex} className="flex flex-col gap-1">
           {showGroupHeaders && (
-            <div className="flex items-center gap-1.5 text-2xs font-medium text-muted-foreground/70">
+            <div className="flex items-center gap-1.5 text-2xs font-medium text-muted-foreground">
               {group.icon && (() => {
                 const Icon = iconMap[group.icon];
                 return <Icon className="size-3" />;
@@ -171,7 +171,7 @@ export function FileListViewer({
 
   // Large list: collapsed header row, expand on demand.
   return (
-    <div className="overflow-hidden rounded-md border border-border/50">
+    <div className="overflow-hidden rounded-md border">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}

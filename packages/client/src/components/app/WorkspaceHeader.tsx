@@ -1,5 +1,6 @@
+import { cn } from '@/lib/utils';
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useMemo } from 'react';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { useSessionCommands } from '@/contexts/SessionCommandsContext';
 import { useServerClient } from '@/contexts/ServerClientContext';
@@ -90,43 +91,41 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   const hasSession = !!currentSession;
 
   return (
-    <TooltipProvider>
-      <div
-        data-slot="primary-dock-header"
-        className="flex h-10 shrink-0 items-stretch"
-      >
-        <div className="flex min-w-0 flex-1 items-center px-2">
-          {hasSession && currentSession && (
-            <ChatHeader
-              session={currentSession}
-              sdkClient={sdkClient}
-              serverUrl={serverUrl}
-              preconfigs={preconfigs}
-              models={models}
-              defaultModel={defaultModel}
-              usage={sessionUsage}
-              modelName={currentModel}
-              onChangePreconfig={(preconfigId) => sessionManager.updateSessionPreconfigForSession(currentSession.id, preconfigId)}
-              onChangeModel={(modelId, providerId) => sessionManager.updateSessionModelForSession(currentSession.id, modelId, providerId)}
-              onChangeVariant={(variant) => sessionManager.updateSessionVariantForSession(currentSession.id, variant)}
-              onRename={sessionManager.handleRenameSession}
-              onNavigateBack={
-                currentSession.parentId
-                  ? () => sessionManager.resumeSession(currentSession.parentId!)
-                  : undefined
-              }
-              isStreaming={!isSessionStopping && (isSessionStreaming || !!currentSession.runningAt)}
-              onCompact={compactableMessageCount >= 2 ? () => sessionManager.compactSession(currentSession.id) : undefined}
-              isCompacting={isCompacting}
-              canCompact={compactableMessageCount >= 2}
-              selectedVariant={selectedVariant}
-              variants={currentModelInfo?.variants}
-              lockPreconfig={lockPreconfig}
-              workspaceLabel={workspaceLabel}
-            />
-          )}
-        </div>
+    <div
+      data-slot="primary-dock-header"
+      className={cn(dockHeaderClassName(), "items-stretch px-0")}
+    >
+      <div className="flex min-w-0 flex-1 items-center px-2">
+        {hasSession && currentSession && (
+          <ChatHeader
+            session={currentSession}
+            sdkClient={sdkClient}
+            serverUrl={serverUrl}
+            preconfigs={preconfigs}
+            models={models}
+            defaultModel={defaultModel}
+            usage={sessionUsage}
+            modelName={currentModel}
+            onChangePreconfig={(preconfigId) => sessionManager.updateSessionPreconfigForSession(currentSession.id, preconfigId)}
+            onChangeModel={(modelId, providerId) => sessionManager.updateSessionModelForSession(currentSession.id, modelId, providerId)}
+            onChangeVariant={(variant) => sessionManager.updateSessionVariantForSession(currentSession.id, variant)}
+            onRename={sessionManager.handleRenameSession}
+            onNavigateBack={
+              currentSession.parentId
+                ? () => sessionManager.resumeSession(currentSession.parentId!)
+                : undefined
+            }
+            isStreaming={!isSessionStopping && (isSessionStreaming || !!currentSession.runningAt)}
+            onCompact={compactableMessageCount >= 2 ? () => sessionManager.compactSession(currentSession.id) : undefined}
+            isCompacting={isCompacting}
+            canCompact={compactableMessageCount >= 2}
+            selectedVariant={selectedVariant}
+            variants={currentModelInfo?.variants}
+            lockPreconfig={lockPreconfig}
+            workspaceLabel={workspaceLabel}
+          />
+        )}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }

@@ -20,10 +20,10 @@ import { ModelEditorForm } from './ModelEditorForm';
 
 function ModelStatusDot({ status }: { status: ModelRuntimeStatus }) {
   if (status.usable) {
-    return <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" title="Usable" />;
+    return <span className="size-1.5 rounded-full bg-success shrink-0" title="Usable" />;
   }
   if (status.providerSupported && !status.providerConfigured) {
-    return <span className="size-1.5 rounded-full bg-amber-500 shrink-0" title="Needs configuration" />;
+    return <span className="size-1.5 rounded-full bg-warning shrink-0" title="Needs configuration" />;
   }
   return <span className="size-1.5 rounded-full bg-muted-foreground/40 shrink-0" title="Unsupported" />;
 }
@@ -71,8 +71,8 @@ export function ProviderCard({
         : { tone: 'amber' as const, label: 'Needs key' }
       : { tone: 'muted' as const, label: 'Custom' };
   const dotClass = status.tone === 'green'
-    ? 'bg-emerald-500'
-    : status.tone === 'amber' ? 'bg-amber-500' : 'bg-muted-foreground/40';
+    ? 'bg-success'
+    : status.tone === 'amber' ? 'bg-warning' : 'bg-muted-foreground/40';
   const isDefaultProvider = provider.id === defaultProvider;
 
   const handleDeleteModel = async () => {
@@ -145,7 +145,7 @@ export function ProviderCard({
                 provider.models.map((model) => {
                   const isDefault = model.id === defaultModel && provider.id === defaultProvider;
                   return (
-                    <div key={model.id} className="flex items-center gap-2 py-1.5 rounded hover:bg-muted/50">
+                    <div key={model.id} className="flex items-center gap-2 py-1.5 rounded-md hover:bg-muted/50">
                       <ModelStatusDot status={model.runtimeStatus} />
                       <span className="text-sm truncate min-w-0" title={model.id}>{model.name}</span>
                       {isDefault && (

@@ -68,11 +68,11 @@ function CompactionFailedMessage({
   onRetry?: () => void;
 }) {
   return (
-    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
-      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-error/20 bg-error/5 px-3 py-2 text-sm">
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-error" />
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-xs font-medium text-destructive">Compaction failed</span>
-        <p className="break-words text-destructive/90">
+        <span className="text-xs font-medium text-error">Compaction failed</span>
+        <p className="break-words text-error/90">
           {textContent || message.error || 'The conversation could not be summarized.'}
         </p>
         {onRetry && (
@@ -231,7 +231,7 @@ const MessageParts = memo(function MessageParts({
           <a
             key={part.id}
             href={fullUrl}
-            className="mt-2 flex items-center gap-2 rounded-lg border border-border/50 bg-card p-2 text-sm transition-colors hover:bg-accent"
+            className="mt-2 flex items-center gap-2 rounded-lg border bg-card p-2 text-sm transition-colors hover:bg-accent"
             target="_blank"
             rel="noopener noreferrer"
           >

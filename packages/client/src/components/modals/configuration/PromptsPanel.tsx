@@ -92,7 +92,7 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
       {error && <SettingsError>{error}</SettingsError>}
 
       {prompts.length === 0 ? (
-        <SettingsEmpty>No prompts yet. Create one to get started.</SettingsEmpty>
+        <SettingsEmpty>No prompts yet. Add one to reuse text in the composer.</SettingsEmpty>
       ) : (
         <div className="space-y-1.5">
           {prompts.map((prompt) => (

@@ -7,12 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type { PermissionMode } from '@prokopai/sdk';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -46,7 +40,7 @@ const MODE_CONFIGS: Record<PermissionMode, ModeConfig> = {
   },
   full: {
     icon: ShieldAlert,
-    iconClass: 'text-destructive',
+    iconClass: 'text-error',
     label: 'Full access',
     ariaLabel: 'Full access permissions',
   },
@@ -58,7 +52,7 @@ function getMenuItemIconClass(mode: PermissionMode): string {
   switch (mode) {
     case 'standard': return 'text-success';
     case 'extended': return 'text-warning';
-    case 'full': return 'text-destructive';
+    case 'full': return 'text-error';
   }
 }
 
@@ -89,44 +83,30 @@ export function AutoApproveSelector({
 
   if (disabled) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-accent"
-              disabled
-              aria-label={config.ariaLabel}
-            >
-              <Icon className={`size-4 ${config.iconClass}`} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{config.label}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        aria-label={config.ariaLabel}
+        title={config.label}
+      >
+        <Icon className={`size-4 ${config.iconClass}`} />
+      </Button>
     );
   }
 
   return (
     <DropdownMenu>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-accent"
-                aria-label={config.ariaLabel}
-              >
-                <Icon className={`size-4 ${config.iconClass}`} />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>{config.label}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={config.ariaLabel}
+          title={config.label}
+        >
+          <Icon className={`size-4 ${config.iconClass}`} />
+        </Button>
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={4}>
         {MODE_ORDER.map((mode) => {
           const modeConfig = MODE_CONFIGS[mode];

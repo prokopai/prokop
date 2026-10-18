@@ -140,7 +140,7 @@ export function OverviewGroupSelector({
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="rounded p-1 transition-colors hover:bg-secondary"
+                              className="rounded-md p-1 transition-colors hover:bg-secondary"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <MoreHorizontal className="size-4" />

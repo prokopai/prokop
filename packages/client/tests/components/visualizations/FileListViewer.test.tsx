@@ -117,7 +117,7 @@ describe('FileListViewer', () => {
 
     expect(screen.getByText('created').className).toContain('text-success');
     expect(screen.getByText('modified').className).toContain('text-warning');
-    expect(screen.getByText('deleted').className).toContain('text-destructive');
+    expect(screen.getByText('deleted').className).toContain('text-error');
   });
 
   describe('collapsible large lists', () => {

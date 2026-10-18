@@ -3,7 +3,7 @@ import { WorktreeCreateForm } from './WorktreeCreateForm';
 import { createRef, createRefList } from '../../../.storybook/mocks';
 
 const meta = {
-  title: 'Worktrees/WorktreeCreateForm',
+  title: 'Files & Git/WorktreeCreateForm',
   component: WorktreeCreateForm,
   parameters: {
     layout: 'padded',

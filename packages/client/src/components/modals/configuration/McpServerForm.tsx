@@ -110,7 +110,7 @@ export function McpServerForm({ name: originalName, config, names, pending, onSa
         </div>
       </>}
     </fieldset>
-    {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+    {error && <Alert variant="error"><AlertDescription>{error}</AlertDescription></Alert>}
     <div className="flex gap-2">
       <Button size="sm" type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save server'}</Button>
       <Button size="sm" type="button" variant="ghost" disabled={pending} onClick={onCancel}>Cancel</Button>

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Progress } from './progress';
 
 const meta = {
-  title: 'UI Primitives/Progress',
+  title: 'Primitives/Progress',
   component: Progress,
   parameters: {
     layout: 'centered',

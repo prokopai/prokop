@@ -65,7 +65,7 @@ export function RebasePanel({ sdkClient, serverId, workspaceId, root, branches, 
     </div>
     <div className="dialog-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       {status.isPending && <p className="text-xs text-muted-foreground">Checking rebase state…</p>}
-      {[status.error, action.error, conflict.error].filter(Boolean).map((error, i) => <Alert variant="destructive" key={i}><AlertDescription>{error?.message}</AlertDescription></Alert>)}
+      {[status.error, action.error, conflict.error].filter(Boolean).map((error, i) => <Alert variant="error" key={i}><AlertDescription>{error?.message}</AlertDescription></Alert>)}
       {state?.active ? <>
         <p className="break-all text-sm">Rebasing <strong>{state.branch ?? 'detached HEAD'}</strong> onto <code>{state.onto?.slice(0, 8)}</code></p>
         <p className="text-xs text-muted-foreground">{state.conflicts.length ? `${state.conflicts.length} unresolved files. Save each resolution, then Continue.` : 'No unresolved files. Continue to replay the remaining commits.'}</p>
@@ -108,7 +108,7 @@ function ConflictEditor({ conflict, busy, refreshing, refreshError, onRetry, onR
   const binary = conflict.base?.binary || conflict.feature?.binary;
   return <div className="flex flex-col gap-3">
     <p className="break-all text-xs">{conflict.path}</p>
-    {refreshError && <Alert variant="destructive"><AlertDescription>Could not refresh this conflict: {refreshError.message}. Your draft is preserved.<Button variant="outline" size="sm" disabled={busy || refreshing} onClick={onRetry}>Retry conflict read</Button></AlertDescription></Alert>}
+    {refreshError && <Alert variant="error"><AlertDescription>Could not refresh this conflict: {refreshError.message}. Your draft is preserved.<Button variant="outline" size="sm" disabled={busy || refreshing} onClick={onRetry}>Retry conflict read</Button></AlertDescription></Alert>}
     {stale && <Alert><AlertDescription>Conflict changed on the server. Your draft is preserved. Review the current whole-file versions below before saving.<Button variant="outline" size="sm" disabled={busy || refreshing || !!refreshError} onClick={() => setReviewed(conflict)}>Use current versions, keep my draft</Button></AlertDescription></Alert>}
     {!binary && sectionMode && <RebaseConflictHunks fileName={conflict.path} incomingLabel={incomingLabel} featureLabel={featureLabel} draft={draft} disabled={blocked} onChange={setDraft} />}
     {conflict.original !== undefined && <details><summary className="text-xs text-muted-foreground">Compare with original (common ancestor)</summary>{conflict.original?.text != null ? <MergePane title="Original file before either change" fileName={conflict.path} value={conflict.original.text} id={`${conflict.path}:original`} /> : <p className="text-xs text-muted-foreground">{conflict.original ? 'Original file is binary.' : 'File did not exist in the common ancestor.'}</p>}</details>}

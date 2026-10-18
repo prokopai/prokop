@@ -1,3 +1,4 @@
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useLayoutEffect, useRef } from 'react';
 import type { RefCallback } from 'react';
 import { MoreHorizontal } from 'lucide-react';
@@ -120,7 +121,7 @@ export function WorkspaceViewGroup({ region, groupId = region, available, slotRe
 
   return (
     <section ref={groupRef} tabIndex={-1} data-view-group={groupId} data-dock-focused={focused} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar outline-none">
-      <div className={cn('flex h-10 shrink-0 items-center gap-1 border-b border-border/50 px-1', focused && 'bg-muted/30')}>
+      <div className={cn(dockHeaderClassName(true), 'px-1', focused && 'bg-muted/30')}>
         <WorkspaceTabStrip ids={ids} activeId={activeId} tabs={tabs} label={`${REGION_LABELS[region]} views`} onSelect={select} onClose={close}
           renderTabMenu={(id, trigger) => (
             <ContextMenu key={id}>

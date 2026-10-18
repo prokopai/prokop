@@ -17,12 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { WorktreeCreateForm } from '@/components/worktrees/WorktreeCreateForm';
 import { useWorktreeMutations, useWorktreeRefsQuery, useWorktreesQuery } from '@/hooks/queries';
 import { getWorktreeDisplayName } from '@/lib/sessionWorktree';
@@ -192,7 +186,7 @@ export function CheckoutMenu({ session, sdkClient, onClose }: {
             <CommandItem disabled value={`${bound.name} unavailable`}>
               <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{bound.name}</span>
-              <span className="ml-auto text-2xs text-destructive">{bound.state}</span>
+              <span className="ml-auto text-2xs text-error">{bound.state}</span>
             </CommandItem>
           )}
           {available.map((worktree) => (
@@ -243,39 +237,33 @@ export function SessionCheckoutSelector({ session, sdkClient, disabled }: Checko
   const tooltip = `Session checkout: ${label}`;
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={disabled || pending}
-                aria-label={tooltip}
-                className="relative h-8 w-8 justify-center p-0 text-muted-foreground hover:text-foreground"
-              >
-                {session.workspaceRootId ? (
-                  <GitBranch className="size-4 shrink-0" />
-                ) : (
-                  <Folder className="size-4 shrink-0" />
-                )}
-                {!boundAvailable && (
-                  <span
-                    className="absolute right-1 top-1 size-1.5 rounded-full bg-destructive"
-                    title={`Worktree is ${bound?.state ?? 'unavailable'}`}
-                  />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-0" align="start" side="top" sideOffset={8}>
-              <CheckoutMenu session={session} sdkClient={sdkClient} onClose={() => setOpen(false)} />
-            </PopoverContent>
-          </Popover>
-        </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={disabled || pending}
+          aria-label={tooltip}
+          title={tooltip}
+          className="relative text-muted-foreground hover:text-foreground"
+        >
+          {session.workspaceRootId ? (
+            <GitBranch className="size-4 shrink-0" />
+          ) : (
+            <Folder className="size-4 shrink-0" />
+          )}
+          {!boundAvailable && (
+            <span
+              className="absolute right-1 top-1 size-1.5 rounded-full bg-error"
+              title={`Worktree is ${bound?.state ?? 'unavailable'}`}
+            />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start" side="top" sideOffset={8}>
+        <CheckoutMenu session={session} sdkClient={sdkClient} onClose={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -316,7 +304,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
             'flex w-full select-none items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-2xs',
             boundAvailable
               ? 'border-border/50 bg-muted text-muted-foreground'
-              : 'border-destructive/40 bg-destructive/15 text-destructive',
+              : 'border-error/40 bg-error/15 text-error',
           )}
         >
           {content}
@@ -337,7 +325,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
               'flex w-full items-center justify-center gap-1.5 rounded-b-lg border border-t-0 px-2.5 py-1 text-2xs transition-colors disabled:opacity-60',
               boundAvailable
                 ? 'border-border/50 bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-                : 'border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/20',
+                : 'border-error/40 bg-error/15 text-error hover:bg-error/20',
               open && boundAvailable && 'border-ring/30',
             )}
           >

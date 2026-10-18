@@ -106,7 +106,7 @@ export function usePrDraft(key: string): [string, (value: string) => void, () =>
 }
 export function PrError({ error }: { error: unknown }): ReactNode {
   return error ? (
-    <Alert variant="destructive">
+    <Alert variant="error">
       <AlertDescription>{error instanceof Error ? error.message : String(error)}</AlertDescription>
     </Alert>
   ) : null;
@@ -158,7 +158,7 @@ const stateStyles = {
   draft: { icon: GitPullRequestDraft, label: 'Draft', className: 'text-muted-foreground' },
   open: { icon: GitPullRequest, label: 'Open', className: 'text-success' },
   merged: { icon: GitMerge, label: 'Merged', className: 'text-primary' },
-  closed: { icon: GitPullRequestClosed, label: 'Closed', className: 'text-destructive' },
+  closed: { icon: GitPullRequestClosed, label: 'Closed', className: 'text-error' },
 };
 function stateStyle(pr: Pick<PullRequestSummary, 'state' | 'draft'>) {
   return stateStyles[pr.draft && pr.state === 'open' ? 'draft' : pr.state];
@@ -190,7 +190,7 @@ export function statusTone(state: string): 'success' | 'failure' | 'pending' | '
 }
 const toneIcons = {
   success: { icon: CircleCheck, className: 'text-success' },
-  failure: { icon: CircleX, className: 'text-destructive' },
+  failure: { icon: CircleX, className: 'text-error' },
   pending: { icon: CircleDashed, className: 'text-warning' },
   neutral: { icon: CircleMinus, className: 'text-muted-foreground' },
 };

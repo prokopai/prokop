@@ -4,7 +4,7 @@ import { Button } from './button';
 import { TerminalIcon, AlertCircleIcon } from 'lucide-react';
 
 const meta = {
-  title: 'UI Primitives/Alert',
+  title: 'Primitives/Alert',
   component: Alert,
   parameters: {
     layout: 'centered',
@@ -12,7 +12,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'destructive'],
+      options: ['default', 'error'],
     },
   },
   args: {
@@ -37,7 +37,7 @@ export const Default: Story = {
 
 export const Destructive: Story = {
   render: () => (
-    <Alert variant="destructive">
+    <Alert variant="error">
       <AlertCircleIcon />
       <AlertTitle>Error</AlertTitle>
       <AlertDescription>
@@ -80,7 +80,7 @@ export const AllVariants: Story = {
         <AlertTitle>Default Alert</AlertTitle>
         <AlertDescription>This is a default informational alert.</AlertDescription>
       </Alert>
-      <Alert variant="destructive">
+      <Alert variant="error">
         <AlertCircleIcon />
         <AlertTitle>Destructive Alert</AlertTitle>
         <AlertDescription>Something went wrong. Please try again.</AlertDescription>

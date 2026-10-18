@@ -14,7 +14,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta = {
-  title: 'UI Primitives/Sheet',
+  title: 'Primitives/Sheet',
   component: Sheet,
   parameters: {
     layout: 'centered',

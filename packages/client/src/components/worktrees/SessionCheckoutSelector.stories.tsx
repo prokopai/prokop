@@ -50,7 +50,7 @@ const twoWorktrees = [
 ];
 
 const meta = {
-  title: 'Worktrees/SessionCheckoutSelector',
+  title: 'Files & Git/SessionCheckoutSelector',
   component: SessionCheckoutSelector,
   parameters: {
     layout: 'padded',

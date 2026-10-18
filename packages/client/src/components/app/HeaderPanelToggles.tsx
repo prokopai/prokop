@@ -1,8 +1,5 @@
 import { PanelBottom, PanelLeft, PanelRight, Settings } from 'lucide-react';
-import { isWindows } from '@/lib/platform';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 
 interface HeaderPanelTogglesProps {
   leftActive: boolean;
@@ -38,85 +35,61 @@ export function HeaderPanelToggles({
   const leftLabel = mobile ? 'Sessions' : 'left dock';
   const rightLabel = mobile ? 'Files' : 'right dock';
   const bottomLabel = mobile ? 'Terminal' : 'bottom dock';
-  const tooltipSide = isWindows() ? 'bottom' : undefined;
+  const leftTitle = `${leftActive ? 'Hide' : 'Show'} ${leftLabel}`;
+  const rightTitle = `${rightActive ? 'Hide' : 'Show'} ${rightLabel}`;
+  const bottomTitle = `${bottomActive ? 'Hide' : 'Show'} ${bottomLabel}`;
 
   return (
-    <TooltipProvider>
-      <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onToggleLeft}
-              aria-pressed={leftActive}
-              aria-label={`${leftActive ? 'Hide' : 'Show'} ${leftLabel}`}
-              className={leftActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
-            >
-              <PanelLeft />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>
-            {`${leftActive ? 'Hide' : 'Show'} ${leftLabel}`}
-          </TooltipContent>
-        </Tooltip>
-        {hasRightDock && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onToggleRight}
-                aria-pressed={rightActive}
-                aria-label={`${rightActive ? 'Hide' : 'Show'} ${rightLabel}`}
-                className={rightActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
-              >
-                <PanelRight />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>
-              {`${rightActive ? 'Hide' : 'Show'} ${rightLabel}`}
-            </TooltipContent>
-          </Tooltip>
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onToggleLeft}
+        aria-pressed={leftActive}
+        aria-label={leftTitle}
+        title={leftTitle}
+        className={leftActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+      >
+        <PanelLeft />
+      </Button>
+      {hasRightDock && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onToggleRight}
+          aria-pressed={rightActive}
+          aria-label={rightTitle}
+          title={rightTitle}
+          className={rightActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+        >
+          <PanelRight />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onToggleBottom}
+        aria-pressed={bottomActive}
+        aria-label={bottomTitle}
+        title={bottomTitle}
+        className={bottomActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+      >
+        <PanelBottom />
+      </Button>
+      <div className="mx-1 h-5 w-px bg-border/50" />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="relative"
+        onClick={onOpenSettings}
+        aria-label={updateVersion ? `Settings, Prokop v${updateVersion} update available` : 'Settings'}
+        title={updateVersion ? `Prokop v${updateVersion} available. Run prokop update on this server.` : 'Settings'}
+      >
+        <Settings className="size-4" />
+        {updateVersion && (
+          <span aria-hidden="true" data-update-available className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-background" />
         )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onToggleBottom}
-              aria-pressed={bottomActive}
-              aria-label={`${bottomActive ? 'Hide' : 'Show'} ${bottomLabel}`}
-              className={bottomActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
-            >
-              <PanelBottom />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>
-            {`${bottomActive ? 'Hide' : 'Show'} ${bottomLabel}`}
-          </TooltipContent>
-        </Tooltip>
-        <div className={cn('w-px h-5 bg-border/60 mx-1')} />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="relative"
-              onClick={onOpenSettings}
-              aria-label={updateVersion ? `Settings, Prokop v${updateVersion} update available` : 'Settings'}
-            >
-              <Settings className="h-4 w-4" />
-              {updateVersion && (
-                <span aria-hidden="true" data-update-available className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-background" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>
-            {updateVersion ? `Prokop v${updateVersion} available. Run prokop update on this server.` : 'Settings'}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    </TooltipProvider>
+      </Button>
+    </div>
   );
 }

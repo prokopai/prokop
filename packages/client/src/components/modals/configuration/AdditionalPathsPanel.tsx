@@ -48,9 +48,9 @@ export function AdditionalPathsPanel({
             {paths.map((path) => (
               <div
                 key={path}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted group"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted group"
               >
-                <Folder className={cn('w-4 h-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
+                <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
                 <span className="font-mono text-xs truncate flex-1" title={path}>{path}</span>
                 <Button
                   variant="ghost"
@@ -59,7 +59,7 @@ export function AdditionalPathsPanel({
                   className="size-6"
                   onClick={() => handleRemove(path)}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="size-3" />
                 </Button>
               </div>
             ))}

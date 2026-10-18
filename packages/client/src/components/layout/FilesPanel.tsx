@@ -1,3 +1,4 @@
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, useMemo } from 'react';
 import { RefreshCw, ChevronDown, Folder, GitBranch, Check, PinOff, Plus, FilePlus2, FolderPlus } from 'lucide-react';
 import { useParams } from '@tanstack/react-router';
@@ -270,10 +271,10 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
     );
 
     const headerContent = activeWorkspace ? (
-      <div className="flex flex-col gap-2 px-2 pt-2 pb-2">
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-col gap-2 pb-2">
+        <div className={cn(dockHeaderClassName(), "gap-1.5")}>
           {rootBlocked ? (
-            <div className="flex min-w-0 items-center gap-1.5 px-2 text-sm font-semibold text-destructive">
+            <div className="flex min-w-0 items-center gap-1.5 px-2 text-sm font-semibold text-error">
               <GitBranch className="size-4 shrink-0" />
               <span className="truncate">Worktree unavailable</span>
             </div>
@@ -339,7 +340,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
               {changesStats.hasCounts && (
                 <>
                   <span className="text-success">+{changesStats.additions}</span>
-                  <span className="text-destructive/80">−{changesStats.deletions}</span>
+                  <span className="text-error/80">−{changesStats.deletions}</span>
                 </>
               )}
             </span>
@@ -350,7 +351,7 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
 
     const content = workspaceId && rootBlocked ? (
       <div className="p-3">
-        <Alert variant="destructive">
+        <Alert variant="error">
           <GitBranch />
           <AlertTitle>This session's worktree is unavailable</AlertTitle>
           <AlertDescription>

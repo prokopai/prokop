@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { lazy, Suspense, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -140,8 +141,8 @@ export function PullRequestDetailView({
             {shown.updatedAt && ` · updated ${relativeTime(shown.updatedAt)}`}
           </span>
           <span className="flex min-w-0 items-center gap-1 font-mono">
-            <code className="truncate rounded bg-muted px-1.5 py-0.5">{shown.sourceBranch}</code>→
-            <code className="truncate rounded bg-muted px-1.5 py-0.5">{shown.targetBranch}</code>
+            <code className="truncate rounded-md bg-muted px-1.5 py-0.5">{shown.sourceBranch}</code>→
+            <code className="truncate rounded-md bg-muted px-1.5 py-0.5">{shown.targetBranch}</code>
           </span>
         </div>
         <TabsList variant="line" className="-mb-px">
@@ -265,10 +266,12 @@ function CommentMeta({ name, createdAt, copy }: { name: string; createdAt: strin
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        <span className="flex-1">{title}</span>
-        {aside}
+      <SectionLabel asChild>
+        <h3 className="gap-2">
+          <span className="flex-1">{title}</span>
+          {aside}
       </h3>
+      </SectionLabel>
       {children}
     </section>
   );
@@ -390,7 +393,7 @@ function Overview({
           title={ctx.provider === 'azure' ? 'Checks and policies' : 'Checks'}
           aside={
             pr.checks.length > 0 && (
-              <span className={cn('normal-case tracking-normal', failed ? 'text-destructive' : '')}>
+              <span className={cn('normal-case tracking-normal', failed ? 'text-error' : '')}>
                 {passed}/{pr.checks.length} passed
               </span>
             )
@@ -432,7 +435,7 @@ function Overview({
                 <>
                   <StatusIcon state="success" />
                   <span>
-                    Merged into <code className="rounded bg-muted px-1 py-0.5 text-xs">{pr.targetBranch}</code>
+                    Merged into <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{pr.targetBranch}</code>
                   </span>
                 </>
               ) : pr.state === 'closed' ? (

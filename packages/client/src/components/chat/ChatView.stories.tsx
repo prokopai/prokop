@@ -67,7 +67,7 @@ void defaultUsage;
 const session = createSession({ title: 'Refactoring the auth module' });
 
 const meta = {
-  title: 'Composite/ChatView',
+  title: 'Chat/ChatView',
   component: ChatView,
   parameters: {
     layout: 'fullscreen',

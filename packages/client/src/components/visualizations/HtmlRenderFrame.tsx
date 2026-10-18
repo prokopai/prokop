@@ -85,7 +85,7 @@ export const HtmlRenderFrame = memo(function HtmlRenderFrame({ render }: { rende
         variant="ghost"
         size="icon-xs"
         className={cn('absolute right-1 top-1 bg-background/80',
-          'opacity-0 transition-opacity group-hover/html-render:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100')}
+          'opacity-0 transition-opacity group-hover/html-render:opacity-100 group-focus-within/html-render:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100')}
       >
         <a href={src} target="_blank" rel="noopener noreferrer" aria-label={`Open ${render.title} in a new tab`} title="Open in new tab">
           <ExternalLink className="size-3" />

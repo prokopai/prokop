@@ -1,5 +1,6 @@
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useCallback, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { GitDiffSummary, ProkopaiClient } from '@prokopai/sdk';
 import type {
   FileTreeSelectionChangeListener,
@@ -9,8 +10,6 @@ import type {
 } from '@pierre/trees';
 import { FileTree as PierreFileTreeReact, useFileTree } from '@pierre/trees/react';
 import type { FileEntryActionTarget, FileOpenMode } from './fileEntry';
-import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
 import { useGitStatusQuery } from '@/hooks/queries/useFileQueries';
 import { useGitAddMutation } from '@/hooks/queries/useGitAddMutation';
 import { useGitRemoveStagedAddition } from '@/hooks/queries/useGitRemoveStagedAddition';
@@ -380,21 +379,13 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
 
     if (isLoading && allFiles.length === 0) {
       return (
-        <div className="animate-appear-late flex h-32 items-center justify-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 size-4 animate-spin" />
-          Loading changes...
-        </div>
+        <LoadingState label="Loading changes…" />
       );
     }
 
     if (error) {
       return (
-        <div className="flex items-center p-4 text-sm text-destructive">
-          {error.message}
-          <Button variant="ghost" size="sm" onClick={() => void refetch()} className="ml-2">
-            <RefreshCw className="size-3" />
-          </Button>
-        </div>
+        <ErrorState className="m-3" onRetry={() => void refetch()}>{error.message}</ErrorState>
       );
     }
 
@@ -402,7 +393,7 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
       const label = availability.reason
         ? REASON_LABELS[availability.reason] ?? 'Git unavailable'
         : 'Git unavailable';
-      return <div className="p-4 text-sm text-muted-foreground text-center">{label}</div>;
+      return <EmptyState variant="plain">{label}</EmptyState>;
     }
 
     return (

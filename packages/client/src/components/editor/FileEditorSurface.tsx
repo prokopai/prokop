@@ -401,7 +401,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
       }}
     >
       {/* Tabs */}
-      {!documentId && <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/30 px-1">
+      {!documentId && <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border/50 bg-muted/30 px-1">
         {scopedOpenDocIds.map((id) => {
           const doc = docs[id];
           if (!doc) return null;
@@ -429,7 +429,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
               <button
                 type="button"
                 onClick={() => requestClose(id)}
-                className="ml-0.5 flex size-4 items-center justify-center rounded hover:bg-muted outline-none"
+                className="ml-0.5 flex size-4 items-center justify-center rounded-md hover:bg-muted outline-none"
                 aria-label={`Close ${doc.name}`}
               >
                 <X className="size-3" />
@@ -630,7 +630,7 @@ function ActiveFileBody({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Toolbar: path, git diff controls, markdown toggle, save */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-2 py-1">
         <span className="truncate text-xs text-muted-foreground" title={documentContext ?? doc.identity.path}>
           {documentContext ?? doc.identity.path}
         </span>
@@ -641,10 +641,10 @@ function ActiveFileBody({
               {gitDiff && (
                 <span className="flex items-center gap-1 text-2xs font-medium shrink-0">
                   {gitDiff.additions > 0 && (
-                    <span className="text-green-600 dark:text-green-400">+{gitDiff.additions}</span>
+                    <span className="text-success">+{gitDiff.additions}</span>
                   )}
                   {gitDiff.deletions > 0 && (
-                    <span className="text-red-600 dark:text-red-400">-{gitDiff.deletions}</span>
+                    <span className="text-error">-{gitDiff.deletions}</span>
                   )}
                 </span>
               )}
@@ -753,10 +753,10 @@ function ConflictBanner({ conflict, localContent, saving, onOverwrite, onReload,
   const [showCompare, setShowCompare] = useState(false);
 
   return (
-    <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2">
+    <div className="shrink-0 border-b border-warning/30 bg-warning/10 px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <AlertCircle className="size-4 text-amber-600" />
-        <span className="text-xs text-amber-700 dark:text-amber-400">
+        <AlertCircle className="size-4 text-warning" />
+        <span className="text-xs text-warning">
           This file changed on disk. Your edits conflict with the saved version.
         </span>
         <div className="ml-auto flex items-center gap-1">
@@ -778,14 +778,14 @@ function ConflictBanner({ conflict, localContent, saving, onOverwrite, onReload,
       </div>
       {showCompare && (
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="min-h-0 overflow-hidden rounded-md border border-border">
-            <div className="border-b border-border bg-muted/50 px-2 py-1 text-2xs font-medium uppercase text-muted-foreground">
+          <div className="min-h-0 overflow-hidden rounded-md border">
+            <div className="border-b border-border/50 bg-muted/50 px-2 py-1 text-2xs font-medium text-muted-foreground">
               Your changes
             </div>
             <pre className="max-h-48 overflow-auto p-2 text-xs dialog-scrollbar">{localContent}</pre>
           </div>
-          <div className="min-h-0 overflow-hidden rounded-md border border-border">
-            <div className="border-b border-border bg-muted/50 px-2 py-1 text-2xs font-medium uppercase text-muted-foreground">
+          <div className="min-h-0 overflow-hidden rounded-md border">
+            <div className="border-b border-border/50 bg-muted/50 px-2 py-1 text-2xs font-medium text-muted-foreground">
               On disk
             </div>
             <pre className="max-h-48 overflow-auto p-2 text-xs dialog-scrollbar">{conflict.currentContent}</pre>

@@ -21,7 +21,7 @@ export const OfflineState: FC<OfflineStateProps> = ({
 }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] px-4 text-center">
-      <WifiOff className="size-12 text-destructive mb-4" />
+      <WifiOff className="size-12 text-error mb-4" />
 
       <h2 className="text-xl font-semibold text-foreground mb-2">
         {authError ? 'Authentication required' : 'Reconnecting to server'}
@@ -32,7 +32,7 @@ export const OfflineState: FC<OfflineStateProps> = ({
       </p>
 
       {serverUrl && (
-        <p className="text-xs text-muted-foreground mb-6 font-mono bg-muted px-3 py-1.5 rounded">
+        <p className="text-xs text-muted-foreground mb-6 font-mono bg-muted px-3 py-1.5 rounded-md">
           {serverUrl}
         </p>
       )}

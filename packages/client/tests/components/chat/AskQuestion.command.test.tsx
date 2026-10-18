@@ -54,7 +54,7 @@ describe('shell permission card', () => {
 
   test('marks use the card color: red for Full access concerns, amber for outside the workspace', () => {
     const red = renderAsk(shellAsk()).container.querySelector('pre mark')!;
-    expect(red.className).toContain('bg-destructive/20');
+    expect(red.className).toContain('bg-error/20');
     cleanup();
     const amber = renderAsk(shellAsk({ concerns: ['escape'], risk: 'medium' })).container.querySelector('pre mark')!;
     expect(amber.className).toContain('bg-warning/20');

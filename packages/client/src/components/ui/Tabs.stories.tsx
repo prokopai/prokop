@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 
 const meta = {
-  title: 'UI Primitives/Tabs',
+  title: 'Primitives/Tabs',
   component: Tabs,
   parameters: {
     layout: 'centered',

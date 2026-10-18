@@ -178,7 +178,7 @@ export function WorkspaceSwitcher({
             </span>
           </div>
           {waitingElsewhere > 0 && (
-            <span className="size-1.5 shrink-0 rounded-full bg-amber-500" aria-label={`${waitingElsewhere} waiting on other machines`} role="status" />
+            <span className="size-1.5 shrink-0 rounded-full bg-warning" aria-label={`${waitingElsewhere} waiting on other machines`} role="status" />
           )}
           <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
         </Button>
@@ -239,7 +239,7 @@ export function WorkspaceSwitcher({
                         }}
                         onBlur={handleRenameCommit}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex-1 min-w-0 h-6 px-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="flex-1 min-w-0 h-6 px-1 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     ) : (
                       <>
@@ -271,13 +271,14 @@ export function WorkspaceSwitcher({
                      {!selectionOnly && !isAgentHomeWorkspace(workspace) && (
                      <DropdownMenu>
                        <DropdownMenuTrigger asChild>
-                         <button
-                           className="p-1 rounded hover:bg-secondary transition-colors"
+                         <Button
+                           variant="ghost"
+                           size="icon-xs"
+                           aria-label="Workspace actions"
                            onClick={(e) => e.stopPropagation()}
                          >
                            <MoreHorizontal className="size-4" />
-                           <span className="sr-only">Workspace actions</span>
-                         </button>
+                         </Button>
                        </DropdownMenuTrigger>
                        <DropdownMenuContent align="end" className="min-w-48">
                         <DropdownMenuItem

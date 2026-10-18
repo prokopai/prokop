@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { useState } from 'react';
 import { RefreshCw, Trash2, ShieldCheck, ShieldHalf, ShieldAlert } from 'lucide-react';
 import type { PermissionGrant, PermissionMode } from '@prokopai/sdk';
@@ -102,9 +103,9 @@ export function PermissionsPanel({
 
         {activePermissions.length > 0 && (
           <div className="mb-4">
-            <h4 className="text-xs uppercase text-muted-foreground mb-2 font-medium">
+            <SectionLabel asChild><h4 className="mb-2">
               Active ({activePermissions.length})
-            </h4>
+            </h4></SectionLabel>
             {activePermissions.map((permission) => (
               <PermissionListItem
                 key={permission.id}
@@ -117,9 +118,9 @@ export function PermissionsPanel({
 
         {revokedPermissions.length > 0 && (
           <div>
-            <h4 className="text-xs uppercase text-muted-foreground mb-2 font-medium">
+            <SectionLabel asChild><h4 className="mb-2">
               Revoked ({revokedPermissions.length})
-            </h4>
+            </h4></SectionLabel>
             {revokedPermissions.map((permission) => (
               <PermissionListItem
                 key={permission.id}

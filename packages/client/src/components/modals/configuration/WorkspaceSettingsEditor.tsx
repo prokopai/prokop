@@ -108,7 +108,7 @@ export function WorkspaceSettingsEditor({ section, workspace, sdkClient, draft, 
       </Suspense>
       {(isDirty || ['general', 'learning'].includes(activeSection)) && (
         <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t bg-background p-3 sm:p-4">
-          {learningError && <p role="alert" className="mr-auto text-xs text-destructive">{learningError}</p>}
+          {learningError && <p role="alert" className="mr-auto text-xs text-error">{learningError}</p>}
           {isDirty && <Button variant="ghost" onClick={onDiscard} disabled={isSaving}>Discard changes</Button>}
           <Button onClick={save} disabled={!sdkClient || isSaving || !isDirty || Boolean(learningError)}>
             {isSaving ? 'Saving...' : isDirty ? 'Save changes' : 'Saved'}

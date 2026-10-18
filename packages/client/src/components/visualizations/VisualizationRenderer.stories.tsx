@@ -9,7 +9,7 @@ import {
 } from '../../../.storybook/mocks/mockVisualization';
 
 const meta = {
-  title: 'Visualizations/ToolPreviews',
+  title: 'Visualizations/VisualizationRenderer',
   component: VisualizationRenderer,
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof VisualizationRenderer>;

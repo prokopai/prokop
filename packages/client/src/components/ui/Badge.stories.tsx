@@ -3,7 +3,7 @@ import { Badge } from './badge';
 import { XIcon } from 'lucide-react';
 
 const meta = {
-  title: 'UI Primitives/Badge',
+  title: 'Primitives/Badge',
   component: Badge,
   parameters: {
     layout: 'centered',
@@ -11,7 +11,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'],
+      options: ['default', 'secondary', 'error', 'outline', 'ghost', 'link'],
     },
     children: { control: 'text' },
   },
@@ -30,8 +30,8 @@ export const Secondary: Story = {
   args: { variant: 'secondary' },
 };
 
-export const Destructive: Story = {
-  args: { variant: 'destructive' },
+export const Error: Story = {
+  args: { variant: 'error' },
 };
 
 export const Outline: Story = {
@@ -62,7 +62,7 @@ export const AllVariants: Story = {
     <div className="flex flex-wrap gap-3">
       <Badge variant="default">Default</Badge>
       <Badge variant="secondary">Secondary</Badge>
-      <Badge variant="destructive">Destructive</Badge>
+      <Badge variant="error">Error</Badge>
       <Badge variant="outline">Outline</Badge>
       <Badge variant="ghost">Ghost</Badge>
       <Badge variant="link">Link</Badge>

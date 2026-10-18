@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input';
 // packages/client/src/components/FirstServerScreen.tsx
 import { useState } from 'react';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -89,16 +90,16 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
     <div className="w-full h-full flex items-center justify-center bg-background dark:bg-gradient-to-br dark:from-muted dark:via-background dark:to-muted p-4">
       <div className="app-drag-strip" aria-hidden="true" />
       <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card border rounded-xl overflow-hidden">
           {/* Header */}
-          <div className="px-6 pt-6 pb-4 text-center border-b border-border relative">
+          <div className="px-6 pt-6 pb-4 text-center border-b border-border/50 relative">
             <button
               type="button"
               onClick={handleGoBack}
               className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               aria-label="Go back"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="size-5" />
             </button>
             <h1 className="text-2xl font-bold text-foreground">Add Server</h1>
             <p className="text-muted-foreground mt-1">Connect to a Prokopai server</p>
@@ -111,7 +112,7 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
               <label htmlFor="serverName" className="text-sm font-medium text-foreground">
                 Server Name
               </label>
-              <input
+              <Input
                 id="serverName"
                 type="text"
                 value={name}
@@ -120,7 +121,6 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
                   setLocalError(null);
                 }}
                 placeholder="Production"
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
 
@@ -129,7 +129,7 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
               <label htmlFor="serverUrl" className="text-sm font-medium text-foreground">
                 Server URL
               </label>
-              <input
+              <Input
                 id="serverUrl"
                 type="text"
                 value={url}
@@ -138,13 +138,12 @@ export default function FirstServerScreen({ error }: FirstServerScreenProps) {
                   setLocalError(null);
                 }}
                 placeholder="localhost:8742 or a pairing link"
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               />
             </div>
 
             {/* Error Message */}
             {(localError || error) && (
-              <div className="px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+              <div className="px-3 py-2 bg-error/10 border border-error/20 rounded-lg text-error text-sm">
                 {localError || error}
               </div>
             )}

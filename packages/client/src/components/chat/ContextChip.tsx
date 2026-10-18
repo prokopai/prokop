@@ -19,7 +19,7 @@ interface ContextChipProps {
 }
 
 // Sized in em so the chip sits in running text at any font size.
-const CHIP = 'inline-flex h-[1.45em] max-w-full items-center gap-[0.3em] rounded-[0.4em] border border-border/50 bg-card px-[0.4em] align-[-0.2em] text-[0.88em] font-medium leading-none whitespace-nowrap text-foreground [&_svg]:size-[1.1em] [&_svg]:shrink-0';
+const CHIP = 'inline-flex h-[1.45em] max-w-full items-center gap-[0.3em] rounded-[0.4em] border bg-card px-[0.4em] align-[-0.2em] text-[0.88em] font-medium leading-none whitespace-nowrap text-foreground [&_svg]:size-[1.1em] [&_svg]:shrink-0';
 const INTERACTIVE = 'cursor-pointer transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
 
 function TerminalExcerpt({ reference }: { reference: Extract<ContextReference, { kind: 'terminal' }> }) {

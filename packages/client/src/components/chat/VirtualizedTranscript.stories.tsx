@@ -28,7 +28,7 @@ function makeDisplayItems(messagesWithParts: ReturnType<typeof createTypicalConv
 }
 
 const meta = {
-  title: 'Composite/VirtualizedTranscript',
+  title: 'Chat/VirtualizedTranscript',
   component: VirtualizedTranscript,
   parameters: {
     layout: 'fullscreen',

@@ -1,5 +1,5 @@
+import { ErrorState, LoadingState } from '@/components/shared/States';
 import { forwardRef, useCallback, useImperativeHandle, useRef, useEffect, useMemo } from 'react';
-import { RefreshCw, Loader2 } from 'lucide-react';
 import type { ProkopaiClient, GitDiffSummary } from '@prokopai/sdk';
 import type {
   GitStatusEntry,
@@ -9,7 +9,6 @@ import type {
 } from '@pierre/trees';
 import { FileTree as PierreFileTreeReact, useFileTree } from '@pierre/trees/react';
 import type { FileEntryActionTarget, FileOpenMode } from './fileEntry';
-import { Button } from '@/components/ui/button';
 import { useFileTreeFullQuery } from '@/hooks/queries/useFileTreeFullQuery';
 import { useGitStatusQuery } from '@/hooks/queries/useFileQueries';
 import { fileTreeExpandedPaths, useFileTreeStateStore } from '@/stores/fileTreeStateStore';
@@ -393,21 +392,13 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
 
     if (isLoading && paths.length === 0) {
       return (
-        <div className="animate-appear-late flex h-32 items-center justify-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 size-4 animate-spin" />
-          Loading files...
-        </div>
+        <LoadingState label="Loading files…" />
       );
     }
 
     if (error) {
       return (
-        <div className="flex items-center p-4 text-sm text-destructive">
-          {error instanceof Error ? error.message : 'Failed to load files'}
-          <Button variant="ghost" size="sm" onClick={retryRefetch} className="ml-2">
-            <RefreshCw className="size-3" />
-          </Button>
-        </div>
+        <ErrorState className="m-3" onRetry={retryRefetch}>{error instanceof Error ? error.message : 'Failed to load files'}</ErrorState>
       );
     }
 

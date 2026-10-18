@@ -174,11 +174,11 @@ export function TerminalTabStrip({
                 className={cn(
                   'hover:text-destructive transition-opacity ml-0.5',
                   // Touch has no hover, so the full-size strip keeps close visible.
-                  compact && 'opacity-0 group-hover:opacity-100',
+                  compact && 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
                 )}
                 onClick={(event) => { event.stopPropagation(); onClose(tab.serverSessionId); }}
               >
-                <X className="w-3 h-3" />
+                <X className="size-3" />
               </button>
             </div>
           );

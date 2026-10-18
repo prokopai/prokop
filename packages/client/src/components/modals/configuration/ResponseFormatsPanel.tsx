@@ -349,7 +349,7 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
       </div>
 
       {isContainer && (
-        <div className="ml-3 sm:ml-4 border-l-2 border-border pl-2 sm:pl-3">
+        <div className="ml-3 sm:ml-4 border-l-2 border-border/50 pl-2 sm:pl-3">
           <button
             type="button"
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-1.5"
@@ -664,12 +664,12 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
                 value={editSchema}
                 onChange={(e) => handleRawSchemaChange(e.target.value)}
                 className={`w-full h-64 p-3 rounded-lg border font-mono text-sm resize-y ${
-                  schemaError ? 'border-destructive bg-destructive/5' : 'bg-background'
+                  schemaError ? 'border-error bg-error/5' : 'bg-background'
                 }`}
                 placeholder='{ "type": "object", "properties": {...} }'
               />
               {schemaError && (
-                <p className="text-xs text-destructive mt-1">{schemaError}</p>
+                <p className="text-xs text-error mt-1">{schemaError}</p>
               )}
             </>
           ) : (
@@ -723,7 +723,7 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
       {error && <SettingsError>{error}</SettingsError>}
 
       {formats.length === 0 ? (
-        <SettingsEmpty>No response formats yet. Create one to get started.</SettingsEmpty>
+        <SettingsEmpty>No formats yet. Add one to get JSON back from a reply.</SettingsEmpty>
       ) : (
         <div className="space-y-1.5">
           {formats.map((format) => {

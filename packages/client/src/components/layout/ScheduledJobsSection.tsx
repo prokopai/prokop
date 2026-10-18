@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useCallback, useState } from 'react';
 import {
   Clock,
@@ -146,7 +147,7 @@ export function ScheduledJobsSection({
 
   const renderRuns = (runs: Session[]) => (
     <CollapsibleContent>
-      <div className="ml-4 border-l border-border pl-1 space-y-0.5 mb-1">
+      <div className="ml-4 border-l border-border/50 pl-1 space-y-0.5 mb-1">
         {runs.map((session) => (
           <SidebarMenuButton
             key={session.id}
@@ -171,7 +172,7 @@ export function ScheduledJobsSection({
         <SidebarGroup>
           <SidebarGroupLabel asChild>
             <CollapsibleTrigger asChild>
-              <div className="group/head flex w-full items-center gap-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+              <div className="group/head flex w-full items-center gap-1.5 py-0.5">
                 <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 <span>Scheduled</span>
                 <span className="text-2xs tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
@@ -238,7 +239,7 @@ export function ScheduledJobsSection({
                                   {job.scheduleDisplay} . {getNextRunLabel(job)}
                                 </div>
                                 {job.lastError && (
-                                  <div className="text-xs text-destructive truncate flex items-center gap-1 mt-0.5">
+                                  <div className="text-xs text-error truncate flex items-center gap-1 mt-0.5">
                                     <AlertCircle className="size-3 shrink-0" />
                                     <span className="truncate">{job.lastError}</span>
                                   </div>
@@ -250,10 +251,11 @@ export function ScheduledJobsSection({
                             {runs.length > 0 && renderRunCount(runs)}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
                                   disabled={isMutating}
-                                  className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 opacity-0 group-hover/job-collapsible:opacity-100 transition-opacity disabled:opacity-100"
+                                  className="opacity-0 transition-opacity group-hover/job-collapsible:opacity-100 group-focus-within/job-collapsible:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 disabled:opacity-100"
                                   title={isMutating ? 'Updating job' : 'Job actions'}
                                 >
                                   {isMutating ? (
@@ -261,7 +263,7 @@ export function ScheduledJobsSection({
                                   ) : (
                                     <MoreHorizontal className="size-3.5" />
                                   )}
-                                </button>
+                                </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="min-w-40">
                                 <DropdownMenuItem onClick={() => onEditJob(job)}>
@@ -321,10 +323,11 @@ export function ScheduledJobsSection({
                             {renderRunCount(runs)}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
                                   disabled={isMutating}
-                                  className="p-1 rounded-md hover:bg-sidebar-accent-foreground/10 opacity-0 group-hover/job-collapsible:opacity-100 transition-opacity disabled:opacity-100"
+                                  className="opacity-0 transition-opacity group-hover/job-collapsible:opacity-100 group-focus-within/job-collapsible:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 disabled:opacity-100"
                                   title={isMutating ? 'Deleting runs' : 'Run actions'}
                                 >
                                   {isMutating ? (
@@ -332,7 +335,7 @@ export function ScheduledJobsSection({
                                   ) : (
                                     <MoreHorizontal className="size-3.5" />
                                   )}
-                                </button>
+                                </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="min-w-40">
                                 <DropdownMenuItem

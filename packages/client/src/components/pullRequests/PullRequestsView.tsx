@@ -1,3 +1,5 @@
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useInfiniteQuery, useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import { PullRequestCreateForm } from './PullRequestCreateForm';
@@ -124,7 +125,7 @@ function PullRequestsContent({
 
 function Toolbar({ left, right, className }: { left: ReactNode; right?: ReactNode; className?: string }) {
   return (
-    <div data-testid="pull-requests-toolbar" className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2', className)}>
+    <div data-testid="pull-requests-toolbar" className={cn(dockHeaderClassName(true), 'h-auto min-h-10 flex-wrap gap-2 px-3 py-1', className)}>
       {left}
       <div className="ml-auto flex items-center gap-1">{right}</div>
     </div>
@@ -361,15 +362,13 @@ function RepositoryInbox({
           )}
         >
           <div className="flex flex-col gap-2 p-3">
-            <Tabs value={state} onValueChange={setState}>
-              <TabsList className="w-full" aria-label="State">
-                {['open', 'merged', 'closed', 'all'].map((value) => (
-                  <TabsTrigger key={value} value={value}>
-                    {value[0].toUpperCase() + value.slice(1)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <SegmentedControl
+              label="State"
+              className="w-full *:flex-1 *:justify-center"
+              options={['open', 'merged', 'closed', 'all'].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }))}
+              value={state}
+              onChange={setState}
+            />
             <div className="flex gap-2">
               <Input
                 aria-label="Search loaded pull requests"

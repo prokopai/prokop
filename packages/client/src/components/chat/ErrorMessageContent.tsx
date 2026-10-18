@@ -76,11 +76,11 @@ export function ErrorMessageContent({ message }: ErrorMessageContentProps) {
   const meta = ERROR_META[errorType];
 
   return (
-    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
-      <span className="mt-0.5 shrink-0 text-destructive">{meta.icon}</span>
+    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-error/20 bg-error/5 px-3 py-2 text-sm">
+      <span className="mt-0.5 shrink-0 text-error">{meta.icon}</span>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-xs font-medium text-destructive">{meta.label}</span>
-        <p className="break-words text-destructive/90">{message.error || meta.description}</p>
+        <span className="text-xs font-medium text-error">{meta.label}</span>
+        <p className="break-words text-error/90">{message.error || meta.description}</p>
         {message.error && message.error !== meta.description && (
           <p className="text-xs text-muted-foreground">{meta.description}</p>
         )}

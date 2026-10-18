@@ -64,7 +64,7 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
         {left.open && (
           <>
             <div
-              className="flex shrink-0 flex-col gap-2 rounded-xl border border-border/50 bg-sidebar p-3"
+              className="flex shrink-0 flex-col gap-2 rounded-xl border bg-sidebar p-3"
               style={{ width: left.size }}
             >
               <Bar className="h-8 w-full" />
@@ -76,19 +76,19 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
             <div className="w-3 shrink-0" />
           </>
         )}
-        <div className="flex min-w-0 flex-1 items-center justify-center rounded-xl border border-border/50 bg-card">
+        <div className="flex min-w-0 flex-1 items-center justify-center rounded-xl border bg-card">
           {statusBlock}
         </div>
         {right.open && (
           <>
             <div className="w-3 shrink-0" />
             <div
-              className="flex shrink-0 flex-col gap-2 rounded-xl border border-border/50 bg-sidebar p-3"
+              className="flex shrink-0 flex-col gap-2 rounded-xl border bg-sidebar p-3"
               style={{ width: right.size }}
             >
               <Bar className="h-7 w-40" />
               <Bar className="mt-2 h-5 w-full" />
-              <Bar className="h-5 w-5/6" />
+              <Bar className="size-5/6" />
               <Bar className="h-5 w-4/6" />
             </div>
           </>

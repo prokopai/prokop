@@ -1,10 +1,12 @@
+import { EmptyState } from '@/components/shared/States';
+import { DockHeader } from '@/components/ui/dock-header';
+import { SectionLabel } from '@/components/ui/section-label';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   CircleDot,
   Copy,
   ExternalLink,
-  FolderOpen,
   GitBranch,
   Loader2,
   MoreHorizontal,
@@ -71,7 +73,7 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
         removed && 'opacity-50',
       )}
     >
-      <GitBranch className={cn('size-3.5 shrink-0', unavailable ? 'text-destructive' : 'text-muted-foreground')} />
+      <GitBranch className={cn('size-3.5 shrink-0', unavailable ? 'text-error' : 'text-muted-foreground')} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{worktree.name}</span>
@@ -81,12 +83,12 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
             </span>
           )}
           {unavailable && (
-            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-2xs font-medium text-destructive">
+            <span className="shrink-0 rounded-md bg-error/10 px-1.5 py-0.5 text-2xs font-medium text-error">
               {worktree.state}
             </span>
           )}
           {removed && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
               removed
             </span>
           )}
@@ -108,7 +110,7 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
             <Button
               variant="ghost"
               size="icon-xs"
-              className="transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 md:opacity-0"
+              className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
               aria-label={`Actions for ${worktree.name}`}
             >
               <MoreHorizontal className="size-3.5" />
@@ -199,10 +201,8 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" data-worktrees-panel>
-      <div className="flex items-center justify-between px-2 pb-1 pt-2">
-        <span className="text-2xs font-medium text-muted-foreground">
-          Worktrees
-        </span>
+      <DockHeader className="justify-between">
+        <SectionLabel>Worktrees</SectionLabel>
         <Button
           variant="ghost"
           size="icon-xs"
@@ -212,7 +212,7 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
         >
           {creating ? <CircleDot className="size-3.5" /> : <Plus className="size-3.5" />}
         </Button>
-      </div>
+      </DockHeader>
 
       {creating && (
         <div className="border-b border-border/50 p-2">
@@ -231,10 +231,7 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {all.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1 px-4 py-12 text-center">
-            <FolderOpen className="size-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">No worktrees yet</p>
-          </div>
+          <EmptyState variant="plain">No worktrees yet. Create one to work on a branch beside the main checkout.</EmptyState>
         ) : (
           all.map((worktree) => (
             <WorktreeRow

@@ -17,7 +17,7 @@ import { UserIcon, SettingsIcon, LogOutIcon, CreditCardIcon, CloudIcon } from 'l
 import { useState } from 'react';
 
 const meta = {
-  title: 'UI Primitives/DropdownMenu',
+  title: 'Primitives/DropdownMenu',
   component: DropdownMenu,
   parameters: {
     layout: 'centered',

@@ -1,3 +1,4 @@
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Plus, Folder, Terminal as TerminalIcon } from 'lucide-react';
 import { TerminalView } from './TerminalView';
@@ -681,7 +682,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
           onClick={() => addTab()}
           title="New terminal tab"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="size-3.5" />
         </Button>
       );
     }
@@ -695,7 +696,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
             className="shrink-0"
             title="New terminal tab"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-56 max-w-80">
@@ -790,8 +791,8 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
   return (
     <div ref={panelRef} data-terminal-panel="" className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header with inline tabs; the panel itself toggles from the app header like the other panels */}
-      <div className="flex items-center gap-1 bg-sidebar px-2 py-1 shrink-0">
-        <TerminalIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+      <div className={cn(dockHeaderClassName(), "bg-sidebar")}>
+        <TerminalIcon className="size-3 text-muted-foreground flex-shrink-0" />
         {renderTabs(true)}
       </div>
 

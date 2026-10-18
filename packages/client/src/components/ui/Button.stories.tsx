@@ -3,7 +3,7 @@ import { Button } from './button';
 import { MailIcon, PlusIcon, LoaderCircleIcon, ArrowRightIcon } from 'lucide-react';
 
 const meta = {
-  title: 'UI Primitives/Button',
+  title: 'Primitives/Button',
   component: Button,
   parameters: {
     layout: 'centered',

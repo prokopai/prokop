@@ -61,7 +61,7 @@ function SendStatus({ status, error, onRetry, onEdit, onDiscard }: {
   }
   if (status !== 'failed') return null;
   return (
-    <div role="alert" className="mr-1 flex max-w-[90%] flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-xs text-destructive">
+    <div role="alert" className="mr-1 flex max-w-[90%] flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-xs text-error">
       <span className="flex min-w-0 items-center gap-1">
         <AlertCircle className="size-3 shrink-0" />
         <span className="truncate" title={error}>Not sent{error ? `: ${error}` : ''}</span>
@@ -199,7 +199,7 @@ export function MessageBubble({
   const showEditButton = canEdit && onEdit && !isQueued && isUser;
   const forkDisabled = Boolean(forkUnavailableReason);
   const showAssistantFork = message.role === 'assistant' && canFork && (Boolean(onFork) || forkDisabled);
-  const hoverActionClass = 'opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100';
+  const hoverActionClass = 'opacity-0 transition-opacity group-hover/msg:opacity-100 group-focus-within/msg:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100';
   const turnMeta = isAssistantMessage(message) ? getTurnMeta(message) : null;
   const turnMetaParts = turnMeta
     ? [
@@ -281,7 +281,7 @@ export function MessageBubble({
             onChange={handleEditTextChange}
             onKeyDown={handleEditKeydown}
             aria-label="Edit message"
-            className="rounded-xl rounded-br-md bg-card border border-border text-foreground resize-none min-h-[60px] focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/30"
+            className="rounded-xl rounded-br-md bg-card border text-foreground resize-none min-h-[60px] focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/30"
           />
           <div className="flex items-center justify-end gap-1 mt-1.5">
             <Button

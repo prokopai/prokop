@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRecordHotkeys } from 'react-hotkeys-hook';
@@ -181,9 +182,9 @@ export function KeybindsPanel() {
 
       {CATEGORIES.map((category) => (
         <section key={category} className="flex flex-col gap-2" aria-labelledby={`keybindings-${category}`}>
-          <h3 id={`keybindings-${category}`} className="text-xs font-medium text-muted-foreground">
+          <SectionLabel asChild><h3 id={`keybindings-${category}`}>
             {category}
-          </h3>
+          </h3></SectionLabel>
           {CATEGORY_NOTES[category] && (
             <p className="text-xs text-muted-foreground">{CATEGORY_NOTES[category]}</p>
           )}
@@ -212,7 +213,7 @@ export function KeybindsPanel() {
                             : 'Press a shortcut. Use Cancel to stop recording.'}
                         </span>
                       ) : binding ? (
-                        <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                        <kbd className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
                           {formatKeybinding(binding)}
                         </kbd>
                       ) : (

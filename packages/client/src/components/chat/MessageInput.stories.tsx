@@ -6,7 +6,7 @@ import {
 } from '../../../.storybook/mocks/storeDecorators';
 
 const meta = {
-  title: 'Composite/MessageInput',
+  title: 'Chat/MessageInput',
   component: MessageInput,
   parameters: {
     layout: 'padded',

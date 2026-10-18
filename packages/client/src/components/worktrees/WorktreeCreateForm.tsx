@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/section-label';
 import { useState } from 'react';
 import { Check, GitBranch, Loader2, Plus, X } from 'lucide-react';
 import type { GitWorktreeRef } from '@prokopai/sdk';
@@ -68,7 +69,7 @@ export function WorktreeCreateForm({
   return (
     <div className="flex flex-col gap-2 text-left">
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-medium text-muted-foreground">New worktree</span>
+        <SectionLabel>New worktree</SectionLabel>
         {onCancel && !pending && (
           <Button
             type="button"
@@ -142,7 +143,7 @@ export function WorktreeCreateForm({
       </div>
 
       {nameConflict && (
-        <p role="alert" className="px-1 text-xs text-destructive">
+        <p role="alert" className="px-1 text-xs text-error">
           A worktree named &quot;{trimmedName}&quot; already exists.
         </p>
       )}
