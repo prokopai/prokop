@@ -62,8 +62,6 @@ export interface ClaudeTurnInput {
   onToolOwner?: (toolUseId: string, parentToolUseId?: string) => void;
   /** Claude Code process stderr, kept for failure diagnostics. */
   stderr?: (data: string) => void;
-  /** How long a finished turn keeps stdin open for background Bash and other non-agent tasks. */
-  backgroundTaskWaitMs?: number;
   /** A fake query source for offline tests. */
   start?: (prompt: string | AsyncIterable<SDKUserMessage>, options: Options) => AsyncIterable<SDKMessage>;
   /**
@@ -84,8 +82,6 @@ function userContent(text: string, images: ClaudeImage[]): SDKUserMessage['messa
 }
 
 const MAX_OUTPUT = 8_000;
-/** Covers backgrounded checks and tests; a backgrounded server must not hold the session forever. */
-const BACKGROUND_TASK_WAIT_MS = 10 * 60_000;
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -220,9 +216,10 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   const queuedInput: SDKUserMessage[] = [];
   const pendingSteers = new Set<string>();
   let wakeInput: (() => void) | null = null;
-  // An exhausted streaming-input generator closes stdin and can stop background agents.
-  // Keep it open until the terminal result and every observed background Agent settles,
-  // and for a bounded time while background Bash tasks run, so the CLI can report them.
+  // An exhausted streaming-input generator closes stdin, and the CLI then stops every
+  // background task without a follow-up turn. Keep it open until the terminal result,
+  // every observed background Agent, and every backgrounded Bash task settle; the CLI
+  // bounds Bash itself (30 minutes by default, 2 hours at most) and reports the stop.
   // A steered message keeps it open until the CLI starts or drops it.
   const prompt = (async function* (): AsyncGenerator<SDKUserMessage> {
     try {
@@ -265,20 +262,11 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   // Non-agent task IDs (local_bash and others), and whether each is backgrounded.
   const otherTasks = new Map<string, boolean>();
   const otherTaskTools = new Map<string, string>();
-  let taskWaitTimer: ReturnType<typeof setTimeout> | undefined;
-  let taskWaitExpired = false;
   const streamedText = new Map<string, string>();
-  const backgroundTasksPending = (): boolean => !taskWaitExpired && [...otherTasks.values()].some(Boolean);
+  const backgroundTasksPending = (): boolean => [...otherTasks.values()].some(Boolean);
   const releaseIfSettled = (): void => {
-    if (!finished || backgroundAgents.size > 0 || pendingSteers.size > 0) return;
-    if (!backgroundTasksPending()) {
-      releaseInput();
-    } else if (!taskWaitTimer) {
-      taskWaitTimer = setTimeout(() => {
-        taskWaitExpired = true;
-        releaseIfSettled();
-      }, input.backgroundTaskWaitMs ?? BACKGROUND_TASK_WAIT_MS);
-    }
+    if (!finished || backgroundAgents.size > 0 || pendingSteers.size > 0 || backgroundTasksPending()) return;
+    releaseInput();
   };
   // Keep only fixed event labels and comparisons. SDK payloads may contain secrets.
   const goalEvents: string[] = [];
@@ -488,7 +476,6 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
         activations: goalActivations, clears: goalClears, streamFailed: goalStreamFailed,
         aborted: input.controller.signal.aborted, eventCount: goalEventCount, recentEvents: goalEvents });
     }
-    if (taskWaitTimer) clearTimeout(taskWaitTimer);
     releaseInput();
     streamClosed = true;
     approvedToolIds.clear();

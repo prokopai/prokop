@@ -550,9 +550,12 @@ test('keeps input open for background Bash until its notification and admits the
   ]);
 });
 
-test('stops waiting for background Bash after the cap', async () => {
+test('keeps input open for a long background command until the CLI stops it at its own limit', async () => {
+  // Closing stdin makes the CLI stop every background task without a follow-up turn, so the
+  // host never closes it on a timer of its own. The CLI bounds Bash itself and reports the stop.
   let inputClosed = false;
-  for await (const _item of runClaudeTurn({ ...base, backgroundTaskWaitMs: 10,
+  const collected = [];
+  for await (const item of runClaudeTurn({ ...base,
     canUseTool: async () => ({ behavior: 'deny', message: 'denied' }),
     start: (prompt) => {
       async function* stream(): AsyncGenerator<SDKMessage> {
@@ -562,15 +565,30 @@ test('stops waiting for background Bash after the cap', async () => {
         const end = reader.next().then(value => { inputClosed = value.done === true; });
         yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
         yield event({ type: 'system', subtype: 'task_started', session_id: base.sessionId,
-          task_id: 'server-1', task_type: 'local_bash', is_backgrounded: true });
+          task_id: 'server-1', task_type: 'local_bash', tool_use_id: 'tool-server', is_backgrounded: true });
         yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'server started' });
+        await Bun.sleep(25);
         expect(inputClosed).toBe(false);
+        yield event({ type: 'system', subtype: 'task_notification', session_id: base.sessionId,
+          task_id: 'server-1', status: 'stopped', output_file: '/tmp/server-1.output', summary: 'timed out' });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'assistant', session_id: base.sessionId, parent_tool_use_id: null,
+          message: { content: [{ type: 'text', text: 'the server was stopped' }] } });
+        yield event({ type: 'result', subtype: 'success', session_id: base.sessionId, result: 'the server was stopped' });
         await end;
         expect(inputClosed).toBe(true);
       }
       return stream();
     },
-  })) { /* consume */ }
+  })) collected.push(item);
+  expect(collected).toEqual([
+    { type: 'result', text: 'server started', success: true, usage: null },
+    { type: 'background-wait', tasks: 1 },
+    { type: 'task-finished', taskId: 'server-1', toolUseId: 'tool-server', status: 'stopped',
+      summary: 'timed out', outputFile: '/tmp/server-1.output' },
+    { type: 'text-final', text: 'the server was stopped', streamed: '' },
+    { type: 'result', text: 'the server was stopped', success: true, usage: null },
+  ]);
   expect(inputClosed).toBe(true);
 });
 

@@ -680,7 +680,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         }
         await settleOpenSegment();
         if (hostTurnDone) {
-          // The continuation ended: its background commands settled or the wait cap passed.
+          // The continuation ended: its background commands settled, or the CLI stopped them at its own limit.
           if (replyOpen) throw new Error('Claude CLI turn result is missing');
           logHarness('claude-cli', 'continuation ended', { sessionId, durationMs: Date.now() - startedAt }, 'info');
           return 'drainable';
