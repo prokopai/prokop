@@ -556,9 +556,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               onClick={handleRowClick}
               onKeyDown={handleRowKeyDown}
               className={cn(
-                'peer/menu-button group/row flex min-w-0 flex-1 flex-col gap-1 rounded-md px-2 py-1.5 text-left outline-none transition-colors',
+                'peer/menu-button group/row flex min-w-0 flex-1 flex-col gap-1 rounded-md border-l-2 border-transparent px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'bg-highlight/10 hover:bg-highlight/15',
+                isActive && 'border-highlight bg-highlight/10 hover:bg-highlight/15',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-7">
@@ -652,9 +652,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               onClick={handleRowClick}
               onKeyDown={handleRowKeyDown}
               className={cn(
-                'peer/menu-button group/row relative flex min-w-0 flex-1 flex-col gap-1 rounded-md px-2 py-1.5 text-left outline-none transition-colors',
+                'peer/menu-button group/row relative flex min-w-0 flex-1 flex-col gap-1 rounded-md border-l-2 border-transparent px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'bg-highlight/10 hover:bg-highlight/15',
+                isActive && 'border-highlight bg-highlight/10 hover:bg-highlight/15',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-14">

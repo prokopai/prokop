@@ -160,7 +160,7 @@ export function WorkspaceSwitcher({
           role="combobox"
           aria-expanded={open}
           aria-label="Select workspace"
-          className="h-8 min-w-0 max-w-full self-start gap-1.5 px-2 font-semibold hover:bg-accent"
+          className="min-w-0 max-w-full gap-1.5 px-2 font-semibold"
         >
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
             {isAgentHomeWorkspace(activeWorkspace) ? (

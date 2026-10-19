@@ -61,7 +61,7 @@ function PathSwitcher({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-8 min-w-0 max-w-full gap-1.5 px-2 font-semibold hover:bg-accent"
+          className="min-w-0 max-w-full gap-1.5 px-2 font-semibold"
         >
           <span className="flex min-w-0 items-center gap-1.5">
             <Folder className={cn('size-4 shrink-0', FOLDER_ICON_COLOR)} />

@@ -80,7 +80,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
       {isMobile ? (
         <div data-mobile-tab-group className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {mobileView !== chatView && (
-            <div className={cn(dockHeaderClassName(), "bg-sidebar px-1")}>
+            <div className={cn(dockHeaderClassName(), "bg-sidebar")}>
               <Button variant="ghost" size="icon" aria-label="Back to Chat" onClick={() => setMobileSurface('chat')}><ArrowLeft className="size-4" /></Button>
               <span className="text-sm">{workspaceTabLabel(mobileView, tabs)}</span>
               {(isRepositoryView || mobileView === 'editor') && hasEditor && (
@@ -91,20 +91,20 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
             </div>
           )}
           {mobileView === chatView && sessionIds.length > 0 && (
-            <div className={cn(dockHeaderClassName(true), "px-1")}>
+            <div className={cn(dockHeaderClassName(true))}>
               <WorkspaceTabStrip ids={sessionIds} activeId={selectedSession ?? null} tabs={tabs} label="Open sessions"
                 onSelect={selectFile} onClose={(id) => tabs[id]?.onClose?.()} />
               <WorkspaceTabSearch ids={sessionIds} tabs={tabs} onSelect={selectFile} />
             </div>
           )}
           {isRepositoryView && (
-            <div className={cn(dockHeaderClassName(true), "px-1")}>
+            <div className={cn(dockHeaderClassName(true))}>
               <WorkspaceTabStrip ids={repositoryIds} activeId={mobileView} tabs={tabs} label="Repository views"
                 onSelect={(id) => { if (isRepositoryViewId(id)) setRepositoryView(id); }} onClose={() => {}} />
             </div>
           )}
           {mobileView === 'editor' && fileIds.length > 0 && (
-            <div className={cn(dockHeaderClassName(true), "px-1")}>
+            <div className={cn(dockHeaderClassName(true))}>
               <WorkspaceTabStrip ids={fileIds} activeId={selectedFile ?? null} tabs={tabs} label="Open files"
                 onSelect={selectFile} onClose={(id) => {
                   if (tabs[id]?.closeDisabled) return;
@@ -121,7 +121,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
       ) : (
         <WorkspaceDock
           left={<DockRegion position="left">{group('left')}</DockRegion>}
-          center={<div data-dock-position="center" className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border">{group('center')}</div>}
+          center={<div data-dock-position="center" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">{group('center')}</div>}
           right={<DockRegion position="right">{group('right')}</DockRegion>}
           bottom={<DockRegion position="bottom">{group('bottom')}</DockRegion>}
         />
@@ -143,8 +143,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
 }
 
 function WorkspaceEmptyState() {
-  return <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-    <p>Select or create a session</p>
-    <p className="text-sm">Choose a session from Sessions, or add a view to this dock.</p>
+  return <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+    Choose a session from Sessions, or add a view here.
   </div>;
 }

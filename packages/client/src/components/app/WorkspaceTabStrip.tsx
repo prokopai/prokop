@@ -51,15 +51,15 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
       'board-tab-strip-scrollbar relative flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden',
       drag.insertion && 'bg-highlight/5 ring-1 ring-inset ring-highlight/30',
     )}>
-      {ids.map((id, index) => {
+      {ids.map((id) => {
         const tab = tabs[id];
         const name = workspaceTabLabel(id, tabs);
         const trigger = (
           <div key={id} data-workspace-tab-id={id} className={cn(
-            'relative flex shrink-0 items-center rounded-md has-[[role=tab]:focus-visible]:ring-1 has-[[role=tab]:focus-visible]:ring-inset has-[[role=tab]:focus-visible]:ring-ring/60',
-            id === activeId ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-            index < ids.length - 1 && id !== activeId && ids[index + 1] !== activeId
-              && 'after:pointer-events-none after:absolute after:right-0 after:top-2 after:h-4 after:w-px after:bg-border hover:after:opacity-0',
+            'relative flex h-full shrink-0 items-center has-[[role=tab]:focus-visible]:ring-1 has-[[role=tab]:focus-visible]:ring-inset has-[[role=tab]:focus-visible]:ring-ring/60',
+            // The current tab is marked by an underline; the rest are muted text.
+            'after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground after:transition-opacity',
+            id === activeId ? 'text-foreground after:opacity-100' : 'text-muted-foreground after:opacity-0 hover:text-foreground',
           )}>
             <button
               type="button" role="tab" aria-label={name}
@@ -82,7 +82,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
                 onSelect(next);
                 scrollerRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[ids.indexOf(next)]?.focus();
               }}
-              className="flex h-8 max-w-64 items-center gap-1.5 rounded-md px-3 text-xs outline-none"
+              className="flex h-full max-w-64 items-center gap-1.5 px-2 text-xs outline-none"
             >
               <WorkspaceTabIcon id={id} />
               <WorkspaceTabStatus status={tab?.status} />
@@ -90,7 +90,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
               {tab?.dirty && <span role="img" aria-label="Unsaved changes" className="size-1.5 shrink-0 rounded-full bg-highlight" />}
             </button>
             {tab?.onClose && (
-              <button type="button" className="mr-1 rounded-md p-0.5 outline-none hover:bg-background focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:opacity-40" aria-label={`Close ${name}`} tabIndex={id === activeId ? 0 : -1} disabled={tab.closeDisabled} onClick={() => onClose(id)}>
+              <button type="button" className="mr-1 rounded-sm p-0.5 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:opacity-40" aria-label={`Close ${name}`} tabIndex={id === activeId ? 0 : -1} disabled={tab.closeDisabled} onClick={() => onClose(id)}>
                 <X className="size-3" />
               </button>
             )}

@@ -120,8 +120,8 @@ export function WorkspaceViewGroup({ region, groupId = region, available, slotRe
   };
 
   return (
-    <section ref={groupRef} tabIndex={-1} data-view-group={groupId} data-dock-focused={focused} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar outline-none">
-      <div className={cn(dockHeaderClassName(true), 'px-1', focused && 'bg-muted/30')}>
+    <section ref={groupRef} tabIndex={-1} data-view-group={groupId} data-dock-focused={focused} className={cn("flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none", region === 'center' ? 'bg-background' : 'bg-sidebar')}>
+      <div className={cn(dockHeaderClassName(true), focused && 'bg-muted/30')}>
         <WorkspaceTabStrip ids={ids} activeId={activeId} tabs={tabs} label={`${REGION_LABELS[region]} views`} onSelect={select} onClose={close}
           renderTabMenu={(id, trigger) => (
             <ContextMenu key={id}>

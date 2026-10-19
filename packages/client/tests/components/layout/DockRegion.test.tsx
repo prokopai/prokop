@@ -124,8 +124,8 @@ describe('DockRegion', () => {
     const { getByRole } = render(
       <div data-testid="container"><DockRegion position="left">Content</DockRegion></div>,
     );
-    // 1100 - (400 + 12) - 360 leaves 328 for the left dock.
-    expect(getByRole('separator', { name: 'Resize left dock' })).toHaveAttribute('aria-valuenow', '328');
+    // 1100 - (400 + 1) - 360 leaves 339 for the left dock.
+    expect(getByRole('separator', { name: 'Resize left dock' })).toHaveAttribute('aria-valuenow', '339');
     act(() => useDockStore.getState().setDockOpen('right', false));
     expect(getByRole('separator', { name: 'Resize left dock' })).toHaveAttribute('aria-valuenow', '500');
     expect(useDockStore.getState().docks.left.size).toBe(500);

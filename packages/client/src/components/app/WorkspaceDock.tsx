@@ -55,7 +55,7 @@ export function WorkspaceDock({
     <main className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden">
       <div
         data-slot="workspace-dock"
-        className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-background sm:p-2 sm:pt-1.5"
+        className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-background"
       >
         <div
           ref={rowRef}

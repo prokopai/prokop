@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { useMobileSessionSelection } from '@/hooks/useMobileSessionSelection';
 import { getWorkspaceDefaultPreconfigId } from '@/lib/workspacePreconfigs';
 import { getCreateSessionOptions } from '@/lib/sessionCreate';
-import { SidebarHeader } from '@/components/ui/sidebar';
+import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useServerContext } from '@/contexts/ServerContext';
 import { useHostWorkspaces } from '@/hooks/useHostWorkspaces';
 import { useAttentionStore } from '@/lib/attention';
@@ -198,8 +198,7 @@ function WorkspaceSidebar() {
   };
 
   const sidebarHeader = (
-    <SidebarHeader className="p-1">
-      <div className="flex min-w-0 items-center gap-1">
+    <div data-sidebar="header" className={dockHeaderClassName()}>
         <WorkspaceSwitcher
           workspaces={sidebarData.workspaces}
           agents={agents}
@@ -240,8 +239,7 @@ function WorkspaceSidebar() {
         >
           <SquarePen className="size-3.5" />
         </Button>
-      </div>
-    </SidebarHeader>
+    </div>
   );
 
   const handleBulkCloseSessions = useCallback((sessionIds: Set<string>) => {
