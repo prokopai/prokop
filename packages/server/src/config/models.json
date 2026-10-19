@@ -65,6 +65,49 @@
       "name": "MiniMax",
       "models": [
         {
+          "id": "MiniMax-M3.1-Flash",
+          "name": "MiniMax M3.1 Flash",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 524288,
+          "variants": {
+            "low": {
+              "providerOptions": {
+                "effort": "low"
+              }
+            },
+            "medium": {
+              "providerOptions": {
+                "effort": "medium"
+              }
+            },
+            "high": {
+              "providerOptions": {
+                "effort": "high"
+              }
+            },
+            "xhigh": {
+              "providerOptions": {
+                "effort": "xhigh"
+              }
+            },
+            "max": {
+              "providerOptions": {
+                "effort": "max"
+              }
+            }
+          },
+          "capabilities": {
+            "input": {
+              "text": true,
+              "image": true,
+              "video": false
+            },
+            "structuredOutput": {
+              "mode": "prompt"
+            }
+          }
+        },
+        {
           "id": "MiniMax-M3",
           "name": "MiniMax M3",
           "contextWindow": 1000000,
@@ -695,6 +738,6 @@
       ]
     }
   ],
-  "defaultModel": "MiniMax-M3",
+  "defaultModel": "MiniMax-M3.1-Flash",
   "defaultProvider": "minimax"
 }

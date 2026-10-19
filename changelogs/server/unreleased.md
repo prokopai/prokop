@@ -1,3 +1,7 @@
+### Added
+
+- **MiniMax M3.1 Flash**: The new MiniMax model is in the model picker and is now the default model, with a 1M token context window and image input. It always thinks; pick how hard with the low, medium, high, xhigh or max variant (max when none is picked).
+
 ### Changed
 
 - **Quieter checkboxes**: A checked box no longer fills with a bright block. It keeps its outline and shows the mark in the text color, so "Run commit hooks", "Run pre-push hooks" and a list of selected files sit calmly in the panel. A partly selected folder now shows a dash instead of a check.
