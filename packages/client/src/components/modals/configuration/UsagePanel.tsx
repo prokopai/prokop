@@ -47,7 +47,7 @@ function UsageWindowRow({ window, now }: { window: ProviderUsageWindow; now: num
   const used = Math.round(window.usedPercent);
   return (
     <SettingsRow label={window.label}>
-      <div className="flex w-full flex-col gap-1 sm:w-64">
+      <div className="flex w-full flex-col gap-1 sm:w-48">
         <span className="text-xs text-muted-foreground tabular-nums sm:text-right">
           {used}% used
           {window.resetsAt && (
@@ -217,11 +217,13 @@ export function UsagePanel({ sdkClient }: UsagePanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-3 sm:p-4">
-      {credentials.isLoading && <LoadingState inline label="Loading provider accounts…" />}
-      {credentials.isError && <p className="text-xs text-muted-foreground">Could not load configured provider accounts.</p>}
-      {providers.isLoading && <LoadingState inline label="Loading Codex accounts…" />}
-      {providers.isError && <p className="text-xs text-muted-foreground">Could not load Codex accounts.</p>}
+    // Two accounts per row once the panel is wide enough: a bottom dock, a wide settings page.
+    <div className="@container">
+    <div className="grid grid-cols-1 gap-4 p-3 @3xl:grid-cols-2 @3xl:items-start sm:p-4">
+      {credentials.isLoading && <LoadingState inline label="Loading provider accounts…" className="@3xl:col-span-2" />}
+      {credentials.isError && <p className="text-xs text-muted-foreground @3xl:col-span-2">Could not load configured provider accounts.</p>}
+      {providers.isLoading && <LoadingState inline label="Loading Codex accounts…" className="@3xl:col-span-2" />}
+      {providers.isError && <p className="text-xs text-muted-foreground @3xl:col-span-2">Could not load Codex accounts.</p>}
       {codex?.accounts?.map(account => <CodexAccountUsageCard key={`${account.id}:${account.connectionId}`} sdkClient={sdkClient}
         account={account} active={codex.activeAccountId === account.id} now={now} />)}
       {configuredProviders.map(provider => <ProviderUsageCard key={provider.id} sdkClient={sdkClient} provider={provider} now={now} />)}
@@ -234,6 +236,7 @@ export function UsagePanel({ sdkClient }: UsagePanelProps) {
           now={now}
         />
       ))}
+    </div>
     </div>
   );
 }
