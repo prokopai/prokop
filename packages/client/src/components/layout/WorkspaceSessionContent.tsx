@@ -274,7 +274,7 @@ export function WorkspaceSessionContent({
                 </span>
               )}
               <span className="flex-1" />
-              <span className="flex items-center">
+              <span className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button

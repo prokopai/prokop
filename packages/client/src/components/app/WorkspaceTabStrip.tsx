@@ -56,10 +56,9 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
         const name = workspaceTabLabel(id, tabs);
         const trigger = (
           <div key={id} data-workspace-tab-id={id} className={cn(
-            'relative flex h-full shrink-0 items-center has-[[role=tab]:focus-visible]:ring-1 has-[[role=tab]:focus-visible]:ring-inset has-[[role=tab]:focus-visible]:ring-ring/60',
-            // The current tab is marked by an underline; the rest are muted text.
-            'after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground after:transition-opacity',
-            id === activeId ? 'text-foreground after:opacity-100' : 'text-muted-foreground after:opacity-0 hover:text-foreground',
+            'relative flex h-7 shrink-0 items-center rounded-lg transition-colors has-[[role=tab]:focus-visible]:ring-1 has-[[role=tab]:focus-visible]:ring-inset has-[[role=tab]:focus-visible]:ring-ring/60',
+            // The current tab is a lifted pill; the rest are muted text that tints on hover.
+            id === activeId ? 'bg-foreground/10 text-foreground shadow-xs' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
           )}>
             <button
               type="button" role="tab" aria-label={name}
@@ -82,7 +81,7 @@ export function WorkspaceTabStrip({ ids, activeId, tabs, label, onSelect, onClos
                 onSelect(next);
                 scrollerRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[ids.indexOf(next)]?.focus();
               }}
-              className="flex h-full max-w-64 items-center gap-1.5 px-2 text-xs outline-none"
+              className="flex h-full max-w-64 items-center gap-1.5 px-2.5 text-xs outline-none"
             >
               <WorkspaceTabIcon id={id} />
               <WorkspaceTabStatus status={tab?.status} />

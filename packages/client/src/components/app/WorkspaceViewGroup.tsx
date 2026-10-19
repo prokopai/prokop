@@ -120,8 +120,8 @@ export function WorkspaceViewGroup({ region, groupId = region, available, slotRe
   };
 
   return (
-    <section ref={groupRef} tabIndex={-1} data-view-group={groupId} data-dock-focused={focused} className={cn("flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none", region === 'center' ? 'bg-background' : 'bg-sidebar')}>
-      <div className={cn(dockHeaderClassName(true), focused && 'bg-muted/30')}>
+    <section ref={groupRef} tabIndex={-1} data-view-group={groupId} data-dock-focused={focused} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none">
+      <div className={cn(dockHeaderClassName(), 'group/dock-header px-1.5', focused && 'bg-foreground/3')}>
         <WorkspaceTabStrip ids={ids} activeId={activeId} tabs={tabs} label={`${REGION_LABELS[region]} views`} onSelect={select} onClose={close}
           renderTabMenu={(id, trigger) => (
             <ContextMenu key={id}>
@@ -142,7 +142,7 @@ export function WorkspaceViewGroup({ region, groupId = region, available, slotRe
           }} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button data-workspace-panel-menu variant="ghost" size="icon-xs" aria-label={`${REGION_LABELS[region]} panel options`}><MoreHorizontal /></Button>
+            <Button data-workspace-panel-menu variant="ghost" size="icon-xs" aria-label={`${REGION_LABELS[region]} panel options`} className="opacity-0 transition-opacity group-hover/dock-header:opacity-100 group-focus-within/dock-header:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"><MoreHorizontal /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40" onCloseAutoFocus={restoreMenuFocus}>
             {hiddenIds.length > 0 && <DropdownMenuGroup>

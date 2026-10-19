@@ -237,6 +237,12 @@
   /* The one accent for selection and attention cues. Never a button fill: that is --primary. */
   --highlight: oklch(0.5 0.15 250);
   --highlight-foreground: oklch(0.99 0 0);
+  /* Glass shell: the field behind the panels is the background shaded and tinted
+     toward the highlight; panels carry an inset edge and a soft shadow. */
+  --field-shade: 5%;
+  --field-tint: 8%;
+  --panel-edge: oklch(1 0 0 / 0.8);
+  --panel-shadow: 0 6px 20px oklch(0 0 0 / 0.07);
   /* File icons */
   --file-icon-ts: oklch(0.48 0.17 255);
   --file-icon-js: oklch(0.68 0.16 85);
@@ -285,6 +291,10 @@
   --error: oklch(0.65 0.19 25);
   --highlight: oklch(0.7 0.12 250);
   --highlight-foreground: oklch(0.15 0.03 250);
+  --field-shade: 18%;
+  --field-tint: 14%;
+  --panel-edge: oklch(1 0 0 / 0.06);
+  --panel-shadow: 0 8px 24px oklch(0 0 0 / 0.35);
   /* File icons */
   --file-icon-ts: oklch(0.7 0.15 255);
   --file-icon-js: oklch(0.8 0.15 85);
@@ -1118,6 +1128,36 @@ main {
    The env() values exist only while the overlay is active; elsewhere the
    fallbacks leave the header as an ordinary toolbar.
    ========================================================================== */
+
+/* Glass shell. The field is the window behind the panels; docks and the center
+   are opaque panels on it (an opaque panel keeps sticky headers and terminals
+   readable), and only floating surfaces blur what is behind them. */
+.app-field {
+  --field-base: color-mix(in oklch, black var(--field-shade), var(--background));
+  background:
+    radial-gradient(
+      120% 90% at 8% 0%,
+      color-mix(in oklch, var(--highlight) var(--field-tint), var(--field-base)) 0%,
+      var(--field-base) 55%,
+      color-mix(in oklch, black 6%, var(--field-base)) 100%
+    );
+}
+
+.glass-panel {
+  box-shadow: inset 0 1px 0 var(--panel-edge), var(--panel-shadow);
+}
+
+.glass-float {
+  background: color-mix(in oklch, var(--popover) 86%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.glass-dialog {
+  background: color-mix(in oklch, var(--background) 92%, transparent);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
 
 .app-titlebar {
   -webkit-app-region: drag;

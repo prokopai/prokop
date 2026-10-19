@@ -34,19 +34,19 @@ export function DesktopPanelDivider({
       onPointerDown={onPointerDown}
       data-slot="desktop-panel-divider"
       className={cn(
-        "group/divider relative z-10 shrink-0 touch-none bg-border/50 outline-none after:absolute after:content-['']",
+        "group/divider relative z-10 shrink-0 touch-none bg-transparent outline-none after:absolute after:content-['']",
         orientation === 'vertical'
-          ? 'w-px cursor-ew-resize after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2'
-          : 'h-px cursor-ns-resize after:inset-x-0 after:top-1/2 after:h-3 after:-translate-y-1/2',
+          ? 'w-2 cursor-ew-resize after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2'
+          : 'h-2 cursor-ns-resize after:inset-x-0 after:top-1/2 after:h-3 after:-translate-y-1/2',
       )}
     >
       <div
         data-slot="desktop-panel-divider-indicator"
         className={cn(
-          'absolute z-10 bg-transparent transition-colors group-hover/divider:bg-highlight group-focus-visible/divider:bg-highlight',
+          'absolute z-10 rounded-full bg-transparent transition-colors group-hover/divider:bg-highlight/70 group-focus-visible/divider:bg-highlight',
           orientation === 'vertical'
-            ? 'inset-y-0 left-1/2 w-0.5 -translate-x-1/2'
-            : 'inset-x-0 top-1/2 h-0.5 -translate-y-1/2',
+            ? 'inset-y-3 left-1/2 w-1 -translate-x-1/2'
+            : 'inset-x-3 top-1/2 h-1 -translate-y-1/2',
         )}
       />
     </div>

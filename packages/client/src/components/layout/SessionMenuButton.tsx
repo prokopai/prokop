@@ -302,7 +302,7 @@ function WorktreeChip({ worktreeId, label, available }: { worktreeId: string; la
     <span
       className={cn(
         'worktree-tone shrink-0 max-w-[7.5rem] truncate rounded-md px-1.5 text-2xs leading-4',
-        available ? 'worktree-chip' : 'bg-error/10 text-error line-through',
+        available ? 'worktree-chip' : 'bg-muted text-muted-foreground line-through',
       )}
       style={worktreeToneStyle(worktreeId)}
       title={available ? `Worktree: ${label}` : `Worktree unavailable: ${label}`}
@@ -500,9 +500,7 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
       Needs approval
     </span>
   );
-  else if (derived.isRunning) metaParts.push(<span key="status" className="text-highlight">Running</span>);
   else if (unread?.failed) metaParts.push(<span key="status" className="text-error">Failed</span>);
-  else if (unread) metaParts.push(<span key="status" className="text-highlight">Finished</span>);
   else if (session.subagentStatus === 'error') metaParts.push(<span key="status" className="text-error">Errored</span>);
   else if (session.subagentStatus === 'interrupted') metaParts.push(<span key="status">Interrupted</span>);
   const worktreeId = session.workspaceRootId && worktreeLabel ? session.workspaceRootId : null;
@@ -556,9 +554,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               onClick={handleRowClick}
               onKeyDown={handleRowKeyDown}
               className={cn(
-                'peer/menu-button group/row flex min-w-0 flex-1 flex-col gap-1 rounded-md border-l-2 border-transparent px-2 py-1.5 text-left outline-none transition-colors',
+                'peer/menu-button group/row flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'border-highlight bg-highlight/10 hover:bg-highlight/15',
+                isActive && 'bg-highlight/20 text-foreground hover:bg-highlight/25',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-7">
@@ -652,9 +650,9 @@ export const SessionMenuButton = React.memo(function SessionMenuButton({
               onClick={handleRowClick}
               onKeyDown={handleRowKeyDown}
               className={cn(
-                'peer/menu-button group/row relative flex min-w-0 flex-1 flex-col gap-1 rounded-md border-l-2 border-transparent px-2 py-1.5 text-left outline-none transition-colors',
+                'peer/menu-button group/row relative flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-1.5 text-left outline-none transition-colors',
                 'hover:bg-sidebar-accent/60 focus-visible:ring-1 focus-visible:ring-ring',
-                isActive && 'border-highlight bg-highlight/10 hover:bg-highlight/15',
+                isActive && 'bg-highlight/20 text-foreground hover:bg-highlight/25',
               )}
             >
               <div className="flex min-w-0 items-center gap-2 pr-14">

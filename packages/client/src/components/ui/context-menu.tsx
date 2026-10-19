@@ -36,7 +36,7 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "z-50 max-h-(--radix-context-menu-content-available-height) min-w-40 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          "z-50 max-h-(--radix-context-menu-content-available-height) min-w-40 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto glass-float rounded-lg p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
           className,
         )}
         {...props}
@@ -223,7 +223,7 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
       className={cn(
-        "z-50 min-w-[96px] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "z-50 min-w-[96px] origin-(--radix-context-menu-content-transform-origin) overflow-hidden glass-float rounded-lg p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,
       )}
       {...props}

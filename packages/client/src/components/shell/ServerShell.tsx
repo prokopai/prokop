@@ -165,8 +165,8 @@ export default function ServerShell() {
   return (
     <SessionPaneRegistryContext.Provider value={paneRegistry}>
       <ServerClientProvider value={serverClientValue}>
-        <div className="flex h-full w-full flex-col overflow-hidden">
-          <div className="relative bg-background">
+        <div className="app-field flex h-full w-full flex-col overflow-hidden">
+          <div className="relative">
             <AppHeader />
             {!sessionManager.connected && (
               <ReconnectStatus

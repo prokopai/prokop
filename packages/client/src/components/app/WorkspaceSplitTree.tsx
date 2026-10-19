@@ -30,7 +30,7 @@ function Split({ tree, ...props }: Props & { tree: Extract<ViewTree, { kind: 'sp
   const resize = useWorkspaceViewStore((state) => state.resizeSplit);
   const clamp = (ratio: number) => {
     const rect = ref.current?.getBoundingClientRect();
-    const extent = rect ? (horizontal ? rect.width : rect.height) - 1 : 0;
+    const extent = rect ? (horizontal ? rect.width : rect.height) - 8 : 0;
     const minimum = extent > 0 ? Math.min(0.45, Math.max(0.1, (horizontal ? 160 : 100) / extent)) : 0.1;
     return Math.max(minimum, Math.min(1 - minimum, ratio));
   };
@@ -40,9 +40,9 @@ function Split({ tree, ...props }: Props & { tree: Extract<ViewTree, { kind: 'sp
       const element = ref.current;
       if (!element) return null;
       const rect = element.getBoundingClientRect();
-      const extent = (horizontal ? rect.width : rect.height) - 1;
+      const extent = (horizontal ? rect.width : rect.height) - 8;
       if (extent <= 0) return null;
-      const ratio = clamp((horizontal ? event.clientX - rect.left : event.clientY - rect.top) / extent);
+      const ratio = clamp(((horizontal ? event.clientX - rect.left : event.clientY - rect.top) - 4) / extent);
       element.style.setProperty('--split-ratio', String(ratio));
       return ratio;
     },
@@ -53,7 +53,7 @@ function Split({ tree, ...props }: Props & { tree: Extract<ViewTree, { kind: 'sp
     window.addEventListener('blur', restore);
     return () => window.removeEventListener('blur', restore);
   }, [tree.ratio]);
-  const tracks = 'minmax(0, calc((100% - 1px) * var(--split-ratio))) 1px minmax(0, 1fr)';
+  const tracks = 'minmax(0, calc((100% - 8px) * var(--split-ratio))) 8px minmax(0, 1fr)';
   return <div ref={ref} data-workspace-split={tree.id} className="grid min-h-0 min-w-0 flex-1 overflow-hidden" style={{
     '--split-ratio': tree.ratio,
     [horizontal ? 'gridTemplateColumns' : 'gridTemplateRows']: tracks,

@@ -13,7 +13,7 @@ export const DOCK_SIZE_LIMITS = {
 const CENTER_MIN_WIDTH = 360;
 const BOTTOM_MAX_SHARE = 0.7;
 /** Width of the resize divider between a dock and the center. */
-export const DOCK_DIVIDER_WIDTH = 1;
+export const DOCK_DIVIDER_WIDTH = 8;
 
 /**
  * The largest size a dock may take inside a container of `extent` while the

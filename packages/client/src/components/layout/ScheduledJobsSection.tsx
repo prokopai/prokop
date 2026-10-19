@@ -177,7 +177,7 @@ export function ScheduledJobsSection({
                 <span>Scheduled</span>
                 <span className="text-2xs tabular-nums text-muted-foreground/70" aria-label="Scheduled sessions">{sessionCount ?? (category ? '…' : [...sessionsByJob.values()].reduce((sum, runs) => sum + runs.length, 0))}</span>
                 <span className="flex-1" />
-                <div className="flex items-center">
+                <div className="flex items-center opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-within/head:opacity-100 has-[[data-state=open]]:opacity-100 pointer-coarse:opacity-100">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button

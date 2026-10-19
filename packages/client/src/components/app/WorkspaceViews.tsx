@@ -91,20 +91,20 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
             </div>
           )}
           {mobileView === chatView && sessionIds.length > 0 && (
-            <div className={cn(dockHeaderClassName(true))}>
+            <div className={cn(dockHeaderClassName(), "px-1.5")}>
               <WorkspaceTabStrip ids={sessionIds} activeId={selectedSession ?? null} tabs={tabs} label="Open sessions"
                 onSelect={selectFile} onClose={(id) => tabs[id]?.onClose?.()} />
               <WorkspaceTabSearch ids={sessionIds} tabs={tabs} onSelect={selectFile} />
             </div>
           )}
           {isRepositoryView && (
-            <div className={cn(dockHeaderClassName(true))}>
+            <div className={cn(dockHeaderClassName(), "px-1.5")}>
               <WorkspaceTabStrip ids={repositoryIds} activeId={mobileView} tabs={tabs} label="Repository views"
                 onSelect={(id) => { if (isRepositoryViewId(id)) setRepositoryView(id); }} onClose={() => {}} />
             </div>
           )}
           {mobileView === 'editor' && fileIds.length > 0 && (
-            <div className={cn(dockHeaderClassName(true))}>
+            <div className={cn(dockHeaderClassName(), "px-1.5")}>
               <WorkspaceTabStrip ids={fileIds} activeId={selectedFile ?? null} tabs={tabs} label="Open files"
                 onSelect={selectFile} onClose={(id) => {
                   if (tabs[id]?.closeDisabled) return;
@@ -121,7 +121,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
       ) : (
         <WorkspaceDock
           left={<DockRegion position="left">{group('left')}</DockRegion>}
-          center={<div data-dock-position="center" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">{group('center')}</div>}
+          center={<div data-dock-position="center" className="glass-panel flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl bg-background">{group('center')}</div>}
           right={<DockRegion position="right">{group('right')}</DockRegion>}
           bottom={<DockRegion position="bottom">{group('bottom')}</DockRegion>}
         />

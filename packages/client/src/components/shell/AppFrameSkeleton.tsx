@@ -16,7 +16,7 @@ function Bar({ className }: { className: string }) {
 /** The 36px dock header with two tab-shaped bars, like a loaded dock. */
 function DockHeaderSkeleton() {
   return (
-    <div className="flex h-9 shrink-0 items-center gap-3 border-b border-border/50 px-4">
+    <div className="flex h-9 shrink-0 items-center gap-3 px-4">
       <Bar className="h-3 w-14" />
       <Bar className="h-3 w-12" />
     </div>
@@ -26,16 +26,16 @@ function DockHeaderSkeleton() {
 /** A dock at its saved width: header row, then the rows the dock will show. */
 function DockSkeleton({ width, children }: { width: number; children: ReactNode }) {
   return (
-    <div className="flex shrink-0 flex-col bg-sidebar" style={{ width }}>
+    <div className="glass-panel flex shrink-0 flex-col rounded-3xl bg-sidebar" style={{ width }}>
       <DockHeaderSkeleton />
       <div className="flex flex-col gap-2 p-2">{children}</div>
     </div>
   );
 }
 
-/** The 1px hairline between regions, the same as the live resize divider. */
+/** The 8px gutter between panels, the same as the live resize divider. */
 function Divider() {
-  return <div className="w-px shrink-0 bg-border/50" />;
+  return <div className="w-2 shrink-0" />;
 }
 
 /**
@@ -72,7 +72,7 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
   }
 
   return (
-    <div className="flex size-full flex-col bg-background" aria-busy="true">
+    <div className="app-field flex size-full flex-col" aria-busy="true">
       <div className="app-titlebar flex h-11 shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Bar className="h-7 w-32" />
@@ -85,7 +85,7 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
           <Bar className="size-7" />
         </div>
       </div>
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 px-2 pb-2 pt-1">
         {left.open && (
           <>
             <DockSkeleton width={left.size}>
@@ -98,7 +98,7 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
             <Divider />
           </>
         )}
-        <div className="flex min-w-0 flex-1 flex-col bg-background">
+        <div className="glass-panel flex min-w-0 flex-1 flex-col rounded-3xl bg-background">
           <DockHeaderSkeleton />
           <div className="flex min-h-0 flex-1 items-center justify-center">{statusBlock}</div>
         </div>

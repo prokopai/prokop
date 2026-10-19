@@ -117,7 +117,7 @@ export function DockRegion({ position, children, contents = false }: DockRegionP
         data-dock-position={position}
         data-state={dock.open ? 'expanded' : 'collapsed'}
         className={contents ? 'contents' : cn(
-          'flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground',
+          'glass-panel flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden rounded-3xl bg-sidebar text-sidebar-foreground',
           !dock.open && 'invisible pointer-events-none',
         )}
         style={contents ? undefined : {

@@ -21,7 +21,7 @@ describe('DesktopPanelDivider', () => {
     expect(divider).toHaveAttribute('aria-valuemin', '220');
     expect(divider).toHaveAttribute('aria-valuemax', '720');
     expect(divider).toHaveAttribute('aria-valuenow', '320');
-    expect(divider).toHaveClass('relative', 'w-px', 'shrink-0', 'bg-border/50');
+    expect(divider).toHaveClass('relative', 'w-2', 'shrink-0', 'bg-transparent');
     expect(divider).toHaveClass(
       'after:absolute',
       'after:inset-y-0',
@@ -30,7 +30,7 @@ describe('DesktopPanelDivider', () => {
     );
     expect(
       container.querySelector('[data-slot="desktop-panel-divider-indicator"]'),
-    ).toHaveClass('left-1/2', '-translate-x-1/2', 'w-0.5');
+    ).toHaveClass('left-1/2', '-translate-x-1/2', 'w-1');
 
     fireEvent.keyDown(divider, { key: 'ArrowLeft' });
     fireEvent.pointerDown(divider, { button: 0, pointerId: 1 });
