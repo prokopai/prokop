@@ -4,6 +4,7 @@ import { SettingsRow } from './settings-row';
 import { Switch } from './switch';
 import { SegmentedControl } from './segmented-control';
 import { Input } from './input';
+import { ProviderTile } from '@/components/branding/ProviderTile';
 
 /** A labelled box of rows. The box is the only border; rows share hairlines. */
 
@@ -50,6 +51,18 @@ export const Mixed: Story = {
         <SettingsRow label="Port" htmlFor="g-port" description="Restart to apply."><Input id="g-port" type="number" defaultValue={8742} className="w-24" /></SettingsRow>
         <SettingsRow label="Devices" onClick={() => {}}>3 paired</SettingsRow>
       </>
+    ),
+  },
+};
+
+export const WithIcon: Story = {
+  args: {
+    label: <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">DeepSeek</span><span className="ml-auto text-2xs text-muted-foreground">just now</span></span>,
+    icon: <ProviderTile provider="deepseek" name="DeepSeek" />,
+    children: (
+      <SettingsRow label="Balance" description="Granted 0.00 USD · Topped up 7.80 USD">
+        <span className="text-xs tabular-nums">7.80 USD remaining</span>
+      </SettingsRow>
     ),
   },
 };

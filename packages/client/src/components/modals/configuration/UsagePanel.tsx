@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
-import { AnthropicMark, OpenAIMark } from '@/components/branding/BrandMarks';
+import { ProviderTile } from '@/components/branding/ProviderTile';
 import { cn } from '@/lib/utils';
 import { useNow } from '@/hooks/useNow';
 
@@ -19,9 +19,9 @@ interface UsagePanelProps {
 
 type UsageHarness = HarnessUsageLimits['harness'];
 
-const USAGE_HARNESSES: { id: UsageHarness; name: string; Mark: typeof OpenAIMark }[] = [
-  { id: 'claude-cli', name: 'Claude CLI', Mark: AnthropicMark },
-  { id: 'codex-cli', name: 'Codex CLI', Mark: OpenAIMark },
+const USAGE_HARNESSES: { id: UsageHarness; name: string }[] = [
+  { id: 'claude-cli', name: 'Claude CLI' },
+  { id: 'codex-cli', name: 'Codex CLI' },
 ];
 
 /** Coarse remaining time: `5d 4h`, `3h 20m`, `12m`. */
@@ -101,15 +101,14 @@ function UsageRefreshButton({ label, fetching, disabled = false, onRefresh, upda
   );
 }
 
-/** Group label: mark, name, plan badge, and the refresh control at the right. */
-function UsageHeading({ Mark, name, plan, children }: { Mark?: typeof OpenAIMark; name: ReactNode; plan?: string | null; children?: ReactNode }) {
+/** Group header: name, plan badge, and the refresh control at the right; the tile sits before it. */
+function UsageHeading({ name, plan, children }: { name: ReactNode; plan?: string | null; children?: ReactNode }) {
   return (
-    <>
-      {Mark && <Mark className="size-3.5 shrink-0" />}
-      <span className="min-w-0 truncate text-foreground">{name}</span>
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="min-w-0 truncate">{name}</span>
       {plan && <Badge variant="secondary" className="capitalize">{plan}</Badge>}
       {children}
-    </>
+    </span>
   );
 }
 
@@ -138,8 +137,8 @@ function HarnessUsageCard({ sdkClient, harness, status, now }: {
   }
 
   return (
-    <SettingsGroup label={
-      <UsageHeading Mark={harness.Mark} name={harness.name} plan={data?.plan}>
+    <SettingsGroup icon={<ProviderTile provider={harness.id} name={harness.name} />} label={
+      <UsageHeading name={harness.name} plan={data?.plan}>
         {ready && (
           <UsageRefreshButton label={`Refresh ${harness.name} usage`} fetching={isFetching}
             onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />
@@ -160,7 +159,7 @@ const USAGE_PROVIDERS: { id: UsageProvider; name: string }[] = [
 function ProviderUsageCard({ sdkClient, provider, now }: UsagePanelProps & { provider: (typeof USAGE_PROVIDERS)[number]; now: number }) {
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useProviderUsageQuery(sdkClient, provider.id);
   return (
-    <SettingsGroup label={
+    <SettingsGroup icon={<ProviderTile provider={provider.id} name={provider.name} />} label={
       <UsageHeading name={provider.name} plan={data?.plan}>
         <UsageRefreshButton label={`Refresh ${provider.name} usage`} fetching={isFetching}
           onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />
@@ -188,8 +187,8 @@ function ProviderUsageCard({ sdkClient, provider, now }: UsagePanelProps & { pro
 function CodexAccountUsageCard({ sdkClient, account, active, now }: UsagePanelProps & { account: ProviderAccountSummary; active: boolean; now: number }) {
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useCodexAccountUsageQuery(sdkClient, account);
   return (
-    <SettingsGroup aria-label={`Codex · ${account.label}`} label={
-      <UsageHeading Mark={OpenAIMark} name={`Codex · ${account.label}`} plan={account.reauthRequired ? null : data?.plan}>
+    <SettingsGroup aria-label={`Codex · ${account.label}`} icon={<ProviderTile provider="codex" name="Codex" />} label={
+      <UsageHeading name={`Codex · ${account.label}`} plan={account.reauthRequired ? null : data?.plan}>
         {active && <Badge variant="outline">Active</Badge>}
         <UsageRefreshButton label={`Refresh Codex ${account.label} usage`} fetching={isFetching}
           disabled={account.reauthRequired} onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />

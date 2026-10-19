@@ -12,6 +12,7 @@ import { Plus, Pencil, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { ProviderTile } from '@/components/branding/ProviderTile';
 import { cn } from '@/lib/utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { ProviderCredentialsPanel } from '../ProviderCredentialsPanel';
@@ -101,6 +102,7 @@ export function ProviderCard({
         className={cn(status.tone !== 'green' && 'text-muted-foreground')}
         label={
           <span className="flex items-center gap-2">
+            <ProviderTile provider={provider.id} name={provider.name} size="sm" />
             <span className={cn('size-2 shrink-0 rounded-full', dotClass)} />
             <span className={cn('truncate', status.tone === 'green' && 'text-foreground')}>{provider.name}</span>
             {isDefaultProvider && (

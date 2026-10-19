@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AnthropicMark, OpenAIMark, ProkopMark } from './BrandMarks';
+import * as Providers from './ProviderMarks';
 
 /** Vendor and product marks drawn with `currentColor`, at the sizes the chrome uses them. */
 
@@ -22,6 +23,12 @@ export const Default: Story = {
       {SIZES.map((size) => <OpenAIMark key={size} className={size} />)}
       <span className="text-xs text-muted-foreground">Anthropic</span>
       {SIZES.map((size) => <AnthropicMark key={size} className={size} />)}
+      {Object.entries(Providers).map(([name, Mark]) => (
+        <div key={name} className="contents">
+          <span className="text-xs text-muted-foreground">{name.replace(/Mark$/, '')}</span>
+          {SIZES.map((size) => <Mark key={size} className={size} />)}
+        </div>
+      ))}
     </div>
   ),
 };
