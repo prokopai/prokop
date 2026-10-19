@@ -78,7 +78,9 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {isMobile ? (
-        <div data-mobile-tab-group className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        // The phone has no glass panels: the one view fills the screen, so it
+        // paints the background itself instead of showing the field's tint.
+        <div data-mobile-tab-group className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           {mobileView !== chatView && (
             <div className={cn(dockHeaderClassName(), "bg-sidebar")}>
               <Button variant="ghost" size="icon" aria-label="Back to Chat" onClick={() => setMobileSurface('chat')}><ArrowLeft className="size-4" /></Button>
