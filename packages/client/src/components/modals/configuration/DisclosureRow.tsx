@@ -7,27 +7,33 @@ interface DisclosureRowProps {
   label: string;
   /** Value recap shown right-aligned on the trigger; a null summary keeps the row collapsed. */
   summary: string | null;
-  /** Bordered rows sit inside cards with hairlines; unbordered rows stand alone. */
+  /** Kept for callers; every disclosure is a settings row now. */
   bordered?: boolean;
   /** Defaults to open when a summary exists. */
   defaultOpen?: boolean;
+  /** Indents the trigger like the rows it sits among when nested. */
+  className?: string;
   children: ReactNode;
 }
 
-export function DisclosureRow({ label, summary, bordered = false, defaultOpen = summary !== null, children }: DisclosureRowProps) {
+/**
+ * A settings row that opens into more rows: the label left, the recap and a
+ * chevron right. Children are rows, separated by the same hairlines.
+ */
+export function DisclosureRow({ label, summary, defaultOpen = summary !== null, className, children }: DisclosureRowProps) {
   return (
-    <Collapsible defaultOpen={defaultOpen}>
+    <Collapsible defaultOpen={defaultOpen} className="flex flex-col divide-y divide-border/50">
       <CollapsibleTrigger
         className={cn(
-          'group flex w-full items-center gap-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground',
-          bordered ? 'border-t px-3' : 'rounded-md px-2',
+          'group/disclosure flex min-h-9 w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+          className,
         )}
       >
-        <ChevronRight className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-        <span className="shrink-0">{label}</span>
-        {summary && <span className="ml-auto truncate text-xs" title={summary}>{summary}</span>}
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {summary && <span className="min-w-0 shrink truncate text-xs text-muted-foreground" title={summary}>{summary}</span>}
+        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/disclosure:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className={bordered ? 'px-3 py-3' : 'py-1'}>{children}</CollapsibleContent>
+      <CollapsibleContent className="flex flex-col divide-y divide-border/50">{children}</CollapsibleContent>
     </Collapsible>
   );
 }

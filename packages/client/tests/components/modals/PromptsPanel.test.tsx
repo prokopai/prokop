@@ -22,7 +22,7 @@ describe('PromptsPanel', () => {
   test('creates a prompt and returns to the list', async () => {
     mocks.create.mockResolvedValue({});
     render(<PromptsPanel sdkClient={null} />);
-    fireEvent.click(screen.getByRole('button', { name: /New Prompt/ }));
+    fireEvent.click(screen.getByRole('button', { name: /New prompt/ }));
     fireEvent.change(screen.getByPlaceholderText('prompt-name'), { target: { value: ' standup ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mocks.create).toHaveBeenCalledWith({ name: 'standup', content: '# New Prompt\n\n' }));

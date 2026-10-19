@@ -2,11 +2,12 @@ import { useId, useState } from 'react';
 import type { McpServerConfig } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ErrorState } from '@/components/shared/States';
 
 function parsePairs(value: string): Record<string, string> {
   const pairs: Record<string, string> = {};
@@ -21,6 +22,7 @@ function parsePairs(value: string): Record<string, string> {
 }
 const formatPairs = (value?: Record<string, string>): string => Object.entries(value ?? {}).map(([key, value]) => key + '=' + value).join('\n');
 
+/** The add or edit form for one MCP server: a group of rows with the actions under it. */
 export function McpServerForm({ name: originalName, config, names, pending, onSave, onCancel }: {
   name?: string; config?: McpServerConfig; names: string[]; pending: boolean;
   onSave(name: string, config: McpServerConfig): Promise<void>; onCancel(): void;
@@ -38,8 +40,9 @@ export function McpServerForm({ name: originalName, config, names, pending, onSa
   const [clientId, setClientId] = useState(initialOAuth.clientId ?? '');
   const [clientSecret, setClientSecret] = useState(initialOAuth.clientSecret ?? '');
   const [scope, setScope] = useState(initialOAuth.scope ?? '');
+  const [showAuth, setShowAuth] = useState(false);
   const [error, setError] = useState<string>();
-  return <form className="flex flex-col gap-4 rounded-lg border p-3" onSubmit={async event => {
+  return <form className="flex flex-col gap-3" onSubmit={async event => {
     event.preventDefault();
     setError(undefined);
     try {
@@ -53,67 +56,67 @@ export function McpServerForm({ name: originalName, config, names, pending, onSa
       await onSave(trimmed, next);
     } catch (error: unknown) { setError(error instanceof Error ? error.message : 'Unable to save server'); }
   }}>
-    <fieldset disabled={pending} className="flex min-w-0 flex-col gap-3">
-      <legend className="mb-3 text-sm font-medium">{originalName ? 'Edit server' : 'Add MCP server'}</legend>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id + '-name'}>Name</Label>
-        <Input id={id + '-name'} value={name} disabled={!!originalName} required maxLength={100}
-          placeholder="e.g. Pipedream" onChange={event => setName(event.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id + '-type'}>Connection</Label>
-        <Select value={type} onValueChange={value => setType(value as 'local' | 'remote')}>
-          <SelectTrigger id={id + '-type'}><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup><SelectItem value="remote">Remote URL</SelectItem>
-            <SelectItem value="local">Local command</SelectItem></SelectGroup></SelectContent>
-        </Select>
-      </div>
-      {type === 'remote' ? <>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id + '-url'}>MCP server URL</Label>
-          <Input id={id + '-url'} type="url" required placeholder="https://example.com/mcp" value={url}
-            onChange={event => setUrl(event.target.value)} />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <Label htmlFor={id + '-oauth'}>Sign in with OAuth</Label>
-          <Switch id={id + '-oauth'} checked={oauth} onCheckedChange={setOauth} />
-        </div>
-        <details><summary className="text-sm text-muted-foreground">Authentication details</summary>
-          <div className="mt-3 flex flex-col gap-3">
-            {oauth && <>
-              <p className="text-xs text-muted-foreground">Leave client details empty if the server supports automatic registration.</p>
-              <Label htmlFor={id + '-client'}>Client ID</Label>
-              <Input id={id + '-client'} value={clientId} onChange={event => setClientId(event.target.value)} />
-              <Label htmlFor={id + '-secret'}>Client secret</Label>
+    <fieldset disabled={pending} className="contents">
+      <SettingsGroup label={originalName ? 'Edit server' : 'Add MCP server'}>
+        <SettingsRow label="Name" htmlFor={id + '-name'}>
+          <Input id={id + '-name'} value={name} disabled={!!originalName} required maxLength={100}
+            placeholder="e.g. Pipedream" onChange={event => setName(event.target.value)} className="sm:w-64" />
+        </SettingsRow>
+        <SettingsRow label="Connection" htmlFor={id + '-type'}>
+          <Select value={type} onValueChange={value => setType(value as 'local' | 'remote')}>
+            <SelectTrigger id={id + '-type'}><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup><SelectItem value="remote">Remote URL</SelectItem>
+              <SelectItem value="local">Local command</SelectItem></SelectGroup></SelectContent>
+          </Select>
+        </SettingsRow>
+        {type === 'remote' ? <>
+          <SettingsRow label="MCP server URL" htmlFor={id + '-url'}>
+            <Input id={id + '-url'} type="url" required placeholder="https://example.com/mcp" value={url}
+              onChange={event => setUrl(event.target.value)} className="sm:w-80" />
+          </SettingsRow>
+          <SettingsRow label="Sign in with OAuth" htmlFor={id + '-oauth'}>
+            <Switch id={id + '-oauth'} checked={oauth} onCheckedChange={setOauth} />
+          </SettingsRow>
+          <SettingsRow label="Authentication details" description={oauth ? 'Leave client details empty if the server supports automatic registration.' : undefined}>
+            <Button type="button" variant="ghost" size="xs" aria-expanded={showAuth} onClick={() => setShowAuth(!showAuth)}>
+              {showAuth ? 'Hide' : 'Show'}
+            </Button>
+          </SettingsRow>
+          {showAuth && oauth && <>
+            <SettingsRow label="Client ID" htmlFor={id + '-client'}>
+              <Input id={id + '-client'} value={clientId} onChange={event => setClientId(event.target.value)} className="sm:w-64" />
+            </SettingsRow>
+            <SettingsRow label="Client secret" htmlFor={id + '-secret'}>
               <Input id={id + '-secret'} type="password" autoComplete="new-password" value={clientSecret}
-                onChange={event => setClientSecret(event.target.value)} />
-              <Label htmlFor={id + '-scope'}>OAuth scopes</Label>
-              <Input id={id + '-scope'} value={scope} onChange={event => setScope(event.target.value)} />
-            </>}
-            <Label htmlFor={id + '-headers'}>Headers (one NAME=value per line)</Label>
-            <Textarea id={id + '-headers'} value={headers} placeholder="Authorization=Bearer …"
-              onChange={event => setHeaders(event.target.value)} />
-          </div>
-        </details>
-      </> : <>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id + '-command'}>Executable</Label>
-          <Input id={id + '-command'} required value={command} placeholder="npx" onChange={event => setCommand(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id + '-args'}>Arguments (one per line)</Label>
-          <Textarea id={id + '-args'} value={args} placeholder={'-y\npackage-name'} onChange={event => setArgs(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id + '-env'}>Environment (one NAME=value per line)</Label>
-          <Textarea id={id + '-env'} value={env} onChange={event => setEnv(event.target.value)} />
-        </div>
-      </>}
+                onChange={event => setClientSecret(event.target.value)} className="sm:w-64" />
+            </SettingsRow>
+            <SettingsRow label="OAuth scopes" htmlFor={id + '-scope'}>
+              <Input id={id + '-scope'} value={scope} onChange={event => setScope(event.target.value)} className="sm:w-64" />
+            </SettingsRow>
+          </>}
+          {showAuth && (
+            <SettingsRow label="Headers" description="One NAME=value per line." htmlFor={id + '-headers'} stacked>
+              <Textarea id={id + '-headers'} value={headers} placeholder="Authorization=Bearer …" className="font-mono text-xs"
+                onChange={event => setHeaders(event.target.value)} />
+            </SettingsRow>
+          )}
+        </> : <>
+          <SettingsRow label="Executable" htmlFor={id + '-command'}>
+            <Input id={id + '-command'} required value={command} placeholder="npx" onChange={event => setCommand(event.target.value)} className="font-mono sm:w-64" />
+          </SettingsRow>
+          <SettingsRow label="Arguments" description="One per line." htmlFor={id + '-args'} stacked>
+            <Textarea id={id + '-args'} value={args} placeholder={'-y\npackage-name'} className="font-mono text-xs" onChange={event => setArgs(event.target.value)} />
+          </SettingsRow>
+          <SettingsRow label="Environment" description="One NAME=value per line." htmlFor={id + '-env'} stacked>
+            <Textarea id={id + '-env'} value={env} className="font-mono text-xs" onChange={event => setEnv(event.target.value)} />
+          </SettingsRow>
+        </>}
+      </SettingsGroup>
     </fieldset>
-    {error && <Alert variant="error"><AlertDescription>{error}</AlertDescription></Alert>}
-    <div className="flex gap-2">
-      <Button type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save server'}</Button>
+    {error && <ErrorState>{error}</ErrorState>}
+    <div className="flex justify-end gap-2">
       <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>Cancel</Button>
+      <Button type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save server'}</Button>
     </div>
   </form>;
 }

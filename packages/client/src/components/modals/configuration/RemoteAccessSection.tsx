@@ -3,9 +3,10 @@ import type { ProkopaiClient, RemoteAccessKind, RemoteAccessStatus } from '@prok
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
-import { SettingsError } from './SettingsPrimitives';
+import { ErrorState } from '@/components/shared/States';
 
 const KIND_LABELS: Record<RemoteAccessKind, string> = {
   lan: 'Wi-Fi / LAN',
@@ -57,89 +58,82 @@ export function RemoteAccessSection({ sdkClient }: RemoteAccessSectionProps) {
     }
   };
 
-  if (!status) return error ? <SettingsError>{error}</SettingsError> : null;
+  if (!status) return error ? <ErrorState>{error}</ErrorState> : null;
 
   const tailscaleShared = status.tailscale.serving
     && status.addresses.some((item) => item.url === status.tailscale.url);
+  const showAddresses = status.addresses.length > 0 || (status.listenOnNetwork && status.suggestions.length > 0);
 
   return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-sm font-medium">Remote access</Label>
-        <p className="text-sm text-muted-foreground">Choose how your phone and other devices reach Prokop. They still have to be paired.</p>
-      </div>
+    <>
+      <SettingsGroup label="Remote access" description="How your phone and other devices reach Prokop. They still have to be paired.">
+        <SettingsRow
+          label="Allow devices on my network"
+          htmlFor="remote-access-network"
+          description={status.bindLockedByEnvironment
+            ? `Set by PROKOPAI_HOST (${status.bindHost}).`
+            : 'Wi-Fi, LAN, and VPNs such as Tailscale or WireGuard.'}
+        >
+          <Switch
+            id="remote-access-network"
+            checked={status.listenOnNetwork}
+            disabled={busy || status.bindLockedByEnvironment}
+            onCheckedChange={(checked) => void run(() => sdkClient.http.remoteAccess.setListenOnNetwork(checked))}
+            aria-label="Allow devices on my network"
+          />
+        </SettingsRow>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <span className="text-sm">Allow devices on my network</span>
-          <p className="text-xs text-muted-foreground">
-            {status.bindLockedByEnvironment
-              ? `Set by PROKOPAI_HOST (${status.bindHost}).`
-              : 'Wi-Fi, LAN, and VPNs such as Tailscale or WireGuard.'}
-          </p>
-        </div>
-        <Switch
-          checked={status.listenOnNetwork}
-          disabled={busy || status.bindLockedByEnvironment}
-          onCheckedChange={(checked) => void run(() => sdkClient.http.remoteAccess.setListenOnNetwork(checked))}
-          aria-label="Allow devices on my network"
-        />
-      </div>
+        {status.tailscale.installed && (
+          <SettingsRow
+            label="Tailscale HTTPS"
+            description={!status.tailscale.running ? 'Tailscale is not connected on this computer.'
+              : tailscaleShared ? `Shared at ${status.tailscale.url}`
+                : `Share at ${status.tailscale.url} with a trusted certificate.`}
+          >
+            <Button variant={tailscaleShared ? 'ghost' : 'outline'} disabled={busy || !status.tailscale.running}
+              onClick={() => void run(() => sdkClient.http.remoteAccess.setTailscale(!tailscaleShared))}>
+              {tailscaleShared ? 'Stop' : 'Set up'}
+            </Button>
+          </SettingsRow>
+        )}
+      </SettingsGroup>
 
-      {status.tailscale.installed && (
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <span className="text-sm">Tailscale HTTPS</span>
-            <p className="truncate text-xs text-muted-foreground">
-              {!status.tailscale.running ? 'Tailscale is not connected on this computer.'
-                : tailscaleShared ? `Shared at ${status.tailscale.url}`
-                  : `Share at ${status.tailscale.url} with a trusted certificate.`}
-            </p>
-          </div>
-          <Button variant={tailscaleShared ? 'ghost' : 'outline'} disabled={busy || !status.tailscale.running}
-            onClick={() => void run(() => sdkClient.http.remoteAccess.setTailscale(!tailscaleShared))}>
-            {tailscaleShared ? 'Stop' : 'Set up'}
-          </Button>
-        </div>
-      )}
-
-      {(status.addresses.length > 0 || (status.listenOnNetwork && status.suggestions.length > 0)) && (
-        <div className="space-y-1">
-          {status.addresses.map((item) => (
-            <div key={item.url} className="flex items-center gap-2 rounded-lg border px-3 py-1.5">
-              <code className="min-w-0 flex-1 truncate text-xs">{item.url}</code>
+      <SettingsGroup label="Addresses">
+        {showAddresses && status.addresses.map((item) => (
+          <SettingsRow key={item.url} label={<code className="truncate font-mono text-xs">{item.url}</code>}>
+            <span className="flex items-center gap-2">
               <Badge variant="secondary">{KIND_LABELS[item.kind]}</Badge>
               {item.source === 'saved' ? (
-                <Button variant="ghost" disabled={busy}
+                <Button variant="ghost" size="xs" disabled={busy}
                   onClick={() => void run(() => sdkClient.http.remoteAccess.removeAddress(item.url))}>Remove</Button>
               ) : (
                 <span className="text-xs text-muted-foreground" title="Set by PROKOPAI_ALLOWED_HOSTS">env</span>
               )}
-            </div>
-          ))}
-          {status.listenOnNetwork && status.suggestions.map((item) => (
-            <div key={item.url} className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground">
-              <code className="min-w-0 flex-1 truncate text-xs">{item.url}</code>
-              <Badge variant="outline">{KIND_LABELS[item.kind]}</Badge>
-            </div>
-          ))}
-        </div>
-      )}
+            </span>
+          </SettingsRow>
+        ))}
+        {showAddresses && status.listenOnNetwork && status.suggestions.map((item) => (
+          <SettingsRow key={item.url} label={<code className="truncate font-mono text-xs text-muted-foreground">{item.url}</code>}>
+            <Badge variant="outline">{KIND_LABELS[item.kind]}</Badge>
+          </SettingsRow>
+        ))}
+        <SettingsRow label="Add an address" htmlFor="remote-access-address" description="A VPN, proxy or tunnel address other devices can open.">
+          <form
+            className="flex w-full gap-2 sm:w-auto"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!address.trim()) return;
+              void run(() => sdkClient.http.remoteAccess.addAddress(address)).then((ok) => { if (ok) setAddress(''); });
+            }}
+          >
+            <Input id="remote-access-address" value={address} onChange={(event) => setAddress(event.target.value)} disabled={busy}
+              placeholder="https://prokop.example.com" aria-label="Address other devices use" className="sm:w-72" />
+            <Button type="submit" variant="outline" disabled={busy || !address.trim()}>Add</Button>
+          </form>
+        </SettingsRow>
+      </SettingsGroup>
 
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!address.trim()) return;
-          void run(() => sdkClient.http.remoteAccess.addAddress(address)).then((ok) => { if (ok) setAddress(''); });
-        }}
-      >
-        <Input value={address} onChange={(event) => setAddress(event.target.value)} disabled={busy}
-          placeholder="Add an address, e.g. https://prokop.example.com" aria-label="Address other devices use" />
-        <Button type="submit" variant="outline" disabled={busy || !address.trim()}>Add</Button>
-      </form>
-
-      {error && <SettingsError>{error}</SettingsError>}
-    </div>
+      {error && <ErrorState>{error}</ErrorState>}
+    </>
   );
 }

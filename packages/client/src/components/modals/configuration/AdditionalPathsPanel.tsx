@@ -3,6 +3,7 @@ import { Folder, Plus, X } from 'lucide-react';
 import type { Workspace } from '@prokopai/sdk';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { FolderPickerDialog } from '../FolderPickerDialog';
 import { FOLDER_ICON_COLOR } from '@/components/files/fileIcons';
 
@@ -13,8 +14,8 @@ interface AdditionalPathsPanelProps {
   sdkClient: import('@prokopai/sdk').ProkopaiClient | null;
 }
 
+/** One row per extra directory and an add row, nested under the Additional paths disclosure. */
 export function AdditionalPathsPanel({
-  workspace,
   paths,
   onChange,
   sdkClient,
@@ -32,50 +33,31 @@ export function AdditionalPathsPanel({
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        Add directories the agent can access alongside {workspace.name}. The agent will use absolute paths for these directories.
-      </p>
-
+    <>
       {paths.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-sm border rounded-md">
-          <Folder className="w-8 h-8 mb-2 opacity-50" />
-          No additional paths configured
-        </div>
-      ) : (
-        <div className="dialog-scrollbar max-h-64 overflow-y-auto rounded-md border">
-          <div className="flex flex-col gap-1 p-2">
-            {paths.map((path) => (
-              <div
-                key={path}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted group"
-              >
-                <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
-                <span className="font-mono text-xs truncate flex-1" title={path}>{path}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Remove ${path}`}
-                  className="size-6"
-                  onClick={() => handleRemove(path)}
-                >
-                  <X className="size-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          onClick={() => setFolderPickerOpen(true)}
+        <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">No additional paths yet.</span>} />
+      ) : paths.map((path) => (
+        <SettingsRow
+          key={path}
+          className="pl-6"
+          label={
+            <span className="flex min-w-0 items-center gap-2" title={path}>
+              <Folder className={cn('size-3.5 shrink-0', FOLDER_ICON_COLOR)} />
+              <span className="truncate font-mono text-xs">{path}</span>
+            </span>
+          }
         >
+          <Button variant="ghost" size="icon-xs" aria-label={`Remove ${path}`} onClick={() => handleRemove(path)}>
+            <X />
+          </Button>
+        </SettingsRow>
+      ))}
+      <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">Saved with the workspace when you save changes.</span>}>
+        <Button variant="outline" size="xs" onClick={() => setFolderPickerOpen(true)}>
           <Plus data-icon="inline-start" />
           Add Path
         </Button>
-      </div>
+      </SettingsRow>
 
       {folderPickerOpen && <FolderPickerDialog
         open={folderPickerOpen}
@@ -84,6 +66,6 @@ export function AdditionalPathsPanel({
         title="Select Additional Path"
         sdkClient={sdkClient}
       />}
-    </div>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { SettingsGroup } from '@/components/ui/settings-group';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { ModelEditorForm } from './ModelEditorForm';
@@ -13,7 +14,7 @@ const meta = {
   component: ModelEditorForm,
   parameters: { layout: 'padded' },
   args: { sdkClient: createFakeSdkClient(), providerId: model.providerId, providerName: model.providerName, model: null, onDone: fn() },
-  decorators: [(Story) => <div className="w-[36rem] rounded-xl border bg-card p-3"><Story /></div>],
+  decorators: [(Story) => <div className="w-[36rem]"><SettingsGroup label="Provider"><Story /></SettingsGroup></div>],
 } satisfies Meta<typeof ModelEditorForm>;
 
 export default meta;

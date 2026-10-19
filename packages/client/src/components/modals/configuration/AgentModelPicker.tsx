@@ -123,7 +123,7 @@ export function AgentModelPicker({ models, codexModels, claudeModels, value, onC
             role="combobox"
             aria-label="Model"
             aria-expanded={open}
-            className="w-full justify-between text-sm font-normal h-8"
+            className="w-full justify-between text-sm font-normal"
           >
             <div className="flex items-center gap-2 truncate">
               {triggerLabel

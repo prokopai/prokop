@@ -8,15 +8,15 @@ import { LearningHistory } from './LearningHistory';
 import { AgentModelPicker, type AgentModelSelection } from './AgentModelPicker';
 import { DisclosureRow } from './DisclosureRow';
 import { useServerDataStore } from '@/stores/serverDataStore';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { ErrorState } from '@/components/shared/States';
 import { getWorkspaceDefaultPreconfigId } from '@/lib/workspacePreconfigs';
 import { randomUUID } from '@/lib/randomId';
 
@@ -30,9 +30,9 @@ export interface LearningPanelProps {
 }
 
 const CADENCE_FIELDS = [
-  { key: 'idleMinutes', label: 'Quiet period' },
-  { key: 'minimumIntervalMinutes', label: 'Min interval' },
-  { key: 'maximumPendingMinutes', label: 'Max pending age' },
+  { key: 'idleMinutes', label: 'Quiet period', hint: 'Required idle time before a run.' },
+  { key: 'minimumIntervalMinutes', label: 'Min interval', hint: 'Spaces runs apart.' },
+  { key: 'maximumPendingMinutes', label: 'Max pending age', hint: 'Forces a run on unreviewed work.' },
 ] as const;
 
 function formatMinutes(minutes: number): string {
@@ -41,6 +41,7 @@ function formatMinutes(minutes: number): string {
   return `${minutes}m`;
 }
 
+/** Workspace learning as two groups: the switches, then one block of rows per learner. */
 export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearning, onChange: onSettingsChange, onPersonalLearningChange }: LearningPanelProps) {
   const client = useSdkClient();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -97,7 +98,8 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
       update(item.id, { cadence: { ...defaults, ...item.cadence, [key]: number } });
     }
   };
-  const learnerModel = (item: LearningReviewer) => {
+
+  const learnerModelRows = (item: LearningReviewer) => {
     const preconfig = preconfigs.find(p => p.id === item.preconfigId);
     const pin = pinnedHarness(preconfig);
     const override = item.modelOverride;
@@ -117,225 +119,142 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
       : models.find(m => m.id === preconfig?.model && m.providerId === preconfig?.provider)?.name
         ?? preconfig?.model ?? null;
     return (
-      <div className="space-y-1.5">
-        <Label>Model</Label>
-        <AgentModelPicker
-          models={models}
-          codexModels={codexCatalog.data?.models ?? []}
-          claudeModels={claudeCatalog.data?.models ?? []}
-          value={selection}
-          onChange={next => update(item.id, {
-            modelOverride: next.modelHarness === '' ? null : {
-              providerId: next.modelHarness === 'prokop' ? next.provider : '',
-              modelId: next.model,
-              variant: next.variant || null,
-              ...(next.modelHarness !== 'prokop' ? { harness: next.modelHarness } : {}),
-            },
-          })}
-          defaultLabel="Use agent default"
-        />
-        {!override && agentDefault && (
-          <p className="text-xs text-muted-foreground">Agent default: {agentDefault}</p>
-        )}
+      <>
+        <SettingsRow className="pl-6" label="Model" description={!override && agentDefault ? `Agent default: ${agentDefault}` : undefined}>
+          <div className="w-full sm:w-72">
+            <AgentModelPicker
+              models={models}
+              codexModels={codexCatalog.data?.models ?? []}
+              claudeModels={claudeCatalog.data?.models ?? []}
+              value={selection}
+              onChange={next => update(item.id, {
+                modelOverride: next.modelHarness === '' ? null : {
+                  providerId: next.modelHarness === 'prokop' ? next.provider : '',
+                  modelId: next.model,
+                  variant: next.variant || null,
+                  ...(next.modelHarness !== 'prokop' ? { harness: next.modelHarness } : {}),
+                },
+              })}
+              defaultLabel="Use agent default"
+            />
+          </div>
+        </SettingsRow>
         {effective !== 'prokop' && (
-          <p className="text-xs text-muted-foreground">
-            Reviews run on {effective === 'codex-cli' ? 'Codex CLI' : 'Claude CLI'} with this model.
-            Harness reviews can't be undone from history.
-          </p>
+          <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">Reviews run on {effective === 'codex-cli' ? 'Codex CLI' : 'Claude CLI'} with this model. Harness reviews can't be undone from history.</span>} />
         )}
-      </div>
+      </>
     );
   };
 
   /** Focus and timing are rare tuning: collapsed by default, with the custom value recapped on the trigger. */
-  const learnerTuning = (item: LearningReviewer, bordered: boolean) => {
+  const learnerTuning = (item: LearningReviewer) => {
     const cadence = { ...defaults, ...item.cadence };
     const timingSummary = CADENCE_FIELDS.map(field => formatMinutes(cadence[field.key])).join(' · ');
     return (
       <>
-        <DisclosureRow label="Learning focus" summary={item.instructions.trim() || null} defaultOpen={false} bordered={bordered}>
-          <Textarea aria-label="Learning focus" value={item.instructions} maxLength={20_000}
-            placeholder="Optional focus, e.g. 'prefer updating existing notes over creating new ones'"
-            onChange={event => update(item.id, { instructions: event.target.value })} />
+        <DisclosureRow className="pl-6" label="Learning focus" summary={item.instructions.trim() || null} defaultOpen={false}>
+          <SettingsRow className="pl-9" label="Focus" htmlFor={`focus-${item.id}`} stacked>
+            <Textarea id={`focus-${item.id}`} aria-label="Learning focus" value={item.instructions} maxLength={20_000}
+              placeholder="Optional focus, e.g. 'prefer updating existing notes over creating new ones'"
+              onChange={event => update(item.id, { instructions: event.target.value })} />
+          </SettingsRow>
         </DisclosureRow>
 
-        <DisclosureRow label="Timing" summary={timingSummary} defaultOpen={false} bordered={bordered}>
-          <div className="space-y-1.5">
-            <div className="grid grid-cols-3 gap-2">
-              {CADENCE_FIELDS.map(field => (
-                <div key={field.key} className="space-y-1">
-                  <Label htmlFor={`cadence-${field.key}-${item.id}`} className="text-xs font-normal text-muted-foreground">{field.label}</Label>
-                  <Input id={`cadence-${field.key}-${item.id}`} type="number" min={1} max={10080}
-                    value={cadence[field.key]}
-                    onChange={event => updateCadence(item, field.key, event.target.value)} />
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Minutes. Quiet period is required idle time, min interval spaces runs apart, max pending age forces a run on unreviewed work.
-            </p>
-          </div>
+        <DisclosureRow className="pl-6" label="Timing" summary={timingSummary} defaultOpen={false}>
+          {CADENCE_FIELDS.map(field => (
+            <SettingsRow key={field.key} className="pl-9" label={field.label} htmlFor={`cadence-${field.key}-${item.id}`} description={`${field.hint} Minutes.`}>
+              <Input id={`cadence-${field.key}-${item.id}`} type="number" min={1} max={10080}
+                value={cadence[field.key]}
+                onChange={event => updateCadence(item, field.key, event.target.value)} className="w-24" />
+            </SettingsRow>
+          ))}
         </DisclosureRow>
       </>
     );
   };
 
-  /** One preview control for both layouts: a quiet link ending the learner's section. */
-  const previewLink = (item: LearningReviewer, bordered: boolean) => {
-    const link = (
-      <Button
-        variant="link"
-        size="xs"
-        className="h-auto p-0"
-        disabled={preview.isPending}
-        onClick={() => preview.mutate(item.id)}
-      >
-        Preview prompt
-      </Button>
-    );
-    return bordered ? <div className="border-t px-3 py-2">{link}</div> : link;
-  };
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-0.5">
-          <Label htmlFor="learning-enabled">Automatic learning</Label>
-          <p className="text-xs text-muted-foreground">
-            {'Study conversations during quiet periods and maintain shared project knowledge. '}
-            Enabling also turns on Memory. The first run covers the last seven days.
-          </p>
-          <Button
-            variant="link"
-            size="xs"
-            className="h-auto w-fit p-0"
-            aria-label="Learning history"
-            onClick={() => setHistoryOpen(true)}
-          >
-            History
-          </Button>
-        </div>
-        <Switch
-          id="learning-enabled"
-          checked={settings.enabled}
-          disabled={!initialId}
-          onCheckedChange={enabled => onChange({ ...settings, enabled, reviewers: settings.reviewers.length ? settings.reviewers : [createReviewer()] })}
-        />
-      </div>
-
-      {!initialId && (
-        <Alert>
-          <AlertTitle>Select a default agent first</AlertTitle>
-          <AlertDescription>
-            Learning needs an agent to run. Pick one in General.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-0.5">
-          <Label htmlFor="personal-learning">Use as personal learning source</Label>
-          <p className="text-xs text-muted-foreground">
-            Allow agents to learn from this workspace's conversations for their personal memory.
-          </p>
-        </div>
-        <Switch id="personal-learning" checked={allowPersonalLearning} onCheckedChange={onPersonalLearningChange} />
-      </div>
+    <>
+      <SettingsGroup label="Learning" description="Studies conversations during quiet periods and maintains shared project knowledge. Enabling also turns on Memory. The first run covers the last seven days.">
+        <SettingsRow label="Automatic learning" htmlFor="learning-enabled" description={initialId ? undefined : 'Pick a default agent in General first.'}>
+          <span className="flex items-center gap-2">
+            <Button variant="link" size="xs" className="h-auto p-0" aria-label="Learning history" onClick={() => setHistoryOpen(true)}>
+              History
+            </Button>
+            <Switch
+              id="learning-enabled"
+              checked={settings.enabled}
+              disabled={!initialId}
+              onCheckedChange={enabled => onChange({ ...settings, enabled, reviewers: settings.reviewers.length ? settings.reviewers : [createReviewer()] })}
+            />
+          </span>
+        </SettingsRow>
+        <SettingsRow label="Use as personal learning source" htmlFor="personal-learning" description="Agents may learn from this workspace's conversations for their personal memory.">
+          <Switch id="personal-learning" checked={allowPersonalLearning} onCheckedChange={onPersonalLearningChange} />
+        </SettingsRow>
+        {settings.enabled && (
+          <>
+            <SettingsRow label="Improve skills" htmlFor="learning-skills" description="Learning may also create and refine workspace skills. Turning this on also enables skill management.">
+              <Switch id="learning-skills" checked={settings.improveSkills}
+                onCheckedChange={improveSkills => onChange({ ...settings, improveSkills })} />
+            </SettingsRow>
+            <DisclosureRow label="Shared instructions" summary={settings.instructions.trim() || null} defaultOpen={false}>
+              <SettingsRow className="pl-6" label="Instructions" description="Appended to every learner's prompt." htmlFor="learning-shared-instructions" stacked>
+                <Textarea id="learning-shared-instructions" aria-label="Shared instructions" value={settings.instructions} maxLength={20_000}
+                  placeholder="Optional guidance applied to all learners"
+                  onChange={event => onChange({ ...settings, instructions: event.target.value })} />
+              </SettingsRow>
+            </DisclosureRow>
+          </>
+        )}
+      </SettingsGroup>
 
       {settings.enabled && (
-        <>
-          <Separator />
-
-          {(
-            <div className="space-y-3">
-              <div className="space-y-0.5">
-                <Label>Learners</Label>
-                <p className="text-xs text-muted-foreground">
-                  Each learner studies eligible conversations and writes knowledge updates.
-                </p>
+        <SettingsGroup label="Learners" description="Each learner studies eligible conversations and writes knowledge updates.">
+          {settings.reviewers.map((item, index) => {
+            const preconfig = preconfigs.find(p => p.id === item.preconfigId);
+            return (
+              <div key={item.id} className="contents">
+                <SettingsRow label={<span className="font-medium">{`Learner ${index + 1}${preconfig ? ` · ${preconfig.name}` : ''}`}</span>}>
+                  <span className="flex items-center gap-1">
+                    <Button variant="link" size="xs" className="h-auto p-0" disabled={preview.isPending} onClick={() => preview.mutate(item.id)}>
+                      Preview prompt
+                    </Button>
+                    {settings.reviewers.length > 1 && (
+                      <Button variant="ghost" size="icon-xs" aria-label="Remove learner"
+                        onClick={() => onChange({ ...settings, reviewers: settings.reviewers.filter(other => other.id !== item.id) })}>
+                        <X />
+                      </Button>
+                    )}
+                  </span>
+                </SettingsRow>
+                <SettingsRow className="pl-6" label="Agent" htmlFor={`reviewer-preconfig-${item.id}`}>
+                  <Select value={item.preconfigId} onValueChange={preconfigId => update(item.id, { preconfigId })}>
+                    <SelectTrigger id={`reviewer-preconfig-${item.id}`} aria-label="Learner agent" className="w-full sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {preconfigs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                {learnerModelRows(item)}
+                {learnerTuning(item)}
               </div>
-
-              {settings.reviewers.map((item, index) => {
-                const preconfig = preconfigs.find(p => p.id === item.preconfigId);
-                return (
-                  <div key={item.id} className="rounded-md border">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2">
-                      <span className="truncate text-sm font-medium">
-                        Learner {index + 1}{preconfig ? ` · ${preconfig.name}` : ''}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        {settings.reviewers.length > 1 && (
-                          <Button variant="ghost" size="icon" aria-label="Remove learner"
-                            onClick={() => onChange({ ...settings, reviewers: settings.reviewers.filter(other => other.id !== item.id) })}>
-                            <X className="size-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 border-t px-3 py-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`reviewer-preconfig-${item.id}`}>Agent</Label>
-                        <Select value={item.preconfigId} onValueChange={preconfigId => update(item.id, { preconfigId })}>
-                          <SelectTrigger id={`reviewer-preconfig-${item.id}`} aria-label="Learner agent" className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {preconfigs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {learnerModel(item)}
-                    </div>
-
-                    {learnerTuning(item, true)}
-                    {previewLink(item, true)}
-                  </div>
-                );
-              })}
-
-              <Button variant="outline" disabled={!initialId || settings.reviewers.length >= 20}
-                onClick={() => onChange({ ...settings, reviewers: [...settings.reviewers, createReviewer()] })}>
-                <Plus className="size-4" /> Add learner
-              </Button>
-            </div>
-          )}
-
-          <Separator />
-
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="learning-skills">Improve skills</Label>
-              <p className="text-xs text-muted-foreground">
-                {'Learning may also create and refine workspace skills. '}
-                Turning this on also enables skill management.
-              </p>
-            </div>
-            <Switch id="learning-skills" checked={settings.improveSkills}
-              onCheckedChange={improveSkills => onChange({ ...settings, improveSkills })} />
-          </div>
-
-          <DisclosureRow label="Shared instructions" summary={settings.instructions.trim() || null} defaultOpen={false} bordered={false}>
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground">Appended to every learner's prompt.</p>
-              <Textarea aria-label="Shared instructions" value={settings.instructions} maxLength={20_000}
-                placeholder="Optional guidance applied to all learners"
-                onChange={event => onChange({ ...settings, instructions: event.target.value })} />
-            </div>
-          </DisclosureRow>
-
-        </>
+            );
+          })}
+          <SettingsRow label={<span className="text-xs text-muted-foreground">Up to 20 learners.</span>}>
+            <Button variant="outline" size="xs" disabled={!initialId || settings.reviewers.length >= 20}
+              onClick={() => onChange({ ...settings, reviewers: [...settings.reviewers, createReviewer()] })}>
+              <Plus data-icon="inline-start" /> Add learner
+            </Button>
+          </SettingsRow>
+        </SettingsGroup>
       )}
 
-      {preview.error && (
-        <Alert variant="error">
-          <AlertTitle>Preview failed</AlertTitle>
-          <AlertDescription>{preview.error.message}</AlertDescription>
-        </Alert>
-      )}
+      {preview.error && <ErrorState>Preview failed: {preview.error.message}</ErrorState>}
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="flex flex-col overflow-hidden sm:max-w-2xl sm:max-h-[85vh]">
@@ -360,6 +279,6 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

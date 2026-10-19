@@ -1,12 +1,13 @@
-import { ErrorState } from '@/components/shared/States';
+import { ErrorState, LoadingState } from '@/components/shared/States';
 import { useState } from 'react';
 import type { ProkopaiClient, ProviderCredentialStatus } from '@prokopai/sdk';
 import { useProviderCredentialsQuery, useSetProviderCredential, useClearProviderCredential } from '@/hooks/queries';
-import { Key, Check, X, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Check, X, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { SettingsError, SettingsLoading } from './SettingsPrimitives';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 
 interface PanelProps {
   sdkClient: ProkopaiClient | null;
@@ -15,6 +16,21 @@ interface PanelProps {
   provider?: string;
 }
 
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  deepseek: 'DeepSeek',
+  minimax: 'MiniMax',
+  openrouter: 'OpenRouter',
+  'zhipu-coding': 'Z.AI Coding',
+};
+
+function formatProviderName(provider: string): string {
+  return PROVIDER_DISPLAY_NAMES[provider] || provider.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
+ * API keys per provider. With `provider`, one row for that provider inside its
+ * group; otherwise a group with one row per provider.
+ */
 export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider: filter }: PanelProps) {
   const { data: credentialsData, isLoading: loading } = useProviderCredentialsQuery(sdkClient);
   const setCredentialMut = useSetProviderCredential(sdkClient);
@@ -53,142 +69,100 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
     }
   };
 
-  const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-    deepseek: 'DeepSeek',
-    minimax: 'MiniMax',
-    openrouter: 'OpenRouter',
-    'zhipu-coding': 'Z.AI Coding',
-  };
-
-  const formatProviderName = (provider: string): string => {
-    return PROVIDER_DISPLAY_NAMES[provider] || provider.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
-
   if (filter && providers.length === 0) {
     return null;
   }
 
   if (loading) {
-    return <SettingsLoading />;
+    return <LoadingState />;
   }
 
   if (error && providers.length === 0) {
-    return (
-      <ErrorState className="m-4">{error}</ErrorState>
+    return <ErrorState className="m-3 sm:m-4">{error}</ErrorState>;
+  }
+
+  const rows = providers.map((cred) => {
+    const busy = actionLoading === cred.provider;
+    const control = editingProvider === cred.provider ? (
+      <span className="flex items-center gap-1">
+        <span className="relative">
+          <Input
+            type={showKey ? 'text' : 'password'}
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            placeholder="Enter API key…"
+            aria-label={`${formatProviderName(cred.provider)} API key`}
+            className="w-full pr-7 font-mono sm:w-56"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSetKey(cred.provider);
+              if (e.key === 'Escape') {
+                setEditingProvider(null);
+                setApiKeyInput('');
+              }
+            }}
+            autoFocus
+          />
+          <Button type="button" variant="ghost" size="icon-xs" className="absolute top-0.5 right-0.5" aria-label={showKey ? 'Hide key' : 'Show key'} onClick={() => setShowKey(!showKey)}>
+            {showKey ? <EyeOff /> : <Eye />}
+          </Button>
+        </span>
+        <Button size="icon" aria-label="Save key" onClick={() => handleSetKey(cred.provider)} disabled={!apiKeyInput.trim() || busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Check />}
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Cancel" onClick={() => { setEditingProvider(null); setApiKeyInput(''); }}>
+          <X />
+        </Button>
+      </span>
+    ) : (
+      <span className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setEditingProvider(cred.provider);
+            setApiKeyInput('');
+            setShowKey(false);
+          }}
+          disabled={busy}
+        >
+          {cred.configured ? 'Update' : 'Set Key'}
+        </Button>
+        {cred.configured && (
+          <Button variant="ghost" size="icon" aria-label="Clear key" onClick={() => handleClearKey(cred.provider)} disabled={busy}>
+            {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
+          </Button>
+        )}
+      </span>
     );
+    return (
+      <SettingsRow
+        key={cred.provider}
+        className={filter ? 'pl-6' : undefined}
+        label={filter ? 'API key' : (
+          <span className="flex items-center gap-2">
+            {formatProviderName(cred.provider)}
+            <Badge variant={cred.configured ? 'secondary' : 'outline'}>{cred.configured ? 'Configured' : 'Not set'}</Badge>
+          </span>
+        )}
+        description={filter ? (cred.configured ? 'Stored in ~/.prokopai/.env on the server.' : 'Needed before its models can run.') : undefined}
+      >
+        {control}
+      </SettingsRow>
+    );
+  });
+
+  if (filter) {
+    return <>
+      {rows}
+      {error && <SettingsRow label={<span className="text-xs text-error">{error}</span>} />}
+    </>;
   }
 
   return (
-    <div className={filter ? 'space-y-2' : embedded ? 'space-y-4' : 'p-3 sm:p-4 space-y-4'}>
-      {!embedded && !filter && (
-        <p className="text-sm text-muted-foreground">
-          Manage API keys for LLM providers. Keys are stored in ~/.prokopai/.env and never exposed to the client.
-        </p>
-      )}
-
-      {error && (
-        <SettingsError>{error}</SettingsError>
-      )}
-
-      <div className="space-y-2">
-        {providers.map((cred) => (
-          <div
-            key={cred.provider}
-            className={filter ? 'flex items-center' : 'flex items-center justify-between p-3 rounded-lg border'}
-          >
-            {/* Embedded in a provider card: the card header already carries the
-                provider name and configured status, so only the action renders. */}
-            {!filter && (
-              <div className="flex items-center gap-3">
-                <Key className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{formatProviderName(cred.provider)}</span>
-                <Badge variant={cred.configured ? 'default' : 'secondary'}>
-                  {cred.configured ? 'Configured' : 'Not set'}
-                </Badge>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              {editingProvider === cred.provider ? (
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Input
-                      type={showKey ? 'text' : 'password'}
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      placeholder="Enter API key..."
-                      className="w-full sm:w-48 h-8 text-sm pr-8"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSetKey(cred.provider);
-                        if (e.key === 'Escape') {
-                          setEditingProvider(null);
-                          setApiKeyInput('');
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-8 w-8"
-                      onClick={() => setShowKey(!showKey)}
-                    >
-                      {showKey ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={() => handleSetKey(cred.provider)}
-                    disabled={!apiKeyInput.trim() || actionLoading === cred.provider}
-                  >
-                    {actionLoading === cred.provider ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Check className="size-3" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setEditingProvider(null);
-                      setApiKeyInput('');
-                    }}
-                  >
-                    <X className="size-3" />
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditingProvider(cred.provider);
-                      setApiKeyInput('');
-                      setShowKey(false);
-                    }}
-                    disabled={actionLoading === cred.provider}
-                  >
-                    {cred.configured ? 'Update' : 'Set Key'}
-                  </Button>
-                  {cred.configured && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleClearKey(cred.provider)}
-                      disabled={actionLoading === cred.provider}
-                    >
-                      {actionLoading === cred.provider ? (
-                        <Loader2 className="size-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-3" />
-                      )}
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4 p-3 sm:p-4'}>
+      <SettingsGroup label="API keys" description="Stored in ~/.prokopai/.env on the server and never sent to the client.">
+        {rows}
+      </SettingsGroup>
+      {error && <ErrorState>{error}</ErrorState>}
     </div>
   );
 }

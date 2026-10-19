@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CLIENT_VERSION } from '@/version';
 import { checkUpdate, type UpdateStatus } from '@/utils/version';
@@ -48,13 +49,21 @@ function StatusBadge({ status }: { status: UpdateStatus }) {
     );
   }
   if (status === 'update-available') {
-    return (
-      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-xs text-warning">
-        Update available
-      </span>
-    );
+    return <Badge variant="secondary" className="text-warning">Update available</Badge>;
   }
   return <span className="text-xs text-muted-foreground">Unknown</span>;
+}
+
+/** A version value with its status, or a placeholder while the check runs. */
+function VersionValue({ loading, version, status, fallback }: { loading: boolean; version: string | null; status?: UpdateStatus; fallback: string }) {
+  if (loading) return <Skeleton className="h-4 w-32" />;
+  if (!version) return <span className="text-sm text-muted-foreground">{fallback}</span>;
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground tabular-nums">v{version}</span>
+      {status && <StatusBadge status={status} />}
+    </span>
+  );
 }
 
 export function VersionInfo({ sdkClient, enabled }: VersionInfoProps) {
@@ -113,78 +122,33 @@ export function VersionInfo({ sdkClient, enabled }: VersionInfoProps) {
   const serverStatus = sdkClient && state.serverVersion
     ? checkUpdate(state.serverVersion, state.latestServer)
     : 'unknown';
-
-  const handleCheckForUpdates = () => {
-    fetchVersions(true);
-  };
+  const latest = [
+    state.latestServer ? `v${state.latestServer} (server)` : null,
+    state.latestClient ? `v${state.latestClient} (client)` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <Label className="text-sm font-medium">Versions</Label>
-        <p className="text-sm text-muted-foreground">Check for updates to client and server</p>
-      </div>
-
-      <Separator />
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Client</span>
-          {state.loading ? (
-            <Skeleton className="h-5 w-32" />
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">v{CLIENT_VERSION}</span>
-              <StatusBadge status={clientStatus} />
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Server</span>
-          {state.loading ? (
-            <Skeleton className="h-5 w-32" />
-          ) : state.serverVersion ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">v{state.serverVersion}</span>
-              <StatusBadge status={serverStatus} />
-            </div>
-          ) : (
-            <span className="text-sm text-muted-foreground">Not connected</span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Latest</span>
-          {state.loading ? (
-            <Skeleton className="h-5 w-48" />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {state.latestServer ? `v${state.latestServer} (server)` : ''}
-              {state.latestServer && state.latestClient && ' · '}
-              {state.latestClient ? `v${state.latestClient} (client)` : ''}
-              {!state.latestServer && !state.latestClient && 'Unknown'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        {state.lastChecked && !state.loading && (
-          <span className="text-xs text-muted-foreground">
-            Last checked: {formatLastChecked(state.lastChecked)}
-          </span>
-        )}
-        <Button
-          variant="outline"
-          onClick={handleCheckForUpdates}
-          disabled={state.loading}
-          className="ml-auto"
-        >
+    <SettingsGroup label="Versions">
+      <SettingsRow label="Client">
+        <VersionValue loading={state.loading} version={CLIENT_VERSION} status={clientStatus} fallback="Unknown" />
+      </SettingsRow>
+      <SettingsRow label="Server">
+        <VersionValue loading={state.loading} version={state.serverVersion} status={serverStatus} fallback="Not connected" />
+      </SettingsRow>
+      <SettingsRow label="Latest">
+        {state.loading
+          ? <Skeleton className="h-4 w-48" />
+          : <span className="text-sm text-muted-foreground tabular-nums">{latest || 'Unknown'}</span>}
+      </SettingsRow>
+      <SettingsRow
+        label="Updates"
+        description={state.fetchError ?? (state.lastChecked && !state.loading ? `Checked ${formatLastChecked(state.lastChecked)}` : undefined)}
+      >
+        <Button variant="outline" onClick={() => fetchVersions(true)} disabled={state.loading}>
           <RefreshCw className={`size-3.5 ${state.loading ? 'animate-spin' : ''}`} />
-          Check for Updates
+          Check for updates
         </Button>
-      </div>
-    </div>
+      </SettingsRow>
+    </SettingsGroup>
   );
 }

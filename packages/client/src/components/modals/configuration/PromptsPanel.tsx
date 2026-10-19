@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { usePromptsQuery, useCreatePrompt, useUpdatePrompt, useDeletePrompt } from '@/hooks/queries';
-import { Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { SettingsEditorHeader, SettingsEmpty, SettingsError, SettingsListRow, SettingsLoading } from './SettingsPrimitives';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { useSettingsEditor } from './useSettingsEditor';
 
 interface PanelProps {
@@ -45,77 +48,72 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
 
   if (editor.isOpen) {
     return (
-      <div className="p-3 sm:p-4 space-y-4">
-        <SettingsEditorHeader title={isCreating ? 'New prompt' : 'Edit prompt'} onBack={editor.cancel}
-          backLabel="Back to prompts" onSave={editor.save} saving={editor.saving} canSave={!!editName.trim()} />
-
-        {error && <SettingsError>{error}</SettingsError>}
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Name</label>
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            disabled={!isCreating}
-            placeholder="prompt-name"
-            className="font-mono"
-          />
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Content (Markdown)</label>
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="w-full h-48 sm:h-64 p-3 rounded-lg border bg-background font-mono text-sm resize-y"
-            placeholder="# Prompt Title\n\nPrompt content here..."
-          />
+      <div className="flex flex-col gap-3 p-3 sm:p-4">
+        <SettingsGroup label={isCreating ? 'New prompt' : 'Edit prompt'}>
+          <SettingsRow label="Name" htmlFor="prompt-name" description={isCreating ? 'Typed after a slash in the composer.' : undefined}>
+            <Input
+              id="prompt-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              disabled={!isCreating}
+              placeholder="prompt-name"
+              className="font-mono sm:w-64"
+            />
+          </SettingsRow>
+          <SettingsRow label="Content" description="Markdown." htmlFor="prompt-content" stacked>
+            <Textarea
+              id="prompt-content"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-48 font-mono text-xs sm:min-h-64"
+              placeholder="# Prompt Title\n\nPrompt content here..."
+            />
+          </SettingsRow>
+        </SettingsGroup>
+        {error && <ErrorState>{error}</ErrorState>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={editor.cancel} aria-label="Back to prompts">Cancel</Button>
+          <Button onClick={editor.save} disabled={editor.saving || !editName.trim()}>
+            {editor.saving ? <Loader2 className="size-3 animate-spin" /> : 'Save'}
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (loading) return <SettingsLoading />;
+  if (loading) return <LoadingState />;
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {prompts.length} prompt{prompts.length !== 1 ? 's' : ''}
-        </p>
-        <Button variant="outline" onClick={editor.startCreate}>
-          <Plus className="size-3" data-icon="inline-start" />
-          New Prompt
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Prompts" description="Reusable text, typed after a slash in the composer.">
+        <SettingsRow label={`${prompts.length} prompt${prompts.length !== 1 ? 's' : ''}`}>
+          <Button variant="outline" onClick={editor.startCreate}>
+            <Plus data-icon="inline-start" />
+            New prompt
+          </Button>
+        </SettingsRow>
+        {prompts.map((prompt) => (
+          <SettingsRow
+            key={prompt.name}
+            label={<span className="font-mono text-xs">{prompt.name}</span>}
+            description={prompt.description || undefined}
+            onClick={() => editor.startEdit(prompt)}
+          >
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              onClick={() => setDeleteTarget(prompt.name)}
+              aria-label={`Delete prompt ${prompt.name}`}
+              title="Delete prompt"
+            >
+              <Trash2 />
+            </Button>
+          </SettingsRow>
+        ))}
+      </SettingsGroup>
 
-      {error && <SettingsError>{error}</SettingsError>}
-
-      {prompts.length === 0 ? (
-        <SettingsEmpty>No prompts yet. Add one to reuse text in the composer.</SettingsEmpty>
-      ) : (
-        <div className="space-y-1.5">
-          {prompts.map((prompt) => (
-            <SettingsListRow
-              key={prompt.name}
-              title={prompt.name}
-              description={prompt.description}
-              onOpen={() => editor.startEdit(prompt)}
-              actions={(
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  onClick={() => setDeleteTarget(prompt.name)}
-                  aria-label={`Delete prompt ${prompt.name}`}
-                  title="Delete prompt"
-                >
-                  <Trash2 className="size-3" />
-                </Button>
-              )}
-            />
-          ))}
-        </div>
-      )}
+      {error && <ErrorState>{error}</ErrorState>}
+      {prompts.length === 0 && <EmptyState variant="plain">No prompts yet. Add one to reuse text in the composer.</EmptyState>}
 
       <ConfirmationDialog
         open={deleteTarget !== null}

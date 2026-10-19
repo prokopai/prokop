@@ -5,9 +5,9 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 /**
- * One setting: label on the left in a fixed column, control on the right,
- * 36px tall. On phones the control drops under the label and fills the
- * width. `stacked` does the same on every size, for a textarea or a grid of
+ * One setting: label and description on the left taking the free space,
+ * control on the right sized to its content, 36px tall. On phones the
+ * control drops under the label and fills the width. `stacked` does the same on every size, for a textarea or a grid of
  * choices. `onClick` turns the row into a button that opens something and
  * ends it with a chevron.
  */
@@ -21,6 +21,8 @@ interface SettingsRowProps {
   stacked?: boolean
   /** Makes the row a button that opens something; the control slot shows a chevron. */
   onClick?: () => void
+  /** With `onClick`: the row toggles content below it; the chevron turns down when open. */
+  expanded?: boolean
   className?: string
   children?: React.ReactNode
 }
@@ -34,6 +36,7 @@ function SettingsRow({
   htmlFor,
   stacked = false,
   onClick,
+  expanded,
   className,
   children,
 }: SettingsRowProps) {
@@ -53,23 +56,31 @@ function SettingsRow({
   )
 
   if (onClick) {
+    // The label is the button and stretches over the whole row; anything in
+    // the control slot (a delete button, a count) sits above it and stays
+    // clickable on its own.
     return (
-      <button
-        type="button"
+      <div
         data-slot="settings-row"
-        onClick={onClick}
         className={cn(
           rowClassName,
-          "w-full text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset sm:grid-cols-[minmax(0,1fr)_auto]",
+          "group/settings-row relative transition-colors hover:bg-muted/50 focus-within:bg-muted/50 sm:grid-cols-[minmax(0,1fr)_auto]",
           className
         )}
       >
-        {labelNode}
-        <span className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={onClick}
+          aria-expanded={expanded}
+          className="min-w-0 text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+        >
+          {labelNode}
+        </button>
+        <span className="relative z-10 flex items-center justify-end gap-1 text-xs text-muted-foreground">
           {children}
-          <ChevronRight className="size-3.5" />
+          <ChevronRight aria-hidden="true" className={cn("size-3.5 shrink-0 transition-transform", expanded && "rotate-90")} />
         </span>
-      </button>
+      </div>
     )
   }
 
@@ -78,7 +89,7 @@ function SettingsRow({
       data-slot="settings-row"
       className={cn(
         rowClassName,
-        !stacked && "sm:grid-cols-[minmax(0,12.5rem)_minmax(0,1fr)]",
+        !stacked && "sm:grid-cols-[minmax(0,1fr)_auto]",
         className
       )}
     >

@@ -68,14 +68,14 @@ test('back leaves an unchanged editor at once and asks before discarding edits',
   await user.click(screen.getByText('Test agent'));
   await user.click(screen.getByRole('button', { name: 'Back to agents' }));
   expect(screen.queryByText('Discard changes?')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /New Agent/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /New agent/ })).toBeInTheDocument();
 
   await user.click(screen.getByText('Test agent'));
   await user.type(screen.getByPlaceholderText('Description...'), 'edited');
   await user.click(screen.getByRole('button', { name: 'Back to agents' }));
   expect(screen.getByText('Discard changes?')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Discard' }));
-  expect(screen.getByRole('button', { name: /New Agent/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /New agent/ })).toBeInTheDocument();
   expect(mocks.update).not.toHaveBeenCalled();
 });
 

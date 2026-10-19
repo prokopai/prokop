@@ -1,8 +1,6 @@
-import { SectionLabel } from '@/components/ui/section-label';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useRecordHotkeys } from 'react-hotkeys-hook';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import {
   bindingFromRecordedKeys,
   findKeybindingConflict,
@@ -53,7 +53,7 @@ export function KeybindsPanel() {
     () => bindingFromRecordedKeys(recordedKeys),
     [recordedKeys],
   );
-  const hasOverrides = Object.keys(overrides).length > 0;
+  const overrideCount = Object.keys(overrides).length;
 
   const clearEscapeTimer = useCallback(() => {
     if (escapeTimerRef.current !== null) {
@@ -152,119 +152,83 @@ export function KeybindsPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-medium">Keyboard shortcuts</h2>
-          <p className="text-sm text-muted-foreground">
-            Change application commands. Navigation inside individual widgets stays fixed.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!hasOverrides}
-          onClick={resetAllBindings}
-        >
-          <RotateCcw data-icon="inline-start" />
-          Reset all
-        </Button>
-      </div>
-
-      <Alert>
-        <AlertTriangle />
-        <AlertTitle>Browser shortcuts can take priority</AlertTitle>
-        <AlertDescription>
-          Some browser and operating-system shortcuts cannot be captured by this page.
-        </AlertDescription>
-      </Alert>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup description="Some browser and operating-system shortcuts cannot be captured by this page. Navigation inside individual widgets stays fixed.">
+        <SettingsRow label="Custom shortcuts" description={overrideCount === 0 ? 'All shortcuts are at their defaults.' : `${overrideCount} changed`}>
+          <Button type="button" variant="outline" disabled={overrideCount === 0} onClick={resetAllBindings}>
+            <RotateCcw data-icon="inline-start" />
+            Reset all
+          </Button>
+        </SettingsRow>
+      </SettingsGroup>
 
       {CATEGORIES.map((category) => (
-        <section key={category} className="flex flex-col gap-2" aria-labelledby={`keybindings-${category}`}>
-          <SectionLabel asChild><h3 id={`keybindings-${category}`}>
-            {category}
-          </h3></SectionLabel>
-          {CATEGORY_NOTES[category] && (
-            <p className="text-xs text-muted-foreground">{CATEGORY_NOTES[category]}</p>
-          )}
-          <div className="divide-y rounded-md border">
-            {KEYBINDING_COMMANDS.filter((command) => command.category === category).map((command) => {
-              const binding = resolveKeybinding(command.id, overrides);
-              const customized = Object.prototype.hasOwnProperty.call(overrides, command.id);
-              const isEditing = editingId === command.id;
-              const status = binding === null ? 'Unassigned' : customized ? 'Custom' : 'Default';
+        <SettingsGroup key={category} label={category} description={CATEGORY_NOTES[category]} aria-label={`${category} shortcuts`}>
+          {KEYBINDING_COMMANDS.filter((command) => command.category === category).map((command) => {
+            const binding = resolveKeybinding(command.id, overrides);
+            const customized = Object.prototype.hasOwnProperty.call(overrides, command.id);
+            const isEditing = editingId === command.id;
 
-              return (
-                <div
-                  key={command.id}
-                  className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{command.label}</span>
-                      <Badge variant={customized ? 'secondary' : 'outline'}>{status}</Badge>
-                    </div>
-                    <div className="mt-1 min-h-7">
-                      {isEditing ? (
-                        <span role="status" aria-live="polite" className="text-sm text-muted-foreground">
-                          {escapePending
-                            ? 'Press Escape again for a sequence'
-                            : 'Press a shortcut. Use Cancel to stop recording.'}
-                        </span>
-                      ) : binding ? (
-                        <kbd className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                          {formatKeybinding(binding)}
-                        </kbd>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">No shortcut</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {isEditing ? (
+            return (
+              <SettingsRow key={command.id} label={<span className="flex items-center gap-2">{command.label}{customized && <Badge variant="secondary">Custom</Badge>}</span>}>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  {isEditing ? (
+                    <>
+                      <span role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                        {escapePending
+                          ? 'Press Escape again for a sequence'
+                          : 'Press a shortcut. Use Cancel to stop recording.'}
+                      </span>
                       <Button type="button" variant="outline" size="xs" onClick={cancelRecording}>
                         Cancel
                       </Button>
-                    ) : (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="xs"
-                          onClick={() => startRecording(command.id)}
-                          aria-label={`Change ${command.label}`}
-                        >
-                          Change
-                        </Button>
+                    </>
+                  ) : (
+                    <>
+                      {binding ? (
+                        <kbd className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs">
+                          {formatKeybinding(binding)}
+                        </kbd>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No shortcut</span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => startRecording(command.id)}
+                        aria-label={`Change ${command.label}`}
+                      >
+                        Change
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={binding === null}
+                        onClick={() => unsetBinding(command.id)}
+                        aria-label={`Unset ${command.label}`}
+                      >
+                        Unset
+                      </Button>
+                      {customized && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="xs"
-                          disabled={binding === null}
-                          onClick={() => unsetBinding(command.id)}
-                          aria-label={`Unset ${command.label}`}
+                          onClick={() => resetBinding(command.id)}
+                          aria-label={`Reset ${command.label}`}
                         >
-                          Unset
+                          Reset
                         </Button>
-                        {customized && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => resetBinding(command.id)}
-                            aria-label={`Reset ${command.label}`}
-                          >
-                            Reset
-                          </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                      )}
+                    </>
+                  )}
+                </span>
+              </SettingsRow>
+            );
+          })}
+        </SettingsGroup>
       ))}
 
       <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>

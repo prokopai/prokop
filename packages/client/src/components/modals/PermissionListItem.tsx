@@ -2,6 +2,7 @@ import { Trash2, Shield, Eye, Pencil, Trash, Globe, Terminal } from 'lucide-reac
 import type { PermissionGrant } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SettingsRow } from '@/components/ui/settings-row';
 
 // Static component to satisfy react-hooks/static-components rule
 function ActionIconDisplay({ action }: { action?: string }) {
@@ -49,8 +50,6 @@ function getActionLabel(action?: string): string | null {
   }
 }
 
-
-
 function getResourceLabel(resource: string): string {
   switch (resource) {
     case 'file': return 'File';
@@ -71,6 +70,7 @@ function formatPatternDisplay(patterns: string[]): string {
   }).join(', ');
 }
 
+/** One saved permission as a settings row: what it allows on the left, revoke on the right. */
 export function PermissionListItem({
   permission,
   onRevoke,
@@ -81,48 +81,40 @@ export function PermissionListItem({
   const patternDisplay = formatPatternDisplay(permission.patterns);
 
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/50 last:border-0 min-w-0">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
+    <SettingsRow
+      label={
+        <span className="flex flex-wrap items-center gap-1.5">
           <Badge variant={isRevoked ? 'outline' : 'secondary'}>
             <ActionIconDisplay action={permission.action} />
             {actionLabel ? `${resourceLabel} ${actionLabel}` : resourceLabel}
           </Badge>
-          <Badge variant="outline" className="text-xs">
-            {permission.toolName}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {formatScope(permission.scope)}
-          </Badge>
+          <Badge variant="outline">{permission.toolName}</Badge>
+          <Badge variant="outline">{formatScope(permission.scope)}</Badge>
           {permission.matcher !== 'exact' && (
-            <Badge variant="outline" className="text-xs text-muted-foreground">
-              {permission.matcher}
-            </Badge>
+            <Badge variant="outline" className="text-muted-foreground">{permission.matcher}</Badge>
           )}
-          {isRevoked && (
-            <Badge variant="outline" className="text-muted-foreground">
-              Revoked
-            </Badge>
-          )}
-        </div>
-        <p className="text-sm font-mono break-all text-muted-foreground">
-          {patternDisplay}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Saved {formatDate(permission.grantedAt)}
-          {permission.revokedAt && ` • Revoked ${formatDate(permission.revokedAt)}`}
-        </p>
-      </div>
+          {isRevoked && <Badge variant="outline" className="text-muted-foreground">Revoked</Badge>}
+        </span>
+      }
+      description={
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="break-all font-mono">{patternDisplay}</span>
+          <span>Saved {formatDate(permission.grantedAt)}{permission.revokedAt && ` · Revoked ${formatDate(permission.revokedAt)}`}</span>
+        </span>
+      }
+    >
       {!isRevoked && (
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
+          aria-label="Revoke permission"
+          title="Revoke"
           onClick={() => onRevoke(permission.id)}
-          className="size-8 text-destructive hover:text-destructive"
+          className="text-destructive hover:text-destructive"
         >
-          <Trash2 className="size-4" />
+          <Trash2 />
         </Button>
       )}
-    </div>
+    </SettingsRow>
   );
 }

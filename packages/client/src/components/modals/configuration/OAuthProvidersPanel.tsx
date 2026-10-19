@@ -6,12 +6,14 @@ import type { ProkopaiClient, ProviderAccountStatus } from '@prokopai/sdk';
 import { useProvidersQuery, useConnectProvider, useDisconnectProvider, useCompleteOAuth, useProviderAccountMutation } from '@/hooks/queries';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { SettingsEmpty, SettingsError, SettingsLoading } from './SettingsPrimitives';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 
 interface PanelProps {
   sdkClient: ProkopaiClient | null;
   embedded?: boolean;
-  /** Render only this provider's entry (used by provider cards). */
+  /** Render only this provider's rows (used by provider cards). */
   provider?: string;
 }
 
@@ -28,6 +30,10 @@ function connectionIds(provider?: ProviderAccountStatus): string[] {
     ?? (provider?.connectedAt ? [provider.connectedAt] : []);
 }
 
+/**
+ * Subscription providers connected through OAuth. With `provider`, the rows
+ * for that provider inside its group; otherwise a group per provider.
+ */
 export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: filter }: PanelProps) {
   const { data: providersData, isLoading: loading, isFetching, refetch } = useProvidersQuery(sdkClient);
   const connectMut = useConnectProvider(sdkClient);
@@ -58,21 +64,15 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
     try {
       const data = await connectMut.mutateAsync({ providerId });
       if (data.authorizationUrl && data.flowId) {
-        const pending: PendingAuth = {
+        setPendingAuth({
           providerId,
           flowId: data.flowId,
           redirectUri: data.redirectUri || '',
           authorizationUrl: data.authorizationUrl,
           previousConnections,
-        };
-        setPendingAuth(pending);
-
-        // Start a localhost listener to capture the redirect
-        if (data.redirectStrategy === 'client_redirect' || !data.redirectStrategy) {
-          startLocalhostListener(pending, data.redirectUri || '');
-        }
-
-        // Open the authorization URL in a new tab
+        });
+        // The browser cannot listen on localhost for the redirect, so the
+        // flow completes by pasting the redirect URL below.
         window.open(data.authorizationUrl, '_blank');
       }
     } catch (err) {
@@ -81,21 +81,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
       setConnectingId(null);
     }
   }, [connectMut, providers]);
-
-  const startLocalhostListener = useCallback((pending: PendingAuth, redirectUri: string) => {
-    try {
-      const url = new URL(redirectUri);
-      const port = parseInt(url.port, 10);
-      if (!port || isNaN(port)) return;
-
-      // We can't start a real HTTP server in the browser.
-      // The localhost listener only works in Electron / native environments.
-      // For web browsers, the user will need to use manual paste.
-      // This is a no-op for SPA — the fallback is manual paste.
-    } catch {
-      // Invalid redirect URI, fall through to manual paste
-    }
-  }, []);
 
   const handlePasteSubmit = useCallback(async () => {
     if (!pendingAuth || !pasteUrl.trim()) return;
@@ -106,20 +91,18 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
       let code: string;
       let state: string;
 
-      // Parse the pasted URL — could be full URL, query string, or just the code
+      // The paste can be the full URL, a query string, or just the code.
       const trimmed = pasteUrl.trim();
       try {
         const parsed = new URL(trimmed);
         code = parsed.searchParams.get('code') || '';
         state = parsed.searchParams.get('state') || '';
       } catch {
-        // Maybe it's a query string like ?code=...&state=...
         if (trimmed.includes('code=')) {
           const params = new URLSearchParams(trimmed.startsWith('?') ? trimmed : `?${trimmed}`);
           code = params.get('code') || '';
           state = params.get('state') || '';
         } else {
-          // Bare code value
           code = trimmed;
           state = '';
         }
@@ -208,228 +191,187 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
   }
 
   if (loading) {
-    return <SettingsLoading />;
+    return <LoadingState />;
+  }
+
+  const rowsFor = (provider: ProviderAccountStatus) => {
+    const indent = filter ? 'pl-6' : undefined;
+    const connecting = connectingId === provider.provider;
+    const pending = pendingAuth?.providerId === provider.provider;
+    return (
+      <>
+        {!filter && (
+          <SettingsRow
+            label={provider.displayName || provider.provider}
+            description={provider.connected && provider.connectedAt ? `Connected ${new Date(provider.connectedAt).toLocaleDateString()}` : undefined}
+          >
+            {provider.reauthRequired ? (
+              <span className="text-xs text-warning">Reauthentication required</span>
+            ) : provider.connected ? (
+              <span className="text-xs text-muted-foreground">Connected</span>
+            ) : null}
+          </SettingsRow>
+        )}
+
+        {provider.error && (
+          <SettingsRow className={indent} label={<span className={`text-xs ${provider.reauthRequired ? 'text-warning' : 'text-error'}`}>{provider.error}</span>} />
+        )}
+
+        {provider.accounts && (
+          <SettingsRow
+            className={indent}
+            label="Account"
+            description={provider.accounts.length > 0 ? 'Used for new Codex runs on this server. Switch before sending your next message.' : undefined}
+          >
+            <span className="flex flex-wrap items-center justify-end gap-1">
+              {provider.accounts.length > 0 && (
+                <Select
+                  value={provider.activeAccountId ?? ''}
+                  onValueChange={id => void handleAccountAction(provider.provider, id, 'activate')}
+                  disabled={!sdkClient || accountsMut.isPending}
+                >
+                  <SelectTrigger aria-label="Active Codex account" className="w-full min-w-0 sm:w-auto sm:max-w-72">
+                    <SelectValue placeholder="Select an account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {provider.accounts.map((account, index) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.label}
+                          {provider.accounts!.filter(a => a.label === account.label).length > 1 ? ` (${index + 1})` : ''}
+                          {account.reauthRequired ? ' (reconnect)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+              <Button variant="outline"
+                onClick={() => handleConnect(provider.provider)}
+                disabled={!sdkClient || connectingId !== null || pendingAuth !== null || accountsMut.isPending}
+              >
+                {connecting && <Loader2 className="animate-spin" data-icon="inline-start" />}
+                {provider.reauthRequired ? 'Reconnect account' : 'Add account'}
+              </Button>
+              {provider.activeAccountId && (
+                <Button variant="ghost"
+                  onClick={() => void handleAccountAction(provider.provider, provider.activeAccountId!, 'remove')}
+                  disabled={!sdkClient || accountsMut.isPending || pendingAuth !== null}
+                  aria-label="Remove active Codex account"
+                >
+                  Remove
+                </Button>
+              )}
+            </span>
+          </SettingsRow>
+        )}
+
+        {!provider.accounts && !pending && (
+          <SettingsRow className={indent} label="Connection" description="Signs in with the subscription in a new tab.">
+            <span className="flex items-center gap-1">
+              {!provider.connected && !provider.reauthRequired && (
+                <Button variant="outline" onClick={() => handleConnect(provider.provider)} disabled={connecting}>
+                  {connecting && <Loader2 className="animate-spin" data-icon="inline-start" />}
+                  Connect
+                </Button>
+              )}
+              {provider.reauthRequired && (
+                <>
+                  <Button variant="outline" onClick={() => handleConnect(provider.provider)} disabled={connecting}>
+                    {connecting ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+                    Reconnect
+                  </Button>
+                  <Button variant="ghost" onClick={() => handleDisconnect(provider.provider)}>
+                    <Unplug data-icon="inline-start" />
+                    Disconnect
+                  </Button>
+                </>
+              )}
+              {provider.connected && (
+                <Button variant="destructive" onClick={() => handleDisconnect(provider.provider)}>
+                  <Unplug data-icon="inline-start" />
+                  Disconnect
+                </Button>
+              )}
+            </span>
+          </SettingsRow>
+        )}
+
+        {pending && pendingAuth && (
+          <>
+            <SettingsRow
+              className={indent}
+              label="Sign in"
+              description="Open this URL to authenticate. To add a different account, use a private window or switch accounts on the sign-in page."
+              stacked
+            >
+              <div className="flex w-full flex-col gap-2">
+                <a
+                  href={pendingAuth.authorizationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs underline underline-offset-4"
+                >
+                  {pendingAuth.authorizationUrl}
+                </a>
+                <span className="flex items-center gap-1">
+                  <Button variant="outline" size="xs" onClick={handleCopyAuthUrl}>
+                    {copiedAuth ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
+                    {copiedAuth ? 'Copied' : 'Copy URL'}
+                  </Button>
+                  <Button variant="ghost" size="xs" disabled={completing} onClick={() => { setPendingAuth(null); setPasteUrl(''); }}>
+                    Cancel
+                  </Button>
+                </span>
+              </div>
+            </SettingsRow>
+            <SettingsRow className={indent} label="Redirect URL" description="After authenticating, paste the URL the browser lands on." htmlFor={`oauth-redirect-${provider.provider}`}>
+              <span className="flex w-full items-center gap-1 sm:w-auto">
+                <Input
+                  id={`oauth-redirect-${provider.provider}`}
+                  type="text"
+                  value={pasteUrl}
+                  onChange={(e) => setPasteUrl(e.target.value)}
+                  placeholder="http://localhost:1455/oauth/…/callback?code=…"
+                  className="font-mono text-xs sm:w-72 md:text-xs"
+                />
+                <Button onClick={handlePasteSubmit} disabled={!pasteUrl.trim() || completing}>
+                  {completing ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ClipboardPaste data-icon="inline-start" />}
+                  Submit
+                </Button>
+              </span>
+            </SettingsRow>
+          </>
+        )}
+      </>
+    );
+  };
+
+  if (filter) {
+    return <>
+      {providers.map((provider) => <div key={provider.provider} className="contents">{rowsFor(provider)}</div>)}
+      {error && <SettingsRow className="pl-6" label={<span className="text-xs text-error">{error}</span>} />}
+    </>;
   }
 
   return (
-    <div className={embedded ? 'space-y-4' : 'p-3 sm:p-4 space-y-4'}>
-      {!filter && (
-        <div className={`flex items-center gap-2 ${embedded ? 'justify-end' : 'justify-between'}`}>
-          {!embedded && (
-            <p className="text-sm text-muted-foreground">
-              Connect subscription-based providers using OAuth. No API keys needed.
-            </p>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isFetching}
-          >
+    <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4 p-3 sm:p-4'}>
+      <SettingsGroup description="Subscription providers sign in with OAuth. No API keys needed.">
+        <SettingsRow label="Accounts">
+          <Button variant="outline" onClick={handleRefresh} disabled={isFetching}>
             <RefreshCw className={isFetching ? 'animate-spin' : ''} data-icon="inline-start" />
             Refresh
           </Button>
-        </div>
-      )}
+        </SettingsRow>
+      </SettingsGroup>
 
-      {error && (
-        <SettingsError>{error}</SettingsError>
-      )}
+      {error && <ErrorState>{error}</ErrorState>}
 
       {providers.length === 0 ? (
-        <SettingsEmpty>No OAuth providers available.</SettingsEmpty>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {providers.map((provider) => (
-            <div key={provider.provider} className={filter ? 'space-y-2' : 'rounded-lg border p-3 sm:p-4 space-y-3'}>
-              {/* Embedded in a provider card: the card header already carries
-                  the provider name and connected status, so the entry renders
-                  its controls directly. */}
-              {!filter && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`size-2 rounded-full ${provider.reauthRequired ? 'bg-warning' : provider.connected ? 'bg-success' : 'bg-muted-foreground'}`} />
-                    <span className="text-sm font-medium">
-                      {provider.displayName || provider.provider}
-                    </span>
-                  </div>
-                  {provider.reauthRequired ? (
-                    <span className="text-xs text-warning">Reauthentication required</span>
-                  ) : provider.connected ? (
-                    <span className="text-xs text-muted-foreground">Connected</span>
-                  ) : null}
-                </div>
-              )}
-
-              {provider.error && (
-                <p className={`text-xs ${provider.reauthRequired ? 'text-warning' : 'text-error'}`}>
-                  {provider.error}
-                </p>
-              )}
-
-              {!filter && provider.connected && provider.connectedAt && (
-                <p className="text-xs text-muted-foreground">
-                  Connected {new Date(provider.connectedAt).toLocaleDateString()}
-                </p>
-              )}
-
-              {provider.accounts && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {provider.accounts.length > 0 && (
-                      <Select
-                        value={provider.activeAccountId ?? ''}
-                        onValueChange={id => void handleAccountAction(provider.provider, id, 'activate')}
-                        disabled={!sdkClient || accountsMut.isPending}
-                      >
-                        <SelectTrigger size="sm" aria-label="Active Codex account" className="w-full min-w-0 sm:w-auto sm:max-w-80">
-                          <SelectValue placeholder="Select an account" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {provider.accounts.map((account, index) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.label}
-                                {provider.accounts!.filter(a => a.label === account.label).length > 1 ? ` (${index + 1})` : ''}
-                                {account.reauthRequired ? ' (reconnect)' : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Button variant="ghost"
-                      onClick={() => handleConnect(provider.provider)}
-                      disabled={!sdkClient || connectingId !== null || pendingAuth !== null || accountsMut.isPending}
-                    >
-                      {connectingId === provider.provider && <Loader2 className="animate-spin" data-icon="inline-start" />}
-                      {provider.reauthRequired ? 'Reconnect account' : 'Add account'}
-                    </Button>
-                    {provider.activeAccountId && (
-                      <Button variant="ghost"
-                        onClick={() => void handleAccountAction(provider.provider, provider.activeAccountId!, 'remove')}
-                        disabled={!sdkClient || accountsMut.isPending || pendingAuth !== null}
-                        aria-label="Remove active Codex account"
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                  {provider.accounts.length > 0 && (
-                    <p className="text-xs text-muted-foreground">Used for new Codex runs on this server. Switch before sending your next message.</p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                {!provider.accounts && !provider.connected && !provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
-                  <Button variant="outline"
-                    onClick={() => handleConnect(provider.provider)}
-                    disabled={connectingId === provider.provider}
-                  >
-                    {connectingId === provider.provider ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : null}
-                    Connect
-                  </Button>
-                )}
-
-                {!provider.accounts && provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
-                  <>
-                    <Button variant="outline"
-                      onClick={() => handleConnect(provider.provider)}
-                      disabled={connectingId === provider.provider}
-                    >
-                      {connectingId === provider.provider ? (
-                        <Loader2 className="size-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="size-3" />
-                      )}
-                      Reconnect
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDisconnect(provider.provider)}
-                    >
-                      <Unplug className="size-3" />
-                      <span className="hidden sm:inline">Disconnect</span>
-                    </Button>
-                  </>
-                )}
-
-                {!provider.accounts && provider.connected && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDisconnect(provider.provider)}
-                  >
-                    <Unplug className="size-3" />
-                    <span className="hidden sm:inline">Disconnect</span>
-                  </Button>
-                )}
-              </div>
-
-              {pendingAuth?.providerId === provider.provider && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Open this URL in your browser to authenticate. To add a different account, use a private window or switch accounts on the sign-in page:
-                    </p>
-                    <div className="rounded-md bg-muted p-2">
-                      <a
-                        href={pendingAuth.authorizationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="break-all font-mono text-xs underline underline-offset-4"
-                      >
-                        {pendingAuth.authorizationUrl}
-                      </a>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={handleCopyAuthUrl}
-                    >
-                      {copiedAuth ? (
-                        <Check className="size-3" />
-                      ) : (
-                        <Copy className="size-3" />
-                      )}
-                      {copiedAuth ? 'Copied' : 'Copy URL'}
-                    </Button>
-                    <Button variant="ghost" disabled={completing} onClick={() => { setPendingAuth(null); setPasteUrl(''); }}>
-                      Cancel
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-3 space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      After authenticating, paste the redirect URL from your browser:
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        type="text"
-                        value={pasteUrl}
-                        onChange={(e) => setPasteUrl(e.target.value)}
-                        placeholder="http://localhost:1455/oauth/.../callback?code=...&state=..."
-                        className="h-7 flex-1 font-mono text-xs md:text-xs"
-                      />
-                      <Button
-                        onClick={handlePasteSubmit}
-                        disabled={!pasteUrl.trim() || completing}
-                      >
-                        {completing ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : (
-                          <ClipboardPaste className="size-3" />
-                        )}
-                        Submit
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+        <EmptyState variant="plain">No OAuth providers available.</EmptyState>
+      ) : providers.map((provider) => (
+        <SettingsGroup key={provider.provider}>{rowsFor(provider)}</SettingsGroup>
+      ))}
     </div>
   );
 }

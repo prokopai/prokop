@@ -1,7 +1,8 @@
 import { Suspense, lazy } from 'react';
 import type { ProkopaiClient, Workspace, WorkspaceSettings } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { getSessionTagOrder, type SessionTagOrder } from '@/lib/sessionTagOrder';
 import { learningValidationError } from '@/lib/learningValidation';
 import { useServerDataStore } from '@/stores/serverDataStore';
@@ -88,15 +89,16 @@ export function WorkspaceSettingsEditor({ section, workspace, sdkClient, draft, 
         {activeSection === 'permissions' && <PermissionsPanel mode={workspace.settings?.permissionMode ?? 'standard'}
           onModeChange={permissionMode => onSavePermissionMode({ ...workspace.settings, permissionMode })}
           permissions={permissions} onRefreshPermissions={refresh} onRevokePermission={revoke} onRevokeAllPermissions={revokeAll} />}
-        {activeSection === 'learning' && <div className="flex flex-col gap-3 p-3 sm:p-4">
-          <MemorySkillsControls scope="workspace" memoryEnabled={draft.memory.enabled} skillsEnabled={draft.skills.enabled}
-            onChangeMemory={enabled => setDraft({ memory: { enabled } })}
-            onChangeSkills={enabled => setDraft({ skills: { enabled } })} />
-          <Separator />
+        {activeSection === 'learning' && <div className="flex flex-col gap-4 p-3 sm:p-4">
+          <SettingsGroup label="Capabilities">
+            <MemorySkillsControls scope="workspace" memoryEnabled={draft.memory.enabled} skillsEnabled={draft.skills.enabled}
+              onChangeMemory={enabled => setDraft({ memory: { enabled } })}
+              onChangeSkills={enabled => setDraft({ skills: { enabled } })} />
+          </SettingsGroup>
           {isAgentHome ? (
-            <p className="text-xs text-muted-foreground">
-              Configure this agent's personal learning in Agents under Memory &amp; Learning.
-            </p>
+            <SettingsGroup label="Learning">
+              <SettingsRow label="Personal learning" description="Configure this agent's personal learning in Agents under Memory & Learning." />
+            </SettingsGroup>
           ) : <LearningPanel workspace={workspace} preconfigs={allPreconfigs}
           value={draft.learning} allowPersonalLearning={draft.allowPersonalLearning}
           onPersonalLearningChange={allowPersonalLearning => setDraft({ allowPersonalLearning })}
@@ -107,7 +109,7 @@ export function WorkspaceSettingsEditor({ section, workspace, sdkClient, draft, 
         </div>}
       </Suspense>
       {(isDirty || ['general', 'learning'].includes(activeSection)) && (
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t bg-background p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
           {learningError && <p role="alert" className="mr-auto text-xs text-error">{learningError}</p>}
           {isDirty && <Button variant="ghost" onClick={onDiscard} disabled={isSaving}>Discard changes</Button>}
           <Button onClick={save} disabled={!sdkClient || isSaving || !isDirty || Boolean(learningError)}>

@@ -1,3 +1,4 @@
+import { SettingsGroup } from '@/components/ui/settings-group';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ProviderCard } from './ProviderCard';
 import { createFakeSdkClient } from '../../../../../.storybook/harness';
@@ -15,7 +16,7 @@ const meta = {
   component: ProviderCard,
   parameters: { layout: 'padded' },
   args: { sdkClient: createFakeSdkClient(), provider: anthropic, defaultProvider: config.defaultProvider, defaultModel: config.defaultModel, credential: { provider: anthropic.id, configured: true } },
-  decorators: [(Story) => <div className="w-[36rem]"><Story /></div>],
+  decorators: [(Story) => <div className="w-[36rem]"><SettingsGroup label="Providers"><Story /></SettingsGroup></div>],
 } satisfies Meta<typeof ProviderCard>;
 
 export default meta;

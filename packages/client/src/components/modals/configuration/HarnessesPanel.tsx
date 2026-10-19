@@ -1,9 +1,11 @@
 import type { ProkopaiClient, SessionHarness } from '@prokopai/sdk';
 import { useHarnessesQuery, useSetHarnessEnabled, isHarnessEnabled } from '@/hooks/queries';
 import { Badge } from '@/components/ui/badge';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
 import { AnthropicMark, OpenAIMark, ProkopMark } from '@/components/branding/BrandMarks';
-import { SettingsLoading } from './SettingsPrimitives';
+import { LoadingState } from '@/components/shared/States';
 
 interface HarnessesPanelProps {
   sdkClient: ProkopaiClient | null;
@@ -21,62 +23,44 @@ export function HarnessesPanel({ sdkClient }: HarnessesPanelProps) {
   const harnesses = data?.harnesses;
 
   if (isLoading) {
-    return <SettingsLoading />;
+    return <LoadingState />;
   }
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        External harnesses run through their own CLI on this host. Disabling one hides it from new
-        sessions and scheduled jobs; existing sessions keep running.
-      </p>
-
-      <div className="space-y-2">
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup
+        label="Harnesses"
+        description="External harnesses run through their own CLI on this host. Disabling one hides it from new sessions and scheduled jobs; existing sessions keep running."
+      >
         {(harnesses ?? []).map((harness) => {
           const meta = HARNESS_META[harness.id];
           if (!meta) return null;
           const enabled = isHarnessEnabled(harness);
+          const badge = !meta.external ? <Badge variant="outline">Built-in</Badge>
+            : !harness.available ? <Badge variant="outline">Not installed</Badge>
+              : harness.version ? <Badge variant="secondary">CLI {harness.version}</Badge> : null;
+          const description = !meta.external ? 'The built-in runtime with providers, tools, and learning.'
+            : !harness.available ? `Install the CLI on this host to use ${meta.name} sessions.` : undefined;
           return (
-            <div key={harness.id} className="flex items-center gap-3 p-2.5 rounded-lg border">
-              <meta.Mark className="size-5 shrink-0 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{meta.name}</span>
-                  {meta.external ? (
-                    harness.available ? (
-                      harness.version && (
-                        <Badge variant="secondary" className="text-2xs px-1.5 py-0 h-5">CLI {harness.version}</Badge>
-                      )
-                    ) : (
-                      <Badge variant="outline" className="text-2xs px-1.5 py-0 h-5 text-muted-foreground">Not installed</Badge>
-                    )
-                  ) : (
-                    <Badge variant="outline" className="text-2xs px-1.5 py-0 h-5 text-muted-foreground">Built-in</Badge>
-                  )}
-                </div>
-                {!meta.external && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    The built-in runtime with providers, tools, and learning.
-                  </p>
-                )}
-                {meta.external && !harness.available && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Install the CLI on this host to use {meta.name} sessions.
-                  </p>
-                )}
-              </div>
+            <SettingsRow
+              key={harness.id}
+              htmlFor={meta.external ? `harness-${harness.id}` : undefined}
+              label={<span className="flex items-center gap-2"><meta.Mark className="size-3.5 shrink-0 text-muted-foreground" />{meta.name}{badge}</span>}
+              description={description}
+            >
               {meta.external && (
                 <Switch
+                  id={`harness-${harness.id}`}
                   aria-label={`Enable ${meta.name}`}
                   checked={enabled}
                   disabled={setEnabled.isPending}
                   onCheckedChange={(checked) => setEnabled.mutate({ harness: harness.id, enabled: checked })}
                 />
               )}
-            </div>
+            </SettingsRow>
           );
         })}
-      </div>
+      </SettingsGroup>
     </div>
   );
 }

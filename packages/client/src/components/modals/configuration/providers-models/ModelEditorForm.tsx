@@ -1,21 +1,13 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProkopaiClient, ModelWithStatus } from '@prokopai/sdk';
 import { useCreateModel, useUpdateModel } from '@/hooks/queries';
-import {
-  Plus,
-  Trash2,
-  Loader2,
-  Check,
-  X,
-} from 'lucide-react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SettingsError } from '../SettingsPrimitives';
 
 interface ModelFormData {
   id: string;
@@ -86,8 +78,12 @@ interface ModelEditorFormProps {
   onDone: () => void;
 }
 
-/** Create/edit form for one model, extracted from the old ModelsPanel. */
+/**
+ * Create or edit one model: rows inside the provider's group, with Cancel and
+ * Save in the last row.
+ */
 export function ModelEditorForm({ sdkClient, providerId, providerName, model, onDone }: ModelEditorFormProps) {
+  const id = useId();
   const createModelMut = useCreateModel(sdkClient);
   const updateModelMut = useUpdateModel(sdkClient);
   const [form, setForm] = useState<ModelFormData>(model ? {
@@ -186,183 +182,140 @@ export function ModelEditorForm({ sdkClient, providerId, providerName, model, on
     }
   };
 
+  const capability = (field: 'text' | 'image' | 'video', label: string) => (
+    <SettingsRow className="pl-6" label={label} htmlFor={`${id}-${field}`}>
+      <Switch
+        id={`${id}-${field}`}
+        checked={form.capabilities?.input?.[field] ?? false}
+        onCheckedChange={(checked) => setForm(prev => updateCapabilities(prev, field, checked))}
+      />
+    </SettingsRow>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
-          {model ? `Edit: ${model.name}` : `New Model (${providerName || providerId})`}
-        </h3>
-        <div className="flex items-center gap-2">
+    <>
+      <SettingsRow label={<span className="font-medium">{model ? `Edit ${model.name}` : `New model for ${providerName || providerId}`}</span>} />
+      <SettingsRow className="pl-6" label="Model ID" htmlFor={`${id}-id`} description={model ? 'The ID cannot be changed.' : undefined}>
+        <Input
+          id={`${id}-id`}
+          value={form.id}
+          onChange={(e) => setForm(prev => ({ ...prev, id: e.target.value }))}
+          disabled={!!model}
+          placeholder="e.g., glm-5.3"
+          className="font-mono sm:w-64"
+        />
+      </SettingsRow>
+      <SettingsRow className="pl-6" label="Display name" htmlFor={`${id}-name`}>
+        <Input
+          id={`${id}-name`}
+          value={form.name}
+          onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g., GLM-5.3"
+          className="sm:w-64"
+        />
+      </SettingsRow>
+      <SettingsRow className="pl-6" label="Context window" htmlFor={`${id}-context`}>
+        <Input
+          id={`${id}-context`}
+          type="number"
+          value={form.contextWindow}
+          onChange={(e) => setForm(prev => ({ ...prev, contextWindow: parseInt(e.target.value) || 0 }))}
+          min={1}
+          className="w-32"
+        />
+      </SettingsRow>
+      <SettingsRow className="pl-6" label="Max output tokens" htmlFor={`${id}-max`}>
+        <Input
+          id={`${id}-max`}
+          type="number"
+          value={form.maxOutputTokens ?? ''}
+          onChange={(e) => setForm(prev => ({
+            ...prev,
+            maxOutputTokens: e.target.value ? parseInt(e.target.value) : undefined,
+          }))}
+          min={1}
+          placeholder="Optional"
+          className="w-32"
+        />
+      </SettingsRow>
+      {capability('text', 'Text input')}
+      {capability('image', 'Image input')}
+      {capability('video', 'Video input')}
+      <SettingsRow className="pl-6" label="File types" description="MIME types, comma separated." htmlFor={`${id}-files`}>
+        <Input
+          id={`${id}-files`}
+          value={form.capabilities?.input?.file?.join(', ') ?? ''}
+          onChange={(e) => setForm(prev => updateFileTypes(prev, e.target.value))}
+          placeholder="application/pdf, text/csv"
+          className="font-mono text-xs sm:w-64"
+        />
+      </SettingsRow>
+      <SettingsRow className="pl-6" label="Structured output" description="Prompt-based for providers that strip JSON schema (GLM, MiniMax). Native works for OpenAI-compatible APIs.">
+        <Select
+          value={form.capabilities?.structuredOutput?.mode ?? 'none'}
+          onValueChange={(mode) => setForm(prev => updateStructuredOutputMode(prev, mode as 'native' | 'prompt' | 'none'))}
+        >
+          <SelectTrigger aria-label="Structured Output">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="none">Default (native)</SelectItem>
+              <SelectItem value="native">Native (json_schema)</SelectItem>
+              <SelectItem value="prompt">Prompt-based (schema in system prompt)</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow className="pl-6" label="Variants" description={form.variants && Object.keys(form.variants).length > 0 ? undefined : 'No variants configured.'}>
+        <Button type="button" variant="outline" size="xs" onClick={addVariant}>
+          <Plus data-icon="inline-start" />
+          Add variant
+        </Button>
+      </SettingsRow>
+      {form.variants && Object.entries(form.variants).map(([key, variant]) => (
+        <SettingsRow key={key} className="pl-6" stacked label={
+          <span className="flex items-center gap-2">
+            <Input
+              value={key}
+              onChange={(e) => renameVariant(key, e.target.value)}
+              placeholder="variant name"
+              aria-label="Variant name"
+              className="h-6 w-32 font-mono text-xs"
+            />
+            <Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove variant ${key}`} onClick={() => removeVariant(key)}>
+              <Trash2 />
+            </Button>
+          </span>
+        }>
+          <div className="flex w-full flex-col gap-1">
+            <Textarea
+              value={JSON.stringify(variant.providerOptions, null, 2)}
+              onChange={(e) => updateVariantJson(key, e.target.value)}
+              placeholder="{}"
+              aria-label={`Provider options for ${key}`}
+              className="min-h-16 font-mono text-xs"
+              rows={3}
+            />
+            {variantJsonErrors[key] && (
+              <p className="text-xs text-error">Invalid JSON</p>
+            )}
+          </div>
+        </SettingsRow>
+      ))}
+      {error && <SettingsRow className="pl-6" label={<span className="text-xs text-error">{error}</span>} />}
+      <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">{model ? 'Changes apply to new sessions.' : 'The model joins this provider in the catalog.'}</span>}>
+        <span className="flex items-center gap-1">
+          <Button variant="ghost" onClick={onDone}>Cancel</Button>
           <Button
             onClick={handleSave}
             disabled={saving || !form.id.trim() || !form.name.trim() || Object.values(variantJsonErrors).some(Boolean)}
           >
-            {saving ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+            {saving && <Loader2 className="animate-spin" data-icon="inline-start" />}
             Save
           </Button>
-          <Button variant="ghost" onClick={onDone}>
-            <X className="size-3" />
-          </Button>
-        </div>
-      </div>
-
-      {error && (
-        <SettingsError>{error}</SettingsError>
-      )}
-
-      <div className="space-y-3">
-        <div>
-          <Label className="text-xs">Model ID</Label>
-          <Input
-            value={form.id}
-            onChange={(e) => setForm(prev => ({ ...prev, id: e.target.value }))}
-            disabled={!!model}
-            placeholder="e.g., glm-5.3"
-            className="mt-1 font-mono"
-          />
-          {model && (
-            <p className="text-xs text-muted-foreground mt-1">ID cannot be changed</p>
-          )}
-        </div>
-        <div>
-          <Label className="text-xs">Display Name</Label>
-          <Input
-            value={form.name}
-            onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="e.g., GLM-5.3"
-            className="mt-1"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Context Window</Label>
-            <Input
-              type="number"
-              value={form.contextWindow}
-              onChange={(e) => setForm(prev => ({ ...prev, contextWindow: parseInt(e.target.value) || 0 }))}
-              min={1}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Max Output Tokens</Label>
-            <Input
-              type="number"
-              value={form.maxOutputTokens ?? ''}
-              onChange={(e) => setForm(prev => ({
-                ...prev,
-                maxOutputTokens: e.target.value ? parseInt(e.target.value) : undefined,
-              }))}
-              min={1}
-              placeholder="Optional"
-              className="mt-1"
-            />
-          </div>
-        </div>
-
-        <Separator className="my-2" />
-
-        <div className="space-y-2">
-          <Label className="text-xs font-medium">Capabilities</Label>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5">
-              <Switch
-                checked={form.capabilities?.input?.text ?? false}
-                onCheckedChange={(checked) => setForm(prev => updateCapabilities(prev, 'text', checked))}
-              />
-              <span className="text-xs">Text</span>
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Switch
-                checked={form.capabilities?.input?.image ?? false}
-                onCheckedChange={(checked) => setForm(prev => updateCapabilities(prev, 'image', checked))}
-              />
-              <span className="text-xs">Image</span>
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Switch
-                checked={form.capabilities?.input?.video ?? false}
-                onCheckedChange={(checked) => setForm(prev => updateCapabilities(prev, 'video', checked))}
-              />
-              <span className="text-xs">Video</span>
-            </label>
-          </div>
-          <div>
-            <Label className="text-xs">File Types (MIME, comma-separated)</Label>
-            <Input
-              value={form.capabilities?.input?.file?.join(', ') ?? ''}
-              onChange={(e) => setForm(prev => updateFileTypes(prev, e.target.value))}
-              placeholder="e.g., application/pdf, text/csv"
-              className="mt-1 font-mono text-xs"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Structured Output</Label>
-            <Select
-              value={form.capabilities?.structuredOutput?.mode ?? 'none'}
-              onValueChange={(mode) => setForm(prev => updateStructuredOutputMode(prev, mode as 'native' | 'prompt' | 'none'))}
-            >
-              <SelectTrigger size="sm" className="mt-1 w-full" aria-label="Structured Output">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="none">Default (native)</SelectItem>
-                  <SelectItem value="native">Native (json_schema)</SelectItem>
-                  <SelectItem value="prompt">Prompt-based (schema in system prompt)</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Use Prompt-based for providers that strip JSON schema (GLM, MiniMax). Native works for OpenAI-compatible APIs.
-            </p>
-          </div>
-        </div>
-
-        <Separator className="my-2" />
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">Variants</Label>
-            <Button type="button" variant="ghost" onClick={addVariant}>
-              <Plus className="size-3" />
-              Add Variant
-            </Button>
-          </div>
-          {form.variants && Object.keys(form.variants).length > 0 ? (
-            <div className="space-y-2">
-              {Object.entries(form.variants).map(([key, variant]) => (
-                <div key={key} className="border rounded-md p-2 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={key}
-                      onChange={(e) => renameVariant(key, e.target.value)}
-                      placeholder="variant name"
-                      className="h-7 text-xs font-mono w-24"
-                    />
-                    <div className="flex-1" />
-                    <Button type="button" size="icon-xs" variant="ghost" onClick={() => removeVariant(key)}>
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={JSON.stringify(variant.providerOptions, null, 2)}
-                    onChange={(e) => updateVariantJson(key, e.target.value)}
-                    placeholder="{}"
-                    className="font-mono text-xs min-h-[60px]"
-                    rows={3}
-                  />
-                  {variantJsonErrors[key] && (
-                    <p className="text-xs text-error">Invalid JSON</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">No variants configured</p>
-          )}
-        </div>
-      </div>
-    </div>
+        </span>
+      </SettingsRow>
+    </>
   );
 }

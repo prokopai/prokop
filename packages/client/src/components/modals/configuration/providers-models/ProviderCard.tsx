@@ -8,11 +8,11 @@ import type {
   ProviderCredentialStatus,
 } from '@prokopai/sdk';
 import { useDeleteModel } from '@/hooks/queries';
-import { Plus, Pencil, Trash2, ChevronRight, Star } from 'lucide-react';
+import { Plus, Pencil, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { cn } from '@/lib/utils';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { ProviderCredentialsPanel } from '../ProviderCredentialsPanel';
 import { OAuthProvidersPanel } from '../OAuthProvidersPanel';
@@ -20,12 +20,12 @@ import { ModelEditorForm } from './ModelEditorForm';
 
 function ModelStatusDot({ status }: { status: ModelRuntimeStatus }) {
   if (status.usable) {
-    return <span className="size-1.5 rounded-full bg-success shrink-0" title="Usable" />;
+    return <span className="size-1.5 shrink-0 rounded-full bg-success" title="Usable" />;
   }
   if (status.providerSupported && !status.providerConfigured) {
-    return <span className="size-1.5 rounded-full bg-warning shrink-0" title="Needs configuration" />;
+    return <span className="size-1.5 shrink-0 rounded-full bg-warning" title="Needs configuration" />;
   }
-  return <span className="size-1.5 rounded-full bg-muted-foreground/40 shrink-0" title="Unsupported" />;
+  return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" title="Unsupported" />;
 }
 
 interface ProviderCardProps {
@@ -38,10 +38,10 @@ interface ProviderCardProps {
 }
 
 /**
- * One provider = one card: connection state and its models live together.
- * Collapsed by default; expanding reveals the credential control, the compact
- * model list, and the add/edit/delete model actions. Providers themselves are
- * read-only catalog entries (models.json or registry sync owns them).
+ * One provider = one header row plus, when expanded, its connection row, a
+ * row per model and the add model row. Lives inside the Providers group.
+ * Providers themselves are read-only catalog entries (models.json or
+ * registry sync owns them).
  */
 export function ProviderCard({
   sdkClient,
@@ -74,6 +74,10 @@ export function ProviderCard({
     ? 'bg-success'
     : status.tone === 'amber' ? 'bg-warning' : 'bg-muted-foreground/40';
   const isDefaultProvider = provider.id === defaultProvider;
+  const open = expanded || editor !== null;
+  const count = provider.models.length > 0
+    ? `${provider.models.length} model${provider.models.length !== 1 ? 's' : ''}`
+    : 'no models';
 
   const handleDeleteModel = async () => {
     if (!deleteModelTarget) return;
@@ -90,103 +94,79 @@ export function ProviderCard({
   };
 
   return (
-    <Collapsible
-      open={expanded || editor !== null}
-      onOpenChange={setExpanded}
-      className={cn('rounded-lg border', status.tone !== 'green' && 'opacity-80')}
-    >
-      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors">
-        <ChevronRight
-          className={cn('size-4 shrink-0 text-muted-foreground transition-transform', (expanded || editor !== null) && 'rotate-90')}
-        />
-        <span className={cn('size-2 rounded-full shrink-0', dotClass)} />
-        <span className="text-sm font-medium truncate min-w-0">{provider.name}</span>
-        <span className="text-xs text-muted-foreground shrink-0">
-          {provider.models.length > 0
-            ? `${provider.models.length} model${provider.models.length !== 1 ? 's' : ''}`
-            : 'no models'}
-        </span>
-        {isDefaultProvider && (
-          <Badge variant="outline" className="text-2xs shrink-0 px-1.5 py-0 h-4 gap-0.5">
-            <Star className="size-2.5" />
-            Default
-          </Badge>
-        )}
-        <span className="ml-auto text-xs text-muted-foreground shrink-0">{status.label}</span>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent>
-        {editor ? (
-          <div className="border-t p-3">
-            <ModelEditorForm
-              sdkClient={sdkClient}
-              providerId={provider.id}
-              providerName={provider.name}
-              model={editor.kind === 'model' ? editor.model : null}
-              onDone={() => setEditor(null)}
-            />
-          </div>
-        ) : (
-          <div className="border-t px-3 py-3 space-y-3">
-            {oauth && <OAuthProvidersPanel sdkClient={sdkClient} provider={provider.id} embedded />}
-            {!oauth && credential && <ProviderCredentialsPanel sdkClient={sdkClient} provider={provider.id} embedded />}
-            {!oauth && !credential && (
-              <p className="text-xs text-muted-foreground">
-                Custom provider. Set its API key in ~/.prokopai/.env to use its models.
-              </p>
+    <>
+      <SettingsRow
+        onClick={() => setExpanded(!expanded)}
+        expanded={open}
+        className={cn(status.tone !== 'green' && 'text-muted-foreground')}
+        label={
+          <span className="flex items-center gap-2">
+            <span className={cn('size-2 shrink-0 rounded-full', dotClass)} />
+            <span className={cn('truncate', status.tone === 'green' && 'text-foreground')}>{provider.name}</span>
+            {isDefaultProvider && (
+              <Badge variant="outline" className="gap-0.5"><Star className="size-2.5" />Default</Badge>
             )}
+          </span>
+        }
+        description={`${count} · ${status.label}`}
+      />
 
-            <div className="space-y-0.5">
-              {provider.models.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-1">
-                  No models in the catalog. Add one or sync from the registry.
-                </p>
-              ) : (
-                provider.models.map((model) => {
-                  const isDefault = model.id === defaultModel && provider.id === defaultProvider;
-                  return (
-                    <div key={model.id} className="flex items-center gap-2 py-1.5 rounded-md hover:bg-muted/50">
+      {open && (editor ? (
+        <ModelEditorForm
+          sdkClient={sdkClient}
+          providerId={provider.id}
+          providerName={provider.name}
+          model={editor.kind === 'model' ? editor.model : null}
+          onDone={() => setEditor(null)}
+        />
+      ) : (
+        <>
+          {oauth && <OAuthProvidersPanel sdkClient={sdkClient} provider={provider.id} embedded />}
+          {!oauth && credential && <ProviderCredentialsPanel sdkClient={sdkClient} provider={provider.id} embedded />}
+          {!oauth && !credential && (
+            <SettingsRow label="API key" description="Custom provider. Set its key in ~/.prokopai/.env to use its models." />
+          )}
+
+          {provider.models.length === 0 ? (
+            <SettingsRow label={<span className="text-xs text-muted-foreground">No models in the catalog. Add one or sync from the registry.</span>} />
+          ) : (
+            provider.models.map((model) => {
+              const isDefault = model.id === defaultModel && provider.id === defaultProvider;
+              return (
+                <SettingsRow
+                  key={model.id}
+                  className="pl-6"
+                  label={
+                    <span className="flex items-center gap-2" title={model.id}>
                       <ModelStatusDot status={model.runtimeStatus} />
-                      <span className="text-sm truncate min-w-0" title={model.id}>{model.name}</span>
+                      <span className="truncate">{model.name}</span>
                       {isDefault && (
-                        <Badge variant="outline" className="text-2xs shrink-0 px-1.5 py-0 h-4 gap-0.5">
-                          <Star className="size-2.5" />
-                          Default
-                        </Badge>
+                        <Badge variant="outline" className="gap-0.5"><Star className="size-2.5" />Default</Badge>
                       )}
-                      <div className="ml-auto flex items-center gap-0.5 shrink-0">
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                          onClick={() => setEditor({ kind: 'model', model })}
-                          title="Edit model"
-                        >
-                          <Pencil className="size-2.5" />
-                        </Button>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                          onClick={() => setDeleteModelTarget(model)}
-                          title="Delete model"
-                        >
-                          <Trash2 className="size-2.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    </span>
+                  }
+                >
+                  <span className="flex items-center gap-0.5">
+                    <Button size="icon-xs" variant="ghost" onClick={() => setEditor({ kind: 'model', model })} title="Edit model" aria-label={`Edit ${model.name}`}>
+                      <Pencil />
+                    </Button>
+                    <Button size="icon-xs" variant="ghost" onClick={() => setDeleteModelTarget(model)} title="Delete model" aria-label={`Delete ${model.name}`}>
+                      <Trash2 />
+                    </Button>
+                  </span>
+                </SettingsRow>
+              );
+            })
+          )}
 
-            <div className="flex items-center gap-1 pt-1 border-t">
-              <Button variant="ghost" onClick={() => setEditor({ kind: 'new-model' })}>
-                <Plus className="size-3" />
-                Add model
-              </Button>
-            </div>
-          </div>
-        )}
-      </CollapsibleContent>
+          <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">Models are catalog entries for this provider.</span>}>
+            <Button variant="outline" size="xs" onClick={() => setEditor({ kind: 'new-model' })}>
+              <Plus data-icon="inline-start" />
+              Add model
+            </Button>
+          </SettingsRow>
+        </>
+      ))}
 
       <ConfirmationDialog
         open={deleteModelTarget !== null}
@@ -199,6 +179,6 @@ export function ProviderCard({
         loading={deletingModel}
         closeOnConfirm={false}
       />
-    </Collapsible>
+    </>
   );
 }

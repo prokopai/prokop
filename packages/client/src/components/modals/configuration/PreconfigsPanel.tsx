@@ -9,9 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -22,7 +20,9 @@ import { AgentModelPicker } from './AgentModelPicker';
 import { DisclosureRow } from './DisclosureRow';
 import { MemorySkillsControls } from './MemorySkillsControls';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SettingsEditorHeader, SettingsEmpty, SettingsError, SettingsListRow, SettingsLoading } from './SettingsPrimitives';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 
 /** An open agent editor. `id` is null for a new agent; `initial` detects unsaved edits. */
 export interface AgentEditorDraft {
@@ -465,377 +465,321 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
   };
 
   if (isCreating || editingPreconfig) {
+    const nested = 'pl-6';
     return (
-      <div className="p-3 sm:p-4 space-y-4">
-        <SettingsEditorHeader title={isCreating ? 'New agent' : 'Edit agent'} onBack={handleCancel}
-          backLabel="Back to agents" onSave={handleSave} saving={saving} canSave={!!form.name.trim()} />
+      <div className="flex flex-col gap-3 p-3 sm:p-4">
+        {error && <ErrorState>{error}</ErrorState>}
 
-        {error && <SettingsError>{error}</SettingsError>}
-
-        <div key={isCreating ? 'new' : (editingPreconfig?.id ?? 'edit')} className="space-y-3">
-          <div>
-            <Label className="text-sm">Name</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="My Agent"
-            />
-          </div>
-          <div>
-            <Label className="text-sm">Description</Label>
-            <Input
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Description..."
-            />
-          </div>
-          <div>
-            <Label className="text-sm">Mode</Label>
-            <Select value={form.mode} onValueChange={(mode) => setForm({ ...form, mode: mode as PreconfigForm['mode'] })}>
-              <SelectTrigger className="w-full" aria-label="Mode">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {MODE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <Label className="text-sm">Default agent</Label>
-              <p className="text-xs text-muted-foreground">New sessions start with this agent; only one can be the default</p>
-            </div>
-            <Switch
-              checked={form.isDefault}
-              onCheckedChange={(checked) => setForm({ ...form, isDefault: checked })}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-sm">Model</Label>
-            <AgentModelPicker
-              models={models}
-              codexModels={codexCatalogModels}
-              claudeModels={claudeCatalogModels}
-              value={{
-                model: form.model,
-                provider: form.provider,
-                variant: form.variant,
-                modelHarness: form.modelHarness,
-              }}
-              onChange={(next) => setForm(prev => ({ ...prev, ...next }))}
-            />
-            {!externalHarness && (
-              <p className="text-xs text-muted-foreground">
-                Provider is set automatically based on the selected model
-              </p>
-            )}
-          </div>
-
-          <DisclosureRow label="System Prompt" summary={form.systemPrompt.trim() ? 'Custom' : 'None'} defaultOpen={false}>
-            <textarea
-              value={form.systemPrompt}
-              onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
-              className="w-full h-48 p-3 rounded-lg border bg-background text-sm resize-y"
-              placeholder="System prompt content..."
-            />
-          </DisclosureRow>
+        <div key={isCreating ? 'new' : (editingPreconfig?.id ?? 'edit')} className="flex flex-col gap-3">
+          <SettingsGroup label={isCreating ? 'New agent' : 'Edit agent'}>
+            <SettingsRow label="Name" htmlFor="agent-name">
+              <Input
+                id="agent-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="My Agent"
+                className="sm:w-64"
+              />
+            </SettingsRow>
+            <SettingsRow label="Description" htmlFor="agent-description">
+              <Input
+                id="agent-description"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Description..."
+                className="sm:w-80"
+              />
+            </SettingsRow>
+            <SettingsRow label="Mode" description="Subagents can be spawned by other agents; primary agents start sessions.">
+              <Select value={form.mode} onValueChange={(mode) => setForm({ ...form, mode: mode as PreconfigForm['mode'] })}>
+                <SelectTrigger className="w-36" aria-label="Mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {MODE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+            <SettingsRow label="Default agent" htmlFor="agent-default" description="New sessions start with this agent; only one can be the default.">
+              <Switch
+                id="agent-default"
+                checked={form.isDefault}
+                onCheckedChange={(checked) => setForm({ ...form, isDefault: checked })}
+              />
+            </SettingsRow>
+            <SettingsRow label="Model" description={externalHarness ? undefined : 'The provider follows the model.'}>
+              <div className="w-full sm:w-72">
+                <AgentModelPicker
+                  models={models}
+                  codexModels={codexCatalogModels}
+                  claudeModels={claudeCatalogModels}
+                  value={{
+                    model: form.model,
+                    provider: form.provider,
+                    variant: form.variant,
+                    modelHarness: form.modelHarness,
+                  }}
+                  onChange={(next) => setForm(prev => ({ ...prev, ...next }))}
+                />
+              </div>
+            </SettingsRow>
+            <DisclosureRow label="System Prompt" summary={form.systemPrompt.trim() ? 'Custom' : 'None'} defaultOpen={false}>
+              <SettingsRow className={nested} label="Prompt" htmlFor="agent-system-prompt" stacked>
+                <Textarea
+                  id="agent-system-prompt"
+                  value={form.systemPrompt}
+                  onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
+                  className="min-h-48 text-sm"
+                  placeholder="System prompt content..."
+                />
+              </SettingsRow>
+            </DisclosureRow>
+          </SettingsGroup>
 
           {form.mode !== 'subagent' && (
-            <DisclosureRow
-              label="Memory & Learning"
-              summary={
-                [
-                  form.capabilityMemory && 'memory',
-                  form.capabilitySkills && 'skills',
-                  form.learningEnabled && 'learning',
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'All off'
-              }
-              defaultOpen={false}
-            >
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">Personal memory, skills, and learning across workspaces.</p>
-                <MemorySkillsControls scope="agent"
+            <SettingsGroup description="Personal memory, skills, and learning across workspaces.">
+              <DisclosureRow
+                label="Memory & Learning"
+                summary={
+                  [
+                    form.capabilityMemory && 'memory',
+                    form.capabilitySkills && 'skills',
+                    form.learningEnabled && 'learning',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'All off'
+                }
+                defaultOpen={false}
+              >
+                <MemorySkillsControls scope="agent" className={nested}
                   memoryEnabled={form.capabilityMemory} skillsEnabled={form.capabilitySkills}
                   onChangeMemory={capabilityMemory => setForm({ ...form, capabilityMemory })}
                   onChangeSkills={capabilitySkills => setForm({ ...form, capabilitySkills })} />
-
-                <Separator className="my-1" />
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Label htmlFor="agent-learning-enabled" className="text-sm">Automatic learning</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Reviews this agent's sessions when idle and saves durable lessons to its personal memory.
-                      </p>
-                    </div>
+                <SettingsRow
+                  className={nested}
+                  label="Automatic learning"
+                  htmlFor="agent-learning-enabled"
+                  description="Reviews this agent's sessions when idle and saves durable lessons to its personal memory."
+                >
+                  <span className="flex items-center gap-2">
+                    {homeWorkspaceId && (
+                      <Button variant="link" size="xs" className="h-auto p-0" aria-label="Learning history" onClick={() => setHistoryOpen(true)}>
+                        History
+                      </Button>
+                    )}
                     <Switch
                       id="agent-learning-enabled"
                       checked={form.learningEnabled}
                       onCheckedChange={(checked) => setForm({ ...form, learningEnabled: checked })}
                     />
-                  </div>
-                  {homeWorkspaceId && (
-                    <Button
-                      variant="link"
-                      size="xs"
-                      className="h-auto w-fit p-0"
-                      aria-label="Learning history"
-                      onClick={() => setHistoryOpen(true)}
-                    >
-                      History
-                    </Button>
-                  )}
-                  {form.learningEnabled && (
-                    <div className="space-y-2">
-                      {externalHarness && (
-                        <p className="text-xs text-muted-foreground">
-                          Reviews run on {externalHarness} (from the agent's model pin) with that harness's own
-                          tools; harness reviews can't be undone from history.
-                        </p>
-                      )}
-                      <DisclosureRow label="Timing" defaultOpen={false}
-                        summary={LEARNING_FIELDS.some(field => form[field.key].trim()) ? 'Customized' : 'Defaults'}>
-                        <p className="text-xs text-muted-foreground">Minutes. Leave empty for defaults.</p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {LEARNING_FIELDS.map(field => (
-                            <div key={field.key} className="space-y-1">
-                              <Label htmlFor={field.key} className="text-xs font-normal text-muted-foreground">{field.label}</Label>
-                              <Input
-                                id={field.key}
-                                type="number"
-                                min={1}
-                                max={10080}
-                                value={form[field.key]}
-                                onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                                placeholder={String(field.defaultValue)}
-                                className="h-8 text-xs"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </DisclosureRow>
-                      <DisclosureRow label="Learning focus" summary={form.learningInstructions.trim() || null} defaultOpen={false}>
+                  </span>
+                </SettingsRow>
+                {form.learningEnabled && (
+                  <>
+                    {externalHarness && (
+                      <SettingsRow className={nested} label={<span className="text-xs text-muted-foreground">Reviews run on {externalHarness} (from the agent's model pin) with that harness's own tools; harness reviews can't be undone from history.</span>} />
+                    )}
+                    <DisclosureRow label="Timing" defaultOpen={false} className={nested}
+                      summary={LEARNING_FIELDS.some(field => form[field.key].trim()) ? 'Customized' : 'Defaults'}>
+                      {LEARNING_FIELDS.map(field => (
+                        <SettingsRow key={field.key} className="pl-9" label={field.label} htmlFor={field.key} description={`Minutes. Empty uses the default of ${field.defaultValue}.`}>
+                          <Input
+                            id={field.key}
+                            type="number"
+                            min={1}
+                            max={10080}
+                            value={form[field.key]}
+                            onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                            placeholder={String(field.defaultValue)}
+                            className="w-24"
+                          />
+                        </SettingsRow>
+                      ))}
+                    </DisclosureRow>
+                    <DisclosureRow label="Learning focus" summary={form.learningInstructions.trim() || null} defaultOpen={false} className={nested}>
+                      <SettingsRow className="pl-9" label="Focus" htmlFor="agent-learning-focus" stacked>
                         <Textarea
+                          id="agent-learning-focus"
                           aria-label="Learning focus"
                           value={form.learningInstructions}
                           onChange={(e) => setForm({ ...form, learningInstructions: e.target.value })}
                           placeholder="What this agent should focus on when learning..."
                         />
-                      </DisclosureRow>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Which workspaces feed this agent's learning</p>
-                        <Select
-                          value={form.learningSourcesMode}
-                          onValueChange={(mode) => setForm({ ...form, learningSourcesMode: mode as PreconfigForm['learningSourcesMode'] })}
-                        >
-                          <SelectTrigger className="w-full" aria-label="Learning sources">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectItem value="all">All workspaces</SelectItem>
-                              <SelectItem value="selected">Selected workspaces</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        {form.learningSourcesMode === 'selected' && (
-                          <LearningSourcePicker
-                            workspaces={workspaces}
-                            selectedIds={form.learningSourceIds}
-                            onChange={(ids) => setForm({ ...form, learningSourceIds: ids })}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </DisclosureRow>
+                      </SettingsRow>
+                    </DisclosureRow>
+                    <SettingsRow className={nested} label="Sources" description="Which workspaces feed this agent's learning.">
+                      <Select
+                        value={form.learningSourcesMode}
+                        onValueChange={(mode) => setForm({ ...form, learningSourcesMode: mode as PreconfigForm['learningSourcesMode'] })}
+                      >
+                        <SelectTrigger className="w-48" aria-label="Learning sources">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="all">All workspaces</SelectItem>
+                            <SelectItem value="selected">Selected workspaces</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </SettingsRow>
+                    {form.learningSourcesMode === 'selected' && (
+                      <SettingsRow className={nested} label="Selected workspaces" stacked>
+                        <LearningSourcePicker
+                          workspaces={workspaces}
+                          selectedIds={form.learningSourceIds}
+                          onChange={(ids) => setForm({ ...form, learningSourceIds: ids })}
+                        />
+                      </SettingsRow>
+                    )}
+                  </>
+                )}
+              </DisclosureRow>
+            </SettingsGroup>
           )}
 
           {editingPreconfig && isMaterialized && (
-            <DisclosureRow label="Personal files" summary={`${homeSkills.length} skill${homeSkills.length === 1 ? '' : 's'}`} defaultOpen={false}>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">Memory and skills stored in this agent's home directory.</p>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => setHomeReload(n => n + 1)}
-                    title="Reload home data"
-                    aria-label="Reload home data"
-                  >
-                    <RefreshCw className="size-3" />
-                  </Button>
-                </div>
-                {homeError && <SettingsError>{homeError}</SettingsError>}
+            <SettingsGroup description="Memory and skills stored in this agent's home directory.">
+              <DisclosureRow label="Personal files" summary={`${homeSkills.length} skill${homeSkills.length === 1 ? '' : 's'}`} defaultOpen={false}>
+                {homeError && <SettingsRow className={nested} label={<span className="text-xs text-error">{homeError}</span>} />}
                 {homeLoading ? (
-                  <div className="animate-appear-late flex items-center justify-center py-4">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  </div>
+                  <SettingsRow className={nested} label={<Loader2 className="size-3.5 animate-spin text-muted-foreground" />} />
                 ) : (
                   <>
-                    <div>
-                      <p className="text-xs text-muted-foreground">User preferences (USER.md)</p>
-                      <textarea
+                    <SettingsRow className={nested} label="User preferences" description="USER.md" htmlFor="agent-home-user" stacked>
+                      <Textarea
+                        id="agent-home-user"
                         value={homeDraft.user}
                         onChange={(e) => setHomeDraft({ ...homeDraft, user: e.target.value })}
-                        className="w-full h-20 p-2 rounded-md border bg-background text-xs font-mono resize-y"
+                        className="min-h-20 font-mono text-xs"
                       />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Memory (MEMORY.md)</p>
-                      <textarea
+                    </SettingsRow>
+                    <SettingsRow className={nested} label="Memory" description="MEMORY.md" htmlFor="agent-home-memory" stacked>
+                      <Textarea
+                        id="agent-home-memory"
                         value={homeDraft.memory}
                         onChange={(e) => setHomeDraft({ ...homeDraft, memory: e.target.value })}
-                        className="w-full h-28 p-2 rounded-md border bg-background text-xs font-mono resize-y"
+                        className="min-h-28 font-mono text-xs"
                       />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button variant="outline" onClick={handleSaveHomeMemory} disabled={homeSaving}>
-                        {homeSaving ? <Loader2 className="size-3 animate-spin" /> : 'Save memory'}
-                      </Button>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Personal skills ({homeSkills.length}). Read-only; the agent manages them at runtime.
-                      </p>
-                      {homeSkills.length > 0 && (
-                        <div className="rounded-md border divide-y">
-                          {homeSkills.map((skill) => (
-                            <div key={skill.name} className="px-2.5 py-1.5">
-                              <p className="font-mono text-xs truncate">{skill.name}</p>
-                              {skill.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-1">{skill.description}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="destructive"
-                        onClick={() => setDemoteTarget(editingPreconfig.id)}
-                      >
-                        <Trash2 className="size-3" />
+                    </SettingsRow>
+                    <SettingsRow className={nested} label={<span className="text-xs text-muted-foreground">Saved apart from the agent definition.</span>}>
+                      <span className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-xs" onClick={() => setHomeReload(n => n + 1)} title="Reload home data" aria-label="Reload home data">
+                          <RefreshCw />
+                        </Button>
+                        <Button variant="outline" onClick={handleSaveHomeMemory} disabled={homeSaving}>
+                          {homeSaving && <Loader2 className="animate-spin" data-icon="inline-start" />}
+                          Save memory
+                        </Button>
+                      </span>
+                    </SettingsRow>
+                    {homeSkills.map((skill) => (
+                      <SettingsRow key={skill.name} className={nested} label={<span className="font-mono text-xs">{skill.name}</span>} description={skill.description || undefined} />
+                    ))}
+                    <SettingsRow className={nested} label="Personal skills" description={`${homeSkills.length} read-only; the agent manages them at runtime.`}>
+                      <Button variant="destructive" onClick={() => setDemoteTarget(editingPreconfig.id)}>
+                        <Trash2 data-icon="inline-start" />
                         Remove personal files
                       </Button>
-                    </div>
+                    </SettingsRow>
                   </>
                 )}
-              </div>
-            </DisclosureRow>
+              </DisclosureRow>
+            </SettingsGroup>
           )}
 
-          <DisclosureRow
-            label="Prokop Runtime"
-            summary={externalHarness ? `Not used by ${externalHarness}` : [
-              `${form.tools.length} tool${form.tools.length === 1 ? '' : 's'}`,
-              form.canSpawnSubagentsMode === 'all' ? 'subagents: all'
-                : form.canSpawnSubagentsMode === 'specific'
-                  ? `${form.canSpawnSubagentsList.length} subagent${form.canSpawnSubagentsList.length === 1 ? '' : 's'}` : null,
-              form.temperature.trim() ? `temp ${form.temperature.trim()}` : null,
-            ].filter(Boolean).join(' · ')}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <p className={cn('text-xs text-muted-foreground', externalHarness && 'rounded-md bg-muted/50 px-2.5 py-2 text-foreground')}>
-                {externalHarness
-                  ? `This agent runs on ${externalHarness}, which uses its own tools, subagents, and sampling. These settings apply only if you switch it to a Prokop model.`
-                  : 'Applies only when this agent runs on the Prokop harness. Codex and Claude sessions use their own tools, agents, and sampling settings.'}
-              </p>
+          <SettingsGroup description={externalHarness
+            ? `This agent runs on ${externalHarness}, which uses its own tools, subagents, and sampling. These settings apply only if you switch it to a Prokop model.`
+            : 'Applies only when this agent runs on the Prokop harness. Codex and Claude sessions use their own tools, agents, and sampling settings.'}>
+            <DisclosureRow
+              label="Prokop Runtime"
+              summary={externalHarness ? `Not used by ${externalHarness}` : [
+                `${form.tools.length} tool${form.tools.length === 1 ? '' : 's'}`,
+                form.canSpawnSubagentsMode === 'all' ? 'subagents: all'
+                  : form.canSpawnSubagentsMode === 'specific'
+                    ? `${form.canSpawnSubagentsList.length} subagent${form.canSpawnSubagentsList.length === 1 ? '' : 's'}` : null,
+                form.temperature.trim() ? `temp ${form.temperature.trim()}` : null,
+              ].filter(Boolean).join(' · ')}
+              defaultOpen={false}
+            >
+              <div className={cn('contents', externalHarness && '[&>*]:opacity-60')}>
+                <SettingsRow className={nested} label="Tools" htmlFor="agent-tool-search" description="Only the selected tools are available. With none selected, this agent has no tools from this list.">
+                  <Input
+                    id="agent-tool-search"
+                    value={toolSearch}
+                    onChange={(e) => setToolSearch(e.target.value)}
+                    placeholder="Search tools..."
+                    className="sm:w-56"
+                  />
+                </SettingsRow>
+                <SettingsRow className={nested} label="Tool list" stacked>
+                  <div className="dialog-scrollbar max-h-[200px] w-full divide-y divide-border/50 overflow-y-auto rounded-md border border-border/50">
+                    {[...availableTools]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .filter(tool =>
+                        !toolSearch.trim()
+                        || tool.name.toLowerCase().includes(toolSearch.toLowerCase())
+                        || tool.description?.toLowerCase().includes(toolSearch.toLowerCase())
+                      )
+                      .map(tool => {
+                        const selected = form.tools.includes(tool.name);
+                        return (
+                          <button
+                            key={tool.name}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setForm(prev => ({
+                              ...prev,
+                              tools: selected
+                                ? prev.tools.filter(t => t !== tool.name)
+                                : [...prev.tools, tool.name],
+                            }))}
+                            className={cn(
+                              'flex min-h-7 w-full items-center justify-between gap-2 px-2.5 py-1 text-left transition-colors hover:bg-muted',
+                              selected && 'bg-highlight/10',
+                            )}
+                          >
+                            <span className="flex min-w-0 flex-col">
+                              <span className="truncate font-mono text-xs">{tool.name}</span>
+                              {tool.description && (
+                                <span className="truncate text-xs text-muted-foreground">{tool.description}</span>
+                              )}
+                            </span>
+                            <span className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded-sm border',
+                              selected ? 'border-highlight bg-highlight text-highlight-foreground' : 'border-muted-foreground/30',
+                            )}>
+                              {selected && <Check className="size-3" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </SettingsRow>
 
-              <div className={cn('space-y-4', externalHarness && 'opacity-60')}>
-              <div className="space-y-2">
-                <Label className="text-sm">Tools</Label>
-                <p className="text-xs text-muted-foreground">
-                  Only the selected tools are available. With none selected, this agent has no tools from this list.
-                </p>
-              <Input
-                value={toolSearch}
-                onChange={(e) => setToolSearch(e.target.value)}
-                placeholder="Search tools..."
-                className="h-8 text-xs"
-              />
-
-              <div className="dialog-scrollbar max-h-[200px] overflow-y-auto rounded-md border">
-                {[...availableTools]
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .filter(tool =>
-                    !toolSearch.trim()
-                    || tool.name.toLowerCase().includes(toolSearch.toLowerCase())
-                    || tool.description?.toLowerCase().includes(toolSearch.toLowerCase())
-                  )
-                  .map(tool => {
-                    const selected = form.tools.includes(tool.name);
-                    return (
-                      <button
-                        key={tool.name}
-                        type="button"
-                        onClick={() => setForm(prev => ({
-                          ...prev,
-                          tools: selected
-                            ? prev.tools.filter(t => t !== tool.name)
-                            : [...prev.tools, tool.name],
-                        }))}
-                        className={cn(
-                          'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-accent',
-                          selected && 'bg-highlight/10',
-                        )}
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-mono text-xs truncate">{tool.name}</span>
-                          {tool.description && (
-                            <span className="text-xs text-muted-foreground truncate">{tool.description}</span>
-                          )}
-                        </div>
-                        <div className={cn(
-                          'flex size-4 shrink-0 items-center justify-center rounded-md border',
-                          selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30',
-                        )}>
-                          {selected && <Check className="size-3" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-
-              <div className="space-y-3 border-t pt-3">
-                <Label className="text-sm">Subagents</Label>
-              <div className="space-y-2">
-                <Select
-                  value={form.canSpawnSubagentsMode}
-                  onValueChange={(mode) => setForm({ ...form, canSpawnSubagentsMode: mode as PreconfigForm['canSpawnSubagentsMode'] })}
-                >
-                  <SelectTrigger className="w-full" aria-label="Subagents">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="none">None: cannot spawn subagents</SelectItem>
-                      <SelectItem value="all">All available subagents</SelectItem>
-                      <SelectItem value="specific">Specific subagents</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-
+                <SettingsRow className={nested} label="Subagents">
+                  <Select
+                    value={form.canSpawnSubagentsMode}
+                    onValueChange={(mode) => setForm({ ...form, canSpawnSubagentsMode: mode as PreconfigForm['canSpawnSubagentsMode'] })}
+                  >
+                    <SelectTrigger className="w-64" aria-label="Subagents">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">None: cannot spawn subagents</SelectItem>
+                        <SelectItem value="all">All available subagents</SelectItem>
+                        <SelectItem value="specific">Specific subagents</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
                 {form.canSpawnSubagentsMode === 'specific' && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">
-                      Select which subagents this agent can spawn
-                    </p>
-
+                  <SettingsRow className={nested} label="Allowed subagents" description={availableSubagents.length === 0 ? 'No subagent-mode agents available yet.' : undefined} stacked>
                     {availableSubagents.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {availableSubagents.map(subagent => {
@@ -844,6 +788,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                             <button
                               key={subagent.id}
                               type="button"
+                              aria-pressed={selected}
                               onClick={() => {
                                 setForm(prev => ({
                                   ...prev,
@@ -852,11 +797,12 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                                     : [...prev.canSpawnSubagentsList, subagent.id],
                                 }));
                               }}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border transition-colors ${
+                              className={cn(
+                                'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
                                 selected
-                                  ? 'bg-primary text-primary-foreground border-primary'
-                                  : 'bg-background border-border hover:bg-muted'
-                              }`}
+                                  ? 'border-highlight bg-highlight/10 text-foreground'
+                                  : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                              )}
                               title={subagent.description || subagent.id}
                             >
                               {selected && <Check className="size-2.5" />}
@@ -866,55 +812,47 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                         })}
                       </div>
                     )}
-
-                    {availableSubagents.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No subagent-mode agents available yet.</p>
-                    )}
-                  </div>
+                  </SettingsRow>
                 )}
+                <SettingsRow
+                  className={nested}
+                  label="Allow self as subagent"
+                  htmlFor="allow-self-as-subagent"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
+                    : form.mode === 'primary' ? 'No effect while the mode is Primary.'
+                      : 'Delegates once to a new copy of itself; the copy cannot delegate again.'}
+                >
+                  <Switch
+                    id="allow-self-as-subagent"
+                    checked={form.allowSelfAsSubagent}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                    onCheckedChange={(checked) => setForm({ ...form, allowSelfAsSubagent: checked })}
+                  />
+                </SettingsRow>
+                <SettingsRow className={nested} label="Temperature" htmlFor="agent-temperature" description="0.1 to 0.9; empty uses the server default. Not applied to GPT models on the Codex provider.">
+                  <Input
+                    id="agent-temperature"
+                    type="number"
+                    value={form.temperature}
+                    onChange={(e) => setForm({ ...form, temperature: e.target.value })}
+                    placeholder="0.2"
+                    min="0.1"
+                    max="0.9"
+                    step="0.1"
+                    className="w-24 font-mono"
+                  />
+                </SettingsRow>
               </div>
+            </DisclosureRow>
+          </SettingsGroup>
+        </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label htmlFor="allow-self-as-subagent" className="text-sm">Allow Self as Subagent</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Allows this agent to delegate once to a new copy of itself. The copy cannot delegate to itself again.
-                  </p>
-                  {form.canSpawnSubagentsMode === 'none' && (
-                    <p className="text-xs text-muted-foreground">Enable subagent spawning first.</p>
-                  )}
-                  {form.mode === 'primary' && (
-                    <p className="text-xs text-muted-foreground">This setting has no effect while the mode is Primary.</p>
-                  )}
-                </div>
-                <Switch
-                  id="allow-self-as-subagent"
-                  checked={form.allowSelfAsSubagent}
-                  disabled={form.canSpawnSubagentsMode === 'none'}
-                  onCheckedChange={(checked) => setForm({ ...form, allowSelfAsSubagent: checked })}
-                />
-              </div>
-              </div>
-
-              <div className="space-y-2 border-t pt-3">
-                <Label className="text-sm">Temperature</Label>
-                <p className="text-xs text-muted-foreground">
-                  Sampling temperature (0.1–0.9); leave empty for the server default. Not applied to GPT models on the Codex provider.
-                </p>
-                <Input
-                  type="number"
-                  value={form.temperature}
-                  onChange={(e) => setForm({ ...form, temperature: e.target.value })}
-                  placeholder="0.2"
-                  min="0.1"
-                  max="0.9"
-                  step="0.1"
-                  className="font-mono"
-                />
-              </div>
-              </div>
-            </div>
-          </DisclosureRow>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={handleCancel} aria-label="Back to agents">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
+            {saving && <Loader2 className="animate-spin" data-icon="inline-start" />}
+            Save
+          </Button>
         </div>
 
         {homeWorkspaceId && (
@@ -947,7 +885,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
     );
   }
 
-  if (loading) return <SettingsLoading />;
+  if (loading) return <LoadingState />;
 
   /** The model an agent is pinned to, as people scan for it in the list. */
   const modelLabel = (preconfig: Preconfig): string => {
@@ -961,72 +899,59 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
   };
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {preconfigs.length} agent{preconfigs.length !== 1 ? 's' : ''}
-        </p>
-        <Button variant="outline" onClick={handleCreate}>
-          <Plus className="size-3" data-icon="inline-start" />
-          New Agent
-        </Button>
-      </div>
-
-      {error && <SettingsError>{error}</SettingsError>}
-
-      {preconfigs.length === 0 ? (
-        <SettingsEmpty>No agents yet. Add one to give sessions a role.</SettingsEmpty>
-      ) : (
-        <div className="space-y-1.5">
-          {preconfigs.map((preconfig) => (
-            <SettingsListRow
-              key={preconfig.id}
-              title={preconfig.name}
-              description={preconfig.description}
-              meta={modelLabel(preconfig)}
-              onOpen={() => handleEdit(preconfig)}
-              badges={<>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Agents" description="A role a session runs as: prompt, model, tools and memory.">
+        <SettingsRow label={`${preconfigs.length} agent${preconfigs.length !== 1 ? 's' : ''}`}>
+          <Button variant="outline" onClick={handleCreate}>
+            <Plus data-icon="inline-start" />
+            New agent
+          </Button>
+        </SettingsRow>
+        {preconfigs.map((preconfig) => (
+          <SettingsRow
+            key={preconfig.id}
+            onClick={() => handleEdit(preconfig)}
+            label={
+              <span className="flex items-center gap-2">
+                <span className="truncate">{preconfig.name}</span>
                 {preconfig.isDefault && (
-                  <Badge variant="outline" className="h-4 shrink-0 gap-0.5 px-1.5 py-0 text-2xs">
-                    <Star className="size-2.5" />
-                    Default
-                  </Badge>
+                  <Badge variant="outline" className="gap-0.5"><Star className="size-2.5" />Default</Badge>
                 )}
                 {preconfig.mode && preconfig.mode !== 'primary' && (
-                  <Badge variant="secondary" className="h-4 shrink-0 px-1.5 py-0 text-2xs">
-                    {preconfig.mode === 'subagent' ? 'Subagent' : 'Primary + subagent'}
-                  </Badge>
+                  <Badge variant="secondary">{preconfig.mode === 'subagent' ? 'Subagent' : 'Primary + subagent'}</Badge>
                 )}
-              </>}
-              actions={<>
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  onClick={() => handleDuplicate(preconfig)}
-                  disabled={duplicatingId !== null}
-                  aria-label={`Duplicate agent ${preconfig.name}`}
-                  title="Duplicate agent"
-                >
-                  {duplicatingId === preconfig.id
-                    ? <Loader2 className="size-3 animate-spin" />
-                    : <Copy className="size-3" />}
-                </Button>
-                {preconfig.isDefault ? <span className="size-6" aria-hidden /> : (
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    onClick={() => setDeleteTarget(preconfig.id)}
-                    aria-label={`Delete agent ${preconfig.name}`}
-                    title="Delete agent"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                )}
-              </>}
-            />
-          ))}
-        </div>
-      )}
+              </span>
+            }
+            description={preconfig.description || undefined}
+          >
+            <span className="truncate">{modelLabel(preconfig)}</span>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              onClick={() => handleDuplicate(preconfig)}
+              disabled={duplicatingId !== null}
+              aria-label={`Duplicate agent ${preconfig.name}`}
+              title="Duplicate agent"
+            >
+              {duplicatingId === preconfig.id ? <Loader2 className="animate-spin" /> : <Copy />}
+            </Button>
+            {preconfig.isDefault ? <span className="size-6" aria-hidden /> : (
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => setDeleteTarget(preconfig.id)}
+                aria-label={`Delete agent ${preconfig.name}`}
+                title="Delete agent"
+              >
+                <Trash2 />
+              </Button>
+            )}
+          </SettingsRow>
+        ))}
+      </SettingsGroup>
+
+      {error && <ErrorState>{error}</ErrorState>}
+      {preconfigs.length === 0 && <EmptyState variant="plain">No agents yet. Add one to give sessions a role.</EmptyState>}
 
       <ConfirmationDialog
         open={deleteTarget !== null}

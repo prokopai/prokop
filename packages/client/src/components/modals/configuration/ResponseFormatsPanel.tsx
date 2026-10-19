@@ -1,13 +1,16 @@
 import { useState, useCallback } from 'react';
 import type { ProkopaiClient, ResponseFormat } from '@prokopai/sdk';
 import { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from '@/hooks/queries';
-import { Plus, Trash2, GripVertical, Code, Eye, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Code, Eye, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { SettingsEditorHeader, SettingsEmpty, SettingsError, SettingsListRow, SettingsLoading } from './SettingsPrimitives';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { useSettingsEditor } from './useSettingsEditor';
 
 interface PanelProps {
@@ -295,7 +298,7 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
 
   return (
     <div className="space-y-2">
-      <div className="flex items-start gap-2 p-2.5 rounded-lg border bg-background">
+      <div className="flex items-start gap-2 rounded-md border border-border/50 p-2">
         <GripVertical className="size-4 text-muted-foreground mt-2 shrink-0" />
         <div className="flex-1 space-y-2 min-w-0">
           <div className="flex gap-2">
@@ -306,10 +309,10 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
                 name: e.target.value.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, ''),
               }))}
               placeholder="field_name"
-              className="font-mono text-xs h-8"
+              className="font-mono text-xs"
             />
             <Select value={field.type} onValueChange={(value) => handleTypeChange(value as FieldType)}>
-              <SelectTrigger className="w-28 h-8 text-xs">
+              <SelectTrigger className="w-28 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -326,7 +329,7 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
               value={field.description}
               onChange={(e) => onChange(path, (f) => ({ ...f, description: e.target.value }))}
               placeholder="Description (optional)"
-              className="text-xs h-7 flex-1"
+              className="flex-1 text-xs"
             />
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
               <Switch
@@ -364,7 +367,7 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
           {expanded && field.type === 'object' && (
             <div className="space-y-2">
               {(field.children?.length ?? 0) === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-3 border rounded-lg border-dashed">
+                <div className="rounded-md border border-dashed border-border/50 py-3 text-center text-xs text-muted-foreground">
                   No properties. Add one below.
                 </div>
               )}
@@ -433,10 +436,10 @@ function ArrayItemEditor({ itemsField, itemsPath, onChange, onAddChild, depth }:
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed bg-muted/30">
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-border/50 p-2">
         <span className="text-xs text-muted-foreground shrink-0">Each list item is:</span>
         <Select value={itemsField.type} onValueChange={(value) => handleTypeChange(value as FieldType)}>
-          <SelectTrigger className="w-28 h-7 text-xs">
+          <SelectTrigger size="sm" className="w-28 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -452,7 +455,7 @@ function ArrayItemEditor({ itemsField, itemsPath, onChange, onAddChild, depth }:
       {itemsField.type === 'object' && (
         <div className="space-y-2">
           {(itemsField.children?.length ?? 0) === 0 && (
-            <div className="text-xs text-muted-foreground text-center py-3 border rounded-lg border-dashed">
+            <div className="rounded-md border border-dashed border-border/50 py-3 text-center text-xs text-muted-foreground">
               No properties. Add one below.
             </div>
           )}
@@ -616,142 +619,125 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
 
   if (editor.isOpen) {
     return (
-      <div className="p-3 sm:p-4 space-y-4">
-        <SettingsEditorHeader title={isCreating ? 'New format' : 'Edit format'} onBack={editor.cancel}
-          backLabel="Back to formats" onSave={editor.save} saving={editor.saving} canSave={!!editName.trim()} />
-
-        {error && <SettingsError>{error}</SettingsError>}
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Name</label>
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            placeholder="My Format"
-          />
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Description</label>
-          <Input
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="What this format is used for"
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium">Fields</label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                className="h-6 gap-1.5 text-xs px-2"
-                onClick={() => setRawMode(!rawMode)}
-              >
-                {rawMode ? <Eye className="size-3" /> : <Code className="size-3" />}
-                {rawMode ? 'Visual' : 'Raw JSON'}
-              </Button>
-            </div>
-          </div>
-
-          {rawMode ? (
-            <>
-              <textarea
-                value={editSchema}
-                onChange={(e) => handleRawSchemaChange(e.target.value)}
-                className={`w-full h-64 p-3 rounded-lg border font-mono text-sm resize-y ${
-                  schemaError ? 'border-error bg-error/5' : 'bg-background'
-                }`}
-                placeholder='{ "type": "object", "properties": {...} }'
-              />
-              {schemaError && (
-                <p className="text-xs text-error mt-1">{schemaError}</p>
-              )}
-            </>
-          ) : (
-            <div className="space-y-2">
-              {fields.length === 0 && (
-                <div className="text-sm text-muted-foreground text-center py-6 border rounded-lg border-dashed">
-                  No fields yet. Add one below.
-                </div>
-              )}
-              {fields.map((field, i) => (
-                <FieldRow
-                  key={field.id}
-                  field={field}
-                  path={[i]}
-                  onChange={handleFieldChange}
-                  onRemove={handleFieldRemove}
-                  onAddChild={handleAddChild}
-                  depth={0}
+      <div className="flex flex-col gap-3 p-3 sm:p-4">
+        <SettingsGroup label={isCreating ? 'New format' : 'Edit format'}>
+          <SettingsRow label="Name" htmlFor="format-name">
+            <Input
+              id="format-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="My Format"
+              className="sm:w-64"
+            />
+          </SettingsRow>
+          <SettingsRow label="Description" htmlFor="format-description">
+            <Input
+              id="format-description"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="What this format is used for"
+              className="sm:w-80"
+            />
+          </SettingsRow>
+          <SettingsRow label="Fields" description={rawMode ? 'JSON Schema for an object.' : undefined}>
+            <Button variant="ghost" size="xs" onClick={() => setRawMode(!rawMode)}>
+              {rawMode ? <Eye /> : <Code />}
+              {rawMode ? 'Visual' : 'Raw JSON'}
+            </Button>
+          </SettingsRow>
+          <SettingsRow label={rawMode ? 'Schema' : 'Field list'} stacked>
+            {rawMode ? (
+              <div className="flex w-full flex-col gap-1">
+                <Textarea
+                  value={editSchema}
+                  onChange={(e) => handleRawSchemaChange(e.target.value)}
+                  className={`min-h-64 font-mono text-xs ${schemaError ? 'border-error' : ''}`}
+                  placeholder='{ "type": "object", "properties": {...} }'
+                  aria-label="Schema JSON"
                 />
-              ))}
-              <Button
-                variant="outline"
-                className="w-full mt-1"
-                onClick={handleAddField}
-              >
-                <Plus className="size-3" data-icon="inline-start" />
-                Add Field
-              </Button>
-            </div>
-          )}
+                {schemaError && (
+                  <p className="text-xs text-error">{schemaError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex w-full flex-col gap-2">
+                {fields.length === 0 && (
+                  <div className="rounded-md border border-dashed border-border/50 py-4 text-center text-xs text-muted-foreground">
+                    No fields yet. Add one below.
+                  </div>
+                )}
+                {fields.map((field, i) => (
+                  <FieldRow
+                    key={field.id}
+                    field={field}
+                    path={[i]}
+                    onChange={handleFieldChange}
+                    onRemove={handleFieldRemove}
+                    onAddChild={handleAddChild}
+                    depth={0}
+                  />
+                ))}
+                <Button variant="outline" className="self-start" onClick={handleAddField}>
+                  <Plus data-icon="inline-start" />
+                  Add field
+                </Button>
+              </div>
+            )}
+          </SettingsRow>
+        </SettingsGroup>
+        {error && <ErrorState>{error}</ErrorState>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={editor.cancel} aria-label="Back to formats">Cancel</Button>
+          <Button onClick={editor.save} disabled={editor.saving || !editName.trim()}>
+            {editor.saving ? <Loader2 className="size-3 animate-spin" /> : 'Save'}
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (loading) return <SettingsLoading />;
+  if (loading) return <LoadingState />;
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {formats.length} format{formats.length !== 1 ? 's' : ''}
-        </p>
-        <Button variant="outline" onClick={editor.startCreate}>
-          <Plus className="size-3" data-icon="inline-start" />
-          New Format
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Formats" description="A JSON shape a reply must follow.">
+        <SettingsRow label={`${formats.length} format${formats.length !== 1 ? 's' : ''}`}>
+          <Button variant="outline" onClick={editor.startCreate}>
+            <Plus data-icon="inline-start" />
+            New format
+          </Button>
+        </SettingsRow>
+        {formats.map((format) => {
+          const propCount = Object.keys(
+            (format.schema as Record<string, unknown>)?.properties
+              ? ((format.schema as Record<string, unknown>).properties as Record<string, unknown>)
+              : {},
+          ).length;
 
-      {error && <SettingsError>{error}</SettingsError>}
+          return (
+            <SettingsRow
+              key={format.id}
+              label={format.name}
+              description={format.description || undefined}
+              onClick={() => editor.startEdit(format)}
+            >
+              <span>{propCount} propert{propCount !== 1 ? 'ies' : 'y'}</span>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => setDeleteTarget({ id: format.id, name: format.name })}
+                aria-label={`Delete format ${format.name}`}
+                title="Delete format"
+              >
+                <Trash2 />
+              </Button>
+            </SettingsRow>
+          );
+        })}
+      </SettingsGroup>
 
-      {formats.length === 0 ? (
-        <SettingsEmpty>No formats yet. Add one to get JSON back from a reply.</SettingsEmpty>
-      ) : (
-        <div className="space-y-1.5">
-          {formats.map((format) => {
-            const propCount = Object.keys(
-              (format.schema as Record<string, unknown>)?.properties
-                ? ((format.schema as Record<string, unknown>).properties as Record<string, unknown>)
-                : {},
-            ).length;
-
-            return (
-              <SettingsListRow
-                key={format.id}
-                title={format.name}
-                description={format.description}
-                meta={`${propCount} propert${propCount !== 1 ? 'ies' : 'y'}`}
-                onOpen={() => editor.startEdit(format)}
-                actions={(
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    onClick={() => setDeleteTarget({ id: format.id, name: format.name })}
-                    aria-label={`Delete format ${format.name}`}
-                    title="Delete format"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                )}
-              />
-            );
-          })}
-        </div>
-      )}
+      {error && <ErrorState>{error}</ErrorState>}
+      {formats.length === 0 && <EmptyState variant="plain">No formats yet. Add one to get JSON back from a reply.</EmptyState>}
 
       <ConfirmationDialog
         open={deleteTarget !== null}

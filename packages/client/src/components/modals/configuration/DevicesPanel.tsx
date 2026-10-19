@@ -8,9 +8,9 @@ import type {
   ProkopaiClient,
 } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { SettingsEmpty, SettingsError, SettingsLoading } from './SettingsPrimitives';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { RemoteAccessSection } from './RemoteAccessSection';
 
 interface DevicesPanelProps {
@@ -21,7 +21,7 @@ function lastSeen(timestamp: number): string {
   return new Date(timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function PairingCodeCard({ pairing, onDone }: { pairing: CreatePairingCodeResponse; onDone: () => void }) {
+function PairingCode({ pairing, onDone }: { pairing: CreatePairingCodeResponse; onDone: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDone, Math.max(0, pairing.expiresAt - Date.now()));
     return () => clearTimeout(timer);
@@ -30,28 +30,26 @@ function PairingCodeCard({ pairing, onDone }: { pairing: CreatePairingCodeRespon
   const link = pairing.links[0];
   if (!link) {
     return (
-      <div className="space-y-2 rounded-lg border p-3 text-sm">
-        <p>Other devices can&apos;t reach Prokop yet.</p>
-        <p className="text-muted-foreground">Turn on remote access above, then pair again.</p>
-      </div>
+      <SettingsRow label="Other devices can't reach Prokop yet." description="Turn on remote access above, then pair again.">
+        <Button variant="ghost" onClick={onDone}>Done</Button>
+      </SettingsRow>
     );
   }
 
   const qr = `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(link, { border: 2 }))}`;
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border p-4 text-center">
-      <img src={qr} alt="Pairing QR code" className="size-44 rounded-md bg-white p-1" />
-      <p className="text-sm">Scan with the other device&apos;s camera, or open the link there.</p>
-      <div className="w-full space-y-1">
-        {pairing.links.map((item) => (
-          <code key={item} className="block break-all text-xs text-muted-foreground">{item}</code>
-        ))}
+    <SettingsRow label="Scan with the other device" description={<>Code <span className="font-mono text-foreground">{pairing.code}</span> works once and expires in 5 minutes.</>} stacked>
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
+        <img src={qr} alt="Pairing QR code" className="size-36 shrink-0 rounded-md bg-white p-1" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-xs text-muted-foreground">Or open one of these links there:</span>
+          {pairing.links.map((item) => (
+            <code key={item} className="block break-all font-mono text-xs">{item}</code>
+          ))}
+          <Button variant="ghost" size="xs" className="mt-1 self-start" onClick={onDone}>Done</Button>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Code <span className="font-mono text-foreground">{pairing.code}</span> works once and expires in 5 minutes.
-      </p>
-      <Button variant="ghost" onClick={onDone}>Done</Button>
-    </div>
+    </SettingsRow>
   );
 }
 
@@ -106,25 +104,23 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
 
   const closePairing = useCallback(() => setPairing(null), []);
 
-  if (!sdkClient) return <SettingsEmpty>Connect to a server to manage devices.</SettingsEmpty>;
-  if (!status) return error ? <SettingsError className="m-4">{error}</SettingsError> : <SettingsLoading />;
+  if (!sdkClient) return <EmptyState variant="plain">Connect to a server to manage devices.</EmptyState>;
+  if (!status) return error ? <ErrorState className="m-3 sm:m-4">{error}</ErrorState> : <LoadingState />;
 
   if (!status.admin) {
     return (
-      <div className="flex flex-col gap-3 p-3 sm:p-4">
-        <p className="text-sm">
-          {status.device ? <>This device is paired as <span className="font-medium">{status.device.label}</span>.</> : 'This device is paired.'}
-          {' '}Devices are managed on the computer running Prokop.
-        </p>
-        {status.device && (
-          <div>
-            <Button variant="outline" disabled={busy !== null}
-              onClick={() => void run('self', () => sdkClient.http.access.revokeDevice(status.device!.id))}>
-              Unpair this device
-            </Button>
-          </div>
-        )}
-        {error && <SettingsError>{error}</SettingsError>}
+      <div className="flex flex-col gap-4 p-3 sm:p-4">
+        <SettingsGroup label="This device" description="Devices are managed on the computer running Prokop.">
+          <SettingsRow label={status.device ? `Paired as ${status.device.label}` : 'Paired'}>
+            {status.device && (
+              <Button variant="outline" disabled={busy !== null}
+                onClick={() => void run('self', () => sdkClient.http.access.revokeDevice(status.device!.id))}>
+                Unpair this device
+              </Button>
+            )}
+          </SettingsRow>
+        </SettingsGroup>
+        {error && <ErrorState>{error}</ErrorState>}
       </div>
     );
   }
@@ -133,59 +129,46 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
     <div className="flex flex-col gap-4 p-3 sm:p-4">
       <RemoteAccessSection sdkClient={sdkClient} />
 
-      <Separator />
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <Label className="text-sm font-medium">Pair a device</Label>
-            <p className="text-sm text-muted-foreground">Use Prokop from your phone or another computer. This computer never needs to pair.</p>
-          </div>
-          {!pairing && (
+      <SettingsGroup label="Pairing" description="Use Prokop from your phone or another computer. This computer never needs to pair.">
+        {pairing ? (
+          <PairingCode pairing={pairing} onDone={closePairing} />
+        ) : (
+          <SettingsRow label="New device" description="Shows a code and a QR for the other device to scan.">
             <Button variant="outline" disabled={busy !== null}
               onClick={() => void run('pair', async () => setPairing(await sdkClient.http.access.createPairingCode()))}>
               Pair a device
             </Button>
-          )}
-        </div>
-        {pairing && <PairingCodeCard pairing={pairing} onDone={closePairing} />}
-      </div>
+          </SettingsRow>
+        )}
+      </SettingsGroup>
 
       {requests.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Waiting for approval</Label>
-            {requests.map((request) => (
-              <div key={request.id} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{request.label}</span>
-                <span className="font-mono text-sm text-muted-foreground" title="Should match the code on the other device">
-                  {request.matchCode}
-                </span>
+        <SettingsGroup label="Waiting for approval">
+          {requests.map((request) => (
+            <SettingsRow key={request.id} label={request.label}
+              description={<span title="Should match the code on the other device">Code <span className="font-mono text-foreground">{request.matchCode}</span></span>}>
+              <span className="flex items-center gap-1">
                 <Button variant="outline" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.approve(request.id))}>Allow</Button>
                 <Button variant="ghost" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.deny(request.id))}>Deny</Button>
-              </div>
-            ))}
-          </div>
-        </>
+              </span>
+            </SettingsRow>
+          ))}
+        </SettingsGroup>
       )}
 
-      <Separator />
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Paired devices</Label>
+      <SettingsGroup label="Paired devices">
         {devices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No other devices are paired.</p>
+          <SettingsRow label={<span className="text-muted-foreground">No other devices are paired.</span>} />
         ) : devices.map((device) => (
-          <div key={device.id} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-            <span className="min-w-0 truncate text-sm font-medium">{device.label}</span>
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">Last seen {lastSeen(device.lastSeenAt)}</span>
-            <Button variant="ghost" disabled={busy !== null}
+          <SettingsRow key={device.id} label={device.label} description={`Last seen ${lastSeen(device.lastSeenAt)}`}>
+            <Button variant="ghost" size="xs" disabled={busy !== null}
               onClick={() => void run(device.id, () => sdkClient.http.access.revokeDevice(device.id))}>Remove</Button>
-          </div>
+          </SettingsRow>
         ))}
-      </div>
-      {error && <SettingsError>{error}</SettingsError>}
+      </SettingsGroup>
+      {error && <ErrorState>{error}</ErrorState>}
     </div>
   );
 }

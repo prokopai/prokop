@@ -1,14 +1,12 @@
-import { SectionLabel } from '@/components/ui/section-label';
 import { useState } from 'react';
 import { RefreshCw, Trash2, ShieldCheck, ShieldHalf, ShieldAlert } from 'lucide-react';
 import type { PermissionGrant, PermissionMode } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { PermissionListItem } from '../PermissionListItem';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { SettingsEmpty } from './SettingsPrimitives';
 
 const MODE_OPTIONS: { value: PermissionMode; label: string; icon: typeof ShieldCheck }[] = [
   { value: 'standard', label: 'Standard', icon: ShieldCheck },
@@ -39,97 +37,50 @@ export function PermissionsPanel({
   const revokedPermissions = permissions.filter((p) => p.revokedAt);
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      {/* Default mode: applies immediately, like the default-model select */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <Label className="text-sm font-medium">Default mode for new sessions</Label>
-          <p className="text-sm text-muted-foreground">
-            Override per session via the shield icon in the chat header
-          </p>
-        </div>
-        <Select value={mode} onValueChange={(v) => onModeChange(v as PermissionMode)}>
-          <SelectTrigger size="sm" className="w-36 shrink-0" aria-label="Default permission mode">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MODE_OPTIONS.map(({ value, label, icon: Icon }) => (
-              <SelectItem key={value} value={value}>
-                <Icon className="size-4" />
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      {/* Default mode applies immediately, like the default model. */}
+      <SettingsGroup label="Mode">
+        <SettingsRow label="Default for new sessions" description="Override per session with the shield in the chat header.">
+          <Select value={mode} onValueChange={(v) => onModeChange(v as PermissionMode)}>
+            <SelectTrigger className="w-40" aria-label="Default permission mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MODE_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <SelectItem key={value} value={value}>
+                  <Icon className="size-4" />
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
+      </SettingsGroup>
 
-      <Separator />
-
-      <div className="flex items-center justify-between">
-        <div>
-          <Label className="text-sm font-medium">Saved Permissions</Label>
-          <p className="text-sm text-muted-foreground">
-            Tool permissions saved for this workspace
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onRefreshPermissions}
-            className="size-8"
-          >
-            <RefreshCw className="size-4" />
-          </Button>
-          {activePermissions.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={() => setShowRevokeAllConfirm(true)}
-            >
-              <Trash2 className="size-4" data-icon="inline-start" />
-              Revoke All
+      <SettingsGroup label="Saved permissions" description="Tool approvals saved for this workspace. Revoked ones need approval again when used.">
+        <SettingsRow label={`${activePermissions.length} active`} description={revokedPermissions.length > 0 ? `${revokedPermissions.length} revoked` : undefined}>
+          <span className="flex items-center gap-1">
+            <Button variant="ghost" size="icon-xs" aria-label="Refresh permissions" onClick={onRefreshPermissions}>
+              <RefreshCw />
             </Button>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="dialog-scrollbar min-h-0 overflow-y-auto" style={{ maxHeight: '50vh' }}>
+            {activePermissions.length > 0 && (
+              <Button variant="destructive" size="xs" onClick={() => setShowRevokeAllConfirm(true)}>
+                <Trash2 data-icon="inline-start" />
+                Revoke All
+              </Button>
+            )}
+          </span>
+        </SettingsRow>
+        {activePermissions.map((permission) => (
+          <PermissionListItem key={permission.id} permission={permission} onRevoke={onRevokePermission} />
+        ))}
+        {revokedPermissions.map((permission) => (
+          <PermissionListItem key={permission.id} permission={permission} onRevoke={onRevokePermission} />
+        ))}
         {activePermissions.length === 0 && revokedPermissions.length === 0 && (
-          <SettingsEmpty>No saved permissions yet. Saved permission grants will appear here after approval.</SettingsEmpty>
+          <SettingsRow label={<span className="text-xs text-muted-foreground">No saved permissions yet. Saved permission grants will appear here after approval.</span>} />
         )}
-
-        {activePermissions.length > 0 && (
-          <div className="mb-4">
-            <SectionLabel asChild><h4 className="mb-2">
-              Active ({activePermissions.length})
-            </h4></SectionLabel>
-            {activePermissions.map((permission) => (
-              <PermissionListItem
-                key={permission.id}
-                permission={permission}
-                onRevoke={onRevokePermission}
-              />
-            ))}
-          </div>
-        )}
-
-        {revokedPermissions.length > 0 && (
-          <div>
-            <SectionLabel asChild><h4 className="mb-2">
-              Revoked ({revokedPermissions.length})
-            </h4></SectionLabel>
-            {revokedPermissions.map((permission) => (
-              <PermissionListItem
-                key={permission.id}
-                permission={permission}
-                onRevoke={onRevokePermission}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      </SettingsGroup>
 
       <ConfirmationDialog
         open={showRevokeAllConfirm}

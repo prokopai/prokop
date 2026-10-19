@@ -1,35 +1,24 @@
-// packages/client/src/components/LogoutButton.tsx
 import { maskToken } from '@/config/auth';
 import { Button } from '@/components/ui/button';
+import { SettingsRow } from '@/components/ui/settings-row';
 
 interface LogoutButtonProps {
   token?: string | null;
   onLogout: () => void;
 }
 
+/** The connection row of the System page: who this client is to the server, and the way out. */
 export default function LogoutButton({ token, onLogout }: LogoutButtonProps) {
+  // Paired devices hold a `pkd_` token; anything else is the shared PROKOPAI_AUTH_TOKEN.
+  const label = token ? (token.startsWith('pkd_') ? 'Paired device' : 'Shared token') : 'This computer';
   return (
-    <div className="flex items-center gap-3 p-2 rounded-md bg-muted">
-      {token ? (
-        <div className="flex items-center gap-2 text-xs">
-          {/* Paired devices hold a `pkd_` token; anything else is the shared PROKOPAI_AUTH_TOKEN. */}
-          <span className="text-muted-foreground">{token.startsWith('pkd_') ? 'Paired device' : 'Shared token'}</span>
-          <code className="font-mono text-foreground bg-background px-1.5 py-0.5 rounded-md text-2xs">
-            {maskToken(token)}
-          </code>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">This computer</span>
-        </div>
-      )}
-      <Button
-        variant="destructive"
-        onClick={onLogout}
-        title="Disconnect and clear token"
-      >
-        Logout
+    <SettingsRow
+      label={label}
+      description={token ? <code className="font-mono text-2xs">{maskToken(token)}</code> : 'No token needed on the machine running Prokop.'}
+    >
+      <Button variant="destructive" onClick={onLogout} title="Disconnect and clear token">
+        Log out
       </Button>
-    </div>
+    </SettingsRow>
   );
 }

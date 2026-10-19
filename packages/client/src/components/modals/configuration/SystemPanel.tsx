@@ -1,6 +1,6 @@
 import type { ProkopaiClient } from '@prokopai/sdk';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import LogoutButton from '@/components/LogoutButton';
 import { VersionInfo } from '@/components/VersionInfo';
 
@@ -14,22 +14,14 @@ interface SystemPanelProps {
 
 export function SystemPanel({ apiToken, isConnected, onLogout, sdkClient, open }: SystemPanelProps) {
   return (
-    <div className="p-3 sm:p-4 flex flex-col gap-4">
-      <div>
-        <Label className="text-sm font-medium">Connection</Label>
-        <p className="text-sm text-muted-foreground mb-3">
-          Manage your connection to this server
-        </p>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Connection">
         {isConnected ? (
           <LogoutButton token={apiToken} onLogout={onLogout} />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No active session
-          </p>
+          <SettingsRow label="Not connected" description="No active session." />
         )}
-      </div>
-
-      <Separator />
+      </SettingsGroup>
 
       <VersionInfo sdkClient={sdkClient} enabled={open} />
     </div>

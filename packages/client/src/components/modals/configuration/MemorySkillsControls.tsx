@@ -1,5 +1,5 @@
 import { useId, type ReactElement } from 'react';
-import { Label } from '@/components/ui/label';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
 
 interface MemorySkillsControlsProps {
@@ -8,61 +8,42 @@ interface MemorySkillsControlsProps {
   skillsEnabled: boolean;
   onChangeMemory: (enabled: boolean) => void;
   onChangeSkills: (enabled: boolean) => void;
+  /** Indents the rows when they sit under a disclosure. */
+  className?: string;
 }
 
-interface ToggleRowProps {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-function ToggleRow({ id, label, description, checked, onChange }: ToggleRowProps) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <Label htmlFor={id}>{label}</Label>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onChange}
-        className="shrink-0"
-      />
-    </div>
-  );
-}
-
+/** The two capability switches, as rows, for a workspace or an agent. */
 export function MemorySkillsControls({
   scope,
   memoryEnabled,
   skillsEnabled,
   onChangeMemory,
   onChangeSkills,
+  className,
 }: MemorySkillsControlsProps): ReactElement {
   const id = useId();
   return (
-    <div className="flex flex-col gap-3">
-      <ToggleRow
-        id={`${id}-memory`}
+    <>
+      <SettingsRow
+        className={className}
         label="Memory"
+        htmlFor={`${id}-memory`}
         description={scope === 'workspace'
           ? 'Use and maintain shared memory for this workspace.'
           : 'Use and maintain personal memory across workspaces.'}
-        checked={memoryEnabled}
-        onChange={onChangeMemory}
-      />
-      <ToggleRow
-        id={`${id}-skills`}
+      >
+        <Switch id={`${id}-memory`} checked={memoryEnabled} onCheckedChange={onChangeMemory} />
+      </SettingsRow>
+      <SettingsRow
+        className={className}
         label="Skill management"
+        htmlFor={`${id}-skills`}
         description={scope === 'workspace'
           ? 'Allow agents to create and update workspace skills.'
           : 'Allow this agent to create and update its personal skills.'}
-        checked={skillsEnabled}
-        onChange={onChangeSkills}
-      />
-    </div>
+      >
+        <Switch id={`${id}-skills`} checked={skillsEnabled} onCheckedChange={onChangeSkills} />
+      </SettingsRow>
+    </>
   );
 }

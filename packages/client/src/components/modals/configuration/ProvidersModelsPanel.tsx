@@ -16,14 +16,16 @@ import {
 import { RefreshCw, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { LoadingState } from '@/components/shared/States';
 import { ProviderCard } from './providers-models/ProviderCard';
-import { SettingsLoading } from './SettingsPrimitives';
 
 const FALLBACK_PROVIDER_NAMES: Record<string, string> = {
   minimax: 'MiniMax',
@@ -38,8 +40,8 @@ function fallbackProviderName(id: string): string {
     || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-/** Compact default selector: provider, model, and variant apply immediately. */
-function DefaultModelRow({
+/** Default provider, model and variant as three rows; each pick applies immediately. */
+function DefaultModelRows({
   sdkClient,
   providers,
   defaultProvider,
@@ -83,65 +85,74 @@ function DefaultModelRow({
     }
   };
 
+  const pending = setDefaultsMut.isPending && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />;
+
   return (
-    <div className="flex items-center gap-2 flex-wrap min-w-0">
-      <span className="text-xs font-medium text-muted-foreground">Default</span>
-      <Select
-        value={provider}
-        onValueChange={(id) => setDraftProvider(id === defaultProvider ? null : id)}
-        disabled={setDefaultsMut.isPending}
-      >
-        <SelectTrigger size="sm" className="min-w-28" aria-label="Default provider">
-          <SelectValue placeholder="Provider" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {providers.map(p => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <Select
-        value={defaultProvider === provider && !draftProvider ? defaultModel : undefined}
-        onValueChange={(id) => apply({ defaultModel: id })}
-        disabled={setDefaultsMut.isPending || models.length === 0}
-      >
-        <SelectTrigger size="sm" className="min-w-36" aria-label="Default model">
-          <SelectValue placeholder={models.length === 0 ? 'No models' : 'Model'} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {models.map(m => (
-              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      {onStoredDefault && variantKeys.length > 0 && (
+    <>
+      <SettingsRow label="Provider">
+        <span className="flex items-center gap-2">
+          {pending}
+          <Select
+            value={provider}
+            onValueChange={(id) => setDraftProvider(id === defaultProvider ? null : id)}
+            disabled={setDefaultsMut.isPending}
+          >
+            <SelectTrigger className="min-w-36" aria-label="Default provider">
+              <SelectValue placeholder="Provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {providers.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </span>
+      </SettingsRow>
+      <SettingsRow label="Model" description={draftProvider ? 'Pick a model to apply the new provider.' : undefined}>
         <Select
-          value={variantValue}
-          onValueChange={(v) => apply({ defaultModel: defaultModel, defaultVariant: v })}
-          disabled={setDefaultsMut.isPending}
+          value={defaultProvider === provider && !draftProvider ? defaultModel : undefined}
+          onValueChange={(id) => apply({ defaultModel: id })}
+          disabled={setDefaultsMut.isPending || models.length === 0}
         >
-          <SelectTrigger size="sm" className="min-w-28" aria-label="Default variant">
-            <SelectValue />
+          <SelectTrigger className="min-w-44" aria-label="Default model">
+            <SelectValue placeholder={models.length === 0 ? 'No models' : 'Model'} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {variantKeys.map(key => (
-                <SelectItem key={key} value={key}>{key}</SelectItem>
+              {models.map(m => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
               ))}
             </SelectGroup>
           </SelectContent>
         </Select>
+      </SettingsRow>
+      {onStoredDefault && variantKeys.length > 0 && (
+        <SettingsRow label="Variant">
+          <Select
+            value={variantValue}
+            onValueChange={(v) => apply({ defaultModel: defaultModel, defaultVariant: v })}
+            disabled={setDefaultsMut.isPending}
+          >
+            <SelectTrigger className="min-w-36" aria-label="Default variant">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {variantKeys.map(key => (
+                  <SelectItem key={key} value={key}>{key}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </SettingsRow>
       )}
-      {setDefaultsMut.isPending && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
-    </div>
+    </>
   );
 }
 
-/** Registry sync behind one header button; mode picked from a menu, result as a toast. */
+/** Registry sync behind one menu; mode picked from the menu, result as a toast. */
 function SyncButton({ sdkClient }: { sdkClient: ProkopaiClient | null }) {
   const syncModelsMut = useSyncModels(sdkClient);
 
@@ -169,20 +180,20 @@ function SyncButton({ sdkClient }: { sdkClient: ProkopaiClient | null }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" disabled={syncModelsMut.isPending} aria-label="Sync models from registry">
+        <Button variant="outline" disabled={syncModelsMut.isPending} aria-label="Sync models from registry">
           {syncModelsMut.isPending
-            ? <Loader2 className="size-3.5 animate-spin" />
-            : <RefreshCw className="size-3.5" />}
-          <span className="hidden sm:inline">Sync</span>
-          <ChevronDown className="size-3" />
+            ? <Loader2 className="animate-spin" data-icon="inline-start" />
+            : <RefreshCw data-icon="inline-start" />}
+          Sync
+          <ChevronDown data-icon="inline-end" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => run('merge')}>
-          Merge — add new models, keep existing
+          Merge: add new models, keep existing
         </DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onClick={() => run('override')}>
-          Override — replace all local models
+          Override: replace all local models
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -194,10 +205,9 @@ interface ProvidersModelsPanelProps {
 }
 
 /**
- * Prokop model providers as one provider-centric list: each card owns its
+ * Prokop model providers as one provider-centric list: each group owns its
  * connection (API key or subscription) together with its models, the default
- * model is a compact selector in the header, and registry sync lives behind
- * one header button.
+ * model is a group of rows at the top, and registry sync is one row there.
  */
 export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
   const { data: config, isLoading: loading } = useModelsConfigQuery(sdkClient);
@@ -205,7 +215,7 @@ export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
   const { data: oauthData } = useProvidersQuery(sdkClient);
 
   if (loading) {
-    return <SettingsLoading />;
+    return <LoadingState />;
   }
 
   const credentials: ProviderCredentialStatus[] = credentialsData?.providers ?? [];
@@ -227,19 +237,21 @@ export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
   }
 
   return (
-    <div className="p-3 sm:p-4 space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <DefaultModelRow
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Default model">
+        <DefaultModelRows
           sdkClient={sdkClient}
           providers={providers}
           defaultProvider={config?.defaultProvider ?? ''}
           defaultModel={config?.defaultModel ?? ''}
           defaultVariant={config?.defaultVariant ?? null}
         />
-        <SyncButton sdkClient={sdkClient} />
-      </div>
+        <SettingsRow label="Model catalog" description="Merge adds new models from the registry; override replaces all local models.">
+          <SyncButton sdkClient={sdkClient} />
+        </SettingsRow>
+      </SettingsGroup>
 
-      <div className="space-y-2">
+      <SettingsGroup label="Providers">
         {providers.map(provider => (
           <ProviderCard
             key={provider.id}
@@ -251,7 +263,7 @@ export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
             oauth={oauthProviders.find(o => o.provider === provider.id)}
           />
         ))}
-      </div>
+      </SettingsGroup>
     </div>
   );
 }

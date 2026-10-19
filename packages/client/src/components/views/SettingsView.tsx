@@ -227,7 +227,8 @@ export function SettingsView({ sdkClient, serverId, onLogout }: SettingsViewProp
         )}
         <h2 className="truncate px-1 text-sm font-medium">{activeLabel}</h2>
       </div>
-      <div className="dialog-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* Rows read best under ~800px; the page stays left-aligned like the rest of the shell. */}
+      <div className="dialog-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain [&>*]:max-w-3xl">
         <Suspense fallback={<LoadingState />}>
           {renderPanel()}
         </Suspense>
