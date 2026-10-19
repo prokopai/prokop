@@ -244,7 +244,7 @@ export function KeybindsPanel() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPending(null)}>
+            <Button type="button" variant="ghost" onClick={() => setPending(null)}>
               Cancel
             </Button>
             <Button type="button" onClick={confirmAssignment}>

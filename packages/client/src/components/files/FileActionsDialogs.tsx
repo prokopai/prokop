@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { FileActionDialog } from './useFileActions';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export interface FileActionsDialogsProps {
   dialog: FileActionDialog;
@@ -91,24 +91,23 @@ function NameEntryForm({
         onSubmit(value);
       }}
     >
-      <div className="grid gap-2">
-        <Label htmlFor="file-action-name">{label}</Label>
-        <Input
-          id="file-action-name"
-          ref={inputRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
-          className="font-mono"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {helper && <p className="text-xs text-muted-foreground">{helper}</p>}
-      </div>
-      {footerExtra}
-      {error && <p className="text-xs text-error">{error}</p>}
+      <FormGrid>
+        <SettingsRow label={label} htmlFor="file-action-name" description={error ? <span className="text-error">{error}</span> : helper || undefined} stacked>
+          <Input
+            id="file-action-name"
+            ref={inputRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </SettingsRow>
+        {footerExtra}
+      </FormGrid>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={mutating}>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={mutating}>
           Cancel
         </Button>
         <Button type="submit" disabled={mutating}>
@@ -201,13 +200,13 @@ function RenameDialog({
           onSubmit={submitRename}
           footerExtra={
             renameConflict && target && !target.isDirectory ? (
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
+              <SettingsRow label="Replace the existing destination file" htmlFor="file-action-overwrite">
+                <Switch
+                  id="file-action-overwrite"
                   checked={overwrite}
                   onCheckedChange={(checked) => setOverwrite(checked === true)}
                 />
-                Replace the existing destination file
-              </label>
+              </SettingsRow>
             ) : undefined
           }
         />
@@ -243,7 +242,7 @@ function DeleteDialog({
         </DialogHeader>
         {error && <p className="text-xs text-error">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={mutating}>
+          <Button variant="ghost" onClick={onClose} disabled={mutating}>
             Cancel
           </Button>
           <Button variant="destructive" onClick={submitDelete} disabled={mutating}>

@@ -5,16 +5,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { ArrowDown, ArrowUp, Bot, Box, Folder, Plus, Trash2 } from 'lucide-react';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
+import { ArrowDown, ArrowUp, Bot, Box, Folder, Trash2 } from 'lucide-react';
 import type { OverviewGroup } from '@/config/overviewGroupsTypes';
 import {
   AGENT_HOME_LABEL,
@@ -187,47 +185,36 @@ export function OverviewGroupDialog({
   };
 
   const title = mode === 'create' ? 'Create group' : 'Manage group';
-  const description =
-    mode === 'create'
-      ? 'Create a group and choose the workspaces and agent homes shown in Overview.'
-      : 'Rename or change the workspaces and agent homes in this group.';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col overflow-hidden p-3 sm:p-4 gap-3 sm:gap-4 max-w-[calc(100vw-0.5rem)] sm:max-w-[480px] sm:max-h-[85vh]">
+      <DialogContent className="flex flex-col overflow-hidden gap-4 max-w-[calc(100vw-1rem)] sm:max-w-md sm:max-h-[85vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="shrink-0 space-y-2">
-          <Label htmlFor="overview-group-name">Group name</Label>
-          <Input
-            id="overview-group-name"
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            maxLength={NAME_LIMIT}
-            placeholder="e.g. Active Projects"
-            aria-invalid={!!nameError}
-          />
-          {nameError && (
-            <p className="text-xs text-error">{nameError}</p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {name.length}/{NAME_LIMIT}
-          </p>
-        </div>
-
-        <Separator className="shrink-0" />
+        <FormGrid className="shrink-0">
+          <SettingsRow label="Name" htmlFor="overview-group-name" description={nameError ? <span className="text-error">{nameError}</span> : `${name.length}/${NAME_LIMIT}`}>
+            <Input
+              id="overview-group-name"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              maxLength={NAME_LIMIT}
+              placeholder="e.g. Active Projects"
+              aria-invalid={!!nameError}
+              className="sm:w-56"
+            />
+          </SettingsRow>
+          <SettingsRow label="Shown in Overview" description="Workspaces and agent homes, in this order." />
+        </FormGrid>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain dialog-scrollbar">
-          <Label className="mb-2 block">Workspaces and agent homes</Label>
           {workspaces.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
+            <p className="text-xs text-muted-foreground py-4 text-center">
               No workspaces or agent homes available on this server.
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="flex flex-col">
               {orderedWorkspaces.map((workspace) => {
                 const isSelected = selectedWorkspaceIds.includes(workspace.id);
                 const selectedIndex = visibleSelectedWorkspaceIds.indexOf(workspace.id);
@@ -235,7 +222,7 @@ export function OverviewGroupDialog({
                 return (
                   <div
                     key={workspace.id}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+                    className="flex min-h-7 items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
                   >
                     <Checkbox
                       id={`overview-group-workspace-${workspace.id}`}
@@ -262,26 +249,28 @@ export function OverviewGroupDialog({
                     </label>
                     {isSelected && (
                       <div className="flex shrink-0 items-center gap-1">
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => moveWorkspace(workspace.id, -1)}
                           disabled={selectedIndex === 0}
-                          className="rounded-md p-1 hover:bg-secondary disabled:opacity-30"
                           aria-label={`Move ${displayName} up`}
                           title="Move up"
                         >
-                          <ArrowUp className="size-4" />
-                        </button>
-                        <button
+                          <ArrowUp />
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => moveWorkspace(workspace.id, 1)}
                           disabled={selectedIndex === visibleSelectedWorkspaceIds.length - 1}
-                          className="rounded-md p-1 hover:bg-secondary disabled:opacity-30"
                           aria-label={`Move ${displayName} down`}
                           title="Move down"
                         >
-                          <ArrowDown className="size-4" />
-                        </button>
+                          <ArrowDown />
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -296,24 +285,17 @@ export function OverviewGroupDialog({
             <Button
               variant="destructive"
               onClick={handleDelete}
-              className="mr-auto"
+              className="sm:mr-auto"
             >
-              <Trash2 className="size-4" />
+              <Trash2 data-icon="inline-start" />
               {confirmDelete ? 'Confirm delete' : 'Delete'}
             </Button>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!!nameError}>
-            {mode === 'create' ? (
-              <>
-                <Plus className="size-4" />
-                Create
-              </>
-            ) : (
-              'Save'
-            )}
+            {mode === 'create' ? 'Create' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>

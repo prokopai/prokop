@@ -56,14 +56,14 @@ export function ConfirmationDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={loading}>{cancelLabel}</Button>
+            <Button variant="ghost" disabled={loading}>{cancelLabel}</Button>
           </DialogClose>
           <Button
             onClick={handleConfirm}
             variant={variant === 'destructive' ? 'destructive' : 'default'}
             disabled={loading}
           >
-            {loading && <Loader2 className="size-4 animate-spin mr-2" />}
+            {loading && <Loader2 className="animate-spin" data-icon="inline-start" />}
             {loading ? 'Working...' : confirmLabel}
           </Button>
         </DialogFooter>

@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Folder, Plus, X, FolderSymlink } from 'lucide-react';
+import { Folder, Plus, X } from 'lucide-react';
 import type { Workspace } from '@prokopai/sdk';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
 import { FolderPickerDialog } from './FolderPickerDialog';
 import { FOLDER_ICON_COLOR } from '@/components/files/fileIcons';
 
@@ -61,59 +60,37 @@ export function WorkspaceAdditionalPathsDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderSymlink className="size-5" />
-              Additional Paths
-            </DialogTitle>
-            <DialogDescription>
-              Add directories the agent can access alongside {workspace.name}. The agent will use absolute paths for these directories.
-            </DialogDescription>
+            <DialogTitle>Additional paths</DialogTitle>
           </DialogHeader>
 
-          <div className="mt-4 space-y-3">
-
+          <FormGrid className="dialog-scrollbar max-h-80 overflow-y-auto">
             {paths.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-sm border rounded-md">
-                <Folder className="w-8 h-8 mb-2 opacity-50" />
-                No additional paths configured
-              </div>
-            ) : (
-              <ScrollArea className="max-h-64 border rounded-md">
-                <div className="p-2 space-y-1">
-                  {paths.map((path) => (
-                    <div
-                      key={path}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted group"
-                    >
-                      <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />
-                      <span className="font-mono text-xs truncate flex-1" title={path}>{path}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`Remove ${path}`}
-                        className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-                        onClick={() => handleRemove(path)}
-                      >
-                        <X className="size-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setFolderPickerOpen(true)}
-            >
-              <Plus className="size-4 mr-2" />
-              Add Path
-            </Button>
-          </div>
+              <SettingsRow label={<span className="text-xs text-muted-foreground">No additional paths yet.</span>} />
+            ) : paths.map((path) => (
+              <SettingsRow
+                key={path}
+                label={
+                  <span className="flex min-w-0 items-center gap-2" title={path}>
+                    <Folder className={cn('size-3.5 shrink-0', FOLDER_ICON_COLOR)} />
+                    <span className="truncate font-mono text-xs">{path}</span>
+                  </span>
+                }
+              >
+                <Button variant="ghost" size="icon-xs" aria-label={`Remove ${path}`} onClick={() => handleRemove(path)}>
+                  <X />
+                </Button>
+              </SettingsRow>
+            ))}
+            <SettingsRow label="Add a directory" description={`Used by the agent alongside ${workspace.name}, by absolute path.`}>
+              <Button variant="outline" size="xs" onClick={() => setFolderPickerOpen(true)}>
+                <Plus data-icon="inline-start" />
+                Add Path
+              </Button>
+            </SettingsRow>
+          </FormGrid>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>

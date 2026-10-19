@@ -5,13 +5,12 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
 
 interface RenameServerDialogProps {
   server: SavedServer | null;
@@ -52,27 +51,25 @@ export function RenameServerDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Rename server</DialogTitle>
-            <DialogDescription>
-              Change the local name used for this server.
-            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="server-rename">Server name</Label>
-            <Input
-              id="server-rename"
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-                setError(null);
-              }}
-              aria-invalid={error !== null}
-              autoFocus
-            />
-            {error && <p className="text-xs text-error">{error}</p>}
-          </div>
+          <FormGrid>
+            <SettingsRow label="Name" htmlFor="server-rename" description={error ? <span className="text-error">{error}</span> : 'Only on this device.'}>
+              <Input
+                id="server-rename"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setError(null);
+                }}
+                aria-invalid={error !== null}
+                autoFocus
+                className="sm:w-64"
+              />
+            </SettingsRow>
+          </FormGrid>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="ghost">Cancel</Button>
             </DialogClose>
             <Button type="submit">Rename</Button>
           </DialogFooter>

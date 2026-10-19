@@ -484,7 +484,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setClosingDocId(null)}>
+            <Button variant="ghost" onClick={() => setClosingDocId(null)}>
               Cancel
             </Button>
             <Button variant="ghost" onClick={handleConfirmCloseDiscard}>
@@ -508,7 +508,7 @@ export function FileEditorSurface({ sdkClient, serverId, workspaceId, documentId
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReloadingDocId(null)}>
+            <Button variant="ghost" onClick={() => setReloadingDocId(null)}>
               Cancel
             </Button>
             <Button onClick={handleConfirmReload}>

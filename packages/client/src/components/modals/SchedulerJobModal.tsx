@@ -4,7 +4,6 @@ import type { ProkopaiClient, ScheduledJob, ScheduleKind, ScheduleConfig, Permis
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -12,8 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
 import {
   Select,
   SelectContent,
@@ -21,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import {
   useCreateScheduledJob,
@@ -47,6 +46,13 @@ const DAYS = [
   { value: 5, label: 'Fri' },
   { value: 6, label: 'Sat' },
   { value: 0, label: 'Sun' },
+];
+
+const SCHEDULE_KINDS: { value: ScheduleKind; label: string }[] = [
+  { value: 'interval', label: 'Interval' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'once', label: 'Once' },
 ];
 
 export function SchedulerJobModal({
@@ -193,27 +199,23 @@ export function SchedulerJobModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!isSaving) onOpenChange(nextOpen); }}>
-      <DialogContent className="flex flex-col overflow-hidden p-3 sm:p-4 gap-3 sm:gap-4 max-w-[calc(100vw-0.5rem)] sm:max-w-[560px] h-[85dvh] sm:h-[85vh]">
+      <DialogContent className="flex flex-col overflow-hidden gap-4 max-w-[calc(100vw-1rem)] sm:max-w-xl sm:max-h-[85vh]">
         <DialogHeader className="shrink-0">
-          <DialogTitle>{editingJob ? 'Edit Scheduled Job' : 'New Scheduled Job'}</DialogTitle>
-          <DialogDescription>
-            Schedule a task to run automatically. Each run creates a new session.
-          </DialogDescription>
+          <DialogTitle>{editingJob ? 'Edit scheduled job' : 'New scheduled job'}</DialogTitle>
         </DialogHeader>
 
-        <div className="dialog-scrollbar flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border p-3 sm:p-4 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="job-name">Name</Label>
+        <FormGrid className="dialog-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <SettingsRow label="Name" htmlFor="job-name">
             <Input
               id="job-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Daily summary"
+              className="sm:w-64"
             />
-          </div>
+          </SettingsRow>
 
-          <div className="space-y-2">
-            <Label htmlFor="job-prompt">Prompt</Label>
+          <SettingsRow label="Prompt" htmlFor="job-prompt" description="Each run starts a session with this message." stacked>
             <Textarea
               id="job-prompt"
               value={prompt}
@@ -221,170 +223,134 @@ export function SchedulerJobModal({
               placeholder="Check the build status and summarize any failures"
               rows={4}
             />
-          </div>
+          </SettingsRow>
 
-          <div className="space-y-2">
-            <Label>Schedule</Label>
-            <Tabs value={scheduleKind} onValueChange={(v) => setScheduleKind(v as ScheduleKind)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="interval" className="flex-1">Interval</TabsTrigger>
-                <TabsTrigger value="daily" className="flex-1">Daily</TabsTrigger>
-                <TabsTrigger value="weekly" className="flex-1">Weekly</TabsTrigger>
-                <TabsTrigger value="once" className="flex-1">Once</TabsTrigger>
-              </TabsList>
+          <SettingsRow label="Schedule">
+            <SegmentedControl label="Schedule" options={SCHEDULE_KINDS} value={scheduleKind} onChange={setScheduleKind} />
+          </SettingsRow>
 
-              <TabsContent value="interval" className="pt-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Run every</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={intervalMinutes}
-                    onChange={(e) => setIntervalMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">minutes</span>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="daily" className="pt-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Run at</span>
-                  <Input
-                    type="time"
-                    value={dailyTime}
-                    onChange={(e) => setDailyTime(e.target.value)}
-                    className="w-32"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="weekly" className="pt-3 space-y-3">
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Run on</div>
-                  <div className="flex flex-wrap gap-2">
-                    {DAYS.map(day => (
-                      <label key={day.value} className="flex items-center gap-1.5">
-                        <Checkbox
-                          checked={weeklyDays.includes(day.value)}
-                          onCheckedChange={() => toggleDay(day.value)}
-                        />
-                        <span className="text-sm">{day.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">at</span>
-                  <Input
-                    type="time"
-                    value={weeklyTime}
-                    onChange={(e) => setWeeklyTime(e.target.value)}
-                    className="w-32"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="once" className="pt-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Date</span>
-                  <Input
-                    type="date"
-                    value={onceDate}
-                    onChange={(e) => setOnceDate(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Time</span>
-                  <Input
-                    type="time"
-                    value={onceTime}
-                    onChange={(e) => setOnceTime(e.target.value)}
-                    className="w-32"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="job-repeat">Repeat limit (optional)</Label>
-              <Input
-                id="job-repeat"
-                type="number"
-                min={1}
-                value={repeatLimit}
-                onChange={(e) => setRepeatLimit(e.target.value)}
-                placeholder="Infinite"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="job-preconfig">Agent</Label>
-              <Select value={preconfigId} onValueChange={setPreconfigId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Default" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default</SelectItem>
-                  {preconfigs.map(pc => (
-                    <SelectItem key={pc.id} value={pc.id}>{pc.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <Checkbox
-              id="job-reuse-session"
-              checked={reuseSession}
-              onCheckedChange={(checked) => setReuseSession(checked === true)}
-            />
-            <Label htmlFor="job-reuse-session" className="text-sm font-normal">
-              Reuse same session for each run
-            </Label>
-          </div>
-
-          {reuseSession && (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="job-include-history"
-                checked={includeHistory}
-                onCheckedChange={(checked) => setIncludeHistory(checked === true)}
-              />
-              <Label htmlFor="job-include-history" className="text-sm font-normal">
-                Include previous run history (agent sees past context)
-              </Label>
-            </div>
+          {scheduleKind === 'interval' && (
+            <SettingsRow label="Run every" htmlFor="job-interval">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Input
+                  id="job-interval"
+                  type="number"
+                  min={1}
+                  value={intervalMinutes}
+                  onChange={(e) => setIntervalMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-24"
+                />
+                minutes
+              </span>
+            </SettingsRow>
           )}
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="job-notifications">Send notifications</Label>
-              <p className="text-xs text-muted-foreground">
-                Allow this job to send completion, failure, and permission request notifications.
-                Each device's notification preferences still apply.
-              </p>
-            </div>
+          {scheduleKind === 'daily' && (
+            <SettingsRow label="Run at" htmlFor="job-daily-time">
+              <Input id="job-daily-time" type="time" value={dailyTime} onChange={(e) => setDailyTime(e.target.value)} className="w-32" />
+            </SettingsRow>
+          )}
+
+          {scheduleKind === 'weekly' && (
+            <>
+              <SettingsRow label="Run on">
+                <span className="flex flex-wrap gap-1" role="group" aria-label="Days of the week">
+                  {DAYS.map(day => {
+                    const selected = weeklyDays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => toggleDay(day.value)}
+                        className={cn(
+                          'h-6 rounded-sm border px-2 text-xs transition-colors',
+                          selected
+                            ? 'border-highlight bg-highlight/10 text-foreground'
+                            : 'border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </span>
+              </SettingsRow>
+              <SettingsRow label="At" htmlFor="job-weekly-time">
+                <Input id="job-weekly-time" type="time" value={weeklyTime} onChange={(e) => setWeeklyTime(e.target.value)} className="w-32" />
+              </SettingsRow>
+            </>
+          )}
+
+          {scheduleKind === 'once' && (
+            <>
+              <SettingsRow label="Date" htmlFor="job-once-date">
+                <Input id="job-once-date" type="date" value={onceDate} onChange={(e) => setOnceDate(e.target.value)} className="w-40" />
+              </SettingsRow>
+              <SettingsRow label="Time" htmlFor="job-once-time">
+                <Input id="job-once-time" type="time" value={onceTime} onChange={(e) => setOnceTime(e.target.value)} className="w-32" />
+              </SettingsRow>
+            </>
+          )}
+
+          <SettingsRow label="Repeat limit" htmlFor="job-repeat" description="Empty runs forever.">
+            <Input
+              id="job-repeat"
+              type="number"
+              min={1}
+              value={repeatLimit}
+              onChange={(e) => setRepeatLimit(e.target.value)}
+              placeholder="Infinite"
+              className="w-28"
+            />
+          </SettingsRow>
+
+          <SettingsRow label="Agent" htmlFor="job-preconfig">
+            <Select value={preconfigId} onValueChange={setPreconfigId}>
+              <SelectTrigger id="job-preconfig" className="w-48">
+                <SelectValue placeholder="Default" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Default</SelectItem>
+                {preconfigs.map(pc => (
+                  <SelectItem key={pc.id} value={pc.id}>{pc.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+
+          <SettingsRow label="Reuse the same session" htmlFor="job-reuse-session" description="Every run continues one session instead of starting a new one.">
+            <Switch
+              id="job-reuse-session"
+              checked={reuseSession}
+              onCheckedChange={setReuseSession}
+            />
+          </SettingsRow>
+
+          {reuseSession && (
+            <SettingsRow label="Include previous runs" htmlFor="job-include-history" description="The agent sees the earlier runs as context.">
+              <Switch
+                id="job-include-history"
+                checked={includeHistory}
+                onCheckedChange={setIncludeHistory}
+              />
+            </SettingsRow>
+          )}
+
+          <SettingsRow label="Send notifications" htmlFor="job-notifications" description="Completion, failure and permission requests. Each device's notification preferences still apply.">
             <Switch
               id="job-notifications"
               checked={notificationsEnabled}
               onCheckedChange={setNotificationsEnabled}
             />
-          </div>
+          </SettingsRow>
 
-          <div className="space-y-2">
-            <Label>Permission mode</Label>
-            <p className="text-xs text-muted-foreground">
-              Controls which permissions run automatically for sessions created by this job. "Use workspace default" inherits from workspace settings.
-            </p>
+          <SettingsRow label="Permission mode" description="Which permissions run automatically in sessions this job creates.">
             <Select
               value={permissionMode ?? '__workspace__'}
               onValueChange={(v) => setPermissionMode(v === '__workspace__' ? null : v as PermissionMode)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-48" aria-label="Permission mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -394,34 +360,26 @@ export function SchedulerJobModal({
                 <SelectItem value="full">Full access</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </SettingsRow>
 
           {editingJob && (
-            <div className="rounded-md border p-3 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Runs</span>
-                <span>{editingJob.runCount}{editingJob.repeatLimit !== null ? ` / ${editingJob.repeatLimit}` : ''}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Last run</span>
-                <span>{formatLastRun(editingJob)}</span>
-              </div>
-              {editingJob.lastError && (
-                <div className="text-error pt-1">
-                  <span className="text-muted-foreground">Error: </span>
-                  {editingJob.lastError}
-                </div>
-              )}
-            </div>
+            <>
+              <SettingsRow label="Runs">
+                <span className="text-sm tabular-nums">{editingJob.runCount}{editingJob.repeatLimit !== null ? ` / ${editingJob.repeatLimit}` : ''}</span>
+              </SettingsRow>
+              <SettingsRow label="Last run" description={editingJob.lastError ? <span className="text-error">{editingJob.lastError}</span> : undefined}>
+                <span className="text-sm">{formatLastRun(editingJob)}</span>
+              </SettingsRow>
+            </>
           )}
-        </div>
+        </FormGrid>
 
         {error && (
           <ErrorState className="shrink-0">{error}</ErrorState>
         )}
 
         <DialogFooter className="shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!name.trim() || !prompt.trim() || isSaving}>

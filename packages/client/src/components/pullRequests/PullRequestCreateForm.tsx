@@ -1,10 +1,10 @@
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { FormGrid, SettingsRow } from '@/components/ui/settings-row';
 import { useState } from 'react';
 import { useMutation, useMutationState } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { draftKey, PrError, usePrDraft, type PullRequestContext } from './shared';
 
 export function PullRequestCreateForm({
@@ -58,72 +58,67 @@ export function PullRequestCreateForm({
         if (!pending) mutation.mutate();
       }}
     >
-      <h2 className="text-lg font-medium">Create pull request</h2>
-      <p className="text-sm text-muted-foreground">
-        Push your source branch first using Branches. Creating a PR does not push local changes.
-      </p>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="pr-source">
-          Source branch{ctx.provider === 'github' ? ' (owner:branch for a fork)' : ''}
-        </Label>
-        <Input
-          id="pr-source"
-          disabled={pending}
-          value={source}
-          onChange={(e) => {
-            setSource(e.target.value);
-            saveSource(e.target.value);
-          }}
-          required
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="pr-target">Target branch</Label>
-        <Input
-          id="pr-target"
-          disabled={pending}
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          required
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="pr-title">Title</Label>
-        <Input
-          id="pr-title"
-          disabled={pending}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          maxLength={300}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="pr-body">Description</Label>
-        <Textarea
-          id="pr-body"
-          disabled={pending}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={8}
-          maxLength={60000}
-        />
-      </div>
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          disabled={pending}
-          checked={draft}
-          onCheckedChange={(checked) => setMode(checked === true ? '' : 'ready')}
-        />
-        Create as draft
-      </label>
+      <h2 className="text-base font-medium">Create pull request</h2>
+      <FormGrid>
+        <SettingsRow label="Source branch" htmlFor="pr-source" description={ctx.provider === 'github' ? 'owner:branch for a fork. Push it first from Branches; creating a PR does not push.' : 'Push it first from Branches; creating a PR does not push.'}>
+          <Input
+            id="pr-source"
+            disabled={pending}
+            value={source}
+            onChange={(e) => {
+              setSource(e.target.value);
+              saveSource(e.target.value);
+            }}
+            required
+            className="font-mono sm:w-64"
+          />
+        </SettingsRow>
+        <SettingsRow label="Target branch" htmlFor="pr-target">
+          <Input
+            id="pr-target"
+            disabled={pending}
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            required
+            className="font-mono sm:w-64"
+          />
+        </SettingsRow>
+        <SettingsRow label="Title" htmlFor="pr-title" stacked>
+          <Input
+            id="pr-title"
+            disabled={pending}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            maxLength={300}
+          />
+        </SettingsRow>
+        <SettingsRow label="Description" htmlFor="pr-body" stacked>
+          <Textarea
+            id="pr-body"
+            disabled={pending}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={8}
+            maxLength={60000}
+          />
+        </SettingsRow>
+        <SettingsRow label="Create as draft" htmlFor="pr-draft">
+          <Switch
+            id="pr-draft"
+            disabled={pending}
+            checked={draft}
+            onCheckedChange={(checked) => setMode(checked ? '' : 'ready')}
+          />
+        </SettingsRow>
+      </FormGrid>
       <PrError error={mutation.error} />
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending || !title.trim() || !source || !target}>
-          {pending ? 'Creating…' : 'Create PR'}
-        </Button>
+      <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
           Cancel
+        </Button>
+        <Button type="submit" disabled={pending || !title.trim() || !source || !target}>
+          {pending ? 'Creating…' : 'Create PR'}
         </Button>
       </div>
     </form>

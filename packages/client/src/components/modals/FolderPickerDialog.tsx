@@ -321,7 +321,7 @@ export function FolderPickerDialog({
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSelectCurrent} disabled={!targetPath || loading}>
