@@ -315,7 +315,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ children, class
       return <MarkdownLink href={href} {...props}>{children}</MarkdownLink>;
     },
     p({ node, children }: ComponentProps<'p'> & ExtraProps) {
-      return <p className={cn('last:mb-0 leading-relaxed break-words', alignClass(node))}>{children}</p>;
+      return <p className={cn('last:mb-0 leading-6 break-words', alignClass(node))}>{children}</p>;
     },
     ul({ children }: ComponentProps<'ul'>) {
       return <ul className="list-outside list-disc pl-8">{children}</ul>;
