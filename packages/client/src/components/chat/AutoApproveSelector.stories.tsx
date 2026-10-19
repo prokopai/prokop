@@ -29,7 +29,7 @@ const meta = {
   args: { sessionId: 'sess-standard', sdkClient: client },
   decorators: [
     // The chip folds to its icon by the width of the composer container (ui/chip.tsx).
-    (Story) => <div className="@container/composer w-[40rem] max-w-full"><Story /></div>,
+    (Story) => <div className="@container/chips w-[40rem] max-w-full"><Story /></div>,
     withSessionStore({ sessions: [sessionWith('standard'), sessionWith('extended'), sessionWith('full')] }),
   ],
 } satisfies Meta<typeof AutoApproveSelector>;

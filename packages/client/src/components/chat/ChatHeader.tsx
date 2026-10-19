@@ -1,26 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useHarnessesQuery, isHarnessEnabled } from '@/hooks/queries';
-import { toast } from 'sonner';
 import { ArrowLeft, Archive, ChevronRight, Minimize2, Loader2, AlertTriangle } from 'lucide-react';
 import type { Session, Preconfig, ProkopaiClient } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TokenMeter } from './TokenMeter';
-import { ModelVariantConfigSelector } from './ModelVariantConfigSelector';
-import { useSessionContentStore } from '@/stores/sessionContentStore';
+import { SessionModelChips } from './SessionModelChips';
 import { useSessionControlStore } from '@/stores/sessionControlStore';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import type { SessionUsage } from '@/stores/sessionContentStore';
 
 import { useClientIdentityStore } from '@/stores/clientIdentityStore';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useElementWidth } from '@/hooks/use-element-width';
-import { useScopedServerData } from '@/contexts/HostScopeContext';
-
-// Header widths (px) below which the model selector collapses.
-const ICON_ONLY_SELECTOR_MAX_WIDTH = 420;
-const COMPACT_SELECTOR_MAX_WIDTH = 640;
 
 interface Model {
   id: string;
@@ -33,142 +22,44 @@ interface Model {
 interface ChatHeaderProps {
   session: Session;
   sdkClient?: ProkopaiClient | null;
-  serverUrl?: string | null;
   preconfigs: Preconfig[];
   models: Model[];
-  defaultModel: string;
-  usage: SessionUsage;  modelName: string;
-  onChangePreconfig: (preconfigId: string) => void;
-  onChangeModel: (modelId: string, providerId: string) => void;
-  onChangeVariant: (variant: string | null) => void;
+  usage: SessionUsage;
+  modelName: string;
   onRename: (sessionId: string, title: string) => void;
   onNavigateBack?: () => void;
   isStreaming?: boolean;
   onCompact?: () => void;
   isCompacting?: boolean;
   canCompact?: boolean;
-  selectedVariant: string | null;
-  variants?: Record<string, { providerOptions: Record<string, unknown> }>;
-  /** When true, locks the preconfig selector (e.g. agent-home workspaces). */
-  lockPreconfig?: boolean;
   /** Shown before the title where sessions from several workspaces mix (Overview). */
   workspaceLabel?: string | null;
 }
 
+/**
+ * Title and token meter at the left; agent, model and compact at the right.
+ * Checkout, permissions and format sit under the composer: the header holds
+ * what the session is, the composer what each message runs with.
+ */
 export function ChatHeader({
   session,
   sdkClient = null,
-  serverUrl = null,
   preconfigs,
   models,
   modelName,
-  onChangePreconfig,
-  onChangeModel,
-  onChangeVariant,
   onRename,
   onNavigateBack,
   isStreaming,
   onCompact,
   isCompacting,
   canCompact,
-  selectedVariant,
-  variants,
-  lockPreconfig,
   workspaceLabel,
 }: ChatHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title || '');
   const inputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-  const queued = useSessionContentStore(s => s.queuedMessages[session.id]);
-  const workspace = useScopedServerData(s => s.workspaces.find(w => w.id === session.workspaceId));
-  // Any idle root session may change harness; after the first message the
-  // server detaches the native thread and hands the new harness a brief.
-  const switchableRoot = !session.parentId && session.status === 'active' && !session.runningAt
-    && !isStreaming && !session.compacting && !queued?.length;
   const codexSession = session.harness === 'codex-cli';
   const claudeSession = session.harness === 'claude-cli';
-  const harnessesData = useHarnessesQuery(sdkClient).data;
-  const harnessEnabled = (id: 'codex-cli' | 'claude-cli') =>
-    isHarnessEnabled(harnessesData?.harnesses.find(h => h.id === id));
-  const claudeHarnessEnabled = harnessEnabled('claude-cli');
-  const codexHarnessEnabled = harnessEnabled('codex-cli');
-  const claudeCatalog = useQuery({
-    queryKey: ['claude-catalog', serverUrl],
-    queryFn: () => sdkClient!.http.sessions.claudeCatalog(),
-    enabled: !!sdkClient && !!serverUrl && switchableRoot && !claudeSession && claudeHarnessEnabled
-      && !!workspace?.path,
-    staleTime: 60_000,
-    retry: false,
-  });
-  const claudeKey = ['claude-models', serverUrl, session.id, session.selectedModel];
-  const claudeSelection = useQuery({
-    queryKey: claudeKey,
-    queryFn: () => sdkClient!.http.sessions.claudeModels(session.id),
-    enabled: !!sdkClient && !!serverUrl && claudeSession,
-    staleTime: 60_000,
-    retry: false,
-  });
-  const claudeModels = claudeSession ? claudeSelection.data?.models ?? []
-    : switchableRoot && !!workspace?.path && claudeHarnessEnabled ? claudeCatalog.data?.models ?? [] : [];
-  const claudeModel = claudeSelection.data?.selection?.model ?? session.selectedModel;
-  const claudeEffort = claudeSelection.data?.selection?.effort ?? null;
-  const selectClaude = async (modelId: string, effort: string) => {
-    if (!sdkClient || isObserver || isStreaming) return;
-    if (!claudeSession) {
-      sdkClient.sessions.selectHarnessModel(session.id, { harness: 'claude-cli', modelId, effort });
-      return;
-    }
-    try {
-      const response = await sdkClient.http.sessions.setClaudeModel(session.id, { model: modelId, effort });
-      queryClient.setQueryData(claudeKey, (old: typeof claudeSelection.data) => old && { ...old, selection: response.selection });
-    } catch {
-      toast.error('Could not change the Claude model or effort. Check the host and try again.');
-    }
-  };
-  const catalog = useQuery({
-    queryKey: ['codex-catalog', serverUrl],
-    queryFn: () => sdkClient!.http.sessions.codexCatalog(),
-    enabled: !!sdkClient && !!serverUrl && switchableRoot && !codexSession && codexHarnessEnabled
-      && !!workspace?.path,
-    staleTime: 60_000,
-    retry: false,
-  });
-  const codexKey = ['codex-models', serverUrl, session.id, session.selectedModel];
-  const codexSelection = useQuery({
-    queryKey: codexKey,
-    queryFn: () => sdkClient!.http.sessions.codexModels(session.id),
-    enabled: !!sdkClient && !!serverUrl && codexSession,
-    staleTime: 60_000,
-    retry: false,
-  });
-  const codexModels = codexSession ? codexSelection.data?.models ?? []
-    : switchableRoot && !!workspace?.path && codexHarnessEnabled ? catalog.data?.models ?? [] : [];
-  const codexModel = codexSelection.data?.selection?.model ?? session.selectedModel;
-  const codexEffort = codexSelection.data?.selection?.effort ?? null;
-  const selectCodex = async (modelId: string, effort: string) => {
-    if (!sdkClient || isObserver || isStreaming) return;
-    if (!codexSession) {
-      sdkClient.sessions.selectHarnessModel(session.id, { harness: 'codex-cli', modelId, effort });
-      return;
-    }
-    try {
-      const response = await sdkClient.http.sessions.setCodexModel(session.id, { model: modelId, effort });
-      queryClient.setQueryData(codexKey, (old: typeof codexSelection.data) => old && { ...old, selection: response.selection });
-    } catch {
-      toast.error('Could not change the Codex model or effort. Check the host and try again.');
-    }
-  };
-  const selectProkop = (modelId: string, providerId: string) => {
-    if (codexSession || claudeSession) sdkClient?.sessions.selectHarnessModel(session.id, { harness: 'prokop', modelId, providerId });
-    else onChangeModel(modelId, providerId);
-  };
-  const isMobile = useIsMobile();
-  // Size the selector from this header's own width, not the viewport, so a
-  // wide pane on a small screen keeps its labels and a narrow split loses them.
-  const [headerRef, headerWidth] = useElementWidth<HTMLDivElement>();
-  const showIconOnlySelector = isMobile || (headerWidth !== null && headerWidth < ICON_ONLY_SELECTOR_MAX_WIDTH);
-  const showCompactSelector = headerWidth !== null && headerWidth < COMPACT_SELECTOR_MAX_WIDTH;
 
   const controlState = useSessionControlStore((s) => s.controlBySessionId[session.id]);
   const myClientId = useClientIdentityStore((s) => s.clientId);
@@ -230,7 +121,7 @@ export function ChatHeader({
     : null;
 
   return (
-    <div ref={headerRef} className="flex-1 min-w-0 flex items-center justify-between gap-1">
+    <div className="@container/chips flex-1 min-w-0 flex items-center justify-between gap-1">
       <div className="flex items-center justify-between gap-1 w-full min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {session.parentId && onNavigateBack && (
@@ -280,35 +171,8 @@ export function ChatHeader({
             )}
           </div>
 
-          <div className="flex items-center gap-1 flex-wrap md:flex-nowrap shrink-0">
-            <ModelVariantConfigSelector
-              models={(codexSession || claudeSession) && !switchableRoot ? [] : models}
-              claudeModels={claudeModels}
-              claudeSession={claudeSession}
-              claudeSelectedModel={claudeModel}
-              claudeEffort={claudeEffort}
-              onChangeClaude={(modelId, effort) => void selectClaude(modelId, effort)}
-              codexModels={codexModels}
-              codexSession={codexSession}
-              codexSelectedModel={codexModel}
-              codexEffort={codexEffort}
-              onChangeCodex={(modelId, effort) => void selectCodex(modelId, effort)}
-              selectedModelId={selectedModel}
-              selectedProviderId={session.selectedProvider}
-              fallbackModelName={modelName}
-              onChangeModel={selectProkop}
-              variants={variants}
-              selectedVariant={selectedVariant}
-              onChangeVariant={onChangeVariant}
-              preconfigs={preconfigs}
-              selectedPreconfigId={session.preconfigId}
-              onChangePreconfig={onChangePreconfig}
-              disabled={session.status === 'closed' || !!session.parentId || isObserver || ((codexSession || claudeSession) && !!isStreaming)}
-              lockPreconfig={lockPreconfig}
-              iconOnly={showIconOnlySelector}
-              compact={showCompactSelector}
-            />
-
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+            <SessionModelChips session={session} sdkClient={sdkClient} disabled={isObserver} />
             {onCompact && !isObserver && (
               <Button
                 variant="ghost"

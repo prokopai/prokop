@@ -22,17 +22,6 @@ const models = createModelList().map((m) => ({
   providerId: m.providerId,
   providerName: m.providerName,
 }));
-const longLabelModel = {
-  ...models[0],
-  id: 'claude-long-label',
-  name: 'Claude Sonnet Extended Reasoning Preview',
-};
-const longLabelPreconfig = {
-  ...preconfigs[0],
-  id: 'preconfig-long-label',
-  name: 'Senior TypeScript Architecture and Code Review',
-};
-
 const defaultUsage = {
   promptTokens: 2500,
   completionTokens: 1800,
@@ -56,14 +45,9 @@ const meta = {
     session: createSession({ title: 'Refactoring the auth module' }),
     preconfigs,
     models,
-    defaultModel: 'claude-3.5-sonnet',
     usage: defaultUsage,
     modelName: 'Claude 3.5 Sonnet',
-    onChangePreconfig: () => {},
-    onChangeModel: () => {},
-    onChangeVariant: () => {},
     onRename: () => {},
-    selectedVariant: null,
   },
 } satisfies Meta<typeof ChatHeader>;
 
@@ -144,34 +128,6 @@ export const NearLimit: Story = {
       cacheWriteTokens: 2000,
       noCacheTokens: 10000,
     },
-  },
-};
-
-export const WithVariants: Story = {
-  args: {
-    variants: {
-      low: { providerOptions: { temperature: 0.1 } },
-      medium: { providerOptions: { temperature: 0.5 } },
-      high: { providerOptions: { temperature: 0.9 } },
-    },
-    selectedVariant: 'medium',
-  },
-};
-
-export const LongPickerLabels: Story = {
-  args: {
-    session: createSession({
-      title: 'Responsive model picker',
-      selectedModel: longLabelModel.id,
-      selectedProvider: longLabelModel.providerId,
-      preconfigId: longLabelPreconfig.id,
-    }),
-    models: [longLabelModel, ...models],
-    preconfigs: [longLabelPreconfig, ...preconfigs],
-    variants: {
-      xhigh: { providerOptions: {} },
-    },
-    selectedVariant: 'xhigh',
   },
 };
 

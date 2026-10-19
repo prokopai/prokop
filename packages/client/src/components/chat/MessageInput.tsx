@@ -424,7 +424,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       className={cn(
         // The chips under the editor size to this container (see ui/chip.tsx),
         // so a narrow pane on a wide window folds them like a phone does.
-        '@container/composer mx-auto w-full max-w-3xl px-4 pt-2 pb-4',
+        '@container/chips mx-auto w-full max-w-3xl px-4 pt-2 pb-4',
         isDragOver && 'ring-2 ring-highlight'
       )}
     >

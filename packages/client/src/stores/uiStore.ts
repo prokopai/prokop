@@ -138,8 +138,38 @@ interface AutoApproveActions {
   getAutoApproveMaxSeverity: (sessionId: string) => PermissionRiskLevel | 'off' | null;
 }
 
+// --- Recent models ---
+// The last few models picked in a workspace, across harnesses, so the model
+// picker can put them first. Identity only; names come from the live catalog.
+const RECENT_MODELS_KEY = 'prokopai_recent_models';
+const RECENT_MODELS_LIMIT = 3;
+
+export interface RecentModelRef {
+  harness: 'prokop' | 'claude-cli' | 'codex-cli';
+  /** Unique within the harness: `provider:model` for Prokop, the model id otherwise. */
+  key: string;
+}
+
+function loadRecentModels(): Record<string, RecentModelRef[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = localStorage.getItem(RECENT_MODELS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+interface RecentModelsState {
+  recentModelsByWorkspace: Record<string, RecentModelRef[]>;
+}
+
+interface RecentModelsActions {
+  pushRecentModel: (workspaceId: string, ref: RecentModelRef) => void;
+}
+
 // --- Combined Store ---
-type UIStore = ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & SchedulerModalState & SchedulerModalActions;
+type UIStore = ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & RecentModelsState & RecentModelsActions & SchedulerModalState & SchedulerModalActions;
 
 export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set) => ({
   // --- Configuration Section ---
@@ -186,6 +216,17 @@ export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set
 
   openFilePreview: (target) => set({ filePreviewTarget: target }),
   closeFilePreview: () => set({ filePreviewTarget: null }),
+
+  // --- Recent models ---
+  recentModelsByWorkspace: loadRecentModels(),
+  pushRecentModel: (workspaceId, ref) =>
+    set((state) => {
+      const current = state.recentModelsByWorkspace[workspaceId] ?? [];
+      const rest = current.filter((r) => !(r.harness === ref.harness && r.key === ref.key));
+      const next = { ...state.recentModelsByWorkspace, [workspaceId]: [ref, ...rest].slice(0, RECENT_MODELS_LIMIT) };
+      try { localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(next)); } catch { /* Storage may be blocked. */ }
+      return { recentModelsByWorkspace: next };
+    }),
 
   // --- Auto-Approve Severity ---
   autoApproveBySession: loadAutoApproveMap(),

@@ -30,11 +30,10 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   const activeWorkspace = useScopedServerData(s => s.activeWorkspace);
   const allPreconfigs = useScopedServerData(s => s.preconfigs);
   const models = useScopedServerData(s => s.models);
-  const defaultModel = useScopedServerData(s => s.defaultModel);
   const allWorkspaces = useScopedServerData(s => s.workspaces);
   const sessionManager = useSessionCommands();
   // Scoped client: the pane may show a session from another machine.
-  const { sdkClient, serverUrl } = useServerClient();
+  const { sdkClient } = useServerClient();
 
   const focusedSessionId = useSessionBoardStore(s => s.focusedSessionId);
   const openSessionIds = useSessionBoardStore(s => s.openSessionIds);
@@ -53,7 +52,6 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   }, [currentSession?.workspaceId, allWorkspaces, activeWorkspace]);
 
   const preconfigs = getWorkspacePreconfigs(sessionWorkspace, allPreconfigs);
-  const lockPreconfig = !!sessionWorkspace?.settings?.isAgentHome;
   // Overview mixes sessions from every workspace; name the one this pane belongs to.
   const inOverview = useRouterState({ select: (s) => s.location.pathname.includes('/overview') });
   const agents = useScopedServerData(s => s.agents);
@@ -63,7 +61,6 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   // record already carries, so the header renders complete in the first frame.
   const storedUsage = useSessionContentStore(s => (displayedSessionId ? s.usageBySessionId[displayedSessionId] : undefined));
   const storedModel = useSessionContentStore(s => (displayedSessionId ? s.modelBySessionId[displayedSessionId] : undefined));
-  const storedVariant = useSessionContentStore(s => (displayedSessionId ? s.variantBySessionId[displayedSessionId] : undefined));
   const sessionUsage = storedUsage ?? (currentSession?.totalTokens ? {
     promptTokens: currentSession.promptTokens ?? 0,
     completionTokens: currentSession.completionTokens ?? 0,
@@ -73,7 +70,6 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
     noCacheTokens: currentSession.noCacheTokens ?? 0,
   } : EMPTY_USAGE);
   const currentModel = storedModel ?? currentSession?.selectedModel ?? '';
-  const selectedVariant = storedVariant !== undefined ? storedVariant : currentSession?.selectedVariant ?? null;
   const currentSessionMessages = useSessionContentStore((s) =>
     currentSession ? s.messagesBySession[currentSession.id] : undefined,
   );
@@ -85,8 +81,6 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
   );
 
   const isCompacting = currentSession?.compacting ?? false;
-
-  const currentModelInfo = models.find((m) => m.id === currentModel);
 
   const hasSession = !!currentSession;
 
@@ -100,15 +94,10 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
           <ChatHeader
             session={currentSession}
             sdkClient={sdkClient}
-            serverUrl={serverUrl}
             preconfigs={preconfigs}
             models={models}
-            defaultModel={defaultModel}
             usage={sessionUsage}
             modelName={currentModel}
-            onChangePreconfig={(preconfigId) => sessionManager.updateSessionPreconfigForSession(currentSession.id, preconfigId)}
-            onChangeModel={(modelId, providerId) => sessionManager.updateSessionModelForSession(currentSession.id, modelId, providerId)}
-            onChangeVariant={(variant) => sessionManager.updateSessionVariantForSession(currentSession.id, variant)}
             onRename={sessionManager.handleRenameSession}
             onNavigateBack={
               currentSession.parentId
@@ -119,9 +108,6 @@ export function WorkspaceHeader({ sessionId }: { sessionId?: string } = {}) {
             onCompact={compactableMessageCount >= 2 ? () => sessionManager.compactSession(currentSession.id) : undefined}
             isCompacting={isCompacting}
             canCompact={compactableMessageCount >= 2}
-            selectedVariant={selectedVariant}
-            variants={currentModelInfo?.variants}
-            lockPreconfig={lockPreconfig}
             workspaceLabel={workspaceLabel}
           />
         )}

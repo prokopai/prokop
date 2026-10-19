@@ -277,7 +277,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
       <GitBranch className="size-3 shrink-0" />
       <span className="min-w-0 truncate font-medium">{label}</span>
       {bound?.branch && bound.branch !== label && (
-        <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/composer:inline">
+        <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/chips:inline">
           (<span className="font-mono">{bound.branch}</span>)
         </span>
       )}
@@ -324,7 +324,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
             <GitBranch className="size-3 shrink-0" />
             <span className="min-w-0 truncate font-medium">{label}</span>
             {bound?.branch && bound.branch !== label && (
-              <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/composer:inline">
+              <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/chips:inline">
                 (<span className="font-mono">{bound.branch}</span>)
               </span>
             )}
