@@ -42,16 +42,6 @@ interface ConfigurationSectionActions {
   setConfigurationSection: (section: ConfigurationSection) => void;
 }
 
-// --- Dialogs ---
-interface DialogState {
-  /** The unified settings dialog (preference and server sections). */
-  showSettings: boolean;
-}
-
-interface DialogActions {
-  setShowSettings: (show: boolean) => void;
-}
-
 // --- File Preview ---
 export interface FilePreviewTarget {
   workspaceId: string;
@@ -149,13 +139,9 @@ interface AutoApproveActions {
 }
 
 // --- Combined Store ---
-type UIStore = DialogState & DialogActions & ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & SchedulerModalState & SchedulerModalActions;
+type UIStore = ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & SchedulerModalState & SchedulerModalActions;
 
 export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set) => ({
-  // --- Dialogs ---
-  showSettings: false,
-  setShowSettings: (show) => set({ showSettings: show }),
-
   // --- Configuration Section ---
   configurationSection: 'appearance',
   setConfigurationSection: (section) => set({ configurationSection: section }),

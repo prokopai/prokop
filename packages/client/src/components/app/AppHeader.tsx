@@ -12,9 +12,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ServerSwitcher } from '@/components/layout/ServerSwitcher';
 import { HeaderPanelToggles } from '@/components/app/HeaderPanelToggles';
-import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
-import { isRegionOpen, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { isRegionOpen, settingsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
 /**
@@ -30,7 +29,6 @@ export function AppHeader() {
   const isMobile = useIsMobile();
   const updateVersion = useServerUpdate();
 
-  const setShowSettings = useUIStore((s) => s.setShowSettings);
   const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   // One toggle per region; the store decides whether that means a dock or a phone surface.
@@ -44,6 +42,11 @@ export function AppHeader() {
     router.navigate({ to: '/server/$serverId/workspace', params: { serverId: params.serverId } });
   const goOverview = () =>
     router.navigate({ to: '/server/$serverId/overview', params: { serverId: params.serverId } });
+  // Settings is a tab in the workspace; from the overview, go there first.
+  const openSettings = () => {
+    useWorkspaceViewStore.getState().openInCenter(settingsViewId(params.serverId));
+    if (isOverview) void goWorkspace();
+  };
 
   const panelToggles = (
     <HeaderPanelToggles
@@ -55,7 +58,7 @@ export function AppHeader() {
       onToggleBottom={() => toggleRegion('bottom')}
       hasRightDock={Boolean(activeWorkspace)}
       mobile={isMobile}
-      onOpenSettings={() => setShowSettings(true)}
+      onOpenSettings={openSettings}
       updateVersion={updateVersion}
     />
   );
@@ -70,7 +73,7 @@ export function AppHeader() {
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="View" title="View">
+              <Button variant="ghost" size="icon" aria-label="View" title="View">
                 {isOverview ? <LayoutGrid className="size-4" /> : <LayoutList className="size-4" />}
               </Button>
             </DropdownMenuTrigger>

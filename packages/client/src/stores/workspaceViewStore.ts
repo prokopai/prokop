@@ -16,7 +16,9 @@ export type FileViewId = `file:${string}`;
 export type SessionViewId = `session:${string}:${string}`;
 /** Pull requests of one workspace; several can be open side by side, like files. */
 export type PullRequestsViewId = `prs:${string}:${string}`;
-export type ResourceViewId = FileViewId | SessionViewId | PullRequestsViewId;
+/** The settings of one server: a tab in the center, a surface on the phone. */
+export type SettingsViewId = `settings:${string}`;
+export type ResourceViewId = FileViewId | SessionViewId | PullRequestsViewId | SettingsViewId;
 export type WorkspaceViewId = WorkspaceToolViewId | ResourceViewId;
 
 /** The single pull requests tab of earlier layouts; dropped when a layout loads. */
@@ -39,6 +41,22 @@ export function isPullRequestsViewId(id: string): id is PullRequestsViewId {
   return parsePullRequestsViewId(id) !== null;
 }
 
+export function settingsViewId(serverId: string): SettingsViewId {
+  return `settings:${encodeURIComponent(serverId)}`;
+}
+
+export function parseSettingsViewId(id: string): { serverId: string } | null {
+  if (!id.startsWith('settings:')) return null;
+  const part = id.slice('settings:'.length);
+  try {
+    return part && encodeURIComponent(decodeURIComponent(part)) === part ? { serverId: decodeURIComponent(part) } : null;
+  } catch { return null; }
+}
+
+export function isSettingsViewId(id: string): id is SettingsViewId {
+  return parseSettingsViewId(id) !== null;
+}
+
 export function sessionViewId(serverId: string, sessionId: string): SessionViewId {
   return `session:${encodeURIComponent(serverId)}:${encodeURIComponent(sessionId)}`;
 }
@@ -52,7 +70,7 @@ export function isSessionViewId(id: string): id is SessionViewId {
 }
 
 function isResourceViewId(id: string): id is ResourceViewId {
-  return isFileViewId(id) || isSessionViewId(id) || isPullRequestsViewId(id);
+  return isFileViewId(id) || isSessionViewId(id) || isPullRequestsViewId(id) || isSettingsViewId(id);
 }
 
 export function fileViewId(docId: string): FileViewId {
@@ -227,7 +245,7 @@ function groupRegion(layout: WorkspaceViewLayout, groupId: string): ViewRegion {
 
 export function findViewGroup(layout: WorkspaceViewLayout, id: WorkspaceViewId): string {
   return Object.keys(layout.groups).find((key) => layout.groups[key].viewIds.includes(id))
-    ?? (isFileViewId(id) || isPullRequestsViewId(id) ? findViewGroup(layout, 'editor') : isSessionViewId(id) ? findViewGroup(layout, 'conversations') : treeGroups(layout.roots.center)[0]);
+    ?? (isFileViewId(id) || isPullRequestsViewId(id) || isSettingsViewId(id) ? findViewGroup(layout, 'editor') : isSessionViewId(id) ? findViewGroup(layout, 'conversations') : treeGroups(layout.roots.center)[0]);
 }
 
 function pruneEmptyGroups(layout: WorkspaceViewLayout): WorkspaceViewLayout {
@@ -271,7 +289,7 @@ export function activeGroupView(layout: WorkspaceViewLayout, region: string, ava
  * The phone shows one surface at a time instead of docks. The terminal is a
  * sheet over whichever surface is shown, so it has its own flag.
  */
-export type MobileSurface = 'chat' | 'sessions' | 'files' | 'editor' | 'pull-requests';
+export type MobileSurface = 'chat' | 'sessions' | 'files' | 'editor' | 'pull-requests' | 'settings';
 
 export function isRepositoryViewId(id: string): id is RepositoryViewId {
   return REPOSITORY_VIEW_IDS.some((view) => view === id);
@@ -284,6 +302,7 @@ function mobileSurfaceFor(id: WorkspaceViewId): MobileSurface | 'terminal' {
   if (id === 'editor' || isFileViewId(id)) return 'editor';
   if (isRepositoryViewId(id)) return 'files';
   if (isPullRequestsViewId(id)) return 'pull-requests';
+  if (isSettingsViewId(id)) return 'settings';
   return 'chat';
 }
 
@@ -319,8 +338,8 @@ interface WorkspaceViewStore extends MobileLayoutState {
   splitView: (id: WorkspaceViewId, direction: SplitDirection, available: readonly WorkspaceViewId[]) => string | null;
   resizeSplit: (id: string, ratio: number) => void;
   hideView: (id: WorkspaceViewId) => void;
-  /** Open a pull requests tab in the center (its surface on the phone), moving it back there if it was docked elsewhere. */
-  openInCenter: (id: PullRequestsViewId) => void;
+  /** Open a pull requests or settings tab in the center (its surface on the phone), moving it back there if it was docked elsewhere. */
+  openInCenter: (id: PullRequestsViewId | SettingsViewId) => void;
   removeView: (id: ResourceViewId) => void;
   replaceView: (id: SessionViewId, replacement: SessionViewId) => void;
   resetLayout: () => void;
@@ -451,7 +470,7 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
         activeId: id,
       };
       update(pruneEmptyGroups({ ...layout, groups, hidden: layout.hidden.filter((viewId) => viewId !== id) }));
-      set({ mobileSurface: 'pull-requests' });
+      set({ mobileSurface: isSettingsViewId(id) ? 'settings' : 'pull-requests' });
     },
     removeView: (id) => {
       const layout = get().layout;

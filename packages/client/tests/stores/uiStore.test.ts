@@ -9,30 +9,9 @@ describe('uiStore', () => {
   beforeEach(() => {
     storage = mockLocalStorage();
     useUIStore.setState({
-      showSettings: false,
       chatFinishSoundEnabled: true,
       permissionSoundEnabled: true,
       filePreviewTarget: null,
-    });
-  });
-
-  // --- Dialog State ---
-  describe('dialogs', () => {
-    describe('showSettings', () => {
-      test('starts false', () => {
-        expect(useUIStore.getState().showSettings).toBe(false);
-      });
-
-      test('setShowSettings opens dialog', () => {
-        useUIStore.getState().setShowSettings(true);
-        expect(useUIStore.getState().showSettings).toBe(true);
-      });
-
-      test('setShowSettings closes dialog', () => {
-        useUIStore.getState().setShowSettings(true);
-        useUIStore.getState().setShowSettings(false);
-        expect(useUIStore.getState().showSettings).toBe(false);
-      });
     });
   });
 

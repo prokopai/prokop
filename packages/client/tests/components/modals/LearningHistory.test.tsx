@@ -19,7 +19,7 @@ vi.mock('@/stores/serverDataStore', async (importOriginal) => ({
   useServerDataStore: (selector: (state: unknown) => unknown) => selector(mocks.store()),
 }));
 vi.mock('@/stores/uiStore', () => ({
-  useUIStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ openFilePreview: vi.fn(), setShowSettings: mocks.close }),
+  useUIStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ openFilePreview: vi.fn() }),
 }));
 // Pierre renders into shadow DOM, invisible to light-DOM queries; the mock surfaces the parsed diff lines.
 vi.mock('@pierre/diffs/react', () => ({
@@ -60,7 +60,6 @@ test('opens the review transcript when available', async () => {
   const user = userEvent.setup(); mount();
   await user.click(await screen.findByRole('button', { name: /failed/i }));
   await user.click(await screen.findByRole('button', { name: 'Open learning session' }));
-  expect(mocks.close).toHaveBeenCalledWith(false);
   expect(mocks.resume).toHaveBeenCalledWith('review-session');
 });
 
@@ -90,7 +89,6 @@ test('groups source messages by conversation and stays collapsed until opened', 
   expect(screen.getByRole('button', { name: /Fix retry handling/ })).toHaveTextContent('2 messages');
   expect(screen.getAllByRole('button', { name: 'Untitled conversation' })).toHaveLength(2);
   await user.click(screen.getByRole('button', { name: /Fix retry handling/ }));
-  expect(mocks.close).toHaveBeenCalledWith(false);
   expect(mocks.resume).toHaveBeenCalledWith('source-uuid');
   expect(screen.queryByText('source-uuid')).toBeNull();
 });

@@ -110,7 +110,6 @@ export function withServerDataStore(overrides: ServerDataStoreDefaults = {}) {
 // -----------------------------------------------------------------------------
 
 interface UIStoreDefaults {
-  showSettings?: boolean;
   showTools?: boolean;
   showMCPDialog?: boolean;
   showWorkspacePermissions?: boolean;
@@ -120,7 +119,6 @@ interface UIStoreDefaults {
 }
 
 const defaultUIState = (): UIStoreDefaults => ({
-  showSettings: false,
   showTools: false,
   showMCPDialog: false,
   showWorkspacePermissions: false,

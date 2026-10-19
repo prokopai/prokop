@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Suspense, lazy, useContext, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { ProkopaiClient } from '@prokopai/sdk';
@@ -11,7 +11,8 @@ import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { isDocDirty, useFileEditorStore } from '@/stores/fileEditorStore';
-import { fileViewId, isPullRequestsViewId, parsePullRequestsViewId, useWorkspaceViewStore, type WorkspaceViewId } from '@/stores/workspaceViewStore';
+import { fileViewId, isPullRequestsViewId, parsePullRequestsViewId, settingsViewId, useWorkspaceViewStore, type WorkspaceViewId } from '@/stores/workspaceViewStore';
+import { SessionManagerContext } from '@/contexts/SessionManagerContext';
 import { useShallow } from 'zustand/react/shallow';
 import type { WorkspaceTab } from '@/components/app/workspaceTab';
 import { getWorkspaceDisplayName } from '@/lib/workspaceKind';
@@ -23,6 +24,9 @@ const FileEditorSurface = lazy(() =>
 );
 const PullRequestsView = lazy(() =>
   import('@/components/pullRequests/PullRequestsView').then((m) => ({ default: m.PullRequestsView })),
+);
+const SettingsView = lazy(() =>
+  import('@/components/views/SettingsView').then((m) => ({ default: m.SettingsView })),
 );
 
 interface WorkspaceContentAreaProps {
@@ -42,6 +46,7 @@ export function WorkspaceContentArea({
     from: '/server/$serverId', strict: false,
   } as unknown as Parameters<typeof useParams>[0]);
   const serverId = params?.serverId as string | undefined;
+  const sessionManager = useContext(SessionManagerContext);
   const activeWorkspace = useServerDataStore(selectActiveWorkspace);
   const workspaceId = activeWorkspace?.id;
   const workspaces = useServerDataStore((state) => state.workspaces);
@@ -107,6 +112,21 @@ export function WorkspaceContentArea({
       label: `Pull requests · ${name}`,
       description: workspace.path,
       onClose: () => useWorkspaceViewStore.getState().removeView(viewId),
+    };
+  }
+  // Settings is one tab per server, like a pull requests tab without a workspace.
+  const settingsId = serverId ? settingsViewId(serverId) : null;
+  const settingsOpen = useWorkspaceViewStore((state) => settingsId !== null
+    && Object.values(state.layout.groups).some((group) => group.viewIds.includes(settingsId)));
+  if (settingsId && settingsOpen && serverId) {
+    resourceViews[settingsId] = (
+      <Suspense key={settingsId} fallback={null}>
+        <SettingsView sdkClient={sdkClient} serverId={serverId} onLogout={sessionManager?.handleLogout ?? (() => {})} />
+      </Suspense>
+    );
+    tabs[settingsId] = {
+      label: 'Settings',
+      onClose: () => useWorkspaceViewStore.getState().removeView(settingsId),
     };
   }
   const mobileEditorId = activeDocId && scopedDocIds.includes(activeDocId)

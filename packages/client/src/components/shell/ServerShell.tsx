@@ -153,7 +153,6 @@ export default function ServerShell() {
       <AppFrameSkeleton status="Connecting to server…">
         <Button
           variant="ghost"
-          size="sm"
           onClick={sessionManager.handleLogout}
           className="text-muted-foreground"
         >
@@ -201,13 +200,7 @@ export default function ServerShell() {
             onToggleAutoFollow={() => autoFollowToggleRef.current?.toggle()}
           />
 
-          <ServerDialogs
-            apiToken={sessionManager.apiToken}
-            isConnected={sessionManager.connected}
-            sdkClient={sessionManager.sdkClient}
-            onLogout={sessionManager.handleLogout}
-            onConfigurationClose={() => router.invalidate()}
-          />
+          <ServerDialogs sdkClient={sessionManager.sdkClient} />
           </SessionManagerContext.Provider>
         </div>
       </ServerClientProvider>

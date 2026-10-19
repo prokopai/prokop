@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { FileText, FolderTree, Gauge, GitBranch, GitCompareArrows, GitFork, GitPullRequest, List, MessageSquare, Terminal } from 'lucide-react';
+import { FileText, FolderTree, Gauge, GitBranch, GitCompareArrows, GitFork, GitPullRequest, List, MessageSquare, Settings, Terminal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WorkspaceToolViewId, WorkspaceViewId } from '@/stores/workspaceViewStore';
 
@@ -17,6 +17,7 @@ const VIEW_ICONS: Record<WorkspaceToolViewId, LucideIcon> = {
 
 export function WorkspaceTabIcon({ id }: { id: WorkspaceViewId }): ReactElement {
   const Icon = id.startsWith('session:') ? MessageSquare
-    : id.startsWith('file:') ? FileText : id.startsWith('prs:') ? GitPullRequest : VIEW_ICONS[id as WorkspaceToolViewId];
+    : id.startsWith('file:') ? FileText : id.startsWith('prs:') ? GitPullRequest
+      : id.startsWith('settings:') ? Settings : VIEW_ICONS[id as WorkspaceToolViewId];
   return <Icon aria-hidden="true" className="size-3.5 shrink-0" />;
 }

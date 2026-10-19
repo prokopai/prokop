@@ -16,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useScopedSessionFiles } from '@/stores/sessionFilesStore';
 import { useDockStore } from '@/stores/dockStore';
 import {
-  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isPullRequestsViewId, isRepositoryViewId, isSessionViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
+  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isPullRequestsViewId, isRepositoryViewId, isSessionViewId, isSettingsViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
   type ViewRegion, type WorkspaceViewId,
 } from '@/stores/workspaceViewStore';
 
@@ -63,8 +63,9 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
   // Several pull requests tabs can be open (one per workspace); show the one last activated.
   const pullRequestIds = available.filter(isPullRequestsViewId);
   const pullRequestsView = pullRequestIds.find((id) => layout.groups[findViewGroup(layout, id)]?.activeId === id) ?? pullRequestIds.at(-1);
+  const settingsView = available.find(isSettingsViewId);
   const requestedMobileView: WorkspaceViewId = mobileSurface === 'chat' ? chatView : mobileSurface === 'files' ? repositoryView
-    : mobileSurface === 'pull-requests' ? pullRequestsView ?? chatView : mobileSurface;
+    : mobileSurface === 'pull-requests' ? pullRequestsView ?? chatView : mobileSurface === 'settings' ? settingsView ?? chatView : mobileSurface;
   const mobileView = requestedMobileView === 'editor' && hasEditor ? 'editor' : available.includes(requestedMobileView) ? requestedMobileView
     : (requestedMobileView === 'editor' || mobileSurface === 'files') && available.includes('explorer') ? 'explorer' : chatView;
   const isRepositoryView = repositoryIds.some((id) => id === mobileView);
@@ -80,10 +81,10 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
         <div data-mobile-tab-group className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {mobileView !== chatView && (
             <div className={cn(dockHeaderClassName(), "bg-sidebar px-1")}>
-              <Button variant="ghost" size="icon-sm" aria-label="Back to Chat" onClick={() => setMobileSurface('chat')}><ArrowLeft className="size-4" /></Button>
+              <Button variant="ghost" size="icon" aria-label="Back to Chat" onClick={() => setMobileSurface('chat')}><ArrowLeft className="size-4" /></Button>
               <span className="text-sm">{workspaceTabLabel(mobileView, tabs)}</span>
               {(isRepositoryView || mobileView === 'editor') && hasEditor && (
-                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setMobileSurface(isRepositoryView ? 'editor' : 'files')}>
+                <Button variant="ghost" className="ml-auto" onClick={() => setMobileSurface(isRepositoryView ? 'editor' : 'files')}>
                   {isRepositoryView ? 'Editor' : 'Files'}
                 </Button>
               )}

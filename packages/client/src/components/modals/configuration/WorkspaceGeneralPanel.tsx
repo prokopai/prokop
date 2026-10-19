@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { SESSION_TAG_ORDERS, isSessionTagOrder, type SessionTagOrder } from '@/lib/sessionTagOrder';
-import { PanelLoadingFallback } from '../SettingsDialogShell';
+import { LoadingState } from '@/components/shared/States';
 import { DisclosureRow } from './DisclosureRow';
 
 const AdditionalPathsPanel = lazy(() => import('./AdditionalPathsPanel').then(m => ({ default: m.AdditionalPathsPanel })));
@@ -81,7 +81,7 @@ export function WorkspaceGeneralPanel({
 
       <Separator />
       <DisclosureRow label="Additional paths" summary={`${paths.length} path${paths.length === 1 ? '' : 's'}`} defaultOpen={false}>
-        <Suspense fallback={<PanelLoadingFallback />}>
+        <Suspense fallback={<LoadingState />}>
           <AdditionalPathsPanel workspace={workspace} sdkClient={sdkClient} paths={paths} onChange={onPathsChange} />
         </Suspense>
       </DisclosureRow>

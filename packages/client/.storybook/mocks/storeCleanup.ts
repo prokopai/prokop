@@ -43,7 +43,6 @@ export function resetAllStores(): void {
 
   // UI Store
   useUIStore.setState({
-    showSettings: false,
     chatFinishSoundEnabled: true,
     permissionSoundEnabled: true,
     filePreviewTarget: null,

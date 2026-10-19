@@ -7,9 +7,6 @@ import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataSt
 import { useFileEditorStore } from '@/stores/fileEditorStore';
 import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
-const ConfigurationDialog = lazy(() =>
-  import('@/components/modals/ConfigurationDialog').then((m) => ({ default: m.ConfigurationDialog })),
-);
 const SchedulerJobModal = lazy(() =>
   import('@/components/modals/SchedulerJobModal').then((m) => ({ default: m.SchedulerJobModal })),
 );
@@ -18,11 +15,7 @@ const FilePreviewOverlay = lazy(() =>
 );
 
 interface ServerDialogsProps {
-  apiToken: string | null;
-  isConnected: boolean;
   sdkClient: ProkopaiClient | null;
-  onLogout: () => void;
-  onConfigurationClose: () => void;
 }
 
 function DialogLoadingFallback() {
@@ -30,11 +23,7 @@ function DialogLoadingFallback() {
 }
 
 export function ServerDialogs({
-  apiToken,
-  isConnected,
   sdkClient,
-  onLogout,
-  onConfigurationClose,
 }: ServerDialogsProps) {
   const params = useParams({
     from: '/server/$serverId',
@@ -44,15 +33,11 @@ export function ServerDialogs({
   const activeWorkspace = useServerDataStore(selectActiveWorkspace);
 
   const {
-    showSettings,
-    setShowSettings,
     showSchedulerJob,
     editingSchedulerJob,
     setShowSchedulerJob,
   } = useUIStore(
     useShallow((s) => ({
-      showSettings: s.showSettings,
-      setShowSettings: s.setShowSettings,
       showSchedulerJob: s.showSchedulerJob,
       editingSchedulerJob: s.editingSchedulerJob,
       setShowSchedulerJob: s.setShowSchedulerJob,
@@ -68,24 +53,8 @@ export function ServerDialogs({
 
   return (
     <>
-      {(showSettings || showSchedulerJob || filePreviewTarget !== null) && (
+      {(showSchedulerJob || filePreviewTarget !== null) && (
         <Suspense fallback={<DialogLoadingFallback />}>
-          {showSettings && (
-            <ConfigurationDialog
-              open={showSettings}
-              onOpenChange={(open) => {
-                setShowSettings(open);
-                if (!open) {
-                  onConfigurationClose();
-                }
-              }}
-              sdkClient={sdkClient}
-              apiToken={apiToken}
-              isConnected={isConnected}
-              onLogout={onLogout}
-            />
-          )}
-
           {showSchedulerJob && (
             <SchedulerJobModal
               open={showSchedulerJob}

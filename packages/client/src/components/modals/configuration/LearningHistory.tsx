@@ -5,7 +5,6 @@ import { ArrowLeft } from 'lucide-react';
 import type { LearningChange, LearningRunSummary } from '@prokopai/sdk';
 import { useServerClient } from '@/contexts/ServerClientContext';
 import { useSessionManager } from '@/contexts/SessionManagerContext';
-import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { DiffViewer } from '@/components/visualizations/DiffViewer';
 import { generateDiff } from '@/utils/diff';
@@ -51,7 +50,6 @@ function ChangeDiff({ change }: { change: LearningChange }) {
 export function LearningHistory({ workspaceId }: { workspaceId: string }) {
   const { sdkClient: client, serverUrl } = useServerClient();
   const { resumeSession } = useSessionManager();
-  const setShowSettings = useUIStore(s => s.setShowSettings);
   const cache = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
   const key = ['learning', workspaceId, serverUrl];
@@ -103,7 +101,6 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
    * which fetches unknown sessions, switches the workspace, and opens the
    * board pane — a plain route link shows an empty view for those. */
   const openSession = (sessionId: string): void => {
-    setShowSettings(false);
     resumeSession(sessionId);
   };
 
@@ -112,7 +109,7 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
     const error = detail.error ?? mutation.error;
     return (
       <div className="flex min-w-0 flex-col gap-3">
-        <Button variant="ghost" size="sm" className="w-fit gap-1.5 px-2 text-muted-foreground" onClick={back}>
+        <Button variant="ghost" className="w-fit gap-1.5 px-2 text-muted-foreground" onClick={back}>
           <ArrowLeft className="size-4" /> Back to runs
         </Button>
 
@@ -130,7 +127,7 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {detail.data.sessionId && (
-                  <Button variant="link" size="sm" onClick={() => openSession(detail.data.sessionId!)}>
+                  <Button variant="link" onClick={() => openSession(detail.data.sessionId!)}>
                     Open learning session
                   </Button>
                 )}
@@ -157,7 +154,7 @@ export function LearningHistory({ workspaceId }: { workspaceId: string }) {
                   </summary>
                   <div className="flex flex-col gap-2 border-t px-3 py-2">
                     <ChangeDiff change={change} />
-                    <Button variant="outline" size="sm" className="w-fit"
+                    <Button variant="outline" className="w-fit"
                       disabled={mutation.isPending || detail.data!.run.resolved || detail.data!.run.status === 'running' || change.status !== 'applied' || change.undoPending}
                       onClick={() => mutation.mutate(change.id)}>
                       Undo this change

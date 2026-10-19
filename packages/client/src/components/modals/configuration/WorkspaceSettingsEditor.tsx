@@ -6,7 +6,7 @@ import { getSessionTagOrder, type SessionTagOrder } from '@/lib/sessionTagOrder'
 import { learningValidationError } from '@/lib/learningValidation';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
-import { PanelLoadingFallback } from '../SettingsDialogShell';
+import { LoadingState } from '@/components/shared/States';
 import { WorkspaceGeneralPanel } from './WorkspaceGeneralPanel';
 import { MemorySkillsControls } from './MemorySkillsControls';
 
@@ -78,7 +78,7 @@ export function WorkspaceSettingsEditor({ section, workspace, sdkClient, draft, 
 
   return (
     <div className="flex min-w-0 flex-col">
-      <Suspense fallback={<PanelLoadingFallback />}>
+      <Suspense fallback={<LoadingState />}>
         {activeSection === 'general' && <WorkspaceGeneralPanel order={draft.sessionTagOrder}
           onChange={sessionTagOrder => setDraft({ sessionTagOrder })} preconfigs={primaryPreconfigs}
           workspace={workspace} sdkClient={sdkClient} paths={draft.additionalPaths}

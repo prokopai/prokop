@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useDockStore } from '@/stores/dockStore';
 import {
-  activeGroupView, createDefaultViewLayout, fileViewId, findViewRegion, isFileViewId, isRegionOpen, isViewOpen, isSessionViewId, sessionViewId, parseViewLayout, parsePullRequestsViewId, pullRequestsViewId,
+  activeGroupView, createDefaultViewLayout, fileViewId, findViewRegion, isFileViewId, isRegionOpen, isViewOpen, isSessionViewId, sessionViewId, parseViewLayout, parsePullRequestsViewId, pullRequestsViewId, parseSettingsViewId, settingsViewId,
   useWorkspaceViewStore, VIEW_LAYOUT_STORAGE_KEY, VIEW_REGIONS, WORKSPACE_VIEW_IDS, REPOSITORY_VIEW_IDS,
 } from '@/stores/workspaceViewStore';
 import { useSessionFilesStore } from '@/stores/sessionFilesStore';
@@ -379,5 +379,27 @@ describe('workspace view placement', () => {
     { version: 3, ...createDefaultViewLayout(), groups: { ...createDefaultViewLayout().groups, left: { viewIds: ['sessions'], activeId: 'explorer' } } },
   ])('rejects malformed, incomplete, duplicated or unsupported layouts: %j', (value) => {
     expect(parseViewLayout(value)).toBeNull();
+  });
+});
+
+describe('settings view', () => {
+  beforeEach(() => {
+    useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileSurface: 'chat', mobileTerminalOpen: false });
+  });
+
+  test('ids carry the server and survive a round trip', () => {
+    expect(parseSettingsViewId(settingsViewId('srv/1'))).toEqual({ serverId: 'srv/1' });
+    expect(parseSettingsViewId('settings:')).toBeNull();
+    expect(parseSettingsViewId('prs:a:b')).toBeNull();
+  });
+
+  test('opens in the center next to the editor and on the settings surface of the phone', () => {
+    const id = settingsViewId('s1');
+    useWorkspaceViewStore.getState().openInCenter(id);
+    const layout = useWorkspaceViewStore.getState().layout;
+    expect(findViewRegion(layout, id)).toBe('center');
+    expect(layout.groups.center.activeId).toBe(id);
+    expect(useWorkspaceViewStore.getState().mobileSurface).toBe('settings');
+    expect(parseViewLayout({ version: 5, ...layout })?.groups.center.viewIds).toContain(id);
   });
 });

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ProkopaiClient, type Preconfig, type Workspace } from '@prokopai/sdk';
-import { ConfigurationDialog } from '@/components/modals/ConfigurationDialog';
+import { SettingsView } from '@/components/views/SettingsView';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import { ServerClientProvider } from '@/contexts/ServerClientContext';
@@ -40,7 +40,7 @@ function setup() {
   const close = vi.fn();
   const rendered = render(<QueryClientProvider client={cache}>
     <ServerClientProvider value={{ sdkClient: client, serverUrl: 'http://test.invalid', apiToken: null, connected: true }}>
-    <ConfigurationDialog open onOpenChange={close} sdkClient={client} apiToken={null} isConnected onLogout={vi.fn()} />
+    <SettingsView sdkClient={client} serverId="s1" onLogout={vi.fn()} />
     </ServerClientProvider>
   </QueryClientProvider>);
   return { ...rendered, client, list, revokeAll, update, getMcpStatus, close, user: userEvent.setup() };
@@ -101,8 +101,7 @@ describe('workspaces in shared settings', () => {
   test('mobile navigation reaches General and its additional paths', async () => {
     useUIStore.setState({ configurationSection: 'appearance' });
     const { user } = setup();
-    await user.click(screen.getByRole('combobox', { name: 'Settings section' }));
-    await user.click(screen.getByRole('option', { name: 'General' }));
+    await user.click(screen.getByRole('tab', { name: 'General' }));
     expect(await screen.findByRole('combobox', { name: 'Default agent' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^Additional paths/ }));
     expect(await screen.findByRole('button', { name: 'Remove /extra/b' })).toBeInTheDocument();
@@ -149,12 +148,10 @@ describe('workspaces in shared settings', () => {
     })));
   });
 
-  test('defaults to the opening workspace and keeps a single settings dialog', async () => {
+  test('defaults to the opening workspace and keeps one workspace scope row', async () => {
     const { list } = setup();
     expect(await screen.findByRole('combobox', { name: 'Select workspace' })).toHaveTextContent('Beta');
-    expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(within(screen.getByRole('group', { name: 'Workspace' })).queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.getByText('Set the default agent, session order, and additional paths for the selected workspace.')).toBeInTheDocument();
     await waitFor(() => expect(list).toHaveBeenCalledWith('b', true));
     expect(within(screen.getByRole('group', { name: 'Workspace' })).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('combobox', { name: 'Workspace settings section' })).not.toBeInTheDocument();
@@ -190,11 +187,10 @@ describe('workspaces in shared settings', () => {
   test('keeps drafts isolated across workspace and section switches', async () => {
     const { user, update } = setup();
     await section(user, 'Memory & Learning');
-    expect(screen.getByText('Manage shared memory, skills, and learning for the selected workspace.')).toBeInTheDocument();
     await user.click(await screen.findByRole('switch', { name: 'Memory' }));
-    await section(user, 'MCP Servers');
+    await section(user, 'MCP servers');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
-    await user.click(within(screen.getByRole('tablist', { name: 'Server' })).getByRole('tab', { name: 'MCP Servers' }));
+    await user.click(within(screen.getByRole('tablist', { name: 'Server' })).getByRole('tab', { name: 'Shared MCP servers' }));
     await section(user, 'General');
     expect(await screen.findByRole('button', { name: 'Save changes' })).toBeEnabled();
     await selectWorkspace(user, 'Alpha');
@@ -274,7 +270,7 @@ describe('workspaces in shared settings', () => {
   test('uses the selected workspace for MCP and preserves default-agent filtering', async () => {
     const { user, getMcpStatus, update } = setup();
     await selectWorkspace(user, 'Alpha');
-    await section(user, 'MCP Servers');
+    await section(user, 'MCP servers');
     await waitFor(() => expect(getMcpStatus).toHaveBeenCalledWith('a', expect.objectContaining({ signal: expect.any(AbortSignal) })));
     await section(user, 'General');
     await user.click(screen.getByRole('combobox', { name: 'Default agent' }));
@@ -324,8 +320,7 @@ describe('workspaces in shared settings', () => {
 
   test('mobile navigation selects workspace pages and exposes their workspace picker', async () => {
     const { user } = setup();
-    await user.click(screen.getByRole('combobox', { name: 'Settings section' }));
-    await user.click(screen.getByRole('option', { name: 'Memory & Learning' }));
+    await user.click(screen.getByRole('tab', { name: 'Memory & Learning' }));
     expect(await screen.findByRole('switch', { name: 'Memory' })).toBeInTheDocument();
     const context = within(screen.getByRole('group', { name: 'Workspace settings scope' }));
     await user.click(context.getByRole('combobox', { name: 'Select workspace' }));
