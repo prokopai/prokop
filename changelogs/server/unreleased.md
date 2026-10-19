@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- **Claude Code no longer refuses the first command after a stopped background command**: When a Claude Code session was resumed after a background command had been cut short (a Stop during the wait, or the old time limit), the next turn's first tool call failed with "The user doesn't want to take this action right now", although nothing had been asked or declined. Claude Code first settles the stopped command with a short empty turn, and that empty turn was taken as the end of yours. It is now left alone and your turn runs in full.
+
 - **Long background commands in Claude Code sessions finish and get answered**: When Claude Code left a command running in the background and the reply ended, the command was stopped after 10 minutes with a "Background command was stopped" note, and nothing happened until you sent another message. Background commands now run to the end (or until Claude Code's own time limit), and Claude continues on its own when they finish.
 
 - **Dialogs and menus blur what is behind them in Chrome**: Dialogs, menus and pickers are meant to soften the page behind them, but in Chrome, Edge and other Chromium-based browsers the text underneath showed through sharp and only slightly dimmed. They now blur it in every browser, as they already did in Safari.

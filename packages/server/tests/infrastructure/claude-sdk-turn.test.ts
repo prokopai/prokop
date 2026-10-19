@@ -592,6 +592,53 @@ test('keeps input open for a long background command until the CLI stops it at i
   expect(inputClosed).toBe(true);
 });
 
+test('a resumed process settling an orphaned task does not end the turn early', async () => {
+  // The previous process died with a background command running (a Stop during a
+  // continuation). The resumed CLI reports the orphan, runs a no-op turn for its
+  // notification, and only then starts our prompt. Taking the no-op result as ours
+  // closed stdin, and the CLI cancelled our first tool call as a user refusal.
+  const userMessageId = crypto.randomUUID();
+  let inputClosed = false;
+  const seen = { closedAtNoop: null as boolean | null };
+  const collected = [];
+  for await (const item of runClaudeTurn({ ...base, userMessageId, resume: true,
+    canUseTool: async () => ({ behavior: 'allow' }),
+    start: (prompt) => {
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        if (typeof prompt === 'string') throw new Error('Expected streaming input');
+        const reader = prompt[Symbol.asyncIterator]();
+        await reader.next();
+        const end = reader.next().then(value => { inputClosed = value.done === true; });
+        yield event({ type: 'system', subtype: 'task_notification', session_id: base.sessionId,
+          task_id: 'old-bash', status: 'stopped', output_file: '', summary: '' });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'command_lifecycle', command_uuid: userMessageId, state: 'queued' });
+        yield event({ type: 'result', subtype: 'success', is_error: false, session_id: base.sessionId, result: '',
+          num_turns: 0, origin: { kind: 'task-notification' } });
+        await Bun.sleep(5);
+        seen.closedAtNoop = inputClosed;
+        yield event({ type: 'command_lifecycle', command_uuid: userMessageId, state: 'started' });
+        yield event({ type: 'system', subtype: 'init', session_id: base.sessionId });
+        yield event({ type: 'assistant', session_id: base.sessionId, parent_tool_use_id: null, message: { content: [
+          { type: 'tool_use', id: 'tool-1', name: 'Bash', input: { command: 'echo hello' } }] } });
+        yield event({ type: 'user', session_id: base.sessionId, parent_tool_use_id: null, message: {
+          content: [{ type: 'tool_result', tool_use_id: 'tool-1', content: 'hello' }] } });
+        yield event({ type: 'result', subtype: 'success', is_error: false, session_id: base.sessionId, result: 'done', num_turns: 1 });
+        yield event({ type: 'command_lifecycle', command_uuid: userMessageId, state: 'completed' });
+        await end;
+      }
+      return stream();
+    },
+  })) collected.push(item);
+  expect(seen.closedAtNoop).toBe(false);
+  expect(inputClosed).toBe(true);
+  expect(collected).toEqual([
+    { type: 'tool-start', id: 'tool-1', name: 'Bash', input: { command: 'echo hello' } },
+    { type: 'tool-end', id: 'tool-1', output: 'hello', failed: false },
+    { type: 'result', text: 'done', success: true, usage: null },
+  ]);
+});
+
 test('content-free CLI notices before init do not fail the turn', async () => {
   const collected = [];
   for await (const item of runClaudeTurn({ ...base,

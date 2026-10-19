@@ -257,6 +257,13 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   let initialized = false;
   let finished = false;
   let sawResult = false;
+  // The CLI reported our prompt's turn as started (command_lifecycle). A
+  // resumed process first settles work the previous process left behind: a
+  // background task it orphaned gets a task_notification and a no-op turn
+  // whose empty result arrives before our prompt runs. Taking that result as
+  // the turn's end closes stdin, and the CLI then cancels our turn's first
+  // tool call as "the user doesn't want to take this action".
+  let promptStarted = false;
   const backgroundAgents = new Set<string>();
   const agentTasks = new Map<string, string>();
   // Non-agent task IDs (local_bash and others), and whether each is backgrounded.
@@ -300,6 +307,7 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
     if ((message as { type: string }).type === 'command_lifecycle') {
       const lifecycle = message as unknown as { command_uuid?: unknown; state?: unknown };
       const id = typeof lifecycle.command_uuid === 'string' ? lifecycle.command_uuid : '';
+      if (id && id === input.userMessageId && lifecycle.state === 'started') promptStarted = true;
       if (pendingSteers.has(id) && (lifecycle.state === 'started' || lifecycle.state === 'cancelled')) {
         pendingSteers.delete(id);
         yield { type: lifecycle.state === 'started' ? 'steer-started' : 'steer-cancelled', id };
@@ -427,6 +435,12 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
           output: value.slice(0, MAX_OUTPUT), failed: block.is_error === true, ...owner };
       }
     } else if (message.type === 'result') {
+      const housekeeping = message as unknown as { num_turns?: unknown; origin?: { kind?: unknown } };
+      if (!promptStarted && input.userMessageId
+        && (housekeeping.origin?.kind === 'task-notification' || housekeeping.num_turns === 0)) {
+        // Not our turn: the CLI settling an orphaned task before it runs our prompt.
+        continue;
+      }
       const firstResult = !sawResult;
       finished = true;
       sawResult = true;
