@@ -28,13 +28,14 @@ import { gitWorkbench } from './scenes/git-workbench';
 import { hero } from './scenes/hero';
 import { mobile } from './scenes/mobile';
 import { multiSession } from './scenes/multi-session';
+import { settingsLearning } from './scenes/settings-learning';
 import { terminal } from './scenes/terminal';
 import { worktrees } from './scenes/worktrees';
 import { Demo } from './script';
 import { buildWorld } from './world';
 
 const SCENES: Scene[] = [
-  hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board,
+  hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board, settingsLearning,
   ...GALLERY_SCENES,
 ];
 

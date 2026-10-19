@@ -118,8 +118,7 @@ export const GALLERY_SCENES: Scene[] = [
   pages,
   diagram,
   scheduled,
-  // The worktree list is short; less empty panel below it.
-  crop('gallery-worktrees', worktrees, (page) => rightDock(page, 250 / 552)),
+  crop('gallery-worktrees', worktrees, (page) => rightDock(page)),
   crop('gallery-branches', branches, (page) => rightDock(page)),
   crop('gallery-changes', gitWorkbench, (page) => rightDock(page)),
   crop('gallery-terminal', terminal, bottomDock),
