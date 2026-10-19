@@ -42,11 +42,8 @@ export function AppHeader() {
     router.navigate({ to: '/server/$serverId/workspace', params: { serverId: params.serverId } });
   const goOverview = () =>
     router.navigate({ to: '/server/$serverId/overview', params: { serverId: params.serverId } });
-  // Settings is a tab in the workspace; from the overview, go there first.
-  const openSettings = () => {
-    useWorkspaceViewStore.getState().openInCenter(settingsViewId(params.serverId));
-    if (isOverview) void goWorkspace();
-  };
+  // Settings is a tab in the center of whichever view is open, overview included.
+  const openSettings = () => useWorkspaceViewStore.getState().openInCenter(settingsViewId(params.serverId));
 
   const panelToggles = (
     <HeaderPanelToggles
