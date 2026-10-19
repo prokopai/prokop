@@ -862,6 +862,23 @@ main {
   background-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
 }
 
+/* Chat composer field: focus lifts it like a glass panel instead of outlining it.
+   The shadow is tighter than --panel-shadow because the field sits 16px above
+   the pane's clipped bottom edge; a wide shadow piles up there and gets cut. */
+.composer-field:focus-within {
+  box-shadow:
+    inset 0 1px 0 var(--panel-edge),
+    0 1px 2px oklch(0 0 0 / 0.05),
+    0 4px 12px oklch(0 0 0 / 0.06);
+}
+
+.dark .composer-field:focus-within {
+  box-shadow:
+    inset 0 1px 0 var(--panel-edge),
+    0 1px 2px oklch(0 0 0 / 0.3),
+    0 4px 12px oklch(0 0 0 / 0.22);
+}
+
 /* Chat composer (TipTap): one paragraph per line, placeholder on the empty first line */
 .composer-editor p {
   margin: 0;

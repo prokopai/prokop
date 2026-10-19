@@ -68,7 +68,7 @@ function CompactionFailedMessage({
   onRetry?: () => void;
 }) {
   return (
-    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-xl border border-error/20 bg-error/5 px-3 py-2 text-sm">
+    <div role="alert" className="flex min-w-0 items-start gap-2 rounded-lg border border-error/20 bg-error/5 px-3 py-2 text-sm">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-error" />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-xs font-medium text-error">Compaction failed</span>
@@ -215,7 +215,7 @@ const MessageParts = memo(function MessageParts({
             key={part.id}
             src={fullUrl}
             alt=""
-            className="max-w-full max-h-64 rounded-xl mt-2 object-contain"
+            className="max-w-full max-h-64 rounded-lg mt-2 object-contain"
           />
         );
       }

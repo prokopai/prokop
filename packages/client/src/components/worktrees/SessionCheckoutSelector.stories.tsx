@@ -58,6 +58,8 @@ const meta = {
   args: {
     session: createSession({ workspaceId: workspace.id, title: null }),
   },
+  // Chip and strip labels fold by the width of the composer container (ui/chip.tsx).
+  decorators: [(Story) => <div className="@container/composer w-full"><Story /></div>],
 } satisfies Meta<typeof SessionCheckoutSelector>;
 
 export default meta;

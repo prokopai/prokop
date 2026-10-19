@@ -1,5 +1,5 @@
-import { Braces, MessageSquareText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Braces, ChevronDown, MessageSquareText } from 'lucide-react';
+import { Chip, ChipLabel } from '@/components/ui/chip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,33 +31,20 @@ export function ResponseFormatSelector({
 
   if (disabled) {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        disabled
-        aria-label={tooltip}
-        title={tooltip}
-      >
-        <MessageSquareText className="size-4 text-muted-foreground/70" />
-      </Button>
+      <Chip disabled aria-label={tooltip} title={tooltip}>
+        <MessageSquareText className="text-muted-foreground/70" />
+        <ChipLabel>{label}</ChipLabel>
+      </Chip>
     );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={tooltip}
-          title={tooltip}
-        >
-          {selectedFormat ? (
-            <Braces className="size-4 text-highlight" />
-          ) : (
-            <MessageSquareText className="size-4 text-muted-foreground" />
-          )}
-        </Button>
+        <Chip aria-label={tooltip} title={tooltip}>
+          {selectedFormat ? <Braces className="text-highlight" /> : <MessageSquareText />}
+          <ChipLabel>{label}<ChevronDown className="size-3 opacity-60" /></ChipLabel>
+        </Chip>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4} className="w-80">
         <DropdownMenuLabel>{label}</DropdownMenuLabel>

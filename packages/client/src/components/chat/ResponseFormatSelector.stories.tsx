@@ -16,6 +16,8 @@ const meta = {
   component: ResponseFormatSelector,
   parameters: { layout: 'centered' },
   args: { formats, onSelect: fn() },
+  // The chip folds to its icon by the width of the composer container (ui/chip.tsx).
+  decorators: [(Story) => <div className="@container/composer w-[40rem] max-w-full"><Story /></div>],
 } satisfies Meta<typeof ResponseFormatSelector>;
 
 export default meta;

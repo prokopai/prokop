@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Check, Folder, GitBranch, Plus } from 'lucide-react';
 import type { ManagedWorktree, ProkopaiClient, Session } from '@prokopai/sdk';
-import { Button } from '@/components/ui/button';
+import { Chip, ChipLabel } from '@/components/ui/chip';
 import {
   Command,
   CommandEmpty,
@@ -239,26 +239,18 @@ export function SessionCheckoutSelector({ session, sdkClient, disabled }: Checko
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
+        <Chip
           disabled={disabled || pending}
           aria-label={tooltip}
           title={tooltip}
-          className="relative text-muted-foreground hover:text-foreground"
+          className={cn('max-w-56', !boundAvailable && 'text-error')}
         >
-          {session.workspaceRootId ? (
-            <GitBranch className="size-4 shrink-0" />
-          ) : (
-            <Folder className="size-4 shrink-0" />
-          )}
+          {session.workspaceRootId ? <GitBranch /> : <Folder />}
+          <ChipLabel>{label}</ChipLabel>
           {!boundAvailable && (
-            <span
-              className="absolute right-1 top-1 size-1.5 rounded-full bg-error"
-              title={`Worktree is ${bound?.state ?? 'unavailable'}`}
-            />
+            <span className="size-1.5 shrink-0 rounded-full bg-error" title={`Worktree is ${bound?.state ?? 'unavailable'}`} />
           )}
-        </Button>
+        </Chip>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start" side="top" sideOffset={8}>
         <CheckoutMenu session={session} sdkClient={sdkClient} onClose={() => setOpen(false)} />
@@ -285,7 +277,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
       <GitBranch className="size-3 shrink-0" />
       <span className="min-w-0 truncate font-medium">{label}</span>
       {bound?.branch && bound.branch !== label && (
-        <span className="hidden min-w-0 truncate text-muted-foreground/70 sm:inline">
+        <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/composer:inline">
           (<span className="font-mono">{bound.branch}</span>)
         </span>
       )}
@@ -332,7 +324,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
             <GitBranch className="size-3 shrink-0" />
             <span className="min-w-0 truncate font-medium">{label}</span>
             {bound?.branch && bound.branch !== label && (
-              <span className="hidden min-w-0 truncate text-muted-foreground/70 sm:inline">
+              <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/composer:inline">
                 (<span className="font-mono">{bound.branch}</span>)
               </span>
             )}

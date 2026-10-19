@@ -422,17 +422,21 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        'mx-auto w-full max-w-3xl px-4 pt-2 pb-4',
+        // The chips under the editor size to this container (see ui/chip.tsx),
+        // so a narrow pane on a wide window folds them like a phone does.
+        '@container/composer mx-auto w-full max-w-3xl px-4 pt-2 pb-4',
         isDragOver && 'ring-2 ring-highlight'
       )}
     >
       <div
         className={cn(
-          'relative z-10 rounded-xl bg-background/50 overflow-hidden',
-          'focus-within:ring-1 focus-within:ring-ring/30',
-          'transition-shadow',
-          'border',
-          isDragOver && 'ring-2 ring-highlight border-highlight'
+          // The composer is a surface on the session pane (bg-card), not a form
+          // field. Idle is flat: hairline and a fill one step off the pane. Focus
+          // lifts the surface (composer-field in index.css): popover fill and the
+          // panel shadow. The hairline never changes; see docs/plans/composer-focus.md.
+          'composer-field relative z-10 overflow-hidden rounded-2xl border border-input bg-background/60 dark:bg-input/30',
+          'transition-[background-color,box-shadow] focus-within:bg-popover',
+          isDragOver && 'border-highlight/50'
         )}
       >
         {pendingAttachments.length > 0 && (
@@ -478,7 +482,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             if (!open) closeAutocomplete();
           }}>
             <PopoverAnchor asChild>
-              <div className="min-h-[52px] max-h-[200px] overflow-y-auto px-3 pt-3 pb-0 text-base md:text-sm chat-input-scrollbar">
+              <div className="chat-input-scrollbar max-h-[200px] min-h-16 overflow-y-auto px-4 pt-3 pb-1 text-[16px] leading-6 md:text-base">
                 <ComposerEditor
                   ref={editorRef}
                   value={input}
@@ -524,11 +528,34 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           </Popover>
         </div>
 
-        <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
-          <div className="flex items-center gap-1">
+        {/* Bottom row of the field: what the session runs as at the left (one line that scrolls), attach and send at the right. */}
+        <div className="flex items-center gap-2 px-2 pb-2 pt-0.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {sessionId && (
+          <>
+            {session && (
+              <SessionCheckoutSelector
+                session={session}
+                sdkClient={sdkClient ?? null}
+                disabled={disabled || checkoutLocked}
+              />
+            )}
+            <AutoApproveSelector sessionId={sessionId} sdkClient={sdkClient ?? null} disabled={disabled} />
+            {!codexSession && !claudeSession && <>
+              <ResponseFormatSelector
+                formats={responseFormats}
+                selectedId={selectedResponseFormatId}
+                onSelect={setSelectedResponseFormatId}
+                disabled={disabled}
+              />
+            </>}
+          </>
+        )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               aria-label="Attach file"
@@ -546,44 +573,24 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 e.target.value = '';
               }}
             />
-            {sessionId && (
-              <>
-                {session && (
-                  <SessionCheckoutSelector
-                    session={session}
-                    sdkClient={sdkClient ?? null}
-                    disabled={disabled || checkoutLocked}
-                  />
-                )}
-                <AutoApproveSelector sessionId={sessionId} sdkClient={sdkClient ?? null} disabled={disabled} />
-                {!codexSession && !claudeSession && <>
-                  <ResponseFormatSelector
-                    formats={responseFormats}
-                    selectedId={selectedResponseFormatId}
-                    onSelect={setSelectedResponseFormatId}
-                    disabled={disabled}
-                  />
-                </>}
-              </>
-            )}
-          </div>
-
-          <div className="flex h-7 items-center rounded-full border">
+            {/* Send is one control: the mode on its left half, the arrow on its right. */}
+            <div className="flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   disabled={goalActive}
                   className={cn(
-                    'flex h-full items-center gap-0.5 rounded-l-full pl-2 pr-1 text-xs font-medium transition-colors disabled:opacity-50',
+                    'flex h-7 items-center gap-1 rounded-l-md pl-2.5 pr-1.5 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
                     sendMode === 'goal'
-                      ? 'bg-warning/15 text-warning'
-                      : 'bg-muted text-muted-foreground hover:bg-accent',
+                      ? 'bg-warning/15 text-warning hover:bg-warning/25'
+                      : 'bg-foreground/6 text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                   )}
                   aria-label={`Send mode: ${sendMode}`}
                 >
+                  {sendMode === 'goal' && <Target className="size-3.5" />}
                   <span className="capitalize">{sendMode}</span>
-                  <ChevronDown className="size-2.5 opacity-60" />
+                  <ChevronDown className="size-3 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56">
@@ -637,28 +644,27 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-
             {isStreaming && onStopStreaming && (!canSend || goalActive) ? (
               <button
                 type="button"
                 onClick={onStopStreaming}
-                className="flex h-full items-center justify-center rounded-r-full border-l border-border/50 bg-muted px-2.5 transition-colors text-destructive hover:bg-accent"
+                className="flex h-7 w-8 items-center justify-center rounded-r-md bg-destructive/15 text-destructive transition-colors hover:bg-destructive/25"
                 aria-label="Stop"
                 title="Stop (double Esc)"
               >
-                <Square className="size-4" fill="currentColor" />
+                <Square className="size-3.5" fill="currentColor" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={isDisabled}
                 className={cn(
-                  'flex h-full items-center justify-center rounded-r-full border-l border-border/50 bg-muted px-2.5 transition-colors hover:bg-accent disabled:opacity-50',
+                  'flex h-7 w-8 items-center justify-center rounded-r-md transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
                   isDisabled
-                    ? 'text-muted-foreground'
+                    ? 'bg-foreground/6 text-muted-foreground'
                     : sendMode === 'goal'
-                      ? 'text-warning'
-                      : 'text-highlight',
+                      ? 'bg-warning text-background hover:bg-warning/90'
+                      : 'bg-highlight text-highlight-foreground hover:bg-highlight/90',
                 )}
                 aria-label={isStreaming ? (steerByDefault ? 'Steer message' : 'Queue message')
                   : sendMode === 'goal' ? 'Set goal' : 'Send message'}
@@ -667,9 +673,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                 <ArrowUp className="size-4" />
               </button>
             )}
+            </div>
           </div>
         </div>
-
       </div>
 
       {session && (

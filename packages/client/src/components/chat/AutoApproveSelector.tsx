@@ -1,6 +1,6 @@
-import { ShieldAlert, ShieldCheck, ShieldHalf } from 'lucide-react';
+import { ChevronDown, ShieldAlert, ShieldCheck, ShieldHalf } from 'lucide-react';
 import { useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { Chip, ChipLabel } from '@/components/ui/chip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,29 +83,20 @@ export function AutoApproveSelector({
 
   if (disabled) {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        disabled
-        aria-label={config.ariaLabel}
-        title={config.label}
-      >
-        <Icon className={`size-4 ${config.iconClass}`} />
-      </Button>
+      <Chip disabled aria-label={config.ariaLabel} title={config.label}>
+        <Icon className={config.iconClass} />
+        <ChipLabel>{config.label}</ChipLabel>
+      </Chip>
     );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={config.ariaLabel}
-          title={config.label}
-        >
-          <Icon className={`size-4 ${config.iconClass}`} />
-        </Button>
+        <Chip aria-label={config.ariaLabel} title={config.label}>
+          <Icon className={config.iconClass} />
+          <ChipLabel>{config.label}<ChevronDown className="size-3 opacity-60" /></ChipLabel>
+        </Chip>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={4}>
         {MODE_ORDER.map((mode) => {

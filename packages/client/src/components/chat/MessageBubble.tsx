@@ -281,7 +281,7 @@ export function MessageBubble({
             onChange={handleEditTextChange}
             onKeyDown={handleEditKeydown}
             aria-label="Edit message"
-            className="rounded-xl rounded-br-md bg-card border text-foreground resize-none min-h-[60px] focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/30"
+            className="rounded-2xl rounded-br-md bg-highlight/10 text-foreground resize-none min-h-[60px] border-transparent focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-highlight/40"
           />
           <div className="flex items-center justify-end gap-1 mt-1.5">
             <Button
@@ -311,8 +311,8 @@ export function MessageBubble({
             'relative group min-w-0 overflow-hidden',
             isUser
               ? isQueued
-                ? 'on-muted-surface rounded-xl rounded-br-md px-3.5 py-2.5 max-w-[90%] bg-muted/60 text-foreground border border-dashed border-border'
-                : 'on-muted-surface rounded-xl rounded-br-md px-3.5 py-2.5 max-w-[90%] bg-muted text-foreground'
+                ? 'on-muted-surface rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[85%] bg-highlight/10 text-foreground ring-1 ring-inset ring-highlight/30 ring-dashed'
+                : 'on-muted-surface rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[85%] bg-highlight/15 text-foreground'
               : 'w-full overflow-visible'
           )}
         >

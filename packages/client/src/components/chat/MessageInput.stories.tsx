@@ -9,9 +9,19 @@ const meta = {
   title: 'Chat/MessageInput',
   component: MessageInput,
   parameters: {
-    layout: 'padded',
+    layout: 'fullscreen',
   },
   decorators: [
+    // The input lives at the bottom of the session pane, which paints bg-card on
+    // the app field. Stage it the same way so fill and edge are judged against
+    // the real backdrop, not the story canvas.
+    (Story) => (
+      <div className="app-field min-h-[20rem] p-6">
+        <div className="glass-panel flex min-h-[17rem] flex-col justify-end overflow-hidden rounded-xl bg-card">
+          <Story />
+        </div>
+      </div>
+    ),
     withServerDataStore(),
     withUIStore(),
   ],
