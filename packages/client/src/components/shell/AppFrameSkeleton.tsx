@@ -13,6 +13,31 @@ function Bar({ className }: { className: string }) {
   return <div className={`rounded-md bg-muted/70 ${className}`} />;
 }
 
+/** The 36px dock header with two tab-shaped bars, like a loaded dock. */
+function DockHeaderSkeleton() {
+  return (
+    <div className="flex h-9 shrink-0 items-center gap-3 border-b border-border/50 px-4">
+      <Bar className="h-3 w-14" />
+      <Bar className="h-3 w-12" />
+    </div>
+  );
+}
+
+/** A dock at its saved width: header row, then the rows the dock will show. */
+function DockSkeleton({ width, children }: { width: number; children: ReactNode }) {
+  return (
+    <div className="flex shrink-0 flex-col bg-sidebar" style={{ width }}>
+      <DockHeaderSkeleton />
+      <div className="flex flex-col gap-2 p-2">{children}</div>
+    </div>
+  );
+}
+
+/** The 1px hairline between regions, the same as the live resize divider. */
+function Divider() {
+  return <div className="w-px shrink-0 bg-border/50" />;
+}
+
 /**
  * The app frame as it will appear once loaded: title bar, docks at their
  * saved sizes, and an empty center pane. Shown while startup, server
@@ -60,37 +85,32 @@ export function AppFrameSkeleton({ status, children }: AppFrameSkeletonProps) {
           <Bar className="size-7" />
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 p-2 pt-1.5">
+      <div className="flex min-h-0 flex-1">
         {left.open && (
           <>
-            <div
-              className="flex shrink-0 flex-col gap-2 rounded-xl border bg-sidebar p-3"
-              style={{ width: left.size }}
-            >
-              <Bar className="h-8 w-full" />
+            <DockSkeleton width={left.size}>
+              <Bar className="h-7 w-28" />
               <Bar className="mt-3 h-3 w-16" />
               <Bar className="h-7 w-full" />
               <Bar className="h-7 w-5/6" />
               <Bar className="h-7 w-4/6" />
-            </div>
-            <div className="w-3 shrink-0" />
+            </DockSkeleton>
+            <Divider />
           </>
         )}
-        <div className="flex min-w-0 flex-1 items-center justify-center rounded-xl border bg-card">
-          {statusBlock}
+        <div className="flex min-w-0 flex-1 flex-col bg-background">
+          <DockHeaderSkeleton />
+          <div className="flex min-h-0 flex-1 items-center justify-center">{statusBlock}</div>
         </div>
         {right.open && (
           <>
-            <div className="w-3 shrink-0" />
-            <div
-              className="flex shrink-0 flex-col gap-2 rounded-xl border bg-sidebar p-3"
-              style={{ width: right.size }}
-            >
-              <Bar className="h-7 w-40" />
-              <Bar className="mt-2 h-5 w-full" />
-              <Bar className="size-5/6" />
+            <Divider />
+            <DockSkeleton width={right.size}>
+              <Bar className="h-7 w-28" />
+              <Bar className="mt-2 h-7 w-full" />
+              <Bar className="h-5 w-5/6" />
               <Bar className="h-5 w-4/6" />
-            </div>
+            </DockSkeleton>
           </>
         )}
       </div>
