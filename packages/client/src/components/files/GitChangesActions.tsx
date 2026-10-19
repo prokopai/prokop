@@ -1,4 +1,3 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,6 +7,7 @@ import type { GitDiffSummary, GitPushInput, ProkopaiClient } from '@prokopai/sdk
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { PushDestinationField } from './PushDestinationField';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -189,11 +189,9 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
           Run commit hooks
         </label>}
         {mode !== 'commit' && !retryPush && <>
-          {!repository.data?.upstream && <div className="flex gap-2">
-            <Select value={destination.remote} disabled={busy} onValueChange={setRemote}><SelectTrigger size="sm" aria-label="Remote" className="h-7 min-w-0 flex-1 text-xs"><SelectValue placeholder="Remote" /></SelectTrigger><SelectContent>{repository.data?.remotes.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
-            <Input aria-label="Remote branch" className="h-7 flex-1 text-xs" value={destination.branch} disabled={busy} onChange={(event) => setBranch(event.target.value)} />
-          </div>}
-          <p className="text-xs text-muted-foreground" title="Push includes all unpushed branch commits, not only these files">{repository.data?.branch} → {destination.remote || 'remote'}/{destination.branch}</p>
+          {repository.data?.upstream
+            ? <p className="text-xs text-muted-foreground" title="Push includes all unpushed branch commits, not only these files">{repository.data.branch} → {destination.remote}/{destination.branch}</p>
+            : <PushDestinationField remotes={repository.data?.remotes ?? []} remote={destination.remote} branch={destination.branch} disabled={busy} onRemoteChange={setRemote} onBranchChange={setBranch} />}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <Checkbox checked={runPushHooks} disabled={busy} onCheckedChange={(checked) => setRunPushHooks(checked === true)} />
             Run pre-push hooks

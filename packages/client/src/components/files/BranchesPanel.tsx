@@ -1,4 +1,3 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { SectionLabel } from '@/components/ui/section-label';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -11,6 +10,7 @@ import type { GitBranchAction, GitBranchInfo, GitBranchPushReview, GitBranchPush
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { PushDestinationField } from './PushDestinationField';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
@@ -484,12 +484,10 @@ function BranchPush({ sdkClient, serverId, workspaceId, root, source, remotes, o
           <Button variant="ghost" size="icon-xs" aria-label="Close push" disabled={busy} onClick={onClose}><X /></Button>
         </div>
       </div>
-      <div className="flex gap-2">
-        <Select value={remote} disabled={busy} onValueChange={(value) => { setRemote(value); setReview(null); }}><SelectTrigger size="sm" aria-label="Push remote" className="h-7 min-w-0 flex-1 text-xs"><SelectValue placeholder="Choose remote" /></SelectTrigger><SelectContent>{remotes.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
-        <Input aria-label="Destination branch" className="h-7 flex-1 text-xs" value={branch} disabled={busy} onChange={(e) => { setBranch(e.target.value); setReview(null); }} />
-      </div>
-      <div className="flex justify-end">
-        <Button variant="outline" disabled={busy || !remote || !branch.trim()} onClick={() => { setReview(null); inspect.mutate({ root, sourceBranch: source.name, expectedHead: source.head, remote, branch: branch.trim() }); }}>{inspect.isPending ? 'Reviewing…' : 'Review push'}</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <PushDestinationField remotes={remotes} remote={remote} branch={branch} disabled={busy} className="min-w-40"
+          onRemoteChange={(value) => { setRemote(value); setReview(null); }} onBranchChange={(value) => { setBranch(value); setReview(null); }} />
+        <Button variant="outline" className="ml-auto" disabled={busy || !remote || !branch.trim()} onClick={() => { setReview(null); inspect.mutate({ root, sourceBranch: source.name, expectedHead: source.head, remote, branch: branch.trim() }); }}>{inspect.isPending ? 'Reviewing…' : 'Review push'}</Button>
       </div>
       {error && <p role="alert" className="text-xs text-error">{error.message}</p>}
       {!error && failure && <div className="flex flex-col gap-1.5">
