@@ -1,3 +1,7 @@
+### Changed
+
+- **Quieter checkboxes**: A checked box no longer fills with a bright block. It keeps its outline and shows the mark in the text color, so "Run commit hooks", "Run pre-push hooks" and a list of selected files sit calmly in the panel. A partly selected folder now shows a dash instead of a check.
+
 ### Fixed
 
 - **Long background commands in Claude Code sessions finish and get answered**: When Claude Code left a command running in the background and the reply ended, the command was stopped after 10 minutes with a "Background command was stopped" note, and nothing happened until you sent another message. Background commands now run to the end (or until Claude Code's own time limit), and Claude continues on its own when they finish.

@@ -31,8 +31,32 @@ export const DisabledChecked: Story = {
   args: { disabled: true, defaultChecked: true },
 };
 
+export const Indeterminate: Story = {
+  args: { checked: 'indeterminate' },
+};
+
 export const Invalid: Story = {
   args: { 'aria-invalid': true },
+};
+
+/** Every state side by side, in the small size the file list uses and the default size the options use. */
+export const States: Story = {
+  render: () => (
+    <div className="flex flex-col gap-3">
+      {(['size-4', 'size-3.5'] as const).map((size) => (
+        <div key={size} className="flex items-center gap-4">
+          <Checkbox className={size} aria-label="Unchecked" />
+          <Checkbox className={size} aria-label="Checked" defaultChecked />
+          <Checkbox className={size} aria-label="Indeterminate" checked="indeterminate" />
+          <Checkbox className={size} aria-label="Disabled checked" disabled defaultChecked />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox className={size} defaultChecked />
+            Run commit hooks
+          </label>
+        </div>
+      ))}
+    </div>
+  ),
 };
 
 export const WithLabel: Story = {
