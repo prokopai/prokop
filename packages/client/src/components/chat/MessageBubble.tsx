@@ -311,7 +311,8 @@ export function MessageBubble({
             'relative group min-w-0 overflow-hidden',
             isUser
               ? isQueued
-                ? 'on-muted-surface rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[85%] bg-highlight/10 text-foreground ring-1 ring-inset ring-highlight/30 ring-dashed'
+                // Not sent yet: a lighter fill than a sent message, plus the Pending or Steering header. No outline.
+                ? 'on-muted-surface rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[85%] bg-highlight/10 text-foreground'
                 : 'on-muted-surface rounded-2xl rounded-br-md px-3.5 py-2.5 max-w-[85%] bg-highlight/15 text-foreground'
               : 'w-full overflow-visible'
           )}
