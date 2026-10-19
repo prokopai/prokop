@@ -4,6 +4,8 @@
 
 - **Corners in the conversation match**: The message box, the chips under it and the send control used to have their own corner shapes. They now use the same three as the rest of the conversation: the box matches your message bubbles, the chips and send control match every other button, and error boxes match the other blocks.
 
+- **One corner shape per kind of thing, everywhere**: Tabs in the header, in the docks and in the terminal strip used three different corner shapes; the header's Workspace and Overview tabs now look like the dock tabs, and the terminal tabs match them. Dialogs and the command palette take the same corners as the panels around them, and images in the conversation match the other blocks.
+
 - **Chips fold with the pane, not the window**: In a narrow session pane on a wide window, the checkout, permission and format chips under the message box now show just their icons, as they already did on a phone, instead of overflowing.
 
 ### Fixed

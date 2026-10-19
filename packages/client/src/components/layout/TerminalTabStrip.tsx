@@ -147,7 +147,7 @@ export function TerminalTabStrip({
               onDragStart={(event) => drag.start(tab.serverSessionId, event)}
               title={editingId === tab.serverSessionId ? undefined : tabTooltip(tab, ownerTitle)}
               className={cn(
-                'group flex items-center gap-1.5 px-2 text-xs rounded-md whitespace-nowrap border border-transparent outline-none focus-visible:border-ring',
+                'group flex items-center gap-1.5 px-2 text-xs rounded-lg whitespace-nowrap border border-transparent outline-none focus-visible:border-ring',
                 compact ? 'py-0.5' : 'py-1',
                 active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted',
               )}

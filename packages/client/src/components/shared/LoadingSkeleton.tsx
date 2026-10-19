@@ -22,7 +22,7 @@ export function MessageSkeleton() {
       <div className="flex items-center gap-2">
         <Skeleton className="h-3 w-12" />
       </div>
-      <Skeleton className="h-20 w-[70%] rounded-xl" />
+      <Skeleton className="h-20 w-[70%] rounded-2xl" />
     </div>
   );
 }
@@ -47,13 +47,13 @@ export function ChatLoadingState() {
       <p role="status" className="sr-only">Loading conversation...</p>
       {visible && (
         <div data-slot="chat-placeholder" className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6">
-          <div className="ml-auto h-10 w-2/5 rounded-xl bg-muted/60" />
+          <div className="ml-auto h-10 w-2/5 rounded-2xl bg-muted/60" />
           <div className="flex flex-col gap-2">
             <div className="h-3 w-11/12 rounded-md bg-muted/60" />
             <div className="h-3 w-4/5 rounded-md bg-muted/60" />
             <div className="size-3/5 rounded-md bg-muted/60" />
           </div>
-          <div className="ml-auto h-10 w-1/3 rounded-xl bg-muted/60" />
+          <div className="ml-auto h-10 w-1/3 rounded-2xl bg-muted/60" />
           <div className="flex flex-col gap-2">
             <div className="h-3 w-5/6 rounded-md bg-muted/60" />
             <div className="h-3 w-2/3 rounded-md bg-muted/60" />
