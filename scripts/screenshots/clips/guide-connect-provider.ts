@@ -17,12 +17,11 @@ export const guideConnectProvider: Clip = {
     });
     await showCursor(page);
     // The demo instance's scripted provider does not exist in real installs;
-    // keep its card and menu option out of the tutorial.
+    // keep its row and menu option out of the tutorial.
     await page.evaluate(() => {
       const hide = () => {
-        for (const element of document.querySelectorAll<HTMLElement>('[data-state], [role="option"]')) {
-          const card = element.closest<HTMLElement>('.rounded-lg.border') ?? element;
-          if (element.textContent?.startsWith('Sandbox') && card.textContent?.includes('Interactive Mock')) card.style.display = 'none';
+        for (const element of document.querySelectorAll<HTMLElement>('[data-slot="collection-row"], [role="option"]')) {
+          if (element.textContent?.includes('Sandbox') && element.textContent.includes('Interactive Mock')) element.style.display = 'none';
         }
       };
       new MutationObserver(hide).observe(document.body, { childList: true, subtree: true });
@@ -31,18 +30,19 @@ export const guideConnectProvider: Clip = {
     await page.waitForTimeout(800);
 
     await clickOn(page, page.getByRole('button', { name: /^Settings/ }));
-    const settings = page.getByRole('dialog');
-    await clickOn(page, settings.getByText('Providers & Models', { exact: true }).first());
+    // Settings opens as a workspace tab.
+    const settings = page.locator('[data-settings-server]');
+    await clickOn(page, settings.getByText('Providers & models', { exact: true }).first());
     await page.waitForTimeout(800);
 
     // Open the DeepSeek card and set its API key.
     await clickOn(page, settings.getByRole('button', { name: /DeepSeek/ }).first());
     await clickOn(page, settings.getByRole('button', { name: 'Set Key' }));
-    const key = settings.getByPlaceholder('Enter API key...');
+    const key = settings.getByPlaceholder('Enter API key…');
     await key.pressSequentially('sk-demo-0000000000000000', { delay: 35 });
     await page.waitForTimeout(300);
     await key.press('Enter');
-    await settings.getByText('Connected').first().waitFor();
+    await settings.getByRole('button', { name: 'Update' }).first().waitFor();
     await page.waitForTimeout(1000);
 
     // Make one of its models the default.

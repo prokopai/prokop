@@ -54,7 +54,7 @@ export function around(page: Page, boxes: Array<Rect | null>, pad = 24): Rect {
 
 const SCREENSHOT_CLIENT_ID = '7c1e2d4a-5b3f-4e6a-9d8c-0f1a2b3c4d5e';
 
-export const DESKTOP = { width: 1440, height: 900 };
+export const DESKTOP = { width: 1920, height: 1080 };
 export const PHONE = { width: 390, height: 844 };
 
 let lastOpenedPage: Page | null = null;

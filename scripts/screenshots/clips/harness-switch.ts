@@ -6,7 +6,7 @@
  * real models, so wording and timing differ per recording. Waits where
  * nothing on screen changes are cut.
  */
-import { clickOn, sendPrompt, showCursor, ScreenRecorder, type Clip } from '../clip';
+import { pickModel, sendPrompt, showCursor, ScreenRecorder, type Clip } from '../clip';
 import { openWorkspace } from '../scene';
 import { createCliSession, recordTurn } from './runtimes';
 
@@ -36,14 +36,8 @@ export const harnessSwitchClip: Clip = {
     await recordTurn(ctx, page, recorder, sessionId);
     await page.waitForTimeout(2500);
 
-    // Switch from the model picker: Model, then the OpenAI tab, then a Codex model.
-    await clickOn(page, page.getByRole('combobox', { name: /^Model and configuration/ }).filter({ visible: true }).first());
-    await page.waitForTimeout(500);
-    await clickOn(page, page.getByRole('button', { name: /^Model\b/ }).filter({ visible: true }).first());
-    await page.waitForTimeout(400);
-    await clickOn(page, page.getByRole('tab', { name: 'OpenAI' }));
-    await page.waitForTimeout(600);
-    await clickOn(page, page.getByRole('option').filter({ hasText: codexModel.name }).first());
+    // Switch from the model chip: the Codex row, then a Codex model.
+    await pickModel(page, 'Codex', codexModel.name);
     await page.getByText(/^Switched to Codex CLI/).first().waitFor({ timeout: 15_000 });
     // Like the runtimes clip: low effort keeps the take short. Not visible in the picker label.
     await ctx.demo.rest.sessions.setCodexModel(sessionId, { model: codexModel.model, effort: 'low' });

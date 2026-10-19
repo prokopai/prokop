@@ -20,7 +20,8 @@ export const guideAgentLearning: Clip = {
     await page.waitForTimeout(800);
 
     await clickOn(page, page.getByRole('button', { name: /^Settings/ }));
-    const settings = page.getByRole('dialog');
+    // Settings opens as a workspace tab.
+    const settings = page.locator('[data-settings-server]');
 
     // The agent's own memory and learning, already on.
     await clickOn(page, settings.getByText('Agents', { exact: true }).first());

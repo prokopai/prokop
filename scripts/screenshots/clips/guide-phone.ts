@@ -37,7 +37,8 @@ export const guidePhone: Clip = {
     await page.waitForTimeout(800);
 
     await clickOn(page, page.getByRole('button', { name: /^Settings/ }));
-    const settings = page.getByRole('dialog');
+    // Settings opens as a workspace tab.
+    const settings = page.locator('[data-settings-server]');
     await clickOn(page, settings.getByText('Devices', { exact: true }).first());
     await settings.getByText('Remote access').first().waitFor();
     await page.waitForTimeout(2500);

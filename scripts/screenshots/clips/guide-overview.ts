@@ -26,7 +26,7 @@ export const guideOverview: Clip = {
     await clickOn(page, page.getByRole('combobox', { name: 'Select overview group' }));
     await clickOn(page, page.getByText('Create group').last());
 
-    const name = page.getByLabel('Group name');
+    const name = page.getByRole('dialog').getByLabel('Name');
     await clickOn(page, name);
     await name.pressSequentially('Daily work', { delay: 45 });
     await clickOn(page, page.getByRole('checkbox', { name: 'linkshelf' }));

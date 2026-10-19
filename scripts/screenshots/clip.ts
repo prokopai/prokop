@@ -187,6 +187,21 @@ export async function clickOn(page: Page, target: Locator, { button = 'left' }: 
   await page.waitForTimeout(400);
 }
 
+/**
+ * Picks a model from the session header's model chip: the chip, then the
+ * runtime's row (unless already open), then the model inside it.
+ */
+export async function pickModel(page: Page, runtime: 'Prokop' | 'Claude Code' | 'Codex', name: string): Promise<void> {
+  await clickOn(page, page.getByRole('combobox', { name: /^Model:/ }).filter({ visible: true }).first());
+  await page.waitForTimeout(400);
+  const runtimeRow = page.getByRole('option').filter({ has: page.getByText(runtime, { exact: true }) }).first();
+  if ((await runtimeRow.getAttribute('aria-expanded')) !== 'true') {
+    await clickOn(page, runtimeRow);
+    await page.waitForTimeout(400);
+  }
+  await clickOn(page, page.getByRole('option').filter({ has: page.getByText(name, { exact: true }) }).last());
+}
+
 async function ffmpeg(args: string[]): Promise<void> {
   const proc = Bun.spawn(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', ...args], { stderr: 'inherit' });
   if ((await proc.exited) !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}`);
@@ -213,7 +228,7 @@ export async function encode({ page, recorder }: Recording, outDir: string, name
   const webp = join(outDir, `${name}.webp`);
   const gif = join(outDir, `${name}.gif`);
   await ffmpeg([...input, '-vf', `fps=30,${scale(1920)}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-movflags', '+faststart', mp4]);
-  await ffmpeg([...input, '-vf', `fps=15,${scale(1440)}`, '-c:v', 'libwebp_anim', '-quality', '90', '-loop', '0', webp]);
+  await ffmpeg([...input, '-vf', `fps=15,${scale(1920)}`, '-c:v', 'libwebp_anim', '-quality', '90', '-loop', '0', webp]);
   await ffmpeg([
     ...input,
     '-vf', `fps=12,${scale(960)},split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4`,

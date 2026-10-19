@@ -11,15 +11,23 @@ import { FIX_READY, RATE_LIMIT_READY } from './ready';
 import { terminal } from './terminal';
 import { worktrees } from './worktrees';
 
-/** The right dock at the default desktop layout, 16:10. */
-const RIGHT_DOCK: Rect = { x: 888, y: 46, width: 552, height: 345 };
-/** The worktree list is short; less empty panel below it. */
-const WORKTREE_LIST: Rect = { ...RIGHT_DOCK, height: 250 };
-/** The bottom dock's terminal at the terminal scene's dock height, 16:10. */
-const BOTTOM_TERMINAL: Rect = { x: 277, y: 512, width: 608, height: 380 };
+/** The top of the right dock, 16:10, measured so it holds at any viewport. */
+async function rightDock(page: Page, heightRatio = 10 / 16): Promise<Rect> {
+  const dock = await box(page, page.locator('[data-dock-position="right"]').filter({ visible: true }));
+  if (!dock) throw new Error('Right dock missing');
+  const width = dock.width + 12;
+  return { x: dock.x - 6, y: dock.y - 6, width, height: Math.round(width * heightRatio) };
+}
 
-function crop(name: string, scene: Scene, rect: Rect): Scene {
-  return { name, open: scene.open, clip: async () => rect };
+/** The left of the bottom dock, 16:10 at its full height. */
+async function bottomDock(page: Page): Promise<Rect> {
+  const dock = await box(page, page.locator('[data-dock-position="bottom"]').filter({ visible: true }));
+  if (!dock) throw new Error('Bottom dock missing');
+  return { x: dock.x, y: dock.y, width: Math.round(dock.height * 1.6), height: dock.height };
+}
+
+function crop(name: string, scene: Scene, rect: (page: Page) => Promise<Rect>): Scene {
+  return { name, open: scene.open, clip: rect };
 }
 
 async function box(page: Page, selector: ReturnType<Page['locator']>): Promise<Rect | null> {
@@ -110,10 +118,11 @@ export const GALLERY_SCENES: Scene[] = [
   pages,
   diagram,
   scheduled,
-  crop('gallery-worktrees', worktrees, WORKTREE_LIST),
-  crop('gallery-branches', branches, RIGHT_DOCK),
-  crop('gallery-changes', gitWorkbench, RIGHT_DOCK),
-  crop('gallery-terminal', terminal, BOTTOM_TERMINAL),
+  // The worktree list is short; less empty panel below it.
+  crop('gallery-worktrees', worktrees, (page) => rightDock(page, 250 / 552)),
+  crop('gallery-branches', branches, (page) => rightDock(page)),
+  crop('gallery-changes', gitWorkbench, (page) => rightDock(page)),
+  crop('gallery-terminal', terminal, bottomDock),
   // Last: it sends a message into the running rate-limit turn.
   steering,
 ];
