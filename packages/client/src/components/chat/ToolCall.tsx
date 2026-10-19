@@ -287,7 +287,6 @@ export const ToolCall = memo(function ToolCall({
                 <span>Raw data could not be loaded.</span>
                 <Button
                   variant="ghost"
-                  size="sm"
                   className="h-6"
                   onClick={() => void debugQuery.refetch()}
                 >
@@ -312,7 +311,6 @@ export const ToolCall = memo(function ToolCall({
               <Button
                 variant="outline"
                 className="w-full"
-                size="sm"
                 onClick={() => onNavigateToSubagent(taskSessionId!)}
               >
                 <ExternalLink className="size-4" data-icon="inline-start" />

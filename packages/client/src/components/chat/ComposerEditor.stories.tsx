@@ -38,10 +38,10 @@ function Harness({ initial, placeholder, disabled, onChange, onTriggerChange, on
         />
       </div>
       <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={() => ref.current?.insertReference({ kind: 'file', path: 'src/index.ts' })}>Insert file chip</Button>
-        <Button size="sm" variant="outline" onClick={() => ref.current?.insertReference({ kind: 'file', path: 'src/components/', lineStart: undefined })}>Insert folder chip</Button>
-        <Button size="sm" variant="outline" onClick={() => ref.current?.insertReference({ kind: 'terminal', id: 'term-1', label: 'zsh', text: '$ bun test\n 12 pass' })}>Insert terminal chip</Button>
-        <Button size="sm" variant="ghost" onClick={() => ref.current?.focus()}>Focus</Button>
+        <Button variant="outline" onClick={() => ref.current?.insertReference({ kind: 'file', path: 'src/index.ts' })}>Insert file chip</Button>
+        <Button variant="outline" onClick={() => ref.current?.insertReference({ kind: 'file', path: 'src/components/', lineStart: undefined })}>Insert folder chip</Button>
+        <Button variant="outline" onClick={() => ref.current?.insertReference({ kind: 'terminal', id: 'term-1', label: 'zsh', text: '$ bun test\n 12 pass' })}>Insert terminal chip</Button>
+        <Button variant="ghost" onClick={() => ref.current?.focus()}>Focus</Button>
       </div>
       <pre className="rounded-md bg-muted/40 p-2 font-mono text-2xs text-muted-foreground">
         value: {JSON.stringify(value)}{'\n'}trigger: {JSON.stringify(trigger)}

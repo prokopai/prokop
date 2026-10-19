@@ -123,7 +123,7 @@ export function PairDeviceScreen({ server, onPaired }: PairDeviceScreenProps) {
                 : approval.kind === 'expired' ? 'The request expired before anyone approved it.'
                   : approval.message}
             </p>
-            <Button variant="outline" size="sm" onClick={retry}>Ask again</Button>
+            <Button variant="outline" onClick={retry}>Ask again</Button>
           </div>
         )}
 
@@ -140,7 +140,7 @@ export function PairDeviceScreen({ server, onPaired }: PairDeviceScreenProps) {
             <p className="text-xs text-muted-foreground">Run <code>prokop pair</code> on the server, or open Settings → Devices there.</p>
           </form>
         ) : (
-          <Button variant="link" size="sm" onClick={() => setShowCode(true)}>
+          <Button variant="link" onClick={() => setShowCode(true)}>
             Use a pairing code instead
           </Button>
         )}

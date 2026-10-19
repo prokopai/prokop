@@ -604,12 +604,11 @@ function ActiveFileBody({
         <AlertCircle className="size-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{doc.error ?? 'Failed to load file'}</p>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button variant="outline" onClick={onRetry}>
             Retry
           </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={() =>
               useUIStore.getState().openFilePreview({
                 workspaceId: doc.identity.workspaceId,
@@ -653,7 +652,7 @@ function ActiveFileBody({
               )}
               {gitDiff && (
                 <Button
-                  size="icon-sm"
+                  size="icon"
                   variant="ghost"
                   onClick={() => setShowGitDiff((v) => !v)}
                   title={showGitDiff ? 'Hide Git diff' : 'Show Git diff'}
@@ -682,7 +681,7 @@ function ActiveFileBody({
               changes like LLM writes, other editors) and refreshes its Git
               diff. The surface dirty-guards this and asks for confirmation. */}
           <Button
-            size="icon-sm"
+            size="icon"
             variant="ghost"
             onClick={onRequestReload}
             title="Refresh from disk"

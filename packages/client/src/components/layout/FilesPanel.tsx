@@ -61,7 +61,6 @@ function PathSwitcher({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
           className="h-8 min-w-0 max-w-full gap-1.5 px-2 font-semibold hover:bg-accent"
         >
           <span className="flex min-w-0 items-center gap-1.5">
@@ -361,7 +360,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
             {rootRecoveryError && <p>{rootRecoveryError}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
-                size="sm"
                 variant="outline"
                 disabled={!focusedSession || worktreeMutations.unbind.isPending}
                 onClick={() => {
@@ -380,7 +378,6 @@ export const FilesPanel = forwardRef<FilesPanelHandle, FilesPanelProps>(
                 <Popover open={recoverySwitchOpen} onOpenChange={setRecoverySwitchOpen}>
                   <PopoverTrigger asChild>
                     <Button
-                      size="sm"
                       variant="outline"
                       disabled={worktreeMutations.bind.isPending}
                     >

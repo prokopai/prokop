@@ -78,7 +78,7 @@ function SidebarGroupLabel({
       data-slot="sidebar-group-label"
       data-sidebar="group-label"
       className={cn(
-        "flex h-8 shrink-0 items-center rounded-md px-2 text-2xs font-medium text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset [&>svg]:size-4 [&>svg]:shrink-0",
+        "flex h-7 shrink-0 items-center rounded-md px-2 text-2xs font-medium text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset [&>svg]:size-4 [&>svg]:shrink-0",
         className
       )}
       {...props}
@@ -132,9 +132,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background ring-1 ring-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
       },
       size: {
-        default: "h-8 text-sm",
-        sm: "h-7 text-xs",
-        lg: "h-9 text-sm",
+        default: "h-7 text-sm",
+        sm: "h-6 text-xs",
+        lg: "h-8 text-sm",
       },
     },
     defaultVariants: {
@@ -185,7 +185,7 @@ function SidebarMenuAction({
       data-slot="sidebar-menu-action"
       data-sidebar="menu-action"
       className={cn(
-        "absolute top-1 right-1 flex size-6 items-center justify-center rounded-md p-0 text-sidebar-foreground outline-none transition-transform peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1 peer-data-[size=lg]/menu-button:top-1.5 peer-data-[size=sm]/menu-button:top-0.5 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
+        "absolute top-1 right-1 flex size-6 items-center justify-center rounded-md p-0 text-sidebar-foreground outline-none transition-transform peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-0.5 peer-data-[size=lg]/menu-button:top-1 peer-data-[size=sm]/menu-button:top-0 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
         showOnHover &&
           "opacity-0 transition-opacity group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground",
         className

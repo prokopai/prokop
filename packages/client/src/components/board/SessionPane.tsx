@@ -187,7 +187,6 @@ export function SessionPane({
           <p className="text-xs">{contentMeta?.error || 'Failed to load'}</p>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => commands.resumeSession(sessionId)}
           >
             <RefreshCw className="size-3" />

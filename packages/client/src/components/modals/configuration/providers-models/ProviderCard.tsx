@@ -179,7 +179,7 @@ export function ProviderCard({
             </div>
 
             <div className="flex items-center gap-1 pt-1 border-t">
-              <Button size="sm" variant="ghost" onClick={() => setEditor({ kind: 'new-model' })}>
+              <Button variant="ghost" onClick={() => setEditor({ kind: 'new-model' })}>
                 <Plus className="size-3" />
                 Add model
               </Button>

@@ -132,7 +132,7 @@ export function WorktreeCreateForm({
           aria-label="Worktree name"
           aria-invalid={nameConflict}
         />
-        <Button type="button" size="sm" onClick={submit} disabled={!canCreate} className="shrink-0">
+        <Button type="button" onClick={submit} disabled={!canCreate} className="shrink-0">
           {pending ? (
             <Loader2 data-icon="inline-start" className="animate-spin" />
           ) : (

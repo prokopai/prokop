@@ -26,7 +26,7 @@ export const ErrorLong: Story = { render: () => <ErrorState onRetry={fn()}>fatal
 export const Empty: Story = { render: () => <EmptyState>No prompts yet. Add one to reuse text in the composer.</EmptyState> };
 export const EmptyWithAction: Story = {
   render: () => (
-    <EmptyState action={<Button size="sm" variant="outline" onClick={fn()}><PlusIcon />Add agent</Button>}>
+    <EmptyState action={<Button variant="outline" onClick={fn()}><PlusIcon />Add agent</Button>}>
       No agents yet. Add one to give sessions a role.
     </EmptyState>
   ),

@@ -280,7 +280,6 @@ export function FolderPickerDialog({
                 <span className="text-error">{error.message}</span>
                 <Button
                   variant="ghost"
-                  size="sm"
                   onClick={() => { setNavigatingPath(currentPath); refetchDirectory(); }}
                   className="mt-2"
                 >

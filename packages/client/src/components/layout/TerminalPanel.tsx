@@ -677,7 +677,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
       return (
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           className="shrink-0"
           onClick={() => addTab()}
           title="New terminal tab"
@@ -692,7 +692,7 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             className="shrink-0"
             title="New terminal tab"
           >

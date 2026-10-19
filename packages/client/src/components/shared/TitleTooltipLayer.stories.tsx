@@ -24,9 +24,9 @@ export const Default: Story = {
       <TitleTooltipLayer />
       <div className="flex flex-col items-center gap-6">
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon-sm" title="Copy path"><CopyIcon /></Button>
-          <Button variant="ghost" size="icon-sm" title="Pin message"><PinIcon /></Button>
-          <Button variant="ghost" size="icon-sm" title="Delete session&#10;This cannot be undone"><TrashIcon /></Button>
+          <Button variant="ghost" size="icon" title="Copy path"><CopyIcon /></Button>
+          <Button variant="ghost" size="icon" title="Pin message"><PinIcon /></Button>
+          <Button variant="ghost" size="icon" title="Delete session&#10;This cannot be undone"><TrashIcon /></Button>
         </div>
         <span className="text-xs text-muted-foreground" title="Started 2 minutes ago on this machine">
           2 min ago (hover for the full time)

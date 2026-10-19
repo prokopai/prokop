@@ -56,9 +56,6 @@ export const ExtraSmall: Story = {
   args: { size: 'xs' },
 };
 
-export const Small: Story = {
-  args: { size: 'sm' },
-};
 
 export const Large: Story = {
   args: { size: 'lg' },
@@ -93,12 +90,6 @@ export const IconExtraSmall: Story = {
   },
 };
 
-export const IconSmall: Story = {
-  args: {
-    size: 'icon-sm',
-    children: <PlusIcon />,
-  },
-};
 
 export const IconLarge: Story = {
   args: {
@@ -147,11 +138,10 @@ export const AllSizes: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
       <Button size="xs">XS</Button>
-      <Button size="sm">SM</Button>
       <Button size="default">Default</Button>
       <Button size="lg">LG</Button>
       <Button size="icon-xs"><PlusIcon /></Button>
-      <Button size="icon-sm"><PlusIcon /></Button>
+      <Button size="icon"><PlusIcon /></Button>
       <Button size="icon"><PlusIcon /></Button>
       <Button size="icon-lg"><PlusIcon /></Button>
     </div>

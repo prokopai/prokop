@@ -34,10 +34,10 @@ export const Picker: Story = {
   render: () => (
     <Dock>
       <DockHeader className="justify-between">
-        <Button variant="ghost" size="sm" className="gap-1.5 px-2 font-semibold"><FolderIcon className="size-4" />my-project</Button>
+        <Button variant="ghost" className="gap-1.5 px-2 font-semibold"><FolderIcon className="size-4" />my-project</Button>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon-sm" aria-label="Refresh"><RefreshCwIcon /></Button>
-          <Button variant="ghost" size="icon-sm" aria-label="New file"><PlusIcon /></Button>
+          <Button variant="ghost" size="icon" aria-label="Refresh"><RefreshCwIcon /></Button>
+          <Button variant="ghost" size="icon" aria-label="New file"><PlusIcon /></Button>
         </div>
       </DockHeader>
     </Dock>
@@ -50,7 +50,7 @@ export const WithDivider: Story = {
       <DockHeader divider>
         <GitBranchIcon className="size-4 text-muted-foreground" />
         <span className="text-sm font-medium">feature/login</span>
-        <Button variant="ghost" size="sm" className="ml-auto">Push…</Button>
+        <Button variant="ghost" className="ml-auto">Push…</Button>
       </DockHeader>
     </Dock>
   ),

@@ -286,14 +286,12 @@ export function MessageBubble({
           <div className="flex items-center justify-end gap-1 mt-1.5">
             <Button
               variant="ghost"
-              size="sm"
               onClick={handleCancelEdit}
               className="h-7 text-xs"
             >
               Cancel
             </Button>
             <Button
-              size="sm"
               onClick={handleSaveEdit}
               disabled={!editText.trim()}
               className="h-7 text-xs"
@@ -328,7 +326,6 @@ export function MessageBubble({
                 {onSteer && (
                   <Button
                     variant="ghost"
-                    size="sm"
                     onClick={onSteer}
                     className="h-6 px-2 text-xs text-muted-foreground"
                     title="Send into the running turn at its next step"

@@ -15,7 +15,7 @@ function Content() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 bg-card text-sm">
       <span>visible: {String(visible)}</span>
-      <Button size="sm" variant="outline" onClick={() => setCount((n) => n + 1)}>clicked {count}</Button>
+      <Button variant="outline" onClick={() => setCount((n) => n + 1)}>clicked {count}</Button>
     </div>
   );
 }
@@ -28,8 +28,8 @@ function Demo() {
   return (
     <div className="flex h-screen flex-col gap-3 bg-background p-3">
       <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={() => setSlot((s) => (s === 'left' ? 'right' : 'left'))}>Move to {slot === 'left' ? 'right' : 'left'} slot</Button>
-        <Button size="sm" variant="outline" onClick={() => setVisible((v) => !v)}>{visible ? 'Hide' : 'Show'}</Button>
+        <Button variant="outline" onClick={() => setSlot((s) => (s === 'left' ? 'right' : 'left'))}>Move to {slot === 'left' ? 'right' : 'left'} slot</Button>
+        <Button variant="outline" onClick={() => setVisible((v) => !v)}>{visible ? 'Hide' : 'Show'}</Button>
       </div>
       <div className="flex min-h-0 flex-1 gap-3">
         <div ref={setLeft} className="relative flex-1 rounded-xl border border-dashed" />

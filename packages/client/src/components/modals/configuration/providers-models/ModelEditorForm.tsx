@@ -194,14 +194,13 @@ export function ModelEditorForm({ sdkClient, providerId, providerName, model, on
         </h3>
         <div className="flex items-center gap-2">
           <Button
-            size="sm"
             onClick={handleSave}
             disabled={saving || !form.id.trim() || !form.name.trim() || Object.values(variantJsonErrors).some(Boolean)}
           >
             {saving ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
             Save
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDone}>
+          <Button variant="ghost" onClick={onDone}>
             <X className="size-3" />
           </Button>
         </div>
@@ -325,7 +324,7 @@ export function ModelEditorForm({ sdkClient, providerId, providerName, model, on
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium">Variants</Label>
-            <Button type="button" size="sm" variant="ghost" onClick={addVariant}>
+            <Button type="button" variant="ghost" onClick={addVariant}>
               <Plus className="size-3" />
               Add Variant
             </Button>

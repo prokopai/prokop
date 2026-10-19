@@ -169,7 +169,7 @@ function SyncButton({ sdkClient }: { sdkClient: ProkopaiClient | null }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={syncModelsMut.isPending} aria-label="Sync models from registry">
+        <Button variant="ghost" disabled={syncModelsMut.isPending} aria-label="Sync models from registry">
           {syncModelsMut.isPending
             ? <Loader2 className="size-3.5 animate-spin" />
             : <RefreshCw className="size-3.5" />}

@@ -98,7 +98,7 @@ function LandingPage() {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 onClick={refresh}
                 disabled={isChecking}
                 title="Refresh server status"
@@ -139,7 +139,7 @@ function LandingPage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       className="sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                       onClick={(event) => event.stopPropagation()}
                     >

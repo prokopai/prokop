@@ -95,7 +95,6 @@ export function OverviewGroupSelector({
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              size="sm"
               role="combobox"
               aria-expanded={open}
               aria-label="Select overview group"

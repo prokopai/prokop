@@ -96,7 +96,7 @@ export function RemoteAccessSection({ sdkClient }: RemoteAccessSectionProps) {
                   : `Share at ${status.tailscale.url} with a trusted certificate.`}
             </p>
           </div>
-          <Button size="sm" variant={tailscaleShared ? 'ghost' : 'outline'} disabled={busy || !status.tailscale.running}
+          <Button variant={tailscaleShared ? 'ghost' : 'outline'} disabled={busy || !status.tailscale.running}
             onClick={() => void run(() => sdkClient.http.remoteAccess.setTailscale(!tailscaleShared))}>
             {tailscaleShared ? 'Stop' : 'Set up'}
           </Button>
@@ -110,7 +110,7 @@ export function RemoteAccessSection({ sdkClient }: RemoteAccessSectionProps) {
               <code className="min-w-0 flex-1 truncate text-xs">{item.url}</code>
               <Badge variant="secondary">{KIND_LABELS[item.kind]}</Badge>
               {item.source === 'saved' ? (
-                <Button size="sm" variant="ghost" disabled={busy}
+                <Button variant="ghost" disabled={busy}
                   onClick={() => void run(() => sdkClient.http.remoteAccess.removeAddress(item.url))}>Remove</Button>
               ) : (
                 <span className="text-xs text-muted-foreground" title="Set by PROKOPAI_ALLOWED_HOSTS">env</span>
@@ -136,7 +136,7 @@ export function RemoteAccessSection({ sdkClient }: RemoteAccessSectionProps) {
       >
         <Input value={address} onChange={(event) => setAddress(event.target.value)} disabled={busy}
           placeholder="Add an address, e.g. https://prokop.example.com" aria-label="Address other devices use" />
-        <Button type="submit" size="sm" variant="outline" disabled={busy || !address.trim()}>Add</Button>
+        <Button type="submit" variant="outline" disabled={busy || !address.trim()}>Add</Button>
       </form>
 
       {error && <SettingsError>{error}</SettingsError>}

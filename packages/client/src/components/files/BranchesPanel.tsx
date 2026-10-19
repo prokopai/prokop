@@ -215,7 +215,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
   return <div className="flex min-h-0 flex-1 flex-col">
     {!readingCommit && <div className={dockHeaderClassName()}>
       <Popover open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) setSearch(''); }}>
-        <PopoverTrigger asChild><Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" disabled={busy || !data} aria-label="Select branch history"><GitBranch data-icon="inline-start" /><span className="min-w-0 flex-1 truncate text-left">{selected?.name ?? data?.repository.branch ?? 'Branches'}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger>
+        <PopoverTrigger asChild><Button variant="ghost" className="min-w-0 flex-1 justify-start" disabled={busy || !data} aria-label="Select branch history"><GitBranch data-icon="inline-start" /><span className="min-w-0 flex-1 truncate text-left">{selected?.name ?? data?.repository.branch ?? 'Branches'}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-0"><Command>
           <CommandInput placeholder="Find branch…" value={search} onValueChange={setSearch} />
           <CommandList><CommandEmpty>No branches</CommandEmpty>
@@ -225,10 +225,10 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
           </CommandList>
         </Command></PopoverContent>
       </Popover>
-      <Button variant="ghost" size="icon-sm" aria-label="New branch" disabled={busy || !selected} onClick={() => { if (selected) { setCreateFrom(commit?.head ?? selected.head); setPushBranch(null); } }}><Plus /></Button>
+      <Button variant="ghost" size="icon" aria-label="New branch" disabled={busy || !selected} onClick={() => { if (selected) { setCreateFrom(commit?.head ?? selected.head); setPushBranch(null); } }}><Plus /></Button>
       {busy && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label="Branch actions" disabled={busy}><MoreHorizontal /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Branch actions" disabled={busy}><MoreHorizontal /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-44">
           {(data?.repository.remotes ?? []).map((remote) => <DropdownMenuItem key={remote} disabled={busy} onClick={() => mutation.mutate({ action: 'fetch', remote })}><Download />Fetch {remote}</DropdownMenuItem>)}
           {selected?.current && <DropdownMenuItem disabled={busy || !!rebase.error || !data?.repository.head} onClick={() => setRebaseOpen(true)}><GitBranch />Rebase…</DropdownMenuItem>}
@@ -249,20 +249,20 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
     {!pushBranch && lastPush?.result?.warning && <p role="alert" className="px-3 pb-2 text-xs text-error">{lastPush.result.warning}</p>}
     {rebase.error && <p role="alert" className="px-3 pb-1 text-xs text-error">Unable to read rebase state. <Button variant="link" size="xs" onClick={() => void rebase.refetch()}>Retry</Button></p>}
     {branches.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-9 w-full" key={i} />)}</div>}
-    {branches.error && <div className="p-3 text-xs text-error" role="alert">{branches.error.message} <Button size="sm" variant="ghost" onClick={() => void branches.refetch()}>Retry</Button></div>}
+    {branches.error && <div className="p-3 text-xs text-error" role="alert">{branches.error.message} <Button variant="ghost" onClick={() => void branches.refetch()}>Retry</Button></div>}
     {data && selected && !pushBranch && !readingCommit && <div className="flex shrink-0 flex-col gap-0.5 px-3 pb-1.5">
       <div className="flex min-w-0 items-center gap-1">
         <div className="flex min-w-0 flex-1 items-baseline text-xs">{syncStatus}</div>
         {selected.kind === 'local' && (selected.current ? <>
-          <Button variant="ghost" size="sm" disabled={busy || !canPull} title={data.repository.upstream ? `Pull ${data.repository.upstream.remote}/${data.repository.upstream.branch} (fast-forward only)` : 'Configure an upstream on the server to pull'} onClick={pull}>{busy && mutation.variables?.action === 'pull' ? 'Pulling…' : 'Pull'}</Button>
-          <Button variant="ghost" size="sm" disabled={busy || !canPush} onClick={openPush}>Push…</Button>
+          <Button variant="ghost" disabled={busy || !canPull} title={data.repository.upstream ? `Pull ${data.repository.upstream.remote}/${data.repository.upstream.branch} (fast-forward only)` : 'Configure an upstream on the server to pull'} onClick={pull}>{busy && mutation.variables?.action === 'pull' ? 'Pulling…' : 'Pull'}</Button>
+          <Button variant="ghost" disabled={busy || !canPush} onClick={openPush}>Push…</Button>
         </> : <>
-          <Button variant="ghost" size="sm" disabled={busy || !canPull} title={selected.checkedOut ? 'Pull from the worktree where this branch is checked out' : selected.upstream?.startsWith('refs/remotes/') ? `Fetch and fast-forward ${selected.name} without switching branches` : 'Configure a remote upstream on the server to pull'} onClick={pull}>{busy && mutation.variables?.action === 'pull-branch' ? 'Pulling…' : 'Pull'}</Button>
-          <Button variant="ghost" size="sm" disabled={busy || selected.checkedOut} onClick={() => { if (selected && data) mutation.mutate({ action: 'switch', name: selected.name, expectedBranch: data.repository.branch, expectedHead: data.repository.head, targetHead: selected.head }); }}>Switch</Button>
+          <Button variant="ghost" disabled={busy || !canPull} title={selected.checkedOut ? 'Pull from the worktree where this branch is checked out' : selected.upstream?.startsWith('refs/remotes/') ? `Fetch and fast-forward ${selected.name} without switching branches` : 'Configure a remote upstream on the server to pull'} onClick={pull}>{busy && mutation.variables?.action === 'pull-branch' ? 'Pulling…' : 'Pull'}</Button>
+          <Button variant="ghost" disabled={busy || selected.checkedOut} onClick={() => { if (selected && data) mutation.mutate({ action: 'switch', name: selected.name, expectedBranch: data.repository.branch, expectedHead: data.repository.head, targetHead: selected.head }); }}>Switch</Button>
         </>)}
         {selected.kind === 'remote' && (() => {
           const target = resolveCheckout(selected);
-          return <Button variant="ghost" size="sm" disabled={busy || !data.repository.head || !target} title={target?.existing ? `Switch to existing local branch ${target.localName}` : `Create ${target?.localName ?? ''} tracking ${selected.name}, then switch to it`} onClick={() => void checkoutRemote(selected)}>{busy && (mutation.variables?.action === 'track' || mutation.variables?.action === 'switch') ? 'Checking out…' : 'Checkout'}</Button>;
+          return <Button variant="ghost" disabled={busy || !data.repository.head || !target} title={target?.existing ? `Switch to existing local branch ${target.localName}` : `Create ${target?.localName ?? ''} tracking ${selected.name}, then switch to it`} onClick={() => void checkoutRemote(selected)}>{busy && (mutation.variables?.action === 'track' || mutation.variables?.action === 'switch') ? 'Checking out…' : 'Checkout'}</Button>;
         })()}
       </div>
       {context.length > 0 && <div className="flex min-w-0 items-center gap-1 text-2xs text-muted-foreground">
@@ -276,7 +276,7 @@ export function BranchesPanel({ sdkClient, serverId, workspaceId, root }: Props)
       </div>
       <div className="flex items-center gap-1.5">
         <Input autoFocus aria-label="New branch name" placeholder="Branch name" className="h-7 flex-1" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} onKeyDown={(event) => { if (event.key === 'Escape') { setCreateFrom(null); setName(''); } }} />
-        <Button type="submit" size="sm" className="shrink-0" disabled={busy || !name.trim()}>Create</Button>
+        <Button type="submit" className="shrink-0" disabled={busy || !name.trim()}>Create</Button>
       </div>
     </form>}
     {mutation.error && (() => {
@@ -354,7 +354,7 @@ function BranchHistory({ sdkClient, workspaceId, serverId, root, head, upstream,
     {history.isPending && <div className="flex flex-col gap-2 p-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton className="h-5 w-full" key={i} />)}</div>}
     {!history.isPending && commits.length === 0 && <p className="p-3 text-xs text-muted-foreground">No commits.</p>}
     {history.error && <p role="alert" className="p-3 text-xs text-error">{history.error.message}</p>}
-    {history.hasNextPage && <Button className="m-2" variant="ghost" size="sm" disabled={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>Load older commits</Button>}
+    {history.hasNextPage && <Button className="m-2" variant="ghost" disabled={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>Load older commits</Button>}
   </div>;
 }
 
@@ -391,10 +391,10 @@ function CommitDetails({ sdkClient, workspaceId, serverId, root, entry, branchNa
   return <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
     <div className="flex shrink-0 flex-col gap-1 px-2 pt-1">
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft data-icon="inline-start" />History</Button>
+        <Button variant="ghost" onClick={onBack}><ArrowLeft data-icon="inline-start" />History</Button>
         {branchName && <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground" title={branchName}>{branchName}</span>}
         {busy && <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />}
-        <Button variant="ghost" size="icon-sm" aria-label="New branch from this commit" title="New branch from this commit" disabled={busy || !onCreateBranch} onClick={onCreateBranch}><Plus /></Button>
+        <Button variant="ghost" size="icon" aria-label="New branch from this commit" title="New branch from this commit" disabled={busy || !onCreateBranch} onClick={onCreateBranch}><Plus /></Button>
       </div>
       <div className="flex flex-col gap-0.5 px-1 pb-1">
         <p className="truncate text-sm font-medium" title={entry.subject}>{entry.subject}</p>
@@ -489,14 +489,14 @@ function BranchPush({ sdkClient, serverId, workspaceId, root, source, remotes, o
         <Input aria-label="Destination branch" className="h-7 flex-1 text-xs" value={branch} disabled={busy} onChange={(e) => { setBranch(e.target.value); setReview(null); }} />
       </div>
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" disabled={busy || !remote || !branch.trim()} onClick={() => { setReview(null); inspect.mutate({ root, sourceBranch: source.name, expectedHead: source.head, remote, branch: branch.trim() }); }}>{inspect.isPending ? 'Reviewing…' : 'Review push'}</Button>
+        <Button variant="outline" disabled={busy || !remote || !branch.trim()} onClick={() => { setReview(null); inspect.mutate({ root, sourceBranch: source.name, expectedHead: source.head, remote, branch: branch.trim() }); }}>{inspect.isPending ? 'Reviewing…' : 'Review push'}</Button>
       </div>
       {error && <p role="alert" className="text-xs text-error">{error.message}</p>}
       {!error && failure && <div className="flex flex-col gap-1.5">
         <p role="alert" className="text-xs text-error">{failure.message}</p>
         <GitOutput output={failure.output} />
         {push.variables && canRetryWithoutHooks(failure, push.variables.runHooks !== false) && <div className="flex justify-end">
-          <Button size="sm" variant="outline" disabled={busy} title="Push the same reviewed commit with --no-verify" onClick={() => { if (push.variables) push.mutate({ ...push.variables, runHooks: false }); }}>Push without hooks</Button>
+          <Button variant="outline" disabled={busy} title="Push the same reviewed commit with --no-verify" onClick={() => { if (push.variables) push.mutate({ ...push.variables, runHooks: false }); }}>Push without hooks</Button>
         </div>}
       </div>}
       {review && <div className="flex flex-col gap-2 border-t border-border/50 pt-2.5">
@@ -511,9 +511,9 @@ function BranchPush({ sdkClient, serverId, workspaceId, root, source, remotes, o
           Run pre-push hooks
         </label>
         <div className="flex flex-wrap justify-end gap-1">
-          {canTrack && <Button size="sm" variant={review.result.outgoingCount ? 'ghost' : 'default'} disabled={busy} title={`Set ${review.target.remote}/${review.target.branch} as the upstream without pushing`} onClick={() => track.mutate(review.target)}>{track.isPending ? 'Tracking…' : review.result.outgoingCount ? 'Track only' : 'Track'}</Button>}
-          <Button size="sm" variant="ghost" disabled={busy || (!review.result.outgoingCount && !review.result.remoteOnlyCount)} onClick={() => setConfirm(true)}>Force with lease…</Button>
-          {(review.result.outgoingCount > 0 || !canTrack) && <Button size="sm" disabled={busy || !review.result.outgoingCount || review.result.remoteOnlyCount > 0} onClick={() => submit(false)}>{push.isPending ? 'Pushing…' : 'Push commits'}</Button>}
+          {canTrack && <Button variant={review.result.outgoingCount ? 'ghost' : 'default'} disabled={busy} title={`Set ${review.target.remote}/${review.target.branch} as the upstream without pushing`} onClick={() => track.mutate(review.target)}>{track.isPending ? 'Tracking…' : review.result.outgoingCount ? 'Track only' : 'Track'}</Button>}
+          <Button variant="ghost" disabled={busy || (!review.result.outgoingCount && !review.result.remoteOnlyCount)} onClick={() => setConfirm(true)}>Force with lease…</Button>
+          {(review.result.outgoingCount > 0 || !canTrack) && <Button disabled={busy || !review.result.outgoingCount || review.result.remoteOnlyCount > 0} onClick={() => submit(false)}>{push.isPending ? 'Pushing…' : 'Push commits'}</Button>}
         </div>
       </div>}
     </div>

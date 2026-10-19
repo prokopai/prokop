@@ -104,7 +104,6 @@ export function WorkspaceAdditionalPathsDialog({
 
             <Button
               variant="outline"
-              size="sm"
               className="w-full"
               onClick={() => setFolderPickerOpen(true)}
             >

@@ -29,7 +29,7 @@ export const Default: Story = {
             @peduarte starred 3 repositories
           </h4>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
+            <Button variant="ghost" size="icon">
               <ChevronsUpDownIcon className="size-4" />
               <span className="sr-only">Toggle</span>
             </Button>
@@ -57,7 +57,7 @@ export const AlwaysOpen: Story = {
       <div className="flex items-center justify-between gap-4">
         <h4 className="text-sm font-medium">Expanded Section</h4>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon">
             <ChevronsUpDownIcon className="size-4" />
           </Button>
         </CollapsibleTrigger>

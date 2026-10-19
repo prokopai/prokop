@@ -517,7 +517,6 @@ function ChatViewContent({
           {onClaimControl && myClientId && (
             <Button
               variant="outline"
-              size="sm"
               onClick={() => onClaimControl(session.id)}
               className="shrink-0"
             >
@@ -534,7 +533,7 @@ function ChatViewContent({
           This is a subagent session (read-only)
           {harnessState?.capabilities.canInterruptSubagent && session.subagentStatus === 'running'
             && !isObserver && onInterrupt && (
-            <Button variant="outline" size="sm" onClick={onInterrupt}>Stop agent</Button>
+            <Button variant="outline" onClick={onInterrupt}>Stop agent</Button>
           )}
         </div>
       )}

@@ -13,7 +13,7 @@ function Counter({ label, active }: { label: string; active: boolean }) {
   return (
     <div className={`flex h-40 flex-col items-center justify-center gap-2 rounded-xl border ${active ? 'bg-card' : 'bg-muted/30'}`}>
       <span className="text-sm">{label} {active ? '(active)' : '(retained, hidden)'}</span>
-      <Button size="sm" variant="outline" onClick={() => setCount((n) => n + 1)}>clicked {count}</Button>
+      <Button variant="outline" onClick={() => setCount((n) => n + 1)}>clicked {count}</Button>
     </div>
   );
 }
@@ -24,8 +24,8 @@ function Demo({ limit }: { limit: number }) {
   return (
     <div className="flex w-[32rem] flex-col gap-3">
       <div className="flex gap-2">
-        {keys.map((key) => <Button key={key} size="sm" variant={active === key ? 'default' : 'outline'} onClick={() => setActive(key)}>{key}</Button>)}
-        <Button size="sm" variant="ghost" onClick={() => setActive(null)}>none</Button>
+        {keys.map((key) => <Button key={key} variant={active === key ? 'default' : 'outline'} onClick={() => setActive(key)}>{key}</Button>)}
+        <Button variant="ghost" onClick={() => setActive(null)}>none</Button>
       </div>
       <KeepAliveStack active={active ? { key: active, value: active } : null} limit={limit}>
         {(value, isActive) => <Counter label={value} active={isActive} />}

@@ -25,7 +25,6 @@ export default function LogoutButton({ token, onLogout }: LogoutButtonProps) {
       )}
       <Button
         variant="destructive"
-        size="sm"
         onClick={onLogout}
         title="Disconnect and clear token"
       >

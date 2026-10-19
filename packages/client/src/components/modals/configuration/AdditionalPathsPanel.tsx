@@ -70,7 +70,6 @@ export function AdditionalPathsPanel({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          size="sm"
           onClick={() => setFolderPickerOpen(true)}
         >
           <Plus data-icon="inline-start" />

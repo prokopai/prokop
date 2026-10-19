@@ -71,7 +71,7 @@ function SingleSelectView({
       </div>
       {selectedIndex !== null && (
         <div className="flex justify-end">
-          <Button size="sm" onClick={() => onSelect(question.options[selectedIndex].value)}>
+          <Button onClick={() => onSelect(question.options[selectedIndex].value)}>
             Confirm
           </Button>
         </div>
@@ -167,7 +167,6 @@ function MultiSelectView({
       )}
       <div className="flex justify-end">
         <Button
-          size="sm"
           onClick={handleConfirm}
           disabled={!isValid}
         >
@@ -203,13 +202,11 @@ function TextView({
         <div className="flex justify-end gap-2">
           <Button
             variant="outline"
-            size="sm"
             onClick={() => onSubmit(value)}
           >
             Skip
           </Button>
           <Button
-            size="sm"
             onClick={() => onSubmit(value)}
             disabled={value.trim().length === 0}
           >
@@ -241,14 +238,12 @@ function ConfirmView({
         <div className="flex gap-2">
           <Button
             variant={selected === false ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setSelected(false)}
           >
             {defaultValue ? 'No' : 'Cancel'}
           </Button>
           <Button
             variant={selected === true ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setSelected(true)}
           >
             {defaultValue ? 'Yes' : 'Confirm'}
@@ -257,7 +252,6 @@ function ConfirmView({
         {selected !== null && (
           <div className="flex justify-end">
             <Button
-              size="sm"
               onClick={() => onConfirm(selected)}
             >
               Submit
@@ -310,7 +304,6 @@ function FormView({
       </div>
       <div className="flex justify-end">
         <Button
-          size="sm"
           onClick={handleSubmit}
           disabled={!allAnswered}
         >
@@ -444,7 +437,6 @@ function SubQuestionView({
           <div className="flex gap-2">
             <Button
               variant={confirmValue === false ? 'default' : 'outline'}
-              size="sm"
               onClick={() => {
                 setConfirmValue(false);
                 onAnswer(false);
@@ -454,7 +446,6 @@ function SubQuestionView({
             </Button>
             <Button
               variant={confirmValue === true ? 'default' : 'outline'}
-              size="sm"
               onClick={() => {
                 setConfirmValue(true);
                 onAnswer(true);
@@ -793,7 +784,6 @@ function PermissionAskView({
           <Button
             key={scope}
             variant={index === 0 ? 'default' : 'outline'}
-            size="sm"
             onClick={() => onRespond({ type: 'permission', grant: scope })}
           >
             {getScopeLabel(scope)}
@@ -801,7 +791,6 @@ function PermissionAskView({
         ))}
         <Button
           variant="ghost"
-          size="sm"
           className="ml-auto text-muted-foreground hover:text-destructive"
           onClick={() => onRespond({ type: 'permission', grant: 'deny' })}
         >
@@ -831,10 +820,10 @@ function ClientCapabilityAskView({
         </pre>
       )}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => onRespond(undefined)}>
+        <Button variant="outline" onClick={() => onRespond(undefined)}>
           Not Available
         </Button>
-        <Button size="sm" onClick={() => onRespond(null)}>
+        <Button onClick={() => onRespond(null)}>
           Confirm
         </Button>
       </div>

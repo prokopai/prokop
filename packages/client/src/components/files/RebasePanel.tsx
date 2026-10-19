@@ -60,8 +60,8 @@ export function RebasePanel({ sdkClient, serverId, workspaceId, root, branches, 
   };
   return <section className="flex min-h-0 flex-1 flex-col" aria-label="Rebase">
     <div className="flex shrink-0 items-center justify-between gap-2 p-2">
-      <Button variant="ghost" size="sm" disabled={busy} onClick={onClose}><ArrowLeft data-icon="inline-start" />Branches</Button>
-      <Button variant="ghost" size="sm" disabled={busy || status.isFetching} onClick={() => { void status.refetch(); if (chosenPath) void conflict.refetch(); }}>Refresh</Button>
+      <Button variant="ghost" disabled={busy} onClick={onClose}><ArrowLeft data-icon="inline-start" />Branches</Button>
+      <Button variant="ghost" disabled={busy || status.isFetching} onClick={() => { void status.refetch(); if (chosenPath) void conflict.refetch(); }}>Refresh</Button>
     </div>
     <div className="dialog-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       {status.isPending && <p className="text-xs text-muted-foreground">Checking rebase state…</p>}
@@ -69,7 +69,7 @@ export function RebasePanel({ sdkClient, serverId, workspaceId, root, branches, 
       {state?.active ? <>
         <p className="break-all text-sm">Rebasing <strong>{state.branch ?? 'detached HEAD'}</strong> onto <code>{state.onto?.slice(0, 8)}</code></p>
         <p className="text-xs text-muted-foreground">{state.conflicts.length ? `${state.conflicts.length} unresolved files. Save each resolution, then Continue.` : 'No unresolved files. Continue to replay the remaining commits.'}</p>
-        {state.conflicts.length > 0 && <div className="flex flex-col gap-1" aria-label="Conflicting files">{state.conflicts.map((file) => <Button key={file} variant={chosenPath === file ? 'secondary' : 'ghost'} size="sm" className="justify-start" disabled={busy} onClick={() => setPath(file)}><span className="truncate">{file}</span></Button>)}</div>}
+        {state.conflicts.length > 0 && <div className="flex flex-col gap-1" aria-label="Conflicting files">{state.conflicts.map((file) => <Button key={file} variant={chosenPath === file ? 'secondary' : 'ghost'} className="justify-start" disabled={busy} onClick={() => setPath(file)}><span className="truncate">{file}</span></Button>)}</div>}
         {conflict.isFetching && chosenPath && <p className="text-xs text-muted-foreground">Loading conflict…</p>}
         {conflict.data && chosenPath && <ConflictEditor key={chosenPath} conflict={conflict.data} incomingLabel={`Incoming version · ${branches?.branches.find((b) => b.kind === 'local' && b.name !== state.branch && b.head === state.onto)?.name ?? state.onto?.slice(0, 8)}`} featureLabel={`Your change · ${state.branch ?? 'feature commit'}`} busy={busy} refreshing={conflict.isFetching} refreshError={conflict.error} onRetry={() => { void status.refetch(); void conflict.refetch(); }} onResolve={resolve} />}
       </> : state && <>
@@ -83,8 +83,8 @@ export function RebasePanel({ sdkClient, serverId, workspaceId, root, branches, 
       </>}
     </div>
     {state?.active && <div className="flex shrink-0 justify-between gap-2 border-t p-2">
-      <Button variant="ghost" size="sm" disabled={busy || !state.token} onClick={() => setAbortToken(state.token)}>Abort rebase</Button>
-      <Button size="sm" disabled={busy || !!status.error || state.conflicts.length > 0 || !state.token} onClick={() => {
+      <Button variant="ghost" disabled={busy || !state.token} onClick={() => setAbortToken(state.token)}>Abort rebase</Button>
+      <Button disabled={busy || !!status.error || state.conflicts.length > 0 || !state.token} onClick={() => {
         if (!state.token || busy) return;
         const token = state.token;
         action.mutate(() => sdkClient.http.files.gitRebaseControl(workspaceId, { root, action: 'continue', token }));
@@ -108,8 +108,8 @@ function ConflictEditor({ conflict, busy, refreshing, refreshError, onRetry, onR
   const binary = conflict.base?.binary || conflict.feature?.binary;
   return <div className="flex flex-col gap-3">
     <p className="break-all text-xs">{conflict.path}</p>
-    {refreshError && <Alert variant="error"><AlertDescription>Could not refresh this conflict: {refreshError.message}. Your draft is preserved.<Button variant="outline" size="sm" disabled={busy || refreshing} onClick={onRetry}>Retry conflict read</Button></AlertDescription></Alert>}
-    {stale && <Alert><AlertDescription>Conflict changed on the server. Your draft is preserved. Review the current whole-file versions below before saving.<Button variant="outline" size="sm" disabled={busy || refreshing || !!refreshError} onClick={() => setReviewed(conflict)}>Use current versions, keep my draft</Button></AlertDescription></Alert>}
+    {refreshError && <Alert variant="error"><AlertDescription>Could not refresh this conflict: {refreshError.message}. Your draft is preserved.<Button variant="outline" disabled={busy || refreshing} onClick={onRetry}>Retry conflict read</Button></AlertDescription></Alert>}
+    {stale && <Alert><AlertDescription>Conflict changed on the server. Your draft is preserved. Review the current whole-file versions below before saving.<Button variant="outline" disabled={busy || refreshing || !!refreshError} onClick={() => setReviewed(conflict)}>Use current versions, keep my draft</Button></AlertDescription></Alert>}
     {!binary && sectionMode && <RebaseConflictHunks fileName={conflict.path} incomingLabel={incomingLabel} featureLabel={featureLabel} draft={draft} disabled={blocked} onChange={setDraft} />}
     {conflict.original !== undefined && <details><summary className="text-xs text-muted-foreground">Compare with original (common ancestor)</summary>{conflict.original?.text != null ? <MergePane title="Original file before either change" fileName={conflict.path} value={conflict.original.text} id={`${conflict.path}:original`} /> : <p className="text-xs text-muted-foreground">{conflict.original ? 'Original file is binary.' : 'File did not exist in the common ancestor.'}</p>}</details>}
     {!binary && <p className="text-xs text-muted-foreground" aria-live="polite">{hasConflictMarkers(draft) ? 'Resolve the highlighted sections before saving.' : 'No conflict markers remaining. Review the result, then save and stage.'}</p>}
@@ -117,10 +117,10 @@ function ConflictEditor({ conflict, busy, refreshing, refreshError, onRetry, onR
     {(['base', 'feature'] as const).map((side) => <div key={side} className="flex flex-col gap-1">
       <p className="text-xs text-muted-foreground">{side === 'base' ? 'Base being rebased onto' : 'Feature commit being replayed'}</p>
       {conflict[side]?.text != null ? <MergePane title={side === 'base' ? incomingLabel : featureLabel} fileName={conflict.path} value={conflict[side].text} id={`${conflict.path}:whole:${side}`} /> : <p className="text-xs text-muted-foreground">{conflict[side] ? 'Binary file' : 'Deleted on this side'}</p>}
-      <Button variant="outline" size="sm" disabled={blocked} onClick={() => onResolve({ path: conflict.path, token: conflict.token, resolution: side })}>{conflict[side] ? `Use ${side} version` : `Keep ${side} deletion`}</Button>
+      <Button variant="outline" disabled={blocked} onClick={() => onResolve({ path: conflict.path, token: conflict.token, resolution: side })}>{conflict[side] ? `Use ${side} version` : `Keep ${side} deletion`}</Button>
     </div>)}
     </details>
     {!binary && <>{!sectionMode && <MergePane title="Result · editable" fileName={conflict.path} value={draft} id={`${conflict.path}:result`} onChange={setDraft} disabled={blocked} />}<Button disabled={blocked || hasConflictMarkers(draft)} onClick={() => onResolve({ path: conflict.path, token: conflict.token, resolution: 'text', text: draft })}>Save resolved file</Button></>}
-    <details><summary className="text-xs text-muted-foreground">Delete entire file…</summary><Button variant="ghost" size="sm" disabled={blocked} onClick={() => onResolve({ path: conflict.path, token: conflict.token, resolution: 'delete' })}>Delete file and stage resolution</Button></details>
+    <details><summary className="text-xs text-muted-foreground">Delete entire file…</summary><Button variant="ghost" disabled={blocked} onClick={() => onResolve({ path: conflict.path, token: conflict.token, resolution: 'delete' })}>Delete file and stage resolution</Button></details>
   </div>;
 }

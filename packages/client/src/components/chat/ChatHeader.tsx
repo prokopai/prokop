@@ -236,7 +236,6 @@ export function ChatHeader({
             {session.parentId && onNavigateBack && (
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={onNavigateBack}
                 className="h-7"
               >

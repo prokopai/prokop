@@ -157,7 +157,6 @@ export function WorkspaceSwitcher({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
           role="combobox"
           aria-expanded={open}
           aria-label="Select workspace"

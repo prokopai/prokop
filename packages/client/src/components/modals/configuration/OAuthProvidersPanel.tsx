@@ -222,7 +222,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
           )}
           <Button
             variant="outline"
-            size="sm"
             onClick={handleRefresh}
             disabled={isFetching}
           >
@@ -298,8 +297,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                         </SelectContent>
                       </Select>
                     )}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button variant="ghost"
                       onClick={() => handleConnect(provider.provider)}
                       disabled={!sdkClient || connectingId !== null || pendingAuth !== null || accountsMut.isPending}
                     >
@@ -307,8 +305,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                       {provider.reauthRequired ? 'Reconnect account' : 'Add account'}
                     </Button>
                     {provider.activeAccountId && (
-                      <Button
-                        size="sm" variant="ghost"
+                      <Button variant="ghost"
                         onClick={() => void handleAccountAction(provider.provider, provider.activeAccountId!, 'remove')}
                         disabled={!sdkClient || accountsMut.isPending || pendingAuth !== null}
                         aria-label="Remove active Codex account"
@@ -326,7 +323,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
               <div className="flex gap-2">
                 {!provider.accounts && !provider.connected && !provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
                   <Button variant="outline"
-                    size="sm"
                     onClick={() => handleConnect(provider.provider)}
                     disabled={connectingId === provider.provider}
                   >
@@ -340,7 +336,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                 {!provider.accounts && provider.reauthRequired && pendingAuth?.providerId !== provider.provider && (
                   <>
                     <Button variant="outline"
-                      size="sm"
                       onClick={() => handleConnect(provider.provider)}
                       disabled={connectingId === provider.provider}
                     >
@@ -353,7 +348,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => handleDisconnect(provider.provider)}
                     >
                       <Unplug className="size-3" />
@@ -365,7 +359,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                 {!provider.accounts && provider.connected && (
                   <Button
                     variant="destructive"
-                    size="sm"
                     onClick={() => handleDisconnect(provider.provider)}
                   >
                     <Unplug className="size-3" />
@@ -392,7 +385,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                     </div>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={handleCopyAuthUrl}
                     >
                       {copiedAuth ? (
@@ -402,7 +394,7 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                       )}
                       {copiedAuth ? 'Copied' : 'Copy URL'}
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={completing} onClick={() => { setPendingAuth(null); setPasteUrl(''); }}>
+                    <Button variant="ghost" disabled={completing} onClick={() => { setPendingAuth(null); setPasteUrl(''); }}>
                       Cancel
                     </Button>
                   </div>
@@ -420,7 +412,6 @@ export function OAuthProvidersPanel({ sdkClient, embedded = false, provider: fil
                         className="h-7 flex-1 font-mono text-xs md:text-xs"
                       />
                       <Button
-                        size="sm"
                         onClick={handlePasteSubmit}
                         disabled={!pasteUrl.trim() || completing}
                       >

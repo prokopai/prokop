@@ -44,7 +44,7 @@ export function HeaderPanelToggles({
     <div className="flex items-center gap-1">
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         onClick={onToggleLeft}
         aria-pressed={leftActive}
         aria-label={leftTitle}
@@ -56,7 +56,7 @@ export function HeaderPanelToggles({
       {hasRightDock && (
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={onToggleRight}
           aria-pressed={rightActive}
           aria-label={rightTitle}
@@ -68,7 +68,7 @@ export function HeaderPanelToggles({
       )}
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         onClick={onToggleBottom}
         aria-pressed={bottomActive}
         aria-label={bottomTitle}
@@ -80,7 +80,7 @@ export function HeaderPanelToggles({
       <div className="mx-1 h-5 w-px bg-border/50" />
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         className="relative"
         onClick={onOpenSettings}
         aria-label={updateVersion ? `Settings, ${serverUpdateNotice(updateVersion).title}` : 'Settings'}

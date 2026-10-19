@@ -49,7 +49,7 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
   return <div className="flex flex-col gap-4 p-3 sm:p-4">
     <div className="flex items-start justify-between gap-3">
       <p className="text-sm text-muted-foreground">{workspaceId === null ? 'Tools available across all workspaces.' : 'Workspace connections override global connections with the same name.'}</p>
-      <Button size="sm" variant="outline" disabled={!!editing || action.isPending} onClick={() => setEditing({})}>
+      <Button variant="outline" disabled={!!editing || action.isPending} onClick={() => setEditing({})}>
         <Plus data-icon="inline-start" />Add server
       </Button>
     </div>
@@ -81,9 +81,9 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
                   {config.enabled === false ? 'Disabled' : config.type === 'builtin' && config.id === 'browser' && connection.status !== 'connected' ? 'Extension not connected' : statusLabels[connection.status]}
                 </Badge>
                 {config.type === 'builtin' && <Badge variant="outline">Built-in</Badge>}
-                {config.type !== 'builtin' && config.enabled !== false && connection.status !== 'connected' && <Button size="sm" variant="ghost" disabled={action.isPending}
+                {config.type !== 'builtin' && config.enabled !== false && connection.status !== 'connected' && <Button variant="ghost" disabled={action.isPending}
                   onClick={() => run(() => client.http.mcp.connect(workspaceId, name))}><RefreshCw data-icon="inline-start" />Connect</Button>}
-                {config.type === 'remote' && config.oauth !== false && config.enabled !== false && connection.status !== 'connected' && <Button size="sm" variant="ghost"
+                {config.type === 'remote' && config.oauth !== false && config.enabled !== false && connection.status !== 'connected' && <Button variant="ghost"
                   disabled={action.isPending} onClick={() => {
                     // Open during the click so the browser does not block the asynchronous OAuth redirect.
                     const popup = window.open('about:blank', '_blank');
@@ -96,9 +96,9 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
                       } catch (error: unknown) { popup?.close(); throw error; }
                     });
                   }}><ExternalLink data-icon="inline-start" />Sign in</Button>}
-                {config.type !== 'builtin' && <><Button size="icon-sm" variant="ghost" aria-label={'Edit ' + name} disabled={action.isPending}
+                {config.type !== 'builtin' && <><Button size="icon" variant="ghost" aria-label={'Edit ' + name} disabled={action.isPending}
                   onClick={() => setEditing({ name, config })}><Pencil /></Button>
-                <Button size="icon-sm" variant="ghost" aria-label={'Remove ' + name} disabled={action.isPending}
+                <Button size="icon" variant="ghost" aria-label={'Remove ' + name} disabled={action.isPending}
                   onClick={() => run(() => client.http.mcp.remove(workspaceId, name))}><Trash2 /></Button></>}
               </div>
               {config.type === 'builtin' && config.id === 'browser' && <details className="text-sm">
@@ -133,7 +133,7 @@ function McpTools({ workspaceId, name, client }: { workspaceId: string | null; n
   } });
   const all = tools.data?.tools ?? [];
   return <div className="flex min-w-0 flex-col gap-2">
-    <Button size="sm" variant="ghost" className="self-start" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <Button variant="ghost" className="self-start" aria-expanded={open} onClick={() => setOpen(!open)}>
       {open ? 'Hide tools' : 'Choose tools'}{tools.data ? ' (' + all.filter(tool => tool.enabled).length + '/' + all.length + ')' : ''}
     </Button>
     {open && <>

@@ -381,7 +381,6 @@ function FieldRow({ field, path, onChange, onRemove, onAddChild, depth }: FieldR
               ))}
               <Button
                 variant="outline"
-                size="sm"
                 className="w-full"
                 onClick={() => onAddChild(path, makeField('string', `field_${(field.children?.length ?? 0) + 1}`))}
               >
@@ -470,7 +469,6 @@ function ArrayItemEditor({ itemsField, itemsPath, onChange, onAddChild, depth }:
           ))}
           <Button
             variant="outline"
-            size="sm"
             className="w-full"
             onClick={() => onAddChild(itemsPath, makeField('string', `field_${(itemsField.children?.length ?? 0) + 1}`))}
           >
@@ -648,7 +646,6 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
-                size="sm"
                 className="h-6 gap-1.5 text-xs px-2"
                 onClick={() => setRawMode(!rawMode)}
               >
@@ -692,7 +689,6 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
               ))}
               <Button
                 variant="outline"
-                size="sm"
                 className="w-full mt-1"
                 onClick={handleAddField}
               >
@@ -714,7 +710,7 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
         <p className="text-sm text-muted-foreground">
           {formats.length} format{formats.length !== 1 ? 's' : ''}
         </p>
-        <Button variant="outline" size="sm" onClick={editor.startCreate}>
+        <Button variant="outline" onClick={editor.startCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Format
         </Button>

@@ -177,7 +177,6 @@ export function VersionInfo({ sdkClient, enabled }: VersionInfoProps) {
         )}
         <Button
           variant="outline"
-          size="sm"
           onClick={handleCheckForUpdates}
           disabled={state.loading}
           className="ml-auto"

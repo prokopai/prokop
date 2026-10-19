@@ -517,7 +517,7 @@ export function WorkspaceSessionContent({
       {categories?.countsError && (
         <p role="alert" className="px-2 text-xs text-error">
           Session counts unavailable.
-          <Button variant="ghost" size="sm" onClick={categories.retryCounts}>Retry counts</Button>
+          <Button variant="ghost" onClick={categories.retryCounts}>Retry counts</Button>
         </p>
       )}
       {/* Empty State */}

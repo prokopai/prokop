@@ -148,7 +148,7 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
   return <>
     <div className={dockHeaderClassName()}>
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{repository.data?.branch ?? (repository.isPending ? 'Loading Git…' : 'Git unavailable')}</span>
-      <Button variant="ghost" size="sm" disabled={busy || !repository.data?.branch || (!editing && !selectable.length && !retryPush)} onClick={() => setEditing(!editing)}>
+      <Button variant="ghost" disabled={busy || !repository.data?.branch || (!editing && !selectable.length && !retryPush)} onClick={() => setEditing(!editing)}>
         {editing ? <X data-icon="inline-start" /> : <GitCommitHorizontal data-icon="inline-start" />}{editing ? 'Cancel' : 'Commit…'}
       </Button>
     </div>
@@ -202,11 +202,11 @@ export function GitChangesActions({ sdkClient, workspaceId, serverId, root, file
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">{selected.length} selected</span>
           {retryPush ? <div className="flex items-center gap-1">
-            {canRetryWithoutHooks(error, retryPush.runHooks !== false) && <Button size="sm" variant="outline" disabled={busy} title="Push the same commit with --no-verify" onClick={() => void retry(false)}>Retry without hooks</Button>}
-            <Button size="sm" disabled={busy} onClick={() => void retry()}>{busy ? phase : 'Retry push'}</Button>
+            {canRetryWithoutHooks(error, retryPush.runHooks !== false) && <Button variant="outline" disabled={busy} title="Push the same commit with --no-verify" onClick={() => void retry(false)}>Retry without hooks</Button>}
+            <Button disabled={busy} onClick={() => void retry()}>{busy ? phase : 'Retry push'}</Button>
           </div> : <div className="flex items-center">
-            <Button size="sm" disabled={busy || !selected.length || !draft.message.trim()} onClick={() => void submit()}>{busy ? phase : labels[mode]}</Button>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label="Commit action" disabled={busy}><ChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>{(['commit', 'push', 'force'] as const).map((value) => <DropdownMenuItem key={value} disabled={value !== 'commit' && !repository.data?.remotes.length} onSelect={() => setMode(value)}>{labels[value]}</DropdownMenuItem>)}</DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+            <Button disabled={busy || !selected.length || !draft.message.trim()} onClick={() => void submit()}>{busy ? phase : labels[mode]}</Button>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" aria-label="Commit action" disabled={busy}><ChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>{(['commit', 'push', 'force'] as const).map((value) => <DropdownMenuItem key={value} disabled={value !== 'commit' && !repository.data?.remotes.length} onSelect={() => setMode(value)}>{labels[value]}</DropdownMenuItem>)}</DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
           </div>}
         </div>
       </div>

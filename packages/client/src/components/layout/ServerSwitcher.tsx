@@ -143,7 +143,6 @@ export function ServerSwitcher({ compact }: ServerSwitcherProps) {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
           role="combobox"
           aria-expanded={open}
           aria-label={`Select server, ${currentServerName}, ${connected ? 'Connected' : 'Disconnected'}`}

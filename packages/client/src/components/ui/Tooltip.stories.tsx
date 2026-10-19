@@ -55,28 +55,28 @@ export const AllSides: Story = {
       <div />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="sm">Top</Button>
+          <Button variant="outline">Top</Button>
         </TooltipTrigger>
         <TooltipContent side="top">Tooltip on top</TooltipContent>
       </Tooltip>
       <div />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="sm">Left</Button>
+          <Button variant="outline">Left</Button>
         </TooltipTrigger>
         <TooltipContent side="left">Tooltip on left</TooltipContent>
       </Tooltip>
       <div />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="sm">Right</Button>
+          <Button variant="outline">Right</Button>
         </TooltipTrigger>
         <TooltipContent side="right">Tooltip on right</TooltipContent>
       </Tooltip>
       <div />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="sm">Bottom</Button>
+          <Button variant="outline">Bottom</Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">Tooltip on bottom</TooltipContent>
       </Tooltip>

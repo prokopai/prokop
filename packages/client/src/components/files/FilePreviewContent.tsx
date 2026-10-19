@@ -31,7 +31,7 @@ function StatusPanel({
       <p className="text-sm text-muted-foreground mb-2">{reason}</p>
       <p className="text-xs text-muted-foreground">{name}</p>
       {onDownload && (
-        <Button variant="outline" size="sm" className="mt-4" onClick={onDownload}>
+        <Button variant="outline" className="mt-4" onClick={onDownload}>
           <Download data-icon="inline-start" />
           Download
         </Button>

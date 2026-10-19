@@ -9,11 +9,11 @@ export function SessionCategoryStatus({ category }: { category?: SessionCategori
       {category.error && (
         <div role="alert" className="text-xs text-error">
           Failed to load sessions.
-          <Button variant="ghost" size="sm" onClick={category.retry}>Retry</Button>
+          <Button variant="ghost" onClick={category.retry}>Retry</Button>
         </div>
       )}
       {category.hasNextPage && (
-        <Button variant="ghost" size="sm" onClick={category.fetchNextPage} disabled={category.isFetchingNextPage}>
+        <Button variant="ghost" onClick={category.fetchNextPage} disabled={category.isFetchingNextPage}>
           {category.isFetchingNextPage ? 'Loading more...' : 'Load more sessions'}
         </Button>
       )}

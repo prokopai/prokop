@@ -73,12 +73,12 @@ export function SettingsEditorHeader({ title, onBack, backLabel, onSave, saving,
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-1">
-        <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label={backLabel}>
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label={backLabel}>
           <ArrowLeft className="size-4" />
         </Button>
         <h3 className="truncate text-sm font-medium">{title}</h3>
       </div>
-      <Button size="sm" onClick={onSave} disabled={saving || !canSave}>
+      <Button onClick={onSave} disabled={saving || !canSave}>
         {saving ? <Loader2 className="size-3 animate-spin" /> : 'Save'}
       </Button>
     </div>

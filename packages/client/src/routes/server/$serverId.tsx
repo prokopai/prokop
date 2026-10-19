@@ -128,7 +128,7 @@ export const Route = createFileRoute('/server/$serverId')({
   pendingMinMs: 0,
   pendingComponent: () => (
     <AppFrameSkeleton status="Connecting to server…">
-      <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+      <Button asChild variant="ghost" className="text-muted-foreground">
         <Link to="/" search={{ select: true }} replace>Change server</Link>
       </Button>
     </AppFrameSkeleton>

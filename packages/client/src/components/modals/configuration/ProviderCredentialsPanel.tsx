@@ -138,7 +138,6 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
                     </Button>
                   </div>
                   <Button
-                    size="sm"
                     onClick={() => handleSetKey(cred.provider)}
                     disabled={!apiKeyInput.trim() || actionLoading === cred.provider}
                   >
@@ -149,7 +148,6 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
                     )}
                   </Button>
                   <Button
-                    size="sm"
                     variant="ghost"
                     onClick={() => {
                       setEditingProvider(null);
@@ -162,7 +160,6 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
               ) : (
                 <>
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={() => {
                       setEditingProvider(cred.provider);
@@ -175,7 +172,6 @@ export function ProviderCredentialsPanel({ sdkClient, embedded = false, provider
                   </Button>
                   {cred.configured && (
                     <Button
-                      size="sm"
                       variant="ghost"
                       onClick={() => handleClearKey(cred.provider)}
                       disabled={actionLoading === cred.provider}

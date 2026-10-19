@@ -40,8 +40,8 @@ export const Unreachable: Story = {
     status: 'Studio is not answering.',
     children: (
       <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={fn()}>Retry</Button>
-        <Button size="sm" variant="ghost" onClick={fn()}>Change server</Button>
+        <Button variant="outline" onClick={fn()}>Retry</Button>
+        <Button variant="ghost" onClick={fn()}>Change server</Button>
       </div>
     ),
   },

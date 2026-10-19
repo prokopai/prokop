@@ -265,7 +265,7 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
                       </span>
                       <div className="flex shrink-0 items-center gap-1">
                         {settings.reviewers.length > 1 && (
-                          <Button variant="ghost" size="icon-sm" aria-label="Remove learner"
+                          <Button variant="ghost" size="icon" aria-label="Remove learner"
                             onClick={() => onChange({ ...settings, reviewers: settings.reviewers.filter(other => other.id !== item.id) })}>
                             <X className="size-4" />
                           </Button>
@@ -297,7 +297,7 @@ export function LearningPanel({ workspace, preconfigs, value, allowPersonalLearn
                 );
               })}
 
-              <Button variant="outline" size="sm" disabled={!initialId || settings.reviewers.length >= 20}
+              <Button variant="outline" disabled={!initialId || settings.reviewers.length >= 20}
                 onClick={() => onChange({ ...settings, reviewers: [...settings.reviewers, createReviewer()] })}>
                 <Plus className="size-4" /> Add learner
               </Button>

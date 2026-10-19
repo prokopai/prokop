@@ -176,7 +176,7 @@ export default function FilePreviewOverlay({
         <div className="flex flex-col items-center justify-center h-full text-center p-8">
           <AlertCircle className="size-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground mb-3">{error}</p>
-          <Button variant="outline" size="sm" onClick={reload}>
+          <Button variant="outline" onClick={reload}>
             <RefreshCw className="size-3.5" />
             Retry
           </Button>
@@ -290,7 +290,7 @@ export default function FilePreviewOverlay({
               )}
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 title="Refresh file"
@@ -298,7 +298,6 @@ export default function FilePreviewOverlay({
                 <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
               </Button>
               <Button variant="outline"
-                size="sm"
                 onClick={onOpenEdit}
                 disabled={!onOpenEdit || isDeletedFile || isBinaryImage || isOutsideWorkspace}
                 title={isBinaryImage ? 'Images open in preview only' : isOutsideWorkspace ? 'Files outside the workspace open in preview only' : undefined}

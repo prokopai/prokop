@@ -83,7 +83,7 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
         <p className="text-sm text-muted-foreground">
           {prompts.length} prompt{prompts.length !== 1 ? 's' : ''}
         </p>
-        <Button variant="outline" size="sm" onClick={editor.startCreate}>
+        <Button variant="outline" onClick={editor.startCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Prompt
         </Button>

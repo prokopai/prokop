@@ -701,7 +701,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                       />
                     </div>
                     <div className="flex justify-end">
-                      <Button size="sm" variant="outline" onClick={handleSaveHomeMemory} disabled={homeSaving}>
+                      <Button variant="outline" onClick={handleSaveHomeMemory} disabled={homeSaving}>
                         {homeSaving ? <Loader2 className="size-3 animate-spin" /> : 'Save memory'}
                       </Button>
                     </div>
@@ -724,7 +724,6 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                     </div>
                     <div className="flex justify-end">
                       <Button
-                        size="sm"
                         variant="destructive"
                         onClick={() => setDemoteTarget(editingPreconfig.id)}
                       >
@@ -967,7 +966,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         <p className="text-sm text-muted-foreground">
           {preconfigs.length} agent{preconfigs.length !== 1 ? 's' : ''}
         </p>
-        <Button variant="outline" size="sm" onClick={handleCreate}>
+        <Button variant="outline" onClick={handleCreate}>
           <Plus className="size-3" data-icon="inline-start" />
           New Agent
         </Button>

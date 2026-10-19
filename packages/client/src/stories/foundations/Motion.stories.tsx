@@ -23,7 +23,7 @@ function Gallery() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <Button variant="outline" size="sm" onClick={() => setRun((n) => n + 1)}>Replay</Button>
+        <Button variant="outline" onClick={() => setRun((n) => n + 1)}>Replay</Button>
       </div>
       <div key={run} className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-6">
         {ANIMATIONS.map(({ cls, use }) => (

@@ -117,7 +117,6 @@ export default function PullRequestFilesView({
           {files.hasNextPage && (
             <Button
               variant="ghost"
-              size="sm"
               disabled={files.isFetchingNextPage}
               onClick={() => void files.fetchNextPage()}
             >

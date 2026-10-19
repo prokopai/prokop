@@ -48,17 +48,17 @@ export function RebaseConflictHunks({ draft, disabled, onChange, fileName = 'fil
   return <div className="flex min-w-0 flex-col gap-2" aria-label="Conflict sections">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <strong className="text-sm" aria-live="polite">Conflict {selected + 1} of {sections.length} · {unresolved} unresolved</strong>
-      <div className="flex gap-1"><Button size="sm" variant="ghost" disabled={selected === 0} onClick={() => setSelected(selected - 1)}>Previous</Button><Button size="sm" variant="ghost" disabled={selected === sections.length - 1} onClick={() => setSelected(selected + 1)}>Next</Button></div>
+      <div className="flex gap-1"><Button variant="ghost" disabled={selected === 0} onClick={() => setSelected(selected - 1)}>Previous</Button><Button variant="ghost" disabled={selected === sections.length - 1} onClick={() => setSelected(selected + 1)}>Next</Button></div>
     </div>
     <p className="text-xs text-muted-foreground">Around line {section.line} in the original working file. Choose a version or edit the result between them.</p>
     <MergePane title={incomingLabel} fileName={fileName} value={window.prefix + section.base + window.suffix} id={`${fileName}:${selected}:base`} selectedLines={section.base ? range(section.base) : undefined} />
     {!section.base && <p className="text-xs text-muted-foreground">Incoming version has no lines in the conflicting range.</p>}
-    <Button variant="outline" size="sm" disabled={disabled} onClick={() => update(window.prefix + section.base + window.suffix, true)}>Use incoming version ↓</Button>
+    <Button variant="outline" disabled={disabled} onClick={() => update(window.prefix + section.base + window.suffix, true)}>Use incoming version ↓</Button>
     <MergePane title={results[selected] === undefined || hasConflictMarkers(result) ? 'Result · unresolved, editable' : 'Result · resolved, editable'} fileName={fileName} value={result} id={`${fileName}:${selected}:result:${replacementVersion}`} onChange={update} disabled={disabled} selectedLines={results[selected] === undefined ? range(source.slice(section.start, section.end)) : undefined} />
-    <Button variant="outline" size="sm" disabled={disabled} onClick={() => update(window.prefix + section.feature + window.suffix, true)}>Use your change ↑</Button>
+    <Button variant="outline" disabled={disabled} onClick={() => update(window.prefix + section.feature + window.suffix, true)}>Use your change ↑</Button>
     <MergePane title={featureLabel} fileName={fileName} value={window.prefix + section.feature + window.suffix} id={`${fileName}:${selected}:feature`} selectedLines={section.feature ? range(section.feature) : undefined} />
     {!section.feature && <p className="text-xs text-muted-foreground">Your change has no lines in the conflicting range.</p>}
-    {section.base && section.feature && <Button variant="ghost" size="sm" disabled={disabled} onClick={() => update(window.prefix + section.base + section.feature + window.suffix, true)}>Keep both, incoming first</Button>}
+    {section.base && section.feature && <Button variant="ghost" disabled={disabled} onClick={() => update(window.prefix + section.base + section.feature + window.suffix, true)}>Keep both, incoming first</Button>}
   </div>;
 }
 export function MergePane({ title, fileName, value, id, onChange, disabled = false, selectedLines }: {

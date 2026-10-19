@@ -14,7 +14,7 @@ const excluded = createSession({ id: 'sess-excluded', title: 'Excluded session',
 function Open({ sessionId }: { sessionId: string }) {
   return (
     <DropdownMenu open>
-      <DropdownMenuTrigger asChild><Button variant="outline" size="sm">Session menu</Button></DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild><Button variant="outline">Session menu</Button></DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <SessionLearningMenu sessionId={sessionId} />
       </DropdownMenuContent>

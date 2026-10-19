@@ -163,7 +163,6 @@ export function KeybindsPanel() {
         <Button
           type="button"
           variant="outline"
-          size="sm"
           disabled={!hasOverrides}
           onClick={resetAllBindings}
         >

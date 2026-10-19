@@ -121,7 +121,7 @@ export function PullRequestDetailView({
             {shown.title} <span className="font-normal text-muted-foreground">#{number}</span>
           </h2>
           {/* Narrow panes keep the whole width for the title; the link shrinks to its icon. */}
-          <Button variant="ghost" size="sm" className="shrink-0 @max-2xl:size-8 @max-2xl:px-0" asChild>
+          <Button variant="ghost" className="shrink-0 @max-2xl:size-8 @max-2xl:px-0" asChild>
             <a
               href={safePrUrl(shown.url)}
               target="_blank"
@@ -379,7 +379,7 @@ function Overview({
               <Button
                 type="submit"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 aria-label="Request review"
                 title="Request review"
                 disabled={busy || !reviewer.trim()}
@@ -506,7 +506,6 @@ function Overview({
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    size="sm"
                     disabled={busy}
                     onClick={() => perform({ action: pr.draft ? 'ready' : 'draft' })}
                   >
@@ -514,7 +513,6 @@ function Overview({
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
                     className="text-destructive"
                     disabled={busy}
                     onClick={() => setConfirm('close')}
@@ -811,7 +809,6 @@ export function ReviewForm({
         )}
         <Button
           type="submit"
-          size="sm"
           disabled={busy || (['comment', 'request-changes'].includes(verdict) && !body.trim())}
         >
           {busy ? 'Submitting…' : verdict === 'comment' ? 'Post comment' : 'Submit review'}
@@ -883,13 +880,12 @@ export function Thread({
               maxLength={60000}
             />
             <div className="flex gap-2">
-              <Button variant="outline" type="submit" size="sm" disabled={busy || !reply.trim()}>
+              <Button variant="outline" type="submit" disabled={busy || !reply.trim()}>
                 Reply
               </Button>
               {thread.canResolve && (
                 <Button
                   type="button"
-                  size="sm"
                   variant="ghost"
                   disabled={busy}
                   onClick={() => {

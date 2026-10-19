@@ -208,7 +208,7 @@ function RepositoryView({
         <>
           <Button
             variant="ghost"
-            size={hasConnections ? 'icon-sm' : 'sm'}
+            size={hasConnections ? 'icon' : 'default'}
             aria-label="Rescan CLI connections"
             title="Refresh sign-in and pull requests"
             onClick={refresh}
@@ -342,7 +342,6 @@ function RepositoryInbox({
             {accountName}
           </span>
           <Button variant="outline"
-            size="sm"
             onClick={() => {
               setCreating(true);
               setSelected(null);
@@ -445,7 +444,6 @@ function RepositoryInbox({
             {list.hasNextPage && (
               <Button
                 variant="ghost"
-                size="sm"
                 className="w-full"
                 onClick={() => void list.fetchNextPage()}
                 disabled={list.isFetchingNextPage}
@@ -465,7 +463,6 @@ function RepositoryInbox({
             <div className="shrink-0 p-2 md:hidden">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => {
                   setSelected(null);
                   setCreating(false);

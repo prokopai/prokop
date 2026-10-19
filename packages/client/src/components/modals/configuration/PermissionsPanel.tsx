@@ -84,7 +84,6 @@ export function PermissionsPanel({
           {activePermissions.length > 0 && (
             <Button
               variant="destructive"
-              size="sm"
               onClick={() => setShowRevokeAllConfirm(true)}
             >
               <Trash2 className="size-4" data-icon="inline-start" />

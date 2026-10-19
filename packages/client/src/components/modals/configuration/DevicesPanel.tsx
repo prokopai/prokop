@@ -50,7 +50,7 @@ function PairingCodeCard({ pairing, onDone }: { pairing: CreatePairingCodeRespon
       <p className="text-xs text-muted-foreground">
         Code <span className="font-mono text-foreground">{pairing.code}</span> works once and expires in 5 minutes.
       </p>
-      <Button variant="ghost" size="sm" onClick={onDone}>Done</Button>
+      <Button variant="ghost" onClick={onDone}>Done</Button>
     </div>
   );
 }
@@ -118,7 +118,7 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
         </p>
         {status.device && (
           <div>
-            <Button variant="outline" size="sm" disabled={busy !== null}
+            <Button variant="outline" disabled={busy !== null}
               onClick={() => void run('self', () => sdkClient.http.access.revokeDevice(status.device!.id))}>
               Unpair this device
             </Button>
@@ -141,7 +141,7 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
             <p className="text-sm text-muted-foreground">Use Prokop from your phone or another computer. This computer never needs to pair.</p>
           </div>
           {!pairing && (
-            <Button variant="outline" size="sm" disabled={busy !== null}
+            <Button variant="outline" disabled={busy !== null}
               onClick={() => void run('pair', async () => setPairing(await sdkClient.http.access.createPairingCode()))}>
               Pair a device
             </Button>
@@ -161,9 +161,9 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
                 <span className="font-mono text-sm text-muted-foreground" title="Should match the code on the other device">
                   {request.matchCode}
                 </span>
-                <Button variant="outline" size="sm" disabled={busy !== null}
+                <Button variant="outline" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.approve(request.id))}>Allow</Button>
-                <Button size="sm" variant="ghost" disabled={busy !== null}
+                <Button variant="ghost" disabled={busy !== null}
                   onClick={() => void run(request.id, () => sdkClient.http.access.deny(request.id))}>Deny</Button>
               </div>
             ))}
@@ -180,7 +180,7 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
           <div key={device.id} className="flex items-center gap-2 rounded-lg border px-3 py-2">
             <span className="min-w-0 truncate text-sm font-medium">{device.label}</span>
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">Last seen {lastSeen(device.lastSeenAt)}</span>
-            <Button size="sm" variant="ghost" disabled={busy !== null}
+            <Button variant="ghost" disabled={busy !== null}
               onClick={() => void run(device.id, () => sdkClient.http.access.revokeDevice(device.id))}>Remove</Button>
           </div>
         ))}
