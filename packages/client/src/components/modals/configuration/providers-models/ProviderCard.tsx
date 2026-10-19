@@ -11,6 +11,7 @@ import { useDeleteModel } from '@/hooks/queries';
 import { Plus, Pencil, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { CollectionRow } from '@/components/ui/collection-row';
 import { SettingsRow } from '@/components/ui/settings-row';
 import { ProviderTile } from '@/components/branding/ProviderTile';
 import { cn } from '@/lib/utils';
@@ -39,10 +40,10 @@ interface ProviderCardProps {
 }
 
 /**
- * One provider = one header row plus, when expanded, its connection row, a
- * row per model and the add model row. Lives inside the Providers group.
- * Providers themselves are read-only catalog entries (models.json or
- * registry sync owns them).
+ * One provider = one collection row (tile, name, "Connected · 3 models")
+ * plus, when expanded, its connection row, a row per model and the add
+ * model row. Lives inside the Providers group. Providers themselves are
+ * read-only catalog entries (models.json or registry sync owns them).
  */
 export function ProviderCard({
   sdkClient,
@@ -71,9 +72,6 @@ export function ProviderCard({
         ? { tone: 'green' as const, label: 'Connected' }
         : { tone: 'amber' as const, label: 'Needs key' }
       : { tone: 'muted' as const, label: 'Custom' };
-  const dotClass = status.tone === 'green'
-    ? 'bg-success'
-    : status.tone === 'amber' ? 'bg-warning' : 'bg-muted-foreground/40';
   const isDefaultProvider = provider.id === defaultProvider;
   const open = expanded || editor !== null;
   const count = provider.models.length > 0
@@ -96,24 +94,15 @@ export function ProviderCard({
 
   return (
     <>
-      <SettingsRow
-        onClick={() => setExpanded(!expanded)}
+      <CollectionRow
+        title={provider.name}
+        icon={<ProviderTile provider={provider.id} name={provider.name} />}
+        status={<span className={cn(status.tone === 'amber' && 'text-warning')}>{[isDefaultProvider ? 'Default' : null, status.label, count].filter(Boolean).join(' · ')}</span>}
+        onToggle={() => setExpanded(!expanded)}
         expanded={open}
-        className={cn(status.tone !== 'green' && 'text-muted-foreground')}
-        label={
-          <span className="flex items-center gap-2">
-            <ProviderTile provider={provider.id} name={provider.name} size="sm" />
-            <span className={cn('size-2 shrink-0 rounded-full', dotClass)} />
-            <span className={cn('truncate', status.tone === 'green' && 'text-foreground')}>{provider.name}</span>
-            {isDefaultProvider && (
-              <Badge variant="outline" className="gap-0.5"><Star className="size-2.5" />Default</Badge>
-            )}
-          </span>
-        }
-        description={`${count} · ${status.label}`}
-      />
-
-      {open && (editor ? (
+        actions={isDefaultProvider ? <Star aria-label="Default provider" className="size-3.5 text-muted-foreground" /> : undefined}
+      >
+      {editor ? (
         <ModelEditorForm
           sdkClient={sdkClient}
           providerId={provider.id}
@@ -137,7 +126,7 @@ export function ProviderCard({
               return (
                 <SettingsRow
                   key={model.id}
-                  className="pl-6"
+                  className="group/model"
                   label={
                     <span className="flex items-center gap-2" title={model.id}>
                       <ModelStatusDot status={model.runtimeStatus} />
@@ -148,7 +137,7 @@ export function ProviderCard({
                     </span>
                   }
                 >
-                  <span className="flex items-center gap-0.5">
+                  <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/model:opacity-100 group-focus-within/model:opacity-100 pointer-coarse:opacity-100">
                     <Button size="icon-xs" variant="ghost" onClick={() => setEditor({ kind: 'model', model })} title="Edit model" aria-label={`Edit ${model.name}`}>
                       <Pencil />
                     </Button>
@@ -161,14 +150,15 @@ export function ProviderCard({
             })
           )}
 
-          <SettingsRow className="pl-6" label={<span className="text-xs text-muted-foreground">Models are catalog entries for this provider.</span>}>
+          <SettingsRow label={<span className="text-xs text-muted-foreground">Models are catalog entries for this provider.</span>}>
             <Button variant="outline" size="xs" onClick={() => setEditor({ kind: 'new-model' })}>
               <Plus data-icon="inline-start" />
               Add model
             </Button>
           </SettingsRow>
         </>
-      ))}
+      )}
+      </CollectionRow>
 
       <ConfirmationDialog
         open={deleteModelTarget !== null}

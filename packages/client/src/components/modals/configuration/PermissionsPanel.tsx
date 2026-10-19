@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { PermissionListItem } from '../PermissionListItem';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 
@@ -57,20 +58,19 @@ export function PermissionsPanel({
         </SettingsRow>
       </SettingsGroup>
 
-      <SettingsGroup label="Saved permissions" description="Tool approvals saved for this workspace. Revoked ones need approval again when used.">
-        <SettingsRow label={`${activePermissions.length} active`} description={revokedPermissions.length > 0 ? `${revokedPermissions.length} revoked` : undefined}>
-          <span className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-xs" aria-label="Refresh permissions" onClick={onRefreshPermissions}>
-              <RefreshCw />
-            </Button>
-            {activePermissions.length > 0 && (
-              <Button variant="destructive" size="xs" onClick={() => setShowRevokeAllConfirm(true)}>
-                <Trash2 data-icon="inline-start" />
-                Revoke All
-              </Button>
-            )}
-          </span>
-        </SettingsRow>
+      <PageActions>
+        <Button variant="ghost" size="icon" aria-label="Refresh permissions" onClick={onRefreshPermissions}>
+          <RefreshCw />
+        </Button>
+        {activePermissions.length > 0 && (
+          <Button variant="outline" onClick={() => setShowRevokeAllConfirm(true)}>
+            <Trash2 data-icon="inline-start" />
+            Revoke all
+          </Button>
+        )}
+      </PageActions>
+      <SettingsGroup label={`Saved permissions · ${activePermissions.length} active${revokedPermissions.length > 0 ? ` · ${revokedPermissions.length} revoked` : ''}`}
+        description="Tool approvals saved for this workspace. Revoked ones need approval again when used.">
         {activePermissions.map((permission) => (
           <PermissionListItem key={permission.id} permission={permission} onRevoke={onRevokePermission} />
         ))}

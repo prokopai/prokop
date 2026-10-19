@@ -7,7 +7,10 @@ import type {
   PendingAccessRequest,
   ProkopaiClient,
 } from '@prokopai/sdk';
+import { Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
@@ -129,18 +132,17 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
     <div className="flex flex-col gap-4 p-3 sm:p-4">
       <RemoteAccessSection sdkClient={sdkClient} />
 
-      <SettingsGroup label="Pairing" description="Use Prokop from your phone or another computer. This computer never needs to pair.">
-        {pairing ? (
+      <PageActions>
+        <Button disabled={busy !== null || pairing !== null}
+          onClick={() => void run('pair', async () => setPairing(await sdkClient.http.access.createPairingCode()))}>
+          Pair a device
+        </Button>
+      </PageActions>
+      {pairing && (
+        <SettingsGroup label="Pairing">
           <PairingCode pairing={pairing} onDone={closePairing} />
-        ) : (
-          <SettingsRow label="New device" description="Shows a code and a QR for the other device to scan.">
-            <Button variant="outline" disabled={busy !== null}
-              onClick={() => void run('pair', async () => setPairing(await sdkClient.http.access.createPairingCode()))}>
-              Pair a device
-            </Button>
-          </SettingsRow>
-        )}
-      </SettingsGroup>
+        </SettingsGroup>
+      )}
 
       {requests.length > 0 && (
         <SettingsGroup label="Waiting for approval">
@@ -158,14 +160,15 @@ export function DevicesPanel({ sdkClient }: DevicesPanelProps) {
         </SettingsGroup>
       )}
 
-      <SettingsGroup label="Paired devices">
+      <SettingsGroup label="Paired devices" description="Use Prokop from your phone or another computer. This computer never needs to pair.">
         {devices.length === 0 ? (
           <SettingsRow label={<span className="text-muted-foreground">No other devices are paired.</span>} />
         ) : devices.map((device) => (
-          <SettingsRow key={device.id} label={device.label} description={`Last seen ${lastSeen(device.lastSeenAt)}`}>
-            <Button variant="ghost" size="xs" disabled={busy !== null}
-              onClick={() => void run(device.id, () => sdkClient.http.access.revokeDevice(device.id))}>Remove</Button>
-          </SettingsRow>
+          <CollectionRow key={device.id} icon={<RowTile><Smartphone /></RowTile>} title={device.label} status={`Last seen ${lastSeen(device.lastSeenAt)}`}
+            actions={
+              <Button variant="ghost" size="xs" disabled={busy !== null} className="opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 pointer-coarse:opacity-100"
+                onClick={() => void run(device.id, () => sdkClient.http.access.revokeDevice(device.id))}>Remove</Button>
+            } />
         ))}
       </SettingsGroup>
       {error && <ErrorState>{error}</ErrorState>}

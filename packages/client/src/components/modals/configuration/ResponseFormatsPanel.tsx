@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ProkopaiClient, ResponseFormat } from '@prokopai/sdk';
 import { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from '@/hooks/queries';
-import { Loader2, Plus, Trash2, GripVertical, Code, Eye, ChevronRight } from 'lucide-react';
+import { Braces, Loader2, Plus, Trash2, GripVertical, Code, Eye, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { useSettingsEditor } from './useSettingsEditor';
 
@@ -700,13 +702,13 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
 
   return (
     <div className="flex flex-col gap-4 p-3 sm:p-4">
-      <SettingsGroup label="Formats" description="A JSON shape a reply must follow.">
-        <SettingsRow label={`${formats.length} format${formats.length !== 1 ? 's' : ''}`}>
-          <Button variant="outline" onClick={editor.startCreate}>
-            <Plus data-icon="inline-start" />
-            New format
-          </Button>
-        </SettingsRow>
+      <PageActions>
+        <Button onClick={editor.startCreate}>
+          <Plus data-icon="inline-start" />
+          New format
+        </Button>
+      </PageActions>
+      {formats.length > 0 && <SettingsGroup description="A JSON shape a reply must follow.">
         {formats.map((format) => {
           const propCount = Object.keys(
             (format.schema as Record<string, unknown>)?.properties
@@ -715,26 +717,28 @@ export function ResponseFormatsPanel({ sdkClient }: PanelProps) {
           ).length;
 
           return (
-            <SettingsRow
+            <CollectionRow
               key={format.id}
-              label={format.name}
-              description={format.description || undefined}
-              onClick={() => editor.startEdit(format)}
-            >
-              <span>{propCount} propert{propCount !== 1 ? 'ies' : 'y'}</span>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={() => setDeleteTarget({ id: format.id, name: format.name })}
-                aria-label={`Delete format ${format.name}`}
-                title="Delete format"
-              >
-                <Trash2 />
-              </Button>
-            </SettingsRow>
+              icon={<RowTile><Braces /></RowTile>}
+              title={format.name}
+              status={[`${propCount} propert${propCount !== 1 ? 'ies' : 'y'}`, format.description || null].filter(Boolean).join(' · ')}
+              onOpen={() => editor.startEdit(format)}
+              actions={
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 pointer-coarse:opacity-100"
+                  onClick={() => setDeleteTarget({ id: format.id, name: format.name })}
+                  aria-label={`Delete format ${format.name}`}
+                  title="Delete format"
+                >
+                  <Trash2 />
+                </Button>
+              }
+            />
           );
         })}
-      </SettingsGroup>
+      </SettingsGroup>}
 
       {error && <ErrorState>{error}</ErrorState>}
       {formats.length === 0 && <EmptyState variant="plain">No formats yet. Add one to get JSON back from a reply.</EmptyState>}

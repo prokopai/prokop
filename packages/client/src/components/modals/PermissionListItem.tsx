@@ -1,18 +1,18 @@
 import { Trash2, Shield, Eye, Pencil, Trash, Globe, Terminal } from 'lucide-react';
 import type { PermissionGrant } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { SettingsRow } from '@/components/ui/settings-row';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
+import { cn } from '@/lib/utils';
 
 // Static component to satisfy react-hooks/static-components rule
 function ActionIconDisplay({ action }: { action?: string }) {
   switch (action) {
-    case 'read': return <Eye className="size-3" data-icon="inline-start" />;
-    case 'write': return <Pencil className="size-3" data-icon="inline-start" />;
-    case 'delete': return <Trash className="size-3" data-icon="inline-start" />;
-    case 'request': return <Globe className="size-3" data-icon="inline-start" />;
-    case 'execute': return <Terminal className="size-3" data-icon="inline-start" />;
-    default: return <Shield className="size-3" data-icon="inline-start" />;
+    case 'read': return <Eye />;
+    case 'write': return <Pencil />;
+    case 'delete': return <Trash />;
+    case 'request': return <Globe />;
+    case 'execute': return <Terminal />;
+    default: return <Shield />;
   }
 }
 
@@ -70,7 +70,7 @@ function formatPatternDisplay(patterns: string[]): string {
   }).join(', ');
 }
 
-/** One saved permission as a settings row: what it allows on the left, revoke on the right. */
+/** One saved permission as a collection row: what it allows, then tool, scope and pattern; revoke on the right. */
 export function PermissionListItem({
   permission,
   onRevoke,
@@ -81,40 +81,29 @@ export function PermissionListItem({
   const patternDisplay = formatPatternDisplay(permission.patterns);
 
   return (
-    <SettingsRow
-      label={
-        <span className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={isRevoked ? 'outline' : 'secondary'}>
-            <ActionIconDisplay action={permission.action} />
-            {actionLabel ? `${resourceLabel} ${actionLabel}` : resourceLabel}
-          </Badge>
-          <Badge variant="outline">{permission.toolName}</Badge>
-          <Badge variant="outline">{formatScope(permission.scope)}</Badge>
-          {permission.matcher !== 'exact' && (
-            <Badge variant="outline" className="text-muted-foreground">{permission.matcher}</Badge>
-          )}
-          {isRevoked && <Badge variant="outline" className="text-muted-foreground">Revoked</Badge>}
-        </span>
-      }
-      description={
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="break-all font-mono">{patternDisplay}</span>
-          <span>Saved {formatDate(permission.grantedAt)}{permission.revokedAt && ` · Revoked ${formatDate(permission.revokedAt)}`}</span>
-        </span>
-      }
-    >
-      {!isRevoked && (
+    <CollectionRow
+      className={cn(isRevoked && 'text-muted-foreground')}
+      icon={<RowTile className={cn(isRevoked && 'opacity-50')}><ActionIconDisplay action={permission.action} /></RowTile>}
+      title={<span className="flex min-w-0 items-center gap-2"><span>{actionLabel ? `${resourceLabel} ${actionLabel}` : resourceLabel}</span><span className="truncate font-mono text-xs text-muted-foreground">{patternDisplay}</span></span>}
+      status={[
+        isRevoked ? 'Revoked' : null,
+        permission.toolName,
+        formatScope(permission.scope),
+        permission.matcher !== 'exact' ? permission.matcher : null,
+        `Saved ${formatDate(permission.grantedAt)}${permission.revokedAt ? ` · Revoked ${formatDate(permission.revokedAt)}` : ''}`,
+      ].filter(Boolean).join(' · ')}
+      actions={!isRevoked && (
         <Button
           variant="ghost"
           size="icon-xs"
           aria-label="Revoke permission"
           title="Revoke"
           onClick={() => onRevoke(permission.id)}
-          className="text-destructive hover:text-destructive"
+          className="text-destructive opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 hover:text-destructive pointer-coarse:opacity-100"
         >
           <Trash2 />
         </Button>
       )}
-    </SettingsRow>
+    />
   );
 }

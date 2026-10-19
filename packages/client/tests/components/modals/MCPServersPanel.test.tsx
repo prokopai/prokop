@@ -33,9 +33,10 @@ describe.each(['ws', null])('MCP settings for %s', workspaceId => {
   const setup = (initial?: Parameters<typeof setupPanel>[0]) => setupPanel(initial, workspaceId);
   test('shows built-in browser setup without URL, command, edit or remove controls', async () => {
     const { api, user } = setup({ 'Prokop Browser': { config: { type: 'builtin', id: 'browser', enabled: false }, status: { status: 'disabled' } } });
-    expect(await screen.findByText('Built-in')).toBeInTheDocument();
+    expect(await screen.findByText(/Built-in/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Prokop Browser' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Remove Prokop Browser' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Prokop Browser/ }));
     await user.click(screen.getByText('Set up browser extension'));
     expect(screen.getByRole('link', { name: 'Download the Prokop Browser extension' })).toHaveAttribute('href',
       'https://github.com/prokopai/prokop/releases?q=browser%2F&expanded=true');
@@ -46,8 +47,8 @@ describe.each(['ws', null])('MCP settings for %s', workspaceId => {
   });
   test('shows built-in visuals as on, without browser setup, and turns it off with one switch', async () => {
     const { api, user } = setup({ 'Prokop Visuals': { config: { type: 'builtin', id: 'visuals' }, status: { status: 'connected' } } });
-    expect(await screen.findByText('Lets agents show charts, tables and diagrams as pages in their replies.')).toBeInTheDocument();
-    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(await screen.findByText(/Lets agents show charts, tables and diagrams as pages in their replies\./)).toBeInTheDocument();
+    expect(screen.getByText(/^Connected/)).toBeInTheDocument();
     expect(screen.queryByText('Set up browser extension')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Remove Prokop Visuals' })).not.toBeInTheDocument();
     const toggle = screen.getByRole('switch', { name: 'Enable Prokop Visuals' });
@@ -67,6 +68,7 @@ describe.each(['ws', null])('MCP settings for %s', workspaceId => {
   });
   test('persists individual tool access and keeps the tool visible when denied', async () => {
     const { api, user } = setup({ CRM: { config: { type: 'remote', url: 'https://crm.example/mcp' }, status: { status: 'connected' } } });
+    await user.click(await screen.findByRole('button', { name: /^CRM/ }));
     await user.click(await screen.findByRole('button', { name: 'Choose tools' }));
     expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
     const toggle = await screen.findByRole('switch', { name: 'Allow write_records' });
@@ -89,13 +91,14 @@ describe.each(['ws', null])('MCP settings for %s', workspaceId => {
   test('provides a blocked-popup fallback and removes sign-in controls after OAuth completes', async () => {
     vi.spyOn(window, 'open').mockReturnValue(null);
     const { api, cache, servers, user } = setup({ CRM: { config: { type: 'remote', url: 'https://crm.example/mcp' }, status: { status: 'needs_auth' } } });
+    await user.click(await screen.findByRole('button', { name: /^CRM/ }));
     await user.click(await screen.findByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('link', { name: 'Continue sign-in' })).toHaveAttribute('href', 'https://crm.example/authorize?state=abc');
     expect(api.startAuth).toHaveBeenCalledWith(workspaceId, 'CRM');
     // The mcp.changed handler invalidates this query after the OAuth callback.
     servers.CRM = { ...servers.CRM!, status: { status: 'connected' } };
     await act(async () => { await cache.invalidateQueries({ queryKey: queryKeys.mcp.status(workspaceId) }); });
-    expect(await screen.findByText('Connected')).toBeInTheDocument();
+    expect(await screen.findByText(/^Connected/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Continue sign-in' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Choose tools' })).toBeInTheDocument();

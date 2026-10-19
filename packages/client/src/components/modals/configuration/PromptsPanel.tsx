@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { usePromptsQuery, useCreatePrompt, useUpdatePrompt, useDeletePrompt } from '@/hooks/queries';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 import { useSettingsEditor } from './useSettingsEditor';
@@ -85,32 +87,37 @@ export function PromptsPanel({ sdkClient }: PanelProps) {
 
   return (
     <div className="flex flex-col gap-4 p-3 sm:p-4">
-      <SettingsGroup label="Prompts" description="Reusable text, typed after a slash in the composer.">
-        <SettingsRow label={`${prompts.length} prompt${prompts.length !== 1 ? 's' : ''}`}>
-          <Button variant="outline" onClick={editor.startCreate}>
-            <Plus data-icon="inline-start" />
-            New prompt
-          </Button>
-        </SettingsRow>
-        {prompts.map((prompt) => (
-          <SettingsRow
-            key={prompt.name}
-            label={<span className="font-mono text-xs">{prompt.name}</span>}
-            description={prompt.description || undefined}
-            onClick={() => editor.startEdit(prompt)}
-          >
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              onClick={() => setDeleteTarget(prompt.name)}
-              aria-label={`Delete prompt ${prompt.name}`}
-              title="Delete prompt"
-            >
-              <Trash2 />
-            </Button>
-          </SettingsRow>
-        ))}
-      </SettingsGroup>
+      <PageActions>
+        <Button onClick={editor.startCreate}>
+          <Plus data-icon="inline-start" />
+          New prompt
+        </Button>
+      </PageActions>
+      {prompts.length > 0 && (
+        <SettingsGroup description="Reusable text, typed after a slash in the composer.">
+          {prompts.map((prompt) => (
+            <CollectionRow
+              key={prompt.name}
+              icon={<RowTile><FileText /></RowTile>}
+              title={<span className="font-mono text-xs">{prompt.name}</span>}
+              status={prompt.description || undefined}
+              onOpen={() => editor.startEdit(prompt)}
+              actions={
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 pointer-coarse:opacity-100"
+                  onClick={() => setDeleteTarget(prompt.name)}
+                  aria-label={`Delete prompt ${prompt.name}`}
+                  title="Delete prompt"
+                >
+                  <Trash2 />
+                </Button>
+              }
+            />
+          ))}
+        </SettingsGroup>
+      )}
 
       {error && <ErrorState>{error}</ErrorState>}
       {prompts.length === 0 && <EmptyState variant="plain">No prompts yet. Add one to reuse text in the composer.</EmptyState>}

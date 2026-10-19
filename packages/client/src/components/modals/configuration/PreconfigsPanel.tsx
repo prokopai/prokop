@@ -4,11 +4,10 @@ import { toast } from 'sonner';
 import type { ProkopaiClient } from '@prokopai/sdk';
 import { defaultLearningCadence, parseAgentLearningSettings } from '@prokopai/sdk';
 import { usePreconfigsQuery, useCreatePreconfig, useUpdatePreconfig, useDeletePreconfig, useToolsQuery, useAgentsQuery, useDemoteAgent } from '@/hooks/queries';
-import { Plus, Copy, Trash2, Loader2, Star, Check, RefreshCw } from 'lucide-react';
+import { Bot, Check, Copy, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,6 +21,8 @@ import { MemorySkillsControls } from './MemorySkillsControls';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { EmptyState, ErrorState, LoadingState } from '@/components/shared/States';
 
 /** An open agent editor. `id` is null for a new agent; `initial` detects unsaved edits. */
@@ -900,55 +901,53 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
 
   return (
     <div className="flex flex-col gap-4 p-3 sm:p-4">
-      <SettingsGroup label="Agents" description="A role a session runs as: prompt, model, tools and memory.">
-        <SettingsRow label={`${preconfigs.length} agent${preconfigs.length !== 1 ? 's' : ''}`}>
-          <Button variant="outline" onClick={handleCreate}>
-            <Plus data-icon="inline-start" />
-            New agent
-          </Button>
-        </SettingsRow>
+      <PageActions>
+        <Button onClick={handleCreate}>
+          <Plus data-icon="inline-start" />
+          New agent
+        </Button>
+      </PageActions>
+      {preconfigs.length > 0 && <SettingsGroup description="A role a session runs as: prompt, model, tools and memory.">
         {preconfigs.map((preconfig) => (
-          <SettingsRow
+          <CollectionRow
             key={preconfig.id}
-            onClick={() => handleEdit(preconfig)}
-            label={
-              <span className="flex items-center gap-2">
-                <span className="truncate">{preconfig.name}</span>
-                {preconfig.isDefault && (
-                  <Badge variant="outline" className="gap-0.5"><Star className="size-2.5" />Default</Badge>
-                )}
-                {preconfig.mode && preconfig.mode !== 'primary' && (
-                  <Badge variant="secondary">{preconfig.mode === 'subagent' ? 'Subagent' : 'Primary + subagent'}</Badge>
+            icon={<RowTile><Bot /></RowTile>}
+            title={preconfig.name}
+            status={[
+              preconfig.isDefault ? 'Default' : null,
+              preconfig.mode && preconfig.mode !== 'primary' ? (preconfig.mode === 'subagent' ? 'Subagent' : 'Primary + subagent') : null,
+              modelLabel(preconfig),
+              preconfig.description || null,
+            ].filter(Boolean).join(' · ')}
+            onOpen={() => handleEdit(preconfig)}
+            actions={
+              <span className="flex items-center opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 pointer-coarse:opacity-100">
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  onClick={() => handleDuplicate(preconfig)}
+                  disabled={duplicatingId !== null}
+                  aria-label={`Duplicate agent ${preconfig.name}`}
+                  title="Duplicate agent"
+                >
+                  {duplicatingId === preconfig.id ? <Loader2 className="animate-spin" /> : <Copy />}
+                </Button>
+                {!preconfig.isDefault && (
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => setDeleteTarget(preconfig.id)}
+                    aria-label={`Delete agent ${preconfig.name}`}
+                    title="Delete agent"
+                  >
+                    <Trash2 />
+                  </Button>
                 )}
               </span>
             }
-            description={preconfig.description || undefined}
-          >
-            <span className="truncate">{modelLabel(preconfig)}</span>
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              onClick={() => handleDuplicate(preconfig)}
-              disabled={duplicatingId !== null}
-              aria-label={`Duplicate agent ${preconfig.name}`}
-              title="Duplicate agent"
-            >
-              {duplicatingId === preconfig.id ? <Loader2 className="animate-spin" /> : <Copy />}
-            </Button>
-            {preconfig.isDefault ? <span className="size-6" aria-hidden /> : (
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={() => setDeleteTarget(preconfig.id)}
-                aria-label={`Delete agent ${preconfig.name}`}
-                title="Delete agent"
-              >
-                <Trash2 />
-              </Button>
-            )}
-          </SettingsRow>
+          />
         ))}
-      </SettingsGroup>
+      </SettingsGroup>}
 
       {error && <ErrorState>{error}</ErrorState>}
       {preconfigs.length === 0 && <EmptyState variant="plain">No agents yet. Add one to give sessions a role.</EmptyState>}

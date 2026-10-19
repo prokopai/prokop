@@ -1,16 +1,18 @@
 import { EmptyState, ErrorState } from '@/components/shared/States';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { BarChart3, ExternalLink, Globe, Pencil, Plus, RefreshCw, Terminal, Trash2 } from 'lucide-react';
 import type { McpBuiltinId, McpServerConfig, McpStatus, ProkopaiClient } from '@prokopai/sdk';
 import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { CollectionRow, RowTile } from '@/components/ui/collection-row';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageActions } from '@/components/views/settingsPageActions';
+import { cn } from '@/lib/utils';
 import { McpServerForm } from './McpServerForm';
 
 interface Props { workspaceId: string | null | undefined; sdkClient: ProkopaiClient | null }
@@ -29,10 +31,26 @@ export function MCPServersPanel({ workspaceId, sdkClient }: Props) {
   return <McpSettings key={workspaceId ?? 'global'} workspaceId={workspaceId} client={sdkClient} />;
 }
 
+/** What the row says about a server: its state, then what it is. */
+function describe(config: McpServerConfig, connection: McpStatus): { text: string; failed: boolean } {
+  const state = config.enabled === false ? 'Disabled'
+    : config.type === 'builtin' && config.id === 'browser' && connection.status !== 'connected' ? 'Extension not connected'
+    : statusLabels[connection.status];
+  const kind = config.type === 'builtin' ? `Built-in · ${BUILTIN_DESCRIPTIONS[config.id]}`
+    : config.type === 'remote' ? config.url : config.command.join(' ');
+  return { text: `${state} · ${kind}`, failed: config.enabled !== false && connection.status === 'failed' };
+}
+
+function ServerTile({ config }: { config: McpServerConfig }) {
+  const Icon = config.type === 'builtin' ? (config.id === 'browser' ? Globe : BarChart3) : config.type === 'remote' ? Globe : Terminal;
+  return <RowTile><Icon /></RowTile>;
+}
+
 function McpSettings({ workspaceId, client }: { workspaceId: string | null; client: ProkopaiClient }) {
   const cache = useQueryClient();
   const [editing, setEditing] = useState<{ name?: string; config?: McpServerConfig }>();
   const [search, setSearch] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
   const [authLink, setAuthLink] = useState<{ name: string; url: string }>();
   const status = useQuery({ queryKey: queryKeys.mcp.status(workspaceId),
     queryFn: ({ signal }) => client.http.mcp.getStatus(workspaceId, { signal }) });
@@ -48,18 +66,14 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
   const error = action.error ?? status.error;
   const shown = servers.filter(([name]) => name.toLowerCase().includes(search.toLowerCase()));
   return <div className="flex flex-col gap-4 p-3 sm:p-4">
-    <SettingsGroup description={workspaceId === null ? 'Tools available across all workspaces.' : 'Workspace connections override global connections with the same name.'}>
-      <SettingsRow label="Add a server" description="A remote URL or a local command.">
-        <Button variant="outline" disabled={!!editing || action.isPending} onClick={() => setEditing({})}>
-          <Plus data-icon="inline-start" />Add server
-        </Button>
-      </SettingsRow>
+    <PageActions>
       {servers.length > 5 && (
-        <SettingsRow label="Search" htmlFor="mcp-search">
-          <Input id="mcp-search" aria-label="Search MCP servers" placeholder="Search servers…" value={search} onChange={e => setSearch(e.target.value)} className="sm:w-64" />
-        </SettingsRow>
+        <Input aria-label="Search MCP servers" placeholder="Search servers…" value={search} onChange={e => setSearch(e.target.value)} className="w-40" />
       )}
-    </SettingsGroup>
+      <Button disabled={!!editing || action.isPending} onClick={() => setEditing({})}>
+        <Plus data-icon="inline-start" />Add server
+      </Button>
+    </PageActions>
     {error && <ErrorState>{error.message}</ErrorState>}
     {authLink && status.data?.status[authLink.name]?.status.status !== 'connected' && <p className="text-sm">
       <a className="underline" href={authLink.url} target="_blank" rel="noopener noreferrer">Continue sign-in</a>
@@ -70,70 +84,72 @@ function McpSettings({ workspaceId, client }: { workspaceId: string | null; clie
       }} />}
     {status.isLoading ? <Skeleton className="h-16" /> : servers.length === 0
       ? <EmptyState variant="plain">No MCP servers yet. Add a remote URL or a local command.</EmptyState>
-      : shown.map(([name, { config, status: connection }]) => config && (
-        <SettingsGroup key={name} label={
-          <>
-            <span className="min-w-0 truncate text-foreground">{name}</span>
-            <Badge variant={connection.status === 'failed' ? 'error' : 'secondary'}>
-              {config.enabled === false ? 'Disabled' : config.type === 'builtin' && config.id === 'browser' && connection.status !== 'connected' ? 'Extension not connected' : statusLabels[connection.status]}
-            </Badge>
-            {config.type === 'builtin' && <Badge variant="outline">Built-in</Badge>}
-            {config.type !== 'builtin' && <span className="ml-auto flex items-center">
-              <Button size="icon-xs" variant="ghost" aria-label={'Edit ' + name} disabled={action.isPending}
-                onClick={() => setEditing({ name, config })}><Pencil /></Button>
-              <Button size="icon-xs" variant="ghost" aria-label={'Remove ' + name} disabled={action.isPending}
-                onClick={() => run(() => client.http.mcp.remove(workspaceId, name))}><Trash2 /></Button>
-            </span>}
-          </>
-        }>
-          <SettingsRow
-            label="Enabled"
-            htmlFor={`mcp-enabled-${name}`}
-            description={<span className="truncate">{config.type === 'builtin' ? BUILTIN_DESCRIPTIONS[config.id] : config.type === 'remote' ? config.url : config.command.join(' ')}</span>}
-          >
-            <Switch id={`mcp-enabled-${name}`} aria-label={'Enable ' + name} checked={config.enabled !== false} disabled={action.isPending}
-              onCheckedChange={enabled => run(() => client.http.mcp.save(workspaceId, name, { ...config, enabled }))} />
-          </SettingsRow>
-          {'error' in connection && (
-            <SettingsRow label={<span className="text-xs text-error">{connection.error}</span>} />
-          )}
-          {config.type !== 'builtin' && config.enabled !== false && connection.status !== 'connected' && (
-            <SettingsRow label="Connection" description={statusLabels[connection.status]}>
-              <span className="flex items-center gap-1">
-                <Button variant="outline" size="xs" disabled={action.isPending}
-                  onClick={() => run(() => client.http.mcp.connect(workspaceId, name))}><RefreshCw data-icon="inline-start" />Connect</Button>
-                {config.type === 'remote' && config.oauth !== false && <Button variant="outline" size="xs"
-                  disabled={action.isPending} onClick={() => {
-                    // Open during the click so the browser does not block the asynchronous OAuth redirect.
-                    const popup = window.open('about:blank', '_blank');
-                    if (popup) popup.opener = null;
-                    run(async () => {
-                      try {
-                        const { authorizationUrl } = await client.http.mcp.startAuth(workspaceId, name);
-                        setAuthLink({ name, url: authorizationUrl });
-                        if (popup) popup.location.href = authorizationUrl;
-                      } catch (error: unknown) { popup?.close(); throw error; }
-                    });
-                  }}><ExternalLink data-icon="inline-start" />Sign in</Button>}
-              </span>
-            </SettingsRow>
-          )}
-          {config.type === 'builtin' && config.id === 'browser' && (
-            <SettingsRow label="Browser extension" stacked>
-              <details className="w-full text-sm">
-                <summary className="cursor-pointer text-xs text-muted-foreground">Set up browser extension</summary>
-                <ol className="mt-2 flex list-inside list-decimal flex-col gap-2 text-xs text-muted-foreground">
-                  <li><a className="underline" href="https://github.com/prokopai/prokop/releases?q=browser%2F&expanded=true" target="_blank" rel="noopener noreferrer">Download the Prokop Browser extension</a> ZIP from a browser release and extract it.</li>
-                  <li>Open <code>chrome://extensions</code>, enable Developer mode, choose Load unpacked, and select the extracted folder containing <code>manifest.json</code>.</li>
-                  <li>Open the extension, enter this Prokop server URL and API token, and connect. Keep only one browser profile connected.</li>
-                  <li>Enable Prokop Browser here, then start a new turn. Existing Prokop agents should use this MCP entry instead of their old browser tool selections.</li>
-                </ol>
-              </details>
-            </SettingsRow>
-          )}
-          {(connection.status === 'connected' || config.type === 'builtin') && config.enabled !== false && <McpTools workspaceId={workspaceId} name={name} client={client} />}
-        </SettingsGroup>
-      ))}
+      : <SettingsGroup description={workspaceId === null ? 'Tools available across all workspaces.' : 'Workspace connections override global connections with the same name.'}>
+        {shown.map(([name, { config, status: connection }]) => {
+          if (!config) return null;
+          const { text, failed } = describe(config, connection);
+          const expanded = open === name;
+          const enabled = config.enabled !== false;
+          const custom = config.type !== 'builtin';
+          return (
+            <CollectionRow key={name} title={name} icon={<ServerTile config={config} />} expanded={expanded} onToggle={() => setOpen(expanded ? null : name)}
+              status={<span className={cn(failed && 'text-error')}>{text}</span>}
+              actions={<>
+                {custom && <span className="flex items-center opacity-0 transition-opacity group-hover/collection-row:opacity-100 group-focus-within/collection-row:opacity-100 pointer-coarse:opacity-100">
+                  <Button size="icon-xs" variant="ghost" aria-label={'Edit ' + name} disabled={action.isPending}
+                    onClick={() => setEditing({ name, config })}><Pencil /></Button>
+                  <Button size="icon-xs" variant="ghost" aria-label={'Remove ' + name} disabled={action.isPending}
+                    onClick={() => run(() => client.http.mcp.remove(workspaceId, name))}><Trash2 /></Button>
+                </span>}
+                <Switch aria-label={'Enable ' + name} checked={enabled} disabled={action.isPending}
+                  onCheckedChange={enabled => run(() => client.http.mcp.save(workspaceId, name, { ...config, enabled }))} />
+              </>}>
+              {'error' in connection && (
+                <SettingsRow label={<span className="text-xs text-error">{connection.error}</span>} />
+              )}
+              {custom && enabled && connection.status !== 'connected' && (
+                <SettingsRow label="Connection" description={statusLabels[connection.status]}>
+                  <span className="flex items-center gap-1">
+                    <Button variant="outline" size="xs" disabled={action.isPending}
+                      onClick={() => run(() => client.http.mcp.connect(workspaceId, name))}><RefreshCw data-icon="inline-start" />Connect</Button>
+                    {config.type === 'remote' && config.oauth !== false && <Button variant="outline" size="xs"
+                      disabled={action.isPending} onClick={() => {
+                        // Open during the click so the browser does not block the asynchronous OAuth redirect.
+                        const popup = window.open('about:blank', '_blank');
+                        if (popup) popup.opener = null;
+                        run(async () => {
+                          try {
+                            const { authorizationUrl } = await client.http.mcp.startAuth(workspaceId, name);
+                            setAuthLink({ name, url: authorizationUrl });
+                            if (popup) popup.location.href = authorizationUrl;
+                          } catch (error: unknown) { popup?.close(); throw error; }
+                        });
+                      }}><ExternalLink data-icon="inline-start" />Sign in</Button>}
+                  </span>
+                </SettingsRow>
+              )}
+              {config.type === 'builtin' && config.id === 'browser' && (
+                <SettingsRow label="Browser extension" stacked>
+                  <details className="w-full text-sm">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">Set up browser extension</summary>
+                    <ol className="mt-2 flex list-inside list-decimal flex-col gap-2 text-xs text-muted-foreground">
+                      <li><a className="underline" href="https://github.com/prokopai/prokop/releases?q=browser%2F&expanded=true" target="_blank" rel="noopener noreferrer">Download the Prokop Browser extension</a> ZIP from a browser release and extract it.</li>
+                      <li>Open <code>chrome://extensions</code>, enable Developer mode, choose Load unpacked, and select the extracted folder containing <code>manifest.json</code>.</li>
+                      <li>Open the extension, enter this Prokop server URL and API token, and connect. Keep only one browser profile connected.</li>
+                      <li>Enable Prokop Browser here, then start a new turn. Existing Prokop agents should use this MCP entry instead of their old browser tool selections.</li>
+                    </ol>
+                  </details>
+                </SettingsRow>
+              )}
+              {(connection.status === 'connected' || config.type === 'builtin') && enabled && <McpTools workspaceId={workspaceId} name={name} client={client} />}
+              {!('error' in connection) && !(custom && enabled && connection.status !== 'connected') && !(config.type === 'builtin' && config.id === 'browser')
+                && !((connection.status === 'connected' || config.type === 'builtin') && enabled) && (
+                <SettingsRow label={<span className="text-xs text-muted-foreground">Enable this server to see its tools.</span>} />
+              )}
+            </CollectionRow>
+          );
+        })}
+      </SettingsGroup>}
   </div>;
 }
 

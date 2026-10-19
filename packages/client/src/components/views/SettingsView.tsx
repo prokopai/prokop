@@ -5,11 +5,10 @@ import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { SectionLabel } from '@/components/ui/section-label';
-import { SettingsGroup } from '@/components/ui/settings-group';
-import { SettingsRow } from '@/components/ui/settings-row';
 import { LoadingState } from '@/components/shared/States';
 import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher';
 import { useServerClient } from '@/contexts/ServerClientContext';
+import { SettingsPageActionsProvider, useSettingsPageActionsSlot } from '@/components/views/settingsPageActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { serverUpdateNotice, useServerUpdate } from '@/hooks/useServerUpdate';
 import { getSelectableWorkspaces } from '@/lib/workspaceKind';
@@ -99,7 +98,11 @@ interface SettingsViewProps {
  * and each page with a back button. Workspace pages carry a workspace row
  * at the top so the scope is always visible.
  */
-export function SettingsView({ sdkClient, serverId, onLogout }: SettingsViewProps) {
+export function SettingsView(props: SettingsViewProps) {
+  return <SettingsPageActionsProvider><SettingsViewBody {...props} /></SettingsPageActionsProvider>;
+}
+
+function SettingsViewBody({ sdkClient, serverId, onLogout }: SettingsViewProps) {
   const { apiToken, connected } = useServerClient();
   const isMobile = useIsMobile();
   const storedSection = useUIStore((s) => s.configurationSection);
@@ -126,22 +129,14 @@ export function SettingsView({ sdkClient, serverId, onLogout }: SettingsViewProp
     setSection(value);
     setListOpen(false);
   };
+  const setActionsSlot = useSettingsPageActionsSlot();
+  const isWorkspaceSection = activeSection.startsWith('workspace-') && !!workspace;
 
   const renderPanel = () => {
-    if (activeSection.startsWith('workspace-') && workspace) {
+    if (isWorkspaceSection && workspace) {
       const workspaceSection = activeSection.slice('workspace-'.length) as WorkspaceSettingsSection;
-      return <>
-        <div role="group" aria-label="Workspace settings scope" className="p-3 pb-0 sm:p-4 sm:pb-0">
-          <SettingsGroup>
-            <SettingsRow label="Workspace">
-              <WorkspaceSwitcher selectionOnly workspaces={selectable} agents={agents} activeWorkspace={workspace}
-                onSelectWorkspace={selected => setWorkspaceId(selected.id)} />
-            </SettingsRow>
-          </SettingsGroup>
-        </div>
-        <WorkspacesPanel workspace={workspace} section={workspaceSection}
-          sdkClient={sdkClient} drafts={workspaceDrafts} setDrafts={setWorkspaceDrafts} />
-      </>;
+      return <WorkspacesPanel workspace={workspace} section={workspaceSection}
+        sdkClient={sdkClient} drafts={workspaceDrafts} setDrafts={setWorkspaceDrafts} />;
     }
     switch (activeSection) {
       case 'system':
@@ -226,6 +221,16 @@ export function SettingsView({ sdkClient, serverId, onLogout }: SettingsViewProp
           </Button>
         )}
         <h2 className="truncate px-1 text-sm font-medium">{activeLabel}</h2>
+        {/* The scope switcher and the page's own actions (Add, search) sit at the right of the title. */}
+        <div className="ml-auto flex min-w-0 items-center gap-1.5">
+          {isWorkspaceSection && workspace && (
+            <span role="group" aria-label="Workspace settings scope" className="flex min-w-0 items-center">
+              <WorkspaceSwitcher selectionOnly workspaces={selectable} agents={agents} activeWorkspace={workspace}
+                onSelectWorkspace={selected => setWorkspaceId(selected.id)} />
+            </span>
+          )}
+          <div ref={setActionsSlot} className="flex items-center gap-1.5 empty:hidden" />
+        </div>
       </div>
       {/* Rows read best under ~800px; the page stays left-aligned like the rest of the shell. */}
       <div className="dialog-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain [&>*]:max-w-3xl">

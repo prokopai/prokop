@@ -22,4 +22,5 @@ export const storyCoverageExceptions: Record<string, string> = {
   'providers/ThemedToaster.tsx': 'provider',
   'shell/UnreadTracker.tsx': 'effect',
   'shell/WindowTitle.tsx': 'effect',
+  'views/settingsPageActions.tsx': 'covered-by:views/SettingsView.stories.tsx',
 };

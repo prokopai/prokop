@@ -111,7 +111,8 @@ describe('ProvidersModelsPanel', () => {
   test('header carries the default selector with variant and the sync menu, no provider CRUD', () => {
     render(<ProvidersModelsPanel sdkClient={sdkClient} />);
 
-    expect(screen.getAllByText('Default').length).toBeGreaterThan(0);
+    // The default provider's row says so in its status line.
+    expect(screen.getAllByText(/^Default · /).length).toBeGreaterThan(0);
     // The default model declares variants, so the third select renders with
     // the stored default variant selected.
     const variantTrigger = screen.getByRole('combobox', { name: 'Default variant' });

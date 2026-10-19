@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LoadingState } from '@/components/shared/States';
+import { PageActions } from '@/components/views/settingsPageActions';
 import { ProviderCard } from './providers-models/ProviderCard';
 
 const FALLBACK_PROVIDER_NAMES: Record<string, string> = {
@@ -238,6 +239,7 @@ export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
 
   return (
     <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <PageActions><SyncButton sdkClient={sdkClient} /></PageActions>
       <SettingsGroup label="Default model">
         <DefaultModelRows
           sdkClient={sdkClient}
@@ -246,12 +248,9 @@ export function ProvidersModelsPanel({ sdkClient }: ProvidersModelsPanelProps) {
           defaultModel={config?.defaultModel ?? ''}
           defaultVariant={config?.defaultVariant ?? null}
         />
-        <SettingsRow label="Model catalog" description="Merge adds new models from the registry; override replaces all local models.">
-          <SyncButton sdkClient={sdkClient} />
-        </SettingsRow>
       </SettingsGroup>
 
-      <SettingsGroup label="Providers">
+      <SettingsGroup label="Providers" description="Sync merges new models from the registry, or replaces all local models.">
         {providers.map(provider => (
           <ProviderCard
             key={provider.id}
