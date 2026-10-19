@@ -168,6 +168,9 @@ export function PrStateIcon({ pr, className }: { pr: Pick<PullRequestSummary, 's
   const Icon = style.icon;
   return <Icon aria-label={style.label} className={cn('size-4 shrink-0', style.className, className)} />;
 }
+export function prStateLabel(pr: Pick<PullRequestSummary, 'state' | 'draft'>): string {
+  return stateStyle(pr).label;
+}
 export function PrStateBadge({ pr }: { pr: Pick<PullRequestSummary, 'state' | 'draft'> }) {
   const style = stateStyle(pr);
   const Icon = style.icon;
@@ -177,6 +180,16 @@ export function PrStateBadge({ pr }: { pr: Pick<PullRequestSummary, 'state' | 'd
       {style.label}
     </Badge>
   );
+}
+
+/** A provider state name ("notApplicable", "changes_requested", "approve") as words. */
+export function humanizeState(state: string): string {
+  const words = state.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().toLowerCase();
+  return words ? words[0].toUpperCase() + words.slice(1) : '';
+}
+/** True when a reviewer has not voted yet, whichever words the provider uses for it. */
+export function hasVote(vote: string): boolean {
+  return !/^(no ?vote|none|pending|requested|)$/i.test(vote.trim());
 }
 
 /** Provider check, policy and vote states collapse into four visual outcomes. */

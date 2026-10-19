@@ -13,7 +13,6 @@ import { useWorktreesQuery } from '@/hooks/queries';
 import { buildFilesPanelRootOptions, resolveFilesPanelRoot } from '@/lib/sessionWorktree';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -360,7 +359,7 @@ function RepositoryInbox({
             detailOpen && 'hidden md:flex',
           )}
         >
-          <div className="flex flex-col gap-2 p-3">
+          <div className="flex flex-col gap-1.5 p-2">
             <SegmentedControl
               label="State"
               className="w-full *:flex-1 *:justify-center"
@@ -390,10 +389,10 @@ function RepositoryInbox({
           <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
             <PrError error={list.error} />
             {list.isPending && (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-16" />
-                <Skeleton className="h-16" />
-                <Skeleton className="h-16" />
+              <div className="flex flex-col gap-1">
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
               </div>
             )}
             {filtered.map((pr) => (
@@ -410,26 +409,17 @@ function RepositoryInbox({
                 onBlur={cancelPrefetch}
                 aria-pressed={selected === pr.number}
                 className={cn(
-                  'flex w-full gap-2 rounded-md p-2 text-left hover:bg-muted',
-                  selected === pr.number && 'bg-muted',
+                  'flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/60',
+                  selected === pr.number && 'bg-highlight/20 text-foreground hover:bg-highlight/25',
                 )}
               >
-                <PrStateIcon pr={pr} className="mt-0.5" />
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="line-clamp-2 text-sm font-medium">{pr.title}</span>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-foreground/5"><PrStateIcon pr={pr} /></span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm leading-5">{pr.title}</span>
                   <span className="truncate text-xs text-muted-foreground">
+                    {pr.requestedReviewerIds?.includes(ctx.accountId) && <span className="text-warning">Review requested · </span>}
                     #{pr.number} · {pr.author.name}
                     {pr.updatedAt && ` · ${relativeTime(pr.updatedAt)}`}
-                  </span>
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-mono text-2xs text-muted-foreground">
-                      {pr.sourceBranch} → {pr.targetBranch}
-                    </span>
-                    {pr.requestedReviewerIds?.includes(ctx.accountId) && (
-                      <Badge variant="outline" className="text-warning">
-                        Review requested
-                      </Badge>
-                    )}
                   </span>
                 </span>
               </button>
