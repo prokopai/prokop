@@ -74,7 +74,7 @@ export const LongConversation: Story = {
       { user: 'Can you explain the store architecture?', assistant: 'There are seven Zustand stores managing different aspects: session, server data, UI state, connection, chat layout, ask/permissions, and completion tracking.' },
       { user: 'What testing tools are available?', assistant: 'Currently no formal test framework is configured, but the plan is to use Bun\'s built-in test runner.' },
       { user: 'How does the virtualization work?', assistant: 'The transcript uses @tanstack/react-virtual for efficient rendering of large message lists with overscan and dynamic size estimation.' },
-      { user: 'What about the theme system?', assistant: 'Themes use CSS custom properties with a light/dark mode and five color schemes: neutral, ocean, forest, sunset, and amethyst.' },
+      { user: 'What about the theme system?', assistant: 'Themes use CSS custom properties with a light/dark mode, a graphite or warm surface, and five accents: blue, teal, green, amber, and violet.' },
       { user: 'Tell me about the tool system.', assistant: 'Tools are separately versioned scripts that run as independent executables. They communicate with the server through a standardized protocol.' },
       { user: 'How are subagents handled?', assistant: 'Subagents are child sessions spawned by the main agent. They run independently and report results back to the parent session.' },
     ], session.id),
@@ -87,7 +87,7 @@ export const LongConversation: Story = {
         { user: 'Can you explain the store architecture?', assistant: 'There are seven Zustand stores managing different aspects: session, server data, UI state, connection, chat layout, ask/permissions, and completion tracking.' },
         { user: 'What testing tools are available?', assistant: 'Currently no formal test framework is configured, but the plan is to use Bun\'s built-in test runner.' },
         { user: 'How does the virtualization work?', assistant: 'The transcript uses @tanstack/react-virtual for efficient rendering of large message lists with overscan and dynamic size estimation.' },
-        { user: 'What about the theme system?', assistant: 'Themes use CSS custom properties with a light/dark mode and five color schemes: neutral, ocean, forest, sunset, and amethyst.' },
+        { user: 'What about the theme system?', assistant: 'Themes use CSS custom properties with a light/dark mode, a graphite or warm surface, and five accents: blue, teal, green, amber, and violet.' },
         { user: 'Tell me about the tool system.', assistant: 'Tools are separately versioned scripts that run as independent executables. They communicate with the server through a standardized protocol.' },
         { user: 'How are subagents handled?', assistant: 'Subagents are child sessions spawned by the main agent. They run independently and report results back to the parent session.' },
       ], session.id);

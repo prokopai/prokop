@@ -2,7 +2,7 @@ import { useState, type ComponentType } from 'react';
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeDecorator } from './theme-addon/ThemeDecorator';
-import { THEME_MODES, THEME_SCHEMES, SCHEME_LABELS } from './theme-addon/constants';
+import { THEME_MODES, THEME_SCHEMES, THEME_SURFACES, SCHEME_LABELS, SURFACE_LABELS } from './theme-addon/constants';
 import { resetAllStores } from './mocks/storeCleanup';
 import { ServerClientProvider, type ServerClientValue } from '../src/contexts/ServerClientContext';
 import '../src/index.css';
@@ -86,15 +86,29 @@ const preview: Preview = {
       },
     },
     themeScheme: {
-      name: 'Color Scheme',
-      description: 'Color palette',
+      name: 'Accent',
+      description: 'Accent color on graphite surfaces',
       defaultValue: 'neutral',
       toolbar: {
-        title: 'Scheme',
+        title: 'Accent',
         icon: 'paintbrush',
         items: THEME_SCHEMES.map((scheme) => ({
           value: scheme,
           title: SCHEME_LABELS[scheme],
+        })),
+        dynamicTitle: true,
+      },
+    },
+    themeSurface: {
+      name: 'Surface',
+      description: 'Panel tone',
+      defaultValue: 'graphite',
+      toolbar: {
+        title: 'Surface',
+        icon: 'contrast',
+        items: THEME_SURFACES.map((surface) => ({
+          value: surface,
+          title: SURFACE_LABELS[surface],
         })),
         dynamicTitle: true,
       },

@@ -5,14 +5,18 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   setMode: vi.fn(),
   setScheme: vi.fn(),
+  setSurface: vi.fn(),
 }));
 
-vi.mock('@/components/providers/ThemeProvider', () => ({
+vi.mock('@/components/providers/ThemeProvider', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/providers/ThemeProvider')>()),
   useTheme: () => ({
     mode: 'system',
     scheme: 'neutral',
+    surface: 'graphite',
     setMode: mocks.setMode,
     setScheme: mocks.setScheme,
+    setSurface: mocks.setSurface,
     resolvedMode: 'dark',
   }),
 }));
@@ -42,21 +46,31 @@ describe('AppearancePanel', () => {
     expect(mocks.setMode).toHaveBeenCalledWith('dark');
   });
 
-  test('marks the active scheme with aria-pressed and applies a new scheme', async () => {
+  test('marks the active accent with aria-pressed and applies a new accent', async () => {
     const user = userEvent.setup();
     const { container } = render(<AppearancePanel />);
 
-    const neutral = screen.getByRole('button', { name: /^neutral$/i });
-    expect(neutral).toHaveAttribute('aria-pressed', 'true');
+    const blue = screen.getByRole('button', { name: /^blue$/i });
+    expect(blue).toHaveAttribute('aria-pressed', 'true');
 
-    await user.click(screen.getByRole('button', { name: /^ocean$/i }));
+    await user.click(screen.getByRole('button', { name: /^teal$/i }));
     expect(mocks.setScheme).toHaveBeenCalledWith('ocean');
-    expect(screen.getAllByRole('button', { name: /^sunset$/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^amber$/i })).toHaveLength(1);
 
-    // Previews resolve the real token cascade via paired mode+scheme classes.
+    // Swatches resolve the real token cascade via paired mode+accent classes.
     expect(container.querySelector('.light.ocean')).not.toBeNull();
     expect(container.querySelector('.dark.ocean')).not.toBeNull();
     expect(container.querySelectorAll('.light.neutral')).toHaveLength(1);
+  });
+
+  test('offers the warm surface beside graphite', async () => {
+    const user = userEvent.setup();
+    render(<AppearancePanel />);
+
+    const group = screen.getByRole('group', { name: 'Surface' });
+    expect(within(group).getByRole('button', { name: /graphite/i })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(within(group).getByRole('button', { name: /warm/i }));
+    expect(mocks.setSurface).toHaveBeenCalledWith('warm');
   });
 
   test('file open mode uses the same segmented pill as theme mode', async () => {

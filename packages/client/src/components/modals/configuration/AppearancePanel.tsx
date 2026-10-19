@@ -3,64 +3,45 @@ import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
 import { Sun, Moon, Monitor, Eye, Pencil, CornerDownRight, Clock } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { useTheme } from '@/components/providers/ThemeProvider';
-import type { ThemeMode, ThemeScheme } from '@/components/providers/ThemeProvider';
+import { ACCENT_LABELS, SURFACE_LABELS, THEME_SCHEMES, THEME_SURFACES, surfaceClass, useTheme } from '@/components/providers/ThemeProvider';
+import type { ThemeMode } from '@/components/providers/ThemeProvider';
 import { useUIStore } from '@/stores/uiStore';
 import type { DefaultFileOpenMode, FollowUpMode } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { WorkspaceOrderControl } from '@/components/layout/WorkspaceOrderControl';
 
-const SCHEMES: ThemeScheme[] = ['neutral', 'ocean', 'forest', 'sunset', 'amethyst'];
-
 /**
- * Scheme preview rendered from the real token cascade: the wrapper carries
- * the scheme class plus both mode classes, so children resolve the exact
- * tokens the app would use. Index.css pairs them as `.light.<scheme>` and
- * `.dark.<scheme>`.
+ * A swatch button rendered from the real token cascade: each swatch carries
+ * a theme class plus a mode class, so it resolves the exact color the app
+ * would use. Index.css pairs them as `.light.<class>` and `.dark.<class>`.
  */
-function SchemeButton({ scheme, currentScheme, onClick }: {
-  scheme: ThemeScheme;
-  currentScheme: ThemeScheme;
-  onClick: (scheme: ThemeScheme) => void;
+function SwatchButton({ label, themeClass, swatchClass, selected, onClick }: {
+  label: string;
+  /** The accent or surface class; null for the graphite base. */
+  themeClass: string | null;
+  /** What the swatch shows: the highlight for an accent, the sidebar for a surface. */
+  swatchClass: string;
+  selected: boolean;
+  onClick: () => void;
 }) {
-  const isSelected = scheme === currentScheme;
-
   return (
     <button
       type="button"
-      onClick={() => onClick(scheme)}
-      aria-pressed={isSelected}
-      title={scheme}
+      onClick={onClick}
+      aria-pressed={selected}
+      title={label}
       className={cn(
-        'flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        isSelected
-          ? 'border-highlight bg-highlight/5'
-          : 'border-border/50 bg-transparent hover:bg-muted/50',
+        'flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        selected
+          ? 'border-highlight bg-highlight/5 text-foreground'
+          : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted/50',
       )}
     >
-      {/* Light mode preview: card on background with primary chip */}
-      <div className={cn('light', scheme, 'flex w-full flex-col gap-1 rounded-sm border bg-background p-1')}>
-        <div className="flex items-center justify-between gap-1">
-          <div className="h-1 w-6 rounded-full bg-primary" />
-          <div className="size-2.5 rounded-full bg-card ring-1 ring-border" />
-        </div>
-        <div className="flex items-center justify-between gap-1">
-          <div className="h-1 w-4 rounded-full bg-accent" />
-          <div className="size-2.5 rounded-full bg-primary/20" />
-        </div>
-      </div>
-      {/* Dark mode preview: same structure from the dark tokens */}
-      <div className={cn('dark', scheme, 'flex w-full flex-col gap-1 rounded-sm border bg-background p-1')}>
-        <div className="flex items-center justify-between gap-1">
-          <div className="h-1 w-6 rounded-full bg-primary" />
-          <div className="size-2.5 rounded-full bg-card ring-1 ring-border" />
-        </div>
-        <div className="flex items-center justify-between gap-1">
-          <div className="h-1 w-4 rounded-full bg-accent" />
-          <div className="size-2.5 rounded-full bg-primary/20" />
-        </div>
-      </div>
-      <span className="text-2xs text-muted-foreground capitalize">{scheme}</span>
+      <span className="flex shrink-0 -space-x-1">
+        <span className={cn('light', themeClass, 'size-3.5 rounded-full ring-1 ring-foreground/20', swatchClass)} />
+        <span className={cn('dark', themeClass, 'size-3.5 rounded-full ring-1 ring-foreground/20', swatchClass)} />
+      </span>
+      {label}
     </button>
   );
 }
@@ -82,7 +63,7 @@ const FOLLOW_UP_MODES: { value: FollowUpMode; icon: typeof Sun; label: string }[
 ];
 
 export function AppearancePanel() {
-  const { mode, scheme, setMode, setScheme } = useTheme();
+  const { mode, scheme, surface, setMode, setScheme, setSurface } = useTheme();
   const { defaultFileOpenMode, setDefaultFileOpenMode, followUpMode, setFollowUpMode } = useUIStore(
     useShallow((s) => ({
       defaultFileOpenMode: s.defaultFileOpenMode,
@@ -98,10 +79,19 @@ export function AppearancePanel() {
         <SettingsRow label="Mode">
           <SegmentedControl label="Theme mode" options={MODES} value={mode} onChange={setMode} />
         </SettingsRow>
-        <SettingsRow label="Color scheme" stacked>
-          <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-5">
-            {SCHEMES.map((s) => (
-              <SchemeButton key={s} scheme={s} currentScheme={scheme} onClick={setScheme} />
+        <SettingsRow label="Surface" description="The tone of panels and text. Graphite is neutral; the others add a hint of hue, Carbon is darker." stacked>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Surface">
+            {THEME_SURFACES.map((s) => (
+              <SwatchButton key={s} label={SURFACE_LABELS[s]} themeClass={surfaceClass(s)} swatchClass="bg-sidebar"
+                selected={s === surface} onClick={() => setSurface(s)} />
+            ))}
+          </div>
+        </SettingsRow>
+        <SettingsRow label="Accent" description="Selection, attention cues and the window tint." stacked>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Accent">
+            {THEME_SCHEMES.map((s) => (
+              <SwatchButton key={s} label={ACCENT_LABELS[s]} themeClass={s} swatchClass="bg-highlight"
+                selected={s === scheme} onClick={() => setScheme(s)} />
             ))}
           </div>
         </SettingsRow>
