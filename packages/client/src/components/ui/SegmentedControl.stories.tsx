@@ -8,9 +8,9 @@ import { SegmentedControl, type SegmentedOption } from './segmented-control';
 
 interface Args { onChange: (value: string) => void }
 
-function Demo({ options, initial, size, variant, onChange }: { options: SegmentedOption<string>[]; initial: string; size?: 'default' | 'sm'; variant?: 'track' | 'tabs'; onChange: (value: string) => void }) {
+function Demo({ options, initial, size, onChange }: { options: SegmentedOption<string>[]; initial: string; size?: 'default' | 'sm'; onChange: (value: string) => void }) {
   const [value, setValue] = useState(initial);
-  return <SegmentedControl label="Demo" options={options} value={value} size={size} variant={variant} onChange={(next) => { setValue(next); onChange(next); }} />;
+  return <SegmentedControl label="Demo" options={options} value={value} size={size} onChange={(next) => { setValue(next); onChange(next); }} />;
 }
 
 const meta = {
@@ -41,14 +41,6 @@ export const TextOnly: Story = {
 
 export const Small: Story = {
   render: ({ onChange }) => <Demo initial="workspace" size="sm" onChange={onChange} options={[
-    { value: 'workspace', label: 'Workspace', icon: LayoutListIcon },
-    { value: 'overview', label: 'Overview', icon: LayoutGridIcon },
-  ]} />,
-};
-
-/** No track: 28px pills shaped like the dock tab strips, for the title bar. */
-export const Tabs: Story = {
-  render: ({ onChange }) => <Demo initial="workspace" variant="tabs" onChange={onChange} options={[
     { value: 'workspace', label: 'Workspace', icon: LayoutListIcon },
     { value: 'overview', label: 'Overview', icon: LayoutGridIcon },
   ]} />,

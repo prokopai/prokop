@@ -54,11 +54,33 @@ function toHex(color: string): string | null {
 }
 
 /**
- * Point `<meta name="theme-color">` at the current app background so the
- * installed window's title bar and control overlay match the theme.
+ * The color the shell paints behind its panels: the field's base shade, not
+ * the body background (the field is the background darkened per mode, with
+ * a tinted corner; the base is what sits under the title bar). Measured on
+ * a throwaway element so it works before the shell has mounted.
+ */
+function measureFieldColor(): string | null {
+  const field = document.createElement('div');
+  field.className = 'app-field';
+  field.style.position = 'absolute';
+  field.style.visibility = 'hidden';
+  field.style.pointerEvents = 'none';
+  const probe = document.createElement('div');
+  probe.style.background = 'var(--field-base)';
+  field.appendChild(probe);
+  document.body.appendChild(field);
+  const color = getComputedStyle(probe).backgroundColor;
+  field.remove();
+  return color && color !== 'rgba(0, 0, 0, 0)' ? color : null;
+}
+
+/**
+ * Point `<meta name="theme-color">` at the shell's field color so the
+ * installed window's title bar and control overlay match what is painted
+ * right under them.
  */
 export function syncThemeColor(themeKey: string, retry = true): void {
-  const background = getComputedStyle(document.body).backgroundColor;
+  const background = measureFieldColor() ?? getComputedStyle(document.body).backgroundColor;
   const hex = background ? toHex(background) : null;
   if (!hex) {
     // Stylesheet not applied yet (transparent body): measure again next frame.

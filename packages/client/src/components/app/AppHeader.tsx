@@ -94,7 +94,6 @@ export function AppHeader() {
           <ServerSwitcher compact />
           <SegmentedControl
             label="View"
-            variant="tabs"
             options={[
               { value: 'workspace', label: 'Workspace', icon: LayoutList },
               { value: 'overview', label: 'Overview', icon: LayoutGrid },
