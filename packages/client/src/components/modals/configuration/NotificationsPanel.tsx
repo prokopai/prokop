@@ -1,7 +1,6 @@
-import { Volume2, BellRing } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/uiStore';
 import { NotificationSettings } from './NotificationSettings';
@@ -22,37 +21,25 @@ export function NotificationsPanel() {
   );
 
   return (
-    <div className="p-3 sm:p-4 flex flex-col gap-4">
-      <div>
-        <Label className="text-sm font-medium">Sounds</Label>
-        <p className="text-sm text-muted-foreground mb-3">Play a sound in this app when something needs you</p>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Volume2 className="size-4 text-muted-foreground" />
-              <span className="text-sm">Chat completion</span>
-            </div>
-            <Switch
-              checked={chatFinishSoundEnabled}
-              onCheckedChange={setChatFinishSoundEnabled}
-              aria-label="Chat completion sound"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BellRing className="size-4 text-muted-foreground" />
-              <span className="text-sm">Approvals and questions</span>
-            </div>
-            <Switch
-              checked={permissionSoundEnabled}
-              onCheckedChange={setPermissionSoundEnabled}
-              aria-label="Approval and question sound"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Sounds" description="Played in this app when something needs you.">
+        <SettingsRow label="Chat completion" htmlFor="sound-chat-completion">
+          <Switch
+            id="sound-chat-completion"
+            checked={chatFinishSoundEnabled}
+            onCheckedChange={setChatFinishSoundEnabled}
+            aria-label="Chat completion sound"
+          />
+        </SettingsRow>
+        <SettingsRow label="Approvals and questions" htmlFor="sound-permission">
+          <Switch
+            id="sound-permission"
+            checked={permissionSoundEnabled}
+            onCheckedChange={setPermissionSoundEnabled}
+            aria-label="Approval and question sound"
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
       <NotificationSettings />
     </div>

@@ -1,7 +1,7 @@
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Sun, Moon, Monitor, Eye, Pencil, CornerDownRight, Clock } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import type { ThemeMode, ThemeScheme } from '@/components/providers/ThemeProvider';
@@ -32,35 +32,35 @@ function SchemeButton({ scheme, currentScheme, onClick }: {
       aria-pressed={isSelected}
       title={scheme}
       className={cn(
-        'flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors',
+        'flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         isSelected
           ? 'border-highlight bg-highlight/5'
-          : 'border-border bg-transparent hover:bg-muted/50',
+          : 'border-border/50 bg-transparent hover:bg-muted/50',
       )}
     >
       {/* Light mode preview: card on background with primary chip */}
-      <div className={cn('light', scheme, 'flex w-full flex-col gap-1 rounded-md border bg-background p-1.5')}>
+      <div className={cn('light', scheme, 'flex w-full flex-col gap-1 rounded-sm border bg-background p-1')}>
         <div className="flex items-center justify-between gap-1">
-          <div className="h-1.5 w-8 rounded-full bg-primary" />
-          <div className="size-3 rounded-full bg-card ring-1 ring-border" />
+          <div className="h-1 w-6 rounded-full bg-primary" />
+          <div className="size-2.5 rounded-full bg-card ring-1 ring-border" />
         </div>
         <div className="flex items-center justify-between gap-1">
-          <div className="h-1.5 w-6 rounded-full bg-accent" />
-          <div className="size-3 rounded-full bg-primary/20" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="size-2.5 rounded-full bg-primary/20" />
         </div>
       </div>
       {/* Dark mode preview: same structure from the dark tokens */}
-      <div className={cn('dark', scheme, 'flex w-full flex-col gap-1 rounded-md border bg-background p-1.5')}>
+      <div className={cn('dark', scheme, 'flex w-full flex-col gap-1 rounded-sm border bg-background p-1')}>
         <div className="flex items-center justify-between gap-1">
-          <div className="h-1.5 w-8 rounded-full bg-primary" />
-          <div className="size-3 rounded-full bg-card ring-1 ring-border" />
+          <div className="h-1 w-6 rounded-full bg-primary" />
+          <div className="size-2.5 rounded-full bg-card ring-1 ring-border" />
         </div>
         <div className="flex items-center justify-between gap-1">
-          <div className="h-1.5 w-6 rounded-full bg-accent" />
-          <div className="size-3 rounded-full bg-primary/20" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="size-2.5 rounded-full bg-primary/20" />
         </div>
       </div>
-      <span className="text-xs text-muted-foreground capitalize">{scheme}</span>
+      <span className="text-2xs text-muted-foreground capitalize">{scheme}</span>
     </button>
   );
 }
@@ -93,64 +93,37 @@ export function AppearancePanel() {
   );
 
   return (
-    <div className="p-3 sm:p-4 flex flex-col gap-4">
-      <div>
-        <Label className="text-sm font-medium">Mode</Label>
-        <p className="text-sm text-muted-foreground mb-3">
-          Choose light, dark, or system theme
-        </p>
-        <SegmentedControl label="Theme mode" options={MODES} value={mode} onChange={setMode} />
-      </div>
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <SettingsGroup label="Theme">
+        <SettingsRow label="Mode">
+          <SegmentedControl label="Theme mode" options={MODES} value={mode} onChange={setMode} />
+        </SettingsRow>
+        <SettingsRow label="Color scheme" stacked>
+          <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-5">
+            {SCHEMES.map((s) => (
+              <SchemeButton key={s} scheme={s} currentScheme={scheme} onClick={setScheme} />
+            ))}
+          </div>
+        </SettingsRow>
+      </SettingsGroup>
 
-      <Separator />
+      <SettingsGroup label="Workspaces" description="On this device, across servers. Recently active follows the latest message, not opening a session.">
+        <SettingsRow label="Order" htmlFor="workspace-order">
+          <WorkspaceOrderControl />
+        </SettingsRow>
+      </SettingsGroup>
 
-      <div>
-        <Label className="text-sm font-medium">Color scheme</Label>
-        <p className="text-sm text-muted-foreground mb-3">
-          Previews render the live tokens for both modes
-        </p>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-          {SCHEMES.map((s) => (
-            <SchemeButton
-              key={s}
-              scheme={s}
-              currentScheme={scheme}
-              onClick={setScheme}
-            />
-          ))}
-        </div>
-      </div>
+      <SettingsGroup label="Files" description="Right-click always offers both.">
+        <SettingsRow label="Click opens">
+          <SegmentedControl label="File open mode" options={OPEN_MODES} value={defaultFileOpenMode} onChange={setDefaultFileOpenMode} />
+        </SettingsRow>
+      </SettingsGroup>
 
-      <Separator />
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="workspace-order">Workspace order</Label>
-        <WorkspaceOrderControl />
-        <p className="text-sm text-muted-foreground">Applies to the workspace selector on this device, across servers. Recently active uses the latest conversation message, not opening a session.</p>
-      </div>
-
-      <Separator />
-
-      <div>
-        <Label className="text-sm font-medium">File open mode</Label>
-        <p className="text-sm text-muted-foreground mb-3">
-          Choose what happens when you click a file. Right-click always offers both actions.
-        </p>
-        <SegmentedControl label="File open mode" options={OPEN_MODES} value={defaultFileOpenMode}
-          onChange={setDefaultFileOpenMode} />
-      </div>
-
-      <Separator />
-
-      <div>
-        <Label className="text-sm font-medium">Messages sent while the agent works</Label>
-        <p className="text-sm text-muted-foreground mb-3">
-          Steer delivers the message into the running turn at its next step. Queue sends it after the turn ends.
-          Either way, a queued message shows Steer, and Enter in an empty message box steers the oldest one.
-        </p>
-        <SegmentedControl label="Messages sent while the agent works" options={FOLLOW_UP_MODES} value={followUpMode}
-          onChange={setFollowUpMode} />
-      </div>
+      <SettingsGroup label="Chat" description="Steer joins the running turn at its next step. Queue sends after the turn ends.">
+        <SettingsRow label="Message while the agent works">
+          <SegmentedControl label="Messages sent while the agent works" options={FOLLOW_UP_MODES} value={followUpMode} onChange={setFollowUpMode} />
+        </SettingsRow>
+      </SettingsGroup>
     </div>
   );
 }

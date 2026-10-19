@@ -1,8 +1,7 @@
 import { ErrorState } from '@/components/shared/States';
 import { useMemo } from 'react';
-import { Bell, BellOff, AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { SettingsGroup } from '@/components/ui/settings-group';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Switch } from '@/components/ui/switch';
 import { useServerUrl } from '@/contexts/ServerClientContext';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -17,6 +16,11 @@ const SUPPORT_MESSAGES: Record<NotificationSupport, string> = {
     'Add Prokopai to your Home Screen, then enable notifications from the installed app.',
 };
 
+/**
+ * System push notifications for this device: one switch to enrol, then a
+ * switch per kind. The browser decides support and permission; when it says
+ * no, the row explains why and has no control.
+ */
 export function NotificationSettings() {
   const serverUrl = useServerUrl();
 
@@ -54,111 +58,68 @@ export function NotificationSettings() {
   const isEnabling = registrationState === 'enabling';
   const isEnabled = registrationState === 'enabled';
   const isDenied = registrationState === 'denied' || permission === 'denied';
+  const failed = registrationState === 'error' && !!error;
+
+  const blocked = support !== 'supported'
+    ? SUPPORT_MESSAGES[support]
+    : isDenied
+      ? 'Permission was denied. Re-enable it in your browser or system settings.'
+      : null;
 
   return (
-    <div>
-      <Label className="text-sm font-medium mb-3 block">System Notifications</Label>
-      <div className="flex flex-col gap-3">
-        {/* Status / error messages */}
-        {support !== 'supported' && (
-          <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>{SUPPORT_MESSAGES[support]}</span>
-          </div>
-        )}
+    <SettingsGroup label="System notifications">
+      {blocked ? (
+        <SettingsRow label="Push notifications" description={blocked} />
+      ) : (
+        <SettingsRow
+          label="Push notifications"
+          htmlFor="push-notifications"
+          description={isEnabled
+            ? `Enabled for ${registration?.serverName ?? 'this server'}`
+            : isEnabling ? 'Enabling…' : undefined}
+        >
+          <Switch
+            id="push-notifications"
+            checked={isEnabled || isEnabling}
+            disabled={isEnabling}
+            onCheckedChange={(checked) => void (checked ? enable() : disable())}
+            aria-label="System push notifications"
+          />
+        </SettingsRow>
+      )}
 
-        {isDenied && support === 'supported' && (
-          <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-            <ShieldAlert className="size-4 shrink-0 mt-0.5" />
-            <span>
-              Notification permission was denied. Re-enable it in your browser or system settings.
-            </span>
-          </div>
-        )}
+      {failed && (
+        <div className="px-3 py-2">
+          <ErrorState onRetry={() => void enable()} retryLabel={isEnabling ? 'Enabling…' : 'Enable again'}>{error}</ErrorState>
+        </div>
+      )}
 
-        {error && registrationState === 'error' && (
-          <ErrorState>{error}</ErrorState>
-        )}
-
-        {/* Enable / Disable button */}
-        {support === 'supported' && !isDenied && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isEnabled ? (
-                <Bell className="size-4 text-muted-foreground" />
-              ) : (
-                <BellOff className="size-4 text-muted-foreground" />
-              )}
-              <span className="text-sm">
-                {isEnabled
-                  ? `Enabled for ${registration?.serverName ?? 'server'}`
-                  : 'System push notifications'}
-              </span>
-            </div>
-            {isEnabled ? (
-              <Button variant="outline" size="sm" onClick={() => void disable()}>
-                Disable
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => void enable()}
-                disabled={isEnabling}
-              >
-                {isEnabling ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Enabling...
-                  </>
-                ) : (
-                  'Enable'
-                )}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Re-enable after error */}
-        {registrationState === 'error' && support === 'supported' && (
-          <Button size="sm" onClick={() => void enable()} disabled={isEnabling}>
-            {isEnabling ? 'Enabling...' : 'Re-enable notifications'}
-          </Button>
-        )}
-
-        {/* Preference toggles (only when enabled) */}
-        {isEnabled && (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="size-4 text-muted-foreground" />
-                <span className="text-sm">Session completion</span>
-              </div>
-              <Switch
-                checked={notifyCompletion}
-                onCheckedChange={() => void updatePrefs({
-                  completion: !notifyCompletion,
-                  permission: notifyPermission,
-                })}
-                aria-label="Session completion notification"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="size-4 text-muted-foreground" />
-                <span className="text-sm">Approvals and questions</span>
-              </div>
-              <Switch
-                checked={notifyPermission}
-                onCheckedChange={() => void updatePrefs({
-                  completion: notifyCompletion,
-                  permission: !notifyPermission,
-                })}
-                aria-label="Approval and question notification"
-              />
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+      {isEnabled && (
+        <>
+          <SettingsRow label="Session completion" htmlFor="push-completion">
+            <Switch
+              id="push-completion"
+              checked={notifyCompletion}
+              onCheckedChange={() => void updatePrefs({
+                completion: !notifyCompletion,
+                permission: notifyPermission,
+              })}
+              aria-label="Session completion notification"
+            />
+          </SettingsRow>
+          <SettingsRow label="Approvals and questions" htmlFor="push-permission">
+            <Switch
+              id="push-permission"
+              checked={notifyPermission}
+              onCheckedChange={() => void updatePrefs({
+                completion: notifyCompletion,
+                permission: !notifyPermission,
+              })}
+              aria-label="Approval and question notification"
+            />
+          </SettingsRow>
+        </>
+      )}
+    </SettingsGroup>
   );
 }
