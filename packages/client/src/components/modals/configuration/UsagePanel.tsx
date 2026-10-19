@@ -2,10 +2,13 @@ import { LoadingState } from '@/components/shared/States';
 import type { ReactNode } from 'react';
 import type { HarnessStatus, HarnessUsageLimits, ProviderAccountSummary, ProviderUsageWindow, UsageProvider, ProkopaiClient } from '@prokopai/sdk';
 import { useCodexAccountUsageQuery, useProvidersQuery, useProviderCredentialsQuery, useProviderUsageQuery } from '@/hooks/queries/useProvidersQueries';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, EyeOff, Loader2, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { useHarnessesQuery, useHarnessUsageQuery, isHarnessEnabled } from '@/hooks/queries';
+import { useUsageLayout } from '@/hooks/useUsageLayout';
+import { arrangeUsageEntries } from '@/lib/usageLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { SettingsGroup } from '@/components/ui/settings-group';
 import { SettingsRow } from '@/components/ui/settings-row';
@@ -101,6 +104,32 @@ function UsageRefreshButton({ label, fetching, disabled = false, onRefresh, upda
   );
 }
 
+interface UsageArrangement {
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (direction: 'up' | 'down') => void;
+  onHide: () => void;
+}
+
+/** The same overflow menu as a session row: a step up or down, or out of the panel. */
+function UsageGroupMenu({ name, arrangement }: { name: string; arrangement: UsageArrangement }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={`${name} options`}>
+          <MoreHorizontal className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem disabled={!arrangement.canMoveUp} onSelect={() => arrangement.onMove('up')}><ArrowUp />Move up</DropdownMenuItem>
+        <DropdownMenuItem disabled={!arrangement.canMoveDown} onSelect={() => arrangement.onMove('down')}><ArrowDown />Move down</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={arrangement.onHide}><EyeOff />Hide from Usage</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Group header: name, plan badge, and the refresh control at the right; the tile sits before it. */
 function UsageHeading({ name, plan, children }: { name: ReactNode; plan?: string | null; children?: ReactNode }) {
   return (
@@ -112,11 +141,12 @@ function UsageHeading({ name, plan, children }: { name: ReactNode; plan?: string
   );
 }
 
-function HarnessUsageCard({ sdkClient, harness, status, now }: {
+function HarnessUsageCard({ sdkClient, harness, status, now, menu }: {
   sdkClient: ProkopaiClient | null;
   harness: (typeof USAGE_HARNESSES)[number];
   status: HarnessStatus | undefined;
   now: number;
+  menu?: ReactNode;
 }) {
   const ready = !!status?.available && isHarnessEnabled(status);
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useHarnessUsageQuery(sdkClient, harness.id, ready);
@@ -143,6 +173,8 @@ function HarnessUsageCard({ sdkClient, harness, status, now }: {
           <UsageRefreshButton label={`Refresh ${harness.name} usage`} fetching={isFetching}
             onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />
         )}
+        {!ready && <span className="ml-auto" />}
+        {menu}
       </UsageHeading>
     }>
       {body}
@@ -156,13 +188,14 @@ const USAGE_PROVIDERS: { id: UsageProvider; name: string }[] = [
   { id: 'minimax', name: 'MiniMax' },
 ];
 
-function ProviderUsageCard({ sdkClient, provider, now }: UsagePanelProps & { provider: (typeof USAGE_PROVIDERS)[number]; now: number }) {
+function ProviderUsageCard({ sdkClient, provider, now, menu }: UsagePanelProps & { provider: (typeof USAGE_PROVIDERS)[number]; now: number; menu?: ReactNode }) {
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useProviderUsageQuery(sdkClient, provider.id);
   return (
     <SettingsGroup icon={<ProviderTile provider={provider.id} name={provider.name} />} label={
       <UsageHeading name={provider.name} plan={data?.plan}>
         <UsageRefreshButton label={`Refresh ${provider.name} usage`} fetching={isFetching}
           onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />
+        {menu}
       </UsageHeading>
     }>
       {isLoading ? <UsageNote><Loader2 className="size-3.5 animate-spin" /></UsageNote>
@@ -184,7 +217,7 @@ function ProviderUsageCard({ sdkClient, provider, now }: UsagePanelProps & { pro
   );
 }
 
-function CodexAccountUsageCard({ sdkClient, account, active, now }: UsagePanelProps & { account: ProviderAccountSummary; active: boolean; now: number }) {
+function CodexAccountUsageCard({ sdkClient, account, active, now, menu }: UsagePanelProps & { account: ProviderAccountSummary; active: boolean; now: number; menu?: ReactNode }) {
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useCodexAccountUsageQuery(sdkClient, account);
   return (
     <SettingsGroup aria-label={`Codex · ${account.label}`} icon={<ProviderTile provider="codex" name="Codex" />} label={
@@ -192,6 +225,7 @@ function CodexAccountUsageCard({ sdkClient, account, active, now }: UsagePanelPr
         {active && <Badge variant="outline">Active</Badge>}
         <UsageRefreshButton label={`Refresh Codex ${account.label} usage`} fetching={isFetching}
           disabled={account.reauthRequired} onRefresh={() => void refetch()} updatedAt={dataUpdatedAt} now={now} />
+        {menu}
       </UsageHeading>
     }>
       {account.reauthRequired ? <UsageNote>Reconnect this Codex account in Providers &amp; Models.</UsageNote>
@@ -211,10 +245,27 @@ export function UsagePanel({ sdkClient }: UsagePanelProps) {
   const configuredProviders = USAGE_PROVIDERS.filter(provider =>
     credentials.data?.providers.some(entry => entry.provider === provider.id && entry.configured));
   const now = useNow(30_000);
+  const { layout, move, hide, show } = useUsageLayout();
 
   if (isLoading) {
     return <LoadingState />;
   }
+
+  // Every group the panel could show, in its natural order; the layout then
+  // reorders and hides. Ids are stable across reloads: a Codex account by its
+  // account id, providers and CLIs by their own ids.
+  const entries: UsageEntry[] = [
+    ...(codex?.accounts ?? []).map((account): UsageEntry => ({ id: `codex:${account.id}`, name: `Codex · ${account.label}`,
+      render: menu => <CodexAccountUsageCard key={`${account.id}:${account.connectionId}`} sdkClient={sdkClient}
+        account={account} active={codex!.activeAccountId === account.id} now={now} menu={menu} /> })),
+    ...configuredProviders.map((provider): UsageEntry => ({ id: provider.id, name: provider.name,
+      render: menu => <ProviderUsageCard key={provider.id} sdkClient={sdkClient} provider={provider} now={now} menu={menu} /> })),
+    ...USAGE_HARNESSES.map((harness): UsageEntry => ({ id: harness.id, name: harness.name,
+      render: menu => <HarnessUsageCard key={harness.id} sdkClient={sdkClient} harness={harness}
+        status={data?.harnesses.find((entry) => entry.id === harness.id)} now={now} menu={menu} /> })),
+  ];
+  const { visible, hidden } = arrangeUsageEntries(entries, layout);
+  const visibleIds = visible.map(entry => entry.id);
 
   return (
     // Two accounts per row once the panel is wide enough: a bottom dock, a wide settings page.
@@ -224,19 +275,30 @@ export function UsagePanel({ sdkClient }: UsagePanelProps) {
       {credentials.isError && <p className="text-xs text-muted-foreground @3xl:col-span-2">Could not load configured provider accounts.</p>}
       {providers.isLoading && <LoadingState inline label="Loading Codex accounts…" className="@3xl:col-span-2" />}
       {providers.isError && <p className="text-xs text-muted-foreground @3xl:col-span-2">Could not load Codex accounts.</p>}
-      {codex?.accounts?.map(account => <CodexAccountUsageCard key={`${account.id}:${account.connectionId}`} sdkClient={sdkClient}
-        account={account} active={codex.activeAccountId === account.id} now={now} />)}
-      {configuredProviders.map(provider => <ProviderUsageCard key={provider.id} sdkClient={sdkClient} provider={provider} now={now} />)}
-      {USAGE_HARNESSES.map((harness) => (
-        <HarnessUsageCard
-          key={harness.id}
-          sdkClient={sdkClient}
-          harness={harness}
-          status={data?.harnesses.find((entry) => entry.id === harness.id)}
-          now={now}
-        />
+      {visible.map((entry, index) => entry.render(
+        <UsageGroupMenu name={entry.name} arrangement={{
+          canMoveUp: index > 0, canMoveDown: index < visible.length - 1,
+          onMove: direction => move(visibleIds, entry.id, direction), onHide: () => hide(entry.id) }} />,
       ))}
+      {hidden.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-1 px-1 text-xs text-muted-foreground @3xl:col-span-2">
+          <span>Hidden:</span>
+          {hidden.map((entry, index) => (
+            <span key={entry.id}>
+              <button type="button" className="rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                title={`Show ${entry.name} in Usage`} onClick={() => show(entry.id)}>{entry.name}</button>
+              {index < hidden.length - 1 && <span> ·</span>}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
     </div>
   );
+}
+
+interface UsageEntry {
+  id: string;
+  name: string;
+  render: (menu: ReactNode) => ReactNode;
 }

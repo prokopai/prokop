@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { UsagePanel } from './UsagePanel';
+import { USAGE_LAYOUT_KEY } from '@/lib/usageLayout';
 import { createFakeSdkClient } from '../../../../.storybook/harness';
 import { createCodexAccountUsage, createHarnessUsage, createProviderUsage } from '../../../../.storybook/mocks/mockSettings';
 
@@ -17,6 +18,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/** A saved arrangement: Claude CLI first, DeepSeek hidden into the line at the bottom. */
+export const Arranged: Story = {
+  args: { sdkClient: createFakeSdkClient({ http: { providers: {
+    listCredentials: async () => ({ providers: [{ provider: 'deepseek', configured: true }, { provider: 'anthropic', configured: true }] }) } } }) },
+  decorators: [(Story) => {
+    localStorage.setItem(USAGE_LAYOUT_KEY, JSON.stringify({ order: ['claude-cli', 'codex-cli'], hidden: ['deepseek'] }));
+    return <Story />;
+  }],
+};
 
 export const NearLimits: Story = {
   args: {
