@@ -4,6 +4,7 @@ import type {
   ManagedWorktreeState,
   Session,
   Workspace,
+  WorktreeSetupState,
 } from '@prokopai/sdk';
 
 export interface ManagedWorktreeRecord {
@@ -31,6 +32,50 @@ export interface ManagedWorktreeRepositoryPort {
   ): ManagedWorktreeRecord | null;
   /** Hard-deletes a removed record. Returns true when a row was deleted. */
   delete(id: string): boolean;
+}
+
+export interface WorktreeSetupRecord {
+  worktreeId: string;
+  configHash: string;
+  portBase: number | null;
+  portCount: number | null;
+  state: WorktreeSetupState;
+  step: string | null;
+  error: string | null;
+  warning: string | null;
+  updatedAt: string;
+}
+
+/** One row per worktree that has a config; purged with the worktree. */
+export interface WorktreeSetupRepositoryPort {
+  get(worktreeId: string): WorktreeSetupRecord | null;
+  upsert(record: WorktreeSetupRecord): WorktreeSetupRecord;
+  /** Every stored port block, held until its worktree row is purged. */
+  listPortBlocks(): Array<{ base: number; count: number }>;
+}
+
+/**
+ * File access for the instant setup steps. Paths are worktree- or
+ * repository-relative; the adapter resolves and contains them.
+ */
+export interface WorktreeSetupFilesPort {
+  /** The config text from the primary checkout, null when absent. */
+  readConfig(repositoryTopLevel: string): Promise<string | null>;
+  /** Whether `relativePath` exists under `root` without a symlink leading out. */
+  sourceExists(root: string, relativePath: string): Promise<boolean>;
+  /** Whether Git ignores `relativePath` inside the worktree (`git check-ignore`). */
+  isIgnored(worktreePath: string, relativePath: string): Promise<boolean>;
+  /** Whether writing `relativePath` under `root` stays inside `root` (no symlinked parent out). */
+  isContained(root: string, relativePath: string): Promise<boolean>;
+  copyFile(sourceRoot: string, worktreePath: string, relativePath: string): Promise<void>;
+  /** Copy-on-write clone of a directory; rejects when the filesystem cannot. */
+  cloneDirectory(sourceRoot: string, worktreePath: string, relativePath: string): Promise<void>;
+  writeFile(worktreePath: string, relativePath: string, content: string): Promise<void>;
+}
+
+export interface WorktreePortProbePort {
+  /** True when nothing listens on the port on loopback right now. */
+  isFree(port: number): Promise<boolean>;
 }
 
 export interface WorktreeGitStatus {

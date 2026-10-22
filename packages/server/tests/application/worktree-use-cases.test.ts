@@ -4,7 +4,32 @@ import type {
   WorktreeRepositoryIdentity,
 } from '@/application/ports/worktree';
 import { createWorktreeApplication } from '@/application/worktrees';
+import { createWorktreeSetupRunner } from '@/application/worktree-setup';
 import type { Session, Workspace } from '@prokopai/sdk';
+
+/** No `.prokop/worktree.json` in the fixture repository: setup stays `none`. */
+function setupRunnerWithoutConfig() {
+  const never = async (): Promise<never> => {
+    throw new Error('not reached without a config');
+  };
+  return createWorktreeSetupRunner({
+    files: {
+      readConfig: async () => null,
+      sourceExists: never,
+      isIgnored: never,
+      isContained: never,
+      copyFile: never,
+      cloneDirectory: never,
+      writeFile: never,
+    },
+    ports: { isFree: never },
+    repository: {
+      get: () => null,
+      upsert: (record) => record,
+      listPortBlocks: () => [],
+    },
+  });
+}
 
 function session(overrides: Partial<Session> = {}): Session {
   return {
@@ -105,6 +130,7 @@ function setup(options: {
         await options.remove?.();
       },
     },
+    setup: setupRunnerWithoutConfig(),
     workspaces: { get: (id) => id === 'workspace-1' ? workspace() : null },
     sessions: {
       get: (id) => sessions.get(id) ?? null,
@@ -150,6 +176,7 @@ describe('managed worktree application', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(created.value.path).toBe(`/data/worktrees/repository-1/${created.value.id}`);
+    expect(created.value.setup).toEqual({ state: 'none', ports: null, step: null, error: null, warning: null });
 
     const bound = await state.application.bind('session-1', created.value.id);
     expect(bound.ok).toBe(true);

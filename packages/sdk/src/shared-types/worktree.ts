@@ -6,6 +6,36 @@ export interface ManagedWorktreeAttachment {
   running: boolean;
 }
 
+/**
+ * Where the worktree's setup from `.prokop/worktree.json` stands.
+ * `none`: the repository has no config. `ready`: files, env and ports are in
+ * place. `failed`: a step refused or broke; `error` says which.
+ * `needs_approval`, `running` and `interrupted` belong to background setup
+ * commands.
+ */
+export type WorktreeSetupState =
+  | 'none'
+  | 'needs_approval'
+  | 'running'
+  | 'ready'
+  | 'failed'
+  | 'interrupted';
+
+export interface WorktreeSetupPorts {
+  base: number;
+  count: number;
+}
+
+export interface WorktreeSetup {
+  state: WorktreeSetupState;
+  ports: WorktreeSetupPorts | null;
+  /** The current or failed step, for example "copy .env". */
+  step: string | null;
+  error: string | null;
+  /** Non-fatal notes, for example a skipped clone. */
+  warning: string | null;
+}
+
 export interface ManagedWorktree {
   id: string;
   name: string;
@@ -18,6 +48,7 @@ export interface ManagedWorktree {
   dirty: boolean;
   untrackedCount: number;
   attachments: ManagedWorktreeAttachment[];
+  setup: WorktreeSetup;
   createdAt: string;
   updatedAt: string;
 }

@@ -48,6 +48,9 @@ import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import { countMessagesInSession } from '@/infrastructure/sqlite/message-store';
 import { createWorktreeGitPort } from '@/infrastructure/git-worktrees';
+import { createWorktreeSetupRunner } from '@/application/worktree-setup';
+import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
+import { createWorktreePortProbe, createWorktreeSetupFilesPort } from '@/infrastructure/worktree-setup';
 import {
   createProkopAgentPreconfigPort,
   createProkopAgentWorkspacePort,
@@ -365,6 +368,11 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     dataDir: () => getDataDir(),
     repository: managedWorktrees,
     git: createWorktreeGitPort(),
+    setup: createWorktreeSetupRunner({
+      files: createWorktreeSetupFilesPort(),
+      ports: createWorktreePortProbe(),
+      repository: createWorktreeSetupRepository(getDatabase),
+    }),
     workspaces: { get: getWorkspace },
     sessions: {
       get: (id) => repository.getSession(id),

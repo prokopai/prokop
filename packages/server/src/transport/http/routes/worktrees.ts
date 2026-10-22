@@ -27,6 +27,7 @@ function throwFailure(code: WorktreeFailureCode, message: string): never {
     || code === 'not_a_git_repository'
     || code === 'invalid_branch_name'
     || code === 'invalid_worktree_name'
+    || code === 'worktree_config_invalid'
     || code === 'branch_not_found'
     || code === 'repository_outside_workspace'
     || code === 'operation_timed_out'

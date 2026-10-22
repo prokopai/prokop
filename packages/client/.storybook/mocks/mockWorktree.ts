@@ -22,6 +22,7 @@ export function createWorktree(overrides: MockWorktreeOverrides = {}): ManagedWo
       dirty: false,
       untrackedCount: 0,
       attachments: [],
+      setup: { state: 'none', ports: null, step: null, error: null, warning: null },
       createdAt: mockIsoNow(),
       updatedAt: mockIsoNow(),
     },

@@ -11,6 +11,7 @@ import type {
   WorktreeTerminalPort,
   WorktreeWorkspacePort,
 } from '@/application/ports/worktree';
+import type { WorktreeSetupRunner } from '@/application/worktree-setup';
 
 export type WorktreeFailureCode =
   | 'workspace_not_found'
@@ -22,6 +23,7 @@ export type WorktreeFailureCode =
   | 'session_has_messages'
   | 'worktree_name_exists'
   | 'invalid_worktree_name'
+  | 'worktree_config_invalid'
   | 'branch_not_found'
   | 'branch_already_checked_out'
   | 'worktree_dirty'
@@ -56,6 +58,8 @@ export interface WorktreeApplicationDeps {
   dataDir: () => string;
   repository: ManagedWorktreeRepositoryPort;
   git: WorktreeGitPort;
+  /** Instant setup from `.prokop/worktree.json` (ports, copies, env, files). */
+  setup: WorktreeSetupRunner;
   workspaces: WorktreeWorkspacePort;
   sessions: WorktreeSessionPort;
   terminals: WorktreeTerminalPort;
@@ -142,7 +146,7 @@ function attachmentsFor(
 function publicWorktree(
   record: ManagedWorktreeRecord,
   status: WorktreeGitStatus,
-  sessions: WorktreeSessionPort,
+  deps: Pick<WorktreeApplicationDeps, 'sessions' | 'setup'>,
 ): ManagedWorktree {
   return {
     id: record.id,
@@ -155,7 +159,8 @@ function publicWorktree(
     state: record.state,
     dirty: status.dirty,
     untrackedCount: status.untrackedCount,
-    attachments: attachmentsFor(record, sessions),
+    attachments: attachmentsFor(record, deps.sessions),
+    setup: deps.setup.publicSetup(deps.setup.get(record.id)),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -189,7 +194,7 @@ const EMPTY_STATUS: WorktreeGitStatus = {
 export function createWorktreeApplication(deps: WorktreeApplicationDeps): WorktreeApplication {
   async function load(record: ManagedWorktreeRecord): Promise<ManagedWorktree> {
     if (record.state === 'removed' || (record.state === 'removing' && removingWorktrees.has(record.id))) {
-      return publicWorktree(record, EMPTY_STATUS, deps.sessions);
+      return publicWorktree(record, EMPTY_STATUS, deps);
     }
     try {
       const status = await deps.git.status(record.path);
@@ -198,19 +203,19 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         head: status.head,
         state: 'available',
       }) ?? record;
-      return publicWorktree(updated, status, deps.sessions);
+      return publicWorktree(updated, status, deps);
     } catch (error: unknown) {
       if (isMissingFailure(error)) {
         const missing = deps.repository.update(record.id, { state: 'missing' }) ?? {
           ...record,
           state: 'missing' as const,
         };
-        return publicWorktree(missing, EMPTY_STATUS, deps.sessions);
+        return publicWorktree(missing, EMPTY_STATUS, deps);
       }
       const recovered = record.state === 'removing'
         ? deps.repository.update(record.id, { state: 'available' }) ?? record
         : record;
-      return publicWorktree(recovered, EMPTY_STATUS, deps.sessions);
+      return publicWorktree(recovered, EMPTY_STATUS, deps);
     }
   }
 
@@ -302,6 +307,13 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
               message: `A worktree named "${input.name}" already exists`,
             } as const;
           }
+          // The config is the user's own copy in the primary checkout, so a
+          // broken file refuses creation outright instead of leaving a
+          // worktree to retry (docs/plans/worktree-setup.md).
+          const prepared = await deps.setup.prepare(identity.repositoryTopLevel);
+          if (!prepared.ok) {
+            return { ok: false, code: 'worktree_config_invalid', message: prepared.message } as const;
+          }
           const id = crypto.randomUUID();
           const path = join(deps.dataDir(), 'worktrees', identity.repositoryId, id);
           const status = await deps.git.create({
@@ -323,7 +335,16 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
             createdAt: now,
             updatedAt: now,
           });
-          const worktree = publicWorktree(record, status, deps.sessions);
+          // A failed instant step keeps the worktree: it is usable as Git
+          // made it, and the setup state carries the message.
+          if (prepared.parsed) {
+            await deps.setup.apply({
+              record,
+              parsed: prepared.parsed,
+              repositoryTopLevel: identity.repositoryTopLevel,
+            });
+          }
+          const worktree = publicWorktree(record, status, deps);
           deps.events.worktreeChanged(worktree);
           return { ok: true, value: worktree } as const;
         });
@@ -361,7 +382,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         if (!deps.repository.delete(worktreeId)) {
           return { ok: false, code: 'worktree_not_found', message: 'Worktree not found' };
         }
-        const purged = publicWorktree(record, EMPTY_STATUS, deps.sessions);
+        const purged = publicWorktree(record, EMPTY_STATUS, deps);
         deps.events.worktreeDeleted(purged);
         return { ok: true, value: purged };
       }
@@ -383,7 +404,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
           ...current,
           state: 'removing' as const,
         };
-        deps.events.worktreeChanged(publicWorktree(reserved, EMPTY_STATUS, deps.sessions));
+        deps.events.worktreeChanged(publicWorktree(reserved, EMPTY_STATUS, deps));
 
         try {
           const identity = await deps.git.inspectRepository(workspace.path);
@@ -419,7 +440,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
             ...current,
             state: 'removed' as const,
           };
-          const worktree = publicWorktree(removed, EMPTY_STATUS, deps.sessions);
+          const worktree = publicWorktree(removed, EMPTY_STATUS, deps);
           deps.events.worktreeChanged(worktree);
           return { ok: true, value: worktree } as const;
         } catch (error: unknown) {
@@ -428,7 +449,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
             ...current,
             state: nextState,
           };
-          deps.events.worktreeChanged(publicWorktree(restored, EMPTY_STATUS, deps.sessions));
+          deps.events.worktreeChanged(publicWorktree(restored, EMPTY_STATUS, deps));
           return {
             ok: false,
             code: isMissingFailure(error) ? 'worktree_unavailable' : failureCode(error),
@@ -514,7 +535,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
             deps.events.worktreeChanged(await load(previousRecord));
           }
         }
-        deps.events.worktreeChanged(publicWorktree(currentRecord, status, deps.sessions));
+        deps.events.worktreeChanged(publicWorktree(currentRecord, status, deps));
         return { ok: true, value: updated } as const;
       });
     },

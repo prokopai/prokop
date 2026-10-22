@@ -141,6 +141,21 @@ export function initializeSchema(db: Database): void {
   db.run('CREATE INDEX IF NOT EXISTS idx_managed_worktrees_workspace ON managed_worktrees(workspace_id, created_at DESC)');
   db.run('CREATE INDEX IF NOT EXISTS idx_managed_worktrees_repository ON managed_worktrees(repository_id, state)');
 
+  // Setup state from .prokop/worktree.json, one row per worktree that has a
+  // config. Purging the worktree row releases its port block through the
+  // cascade (docs/plans/worktree-setup.md).
+  db.run(`CREATE TABLE IF NOT EXISTS managed_worktree_setups (
+    worktree_id TEXT PRIMARY KEY REFERENCES managed_worktrees(id) ON DELETE CASCADE,
+    config_hash TEXT NOT NULL,
+    port_base INTEGER,
+    port_count INTEGER,
+    state TEXT NOT NULL,
+    step TEXT,
+    error TEXT,
+    warning TEXT,
+    updated_at TEXT NOT NULL
+  )`);
+
   initializeSessionMessageSchema(db, {
     perfDiagnosticsEnabled: PERF_DIAGNOSTICS_ENABLED,
   });

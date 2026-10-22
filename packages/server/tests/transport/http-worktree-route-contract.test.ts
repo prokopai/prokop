@@ -17,6 +17,7 @@ const worktree: ManagedWorktree = {
   dirty: false,
   untrackedCount: 0,
   attachments: [],
+  setup: { state: 'none', ports: null, step: null, error: null, warning: null },
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
