@@ -74,7 +74,7 @@ export async function resolveSessionWorkspace(options: {
   workspaceRootId?: string;
   workspacePath?: string;
   additionalPaths?: string[];
-}): Promise<{ workspacePath?: string; additionalPaths?: string[] }> {
+}): Promise<{ workspacePath?: string; additionalPaths?: string[]; notice?: string | null }> {
   const resolver = getRuntimeHost().workspace.resolveSessionWorkspace;
   if (resolver) {
     return await resolver(options);

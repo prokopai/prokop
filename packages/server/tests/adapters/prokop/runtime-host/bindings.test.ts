@@ -125,7 +125,7 @@ describe('Čapek binding group adapters', () => {
       workspaceRootId: 'worktree-1',
       workspacePath: '/repo',
       additionalPaths: ['/other'],
-    })).toEqual({ workspacePath: path, additionalPaths: [] });
+    })).toEqual({ workspacePath: path, additionalPaths: [], notice: null });
     await expect(prokopWorkspaceBindings.resolveSessionWorkspace?.({
       sessionId: 'session-1',
       workspaceId: 'foreign-workspace',

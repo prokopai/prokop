@@ -88,6 +88,12 @@ export interface TitleHost {
 export interface SessionWorkspaceContext {
   workspacePath?: string;
   additionalPaths?: string[];
+  /**
+   * One note for the model at turn start about the root itself, for example
+   * a managed worktree whose setup is still running or failed. Null or
+   * absent when there is nothing to say.
+   */
+  notice?: string | null;
 }
 
 export interface WorkspaceCapabilityBindings {

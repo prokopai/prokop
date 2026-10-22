@@ -34,6 +34,24 @@ export async function resolveCliRoot(
 }
 
 /**
+ * The host's note about the session's root for this turn (a managed
+ * worktree whose setup is running or failed), or null. Never throws: a
+ * note is advice, not a precondition.
+ */
+export async function resolveCliRootNotice(
+  session: Pick<Session, 'id' | 'workspaceId' | 'workspaceRootId'>, workspace: Workspace,
+): Promise<string | null> {
+  const resolve = getRuntimeHost().workspace.resolveSessionWorkspace;
+  if (!session.workspaceRootId || !resolve) return null;
+  try {
+    return (await resolve({ sessionId: session.id, workspaceId: session.workspaceId,
+      workspaceRootId: session.workspaceRootId, workspacePath: workspace.path })).notice ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The session's workspace and its real root on disk, or an error a turn can
  * show (`harness` names the CLI in the message).
  */

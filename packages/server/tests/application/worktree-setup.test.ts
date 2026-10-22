@@ -105,6 +105,7 @@ describe('worktree setup from .prokop/worktree.json', () => {
       },
       environment: () => ({ PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PROKOPAI_LLM_FAKE_KEY: 'leak' }),
       commandTimeoutMs: COMMAND_TIMEOUT_MS,
+      worktreePath: (worktreeId) => createManagedWorktreeRepository(() => db).get(worktreeId)?.path ?? null,
     });
     application = createWorktreeApplication({
       dataDir: () => join(root, 'data'),
@@ -328,6 +329,11 @@ describe('worktree setup from .prokop/worktree.json', () => {
     const rerun = await application.runSetup('workspace-1', created.id);
     expect(rerun.ok && rerun.value.setup.state).toBe('needs_approval');
 
+    // Agents inside the worktree read the marker; it never dirties the tree.
+    const marker = join(created.path, '.prokop', 'setup', 'state');
+    expect(readFileSync(marker, 'utf8')).toStartWith('pending\n');
+    expect(await gitPort.status(created.path)).toMatchObject({ dirty: false, untrackedCount: 0 });
+
     const approved = await approve(created.id);
     expect(approved.setup.state).toBe('running');
     expect(approved.setup.step).toBe('setup 1/2: printf "%s %s %s\\n" "$DATABASE_NAME" "$PROKOP_WORKTREE_PORT" "$PROKOP_WORKTREE_NAME" > generated/installed');
@@ -339,6 +345,7 @@ describe('worktree setup from .prokop/worktree.json', () => {
     expect(final.step).toStartWith('setup 1/2');
     expect(final.error).toMatch(/^exit code [1-9]/);
     expect(final.error).toContain('generated/installed');
+    expect(readFileSync(marker, 'utf8')).toMatch(/^failed\nsetup 1\/2: .*\nexit code [1-9]/);
 
     // Fix the config: create the directory first. The new hash asks again.
     writeConfig({
@@ -355,6 +362,7 @@ describe('worktree setup from .prokop/worktree.json', () => {
     expect(reapproved.setup.state).toBe('running');
     const done = await settled(created.id);
     expect(done).toMatchObject({ state: 'ready', step: null, error: null });
+    expect(readFileSync(marker, 'utf8')).toBe('done\n');
     const key = `first_run_${created.id.replace(/-/g, '').slice(0, 6)}`;
     expect(readFileSync(join(created.path, 'generated', 'installed'), 'utf8'))
       .toBe(`app_${key} ${created.setup.ports!.base} First Run\n`);
@@ -394,10 +402,13 @@ describe('worktree setup from .prokop/worktree.json', () => {
     expect(runner.isRunning(created.id)).toBe(true);
     expect((await application.runSetup('workspace-1', created.id))).toMatchObject({ ok: false, code: 'setup_running' });
 
+    expect(readFileSync(join(created.path, '.prokop', 'setup', 'state'), 'utf8')).toStartWith('running\n');
     await application.stopSetups();
     const final = await settled(created.id);
     expect(final.state).toBe('interrupted');
     expect(final.error).toBe('Setup was stopped before it finished');
+    // A killed setup leaves `failed`, never `running`.
+    expect(readFileSync(join(created.path, '.prokop', 'setup', 'state'), 'utf8')).toStartWith('failed\n');
     expect(runner.isRunning(created.id)).toBe(false);
     expect((await application.remove('workspace-1', created.id)).ok).toBe(true);
   });
@@ -483,6 +494,7 @@ describe('worktree setup from .prokop/worktree.json', () => {
     const created = await create('stale', 'feature/a');
     db.run("UPDATE managed_worktree_setups SET state = 'running', step = 'setup 1/1: echo hi' WHERE worktree_id = ?", [created.id]);
 
+    writeFileSync(join(created.path, '.prokop', 'setup', 'state'), 'running\nsetup 1/1: echo hi\n');
     application.recoverSetups();
 
     expect(runner.publicSetup(runner.get(created.id))).toMatchObject({
@@ -491,6 +503,9 @@ describe('worktree setup from .prokop/worktree.json', () => {
     });
     expect(runner.isRunning(created.id)).toBe(false);
     expect(await runner.log(created.id)).toBe('');
+    // The marker follows, so an agent in the worktree stops waiting.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(readFileSync(join(created.path, '.prokop', 'setup', 'state'), 'utf8')).toStartWith('failed\n');
   });
 
   test('re-running with no config or a broken config leaves the record alone', async () => {

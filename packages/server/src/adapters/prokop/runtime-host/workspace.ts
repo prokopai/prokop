@@ -6,10 +6,13 @@ import {
 } from '@/infrastructure/sqlite/workspaces';
 import { getDatabase } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
+import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
+import { publicWorktreeSetup, worktreeSetupNotice } from '@/domains/worktrees/setup-state';
 import type { RuntimeHost as ProkopCompatibilityBindings } from '@prokopai/core/infrastructure/runtime/host';
 import { createProkopToolWorkspaceHost } from '@prokopai/agent/host';
 
 const managedWorktrees = createManagedWorktreeRepository(getDatabase);
+const worktreeSetups = createWorktreeSetupRepository(getDatabase);
 
 /** Session roots from the host store: managed worktrees, extra roots, the session's agent. */
 export const prokopWorkspaceBindings: ProkopCompatibilityBindings['workspace'] = {
@@ -33,6 +36,8 @@ export const prokopWorkspaceBindings: ProkopCompatibilityBindings['workspace'] =
     return {
       workspacePath: worktree.path,
       additionalPaths: [],
+      // A running or failed setup explains missing dependencies to the model.
+      notice: worktreeSetupNotice(publicWorktreeSetup(worktreeSetups.get(worktree.id))),
     };
   },
   createToolWorkspaceHost: options => createProkopToolWorkspaceHost(options, {

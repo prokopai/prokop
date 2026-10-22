@@ -110,6 +110,13 @@ Commands come from the repository, so they run only once you approve the file's 
 
 Nothing reruns on its own. "Run setup" again repeats the file steps, keeping the port block, and the commands. A server restart during setup leaves the state `interrupted` until you run it again.
 
+#### What the agent sees
+
+A session bound to a worktree learns about its setup two ways, on every harness:
+
+- **A marker file.** The worktree gets `.prokop/setup/state` (ignored through its own `.gitignore`, so the tree stays clean). Its first line is `pending` while commands wait for approval, `running` while they run, then `done`, or `failed` followed by the step and the last lines of output. A stopped or killed setup still ends as `failed`, so nothing waits forever.
+- **A note at turn start** while the setup is pending, running, failed or interrupted, and none when it is ready: what the state is, that missing dependencies are expected, that the agent should wait or tell the user instead of installing on its own, and where the output is.
+
 #### Removal and teardown
 
 Removing a worktree first runs the usual checks (no running session, no attached terminal, nothing uncommitted); a refusal changes nothing. Then a running setup is stopped, and the approved `teardown` commands run in the worktree with the same environment, 5 minutes each. A failing teardown does not block removal: the worktree is removed and its last state carries a warning with the step and the last lines of output. Teardown commands that were never approved are skipped with a note. The port block stays reserved until the removed worktree is purged, which also deletes its log.

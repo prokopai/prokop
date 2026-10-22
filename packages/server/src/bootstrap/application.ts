@@ -382,6 +382,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       // Every setup state change rebroadcasts the worktree (same path as
       // attachment refreshes); the application is created just below.
       onChanged: (worktreeId) => refreshWorktreeAttachments?.(worktreeId),
+      worktreePath: (worktreeId) => managedWorktrees.get(worktreeId)?.path ?? null,
     }),
     workspaces: { get: getWorkspace },
     sessions: {

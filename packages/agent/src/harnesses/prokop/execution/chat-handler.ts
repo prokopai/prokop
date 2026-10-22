@@ -95,6 +95,21 @@ interface ChatTurnResult {
   retryAfterMs?: number;
 }
 
+/** The host's turn-start note for a managed root, or null. Advice only, so it never throws. */
+async function rootNoticeFor(session: { id: string; workspaceId: string; workspaceRootId?: string | null }): Promise<string | null> {
+  if (!session.workspaceRootId) return null;
+  try {
+    const context = await resolveSessionWorkspace({
+      sessionId: session.id,
+      workspaceId: session.workspaceId || undefined,
+      workspaceRootId: session.workspaceRootId,
+    });
+    return context.notice ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function runSingleChatTurn<Origin>(
   ctx: RuntimeRequestContext<Origin>,
   origin: Origin,
@@ -175,7 +190,11 @@ async function runSingleChatTurn<Origin>(
     }
   }
 
-  const { messages: history, handoffBrief } = await buildEffectiveContextHistory(sessionId);
+  const { messages: history, handoffBrief: storedHandoffBrief } = await buildEffectiveContextHistory(sessionId);
+  // The host's note about the root (a worktree whose setup runs or failed)
+  // rides along with the handoff brief: both are turn-start context.
+  const rootNotice = await rootNoticeFor(session);
+  const handoffBrief = [storedHandoffBrief, rootNotice].filter(Boolean).join('\n\n') || null;
 
   const askBroadcastFn: AskBroadcastFn = (message) => {
     if (message.type === 'ask.request') {

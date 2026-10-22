@@ -23,6 +23,12 @@ import type {
 } from '@/application/ports/worktree';
 import { allocatePortBlock, PORT_RANGE_END, PORT_RANGE_START } from '@/domains/worktrees/port-blocks';
 import {
+  publicWorktreeSetup,
+  SETUP_MARKER_IGNORE_PATH,
+  SETUP_MARKER_PATH,
+  setupMarkerContent,
+} from '@/domains/worktrees/setup-state';
+import {
   parseWorktreeSetupConfig,
   renderEnvFile,
   renderTemplate,
@@ -94,6 +100,8 @@ export interface WorktreeSetupRunnerDeps {
   log: WorktreeSetupLogPort;
   /** Called after every stored state change so the owner can broadcast. */
   onChanged?: (worktreeId: string) => void;
+  /** The worktree directory for a record, for markers written outside a run (startup recovery). */
+  worktreePath?: (worktreeId: string) => string | null;
   /** Base environment for commands; default: the server's minus its own variables. */
   environment?: () => Record<string, string>;
   commandTimeoutMs?: number;
@@ -101,9 +109,6 @@ export interface WorktreeSetupRunnerDeps {
   now?: () => string;
 }
 
-const NO_SETUP: WorktreeSetup = {
-  state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] },
-};
 const DEFAULT_COMMAND_TIMEOUT_MS = 15 * 60_000;
 const DEFAULT_TEARDOWN_TIMEOUT_MS = 5 * 60_000;
 const ERROR_TAIL_LINES = 30;
@@ -157,6 +162,30 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     return stored;
   }
 
+  /**
+   * `.prokop/setup/state` in the worktree, for agents of any harness. Its
+   * own `.gitignore` keeps both files out of the worktree's status. Never
+   * fails a setup: a marker that cannot be written is simply absent.
+   */
+  async function writeMarker(worktreePath: string, record: Pick<WorktreeSetupRecord, 'state' | 'step' | 'error'>): Promise<void> {
+    const content = setupMarkerContent(record);
+    if (content === null) return;
+    try {
+      if (!(await deps.files.isContained(worktreePath, SETUP_MARKER_PATH))) return;
+      await deps.files.writeFile(worktreePath, SETUP_MARKER_IGNORE_PATH, '*\n');
+      await deps.files.writeFile(worktreePath, SETUP_MARKER_PATH, content);
+    } catch {
+      // The worktree may be gone or read-only; the stored state still tells.
+    }
+  }
+
+  /** Store plus marker, for the states an agent inside the worktree should see. */
+  async function publish(worktreePath: string, record: WorktreeSetupRecord): Promise<WorktreeSetupRecord> {
+    const stored = store(record);
+    await writeMarker(worktreePath, stored);
+    return stored;
+  }
+
   function variablesFor(record: ManagedWorktreeRecord, repositoryTopLevel: string, port: number | null): TemplateVariables {
     return {
       port,
@@ -191,7 +220,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
       portCount: null,
       commands: { setup: [...config.setup], teardown: [...config.teardown] },
     };
-    const fail = (step: string, error: string): WorktreeSetupRecord => store({
+    const fail = (step: string, error: string): Promise<WorktreeSetupRecord> => publish(worktreePath, {
       ...base,
       state: 'failed',
       step,
@@ -214,7 +243,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
         if (!block) {
           const variables = variablesFor(record, repositoryTopLevel, null);
           return {
-            record: fail('ports', `No free block of ${config.ports} ports between ${PORT_RANGE_START} and ${PORT_RANGE_END}`),
+            record: await fail('ports', `No free block of ${config.ports} ports between ${PORT_RANGE_START} and ${PORT_RANGE_END}`),
             variables,
           };
         }
@@ -251,9 +280,9 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
           refused.push(`add ${entry} to .gitignore, otherwise the worktree turns dirty and cannot be removed`);
         }
       }
-      if (refused.length) return { record: fail('check', refused.join('; ')), variables };
+      if (refused.length) return { record: await fail('check', refused.join('; ')), variables };
     } catch (error: unknown) {
-      return { record: fail('check', messageOf(error)), variables };
+      return { record: await fail('check', messageOf(error)), variables };
     }
 
     let step = '';
@@ -280,7 +309,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
         await deps.files.writeFile(worktreePath, entry, renderTemplate(template, variables));
       }
     } catch (error: unknown) {
-      return { record: fail(step, messageOf(error)), variables };
+      return { record: await fail(step, messageOf(error)), variables };
     }
 
     return {
@@ -409,6 +438,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     void (async () => {
       let outcome: WorktreeSetupRecord = { ...started, state: 'ready', step: null, error: null };
       try {
+        await writeMarker(record.path, started);
         await deps.log.remove(worktreeId).catch(() => undefined);
         const result = await runSequence({
           record,
@@ -418,7 +448,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
           label: 'setup',
           run,
           onStep: (step) => {
-            if (step !== started.step) store({ ...started, step });
+            if (step !== started.step) void writeMarker(record.path, store({ ...started, step }));
           },
         });
         if (result.kind === 'failed') outcome = { ...started, state: 'failed', step: result.step, error: result.error };
@@ -432,8 +462,10 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
         }
       } finally {
         active.delete(worktreeId);
-        // The worktree may have been purged while the command ran.
-        if (deps.repository.get(worktreeId)) store(outcome);
+        // The worktree may have been purged while the command ran. A
+        // cancelled run still leaves `failed` behind, otherwise agents wait
+        // forever on `running`.
+        if (deps.repository.get(worktreeId)) await publish(record.path, outcome);
         run.settle();
       }
     })();
@@ -442,19 +474,19 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
   }
 
   /** After the instant steps: commands start, wait for approval, or there are none. */
-  function finish(
+  async function finish(
     record: ManagedWorktreeRecord,
     parsed: WorktreeConfigParsed,
     instant: { record: WorktreeSetupRecord; variables: TemplateVariables },
-  ): WorktreeSetupRecord {
+  ): Promise<WorktreeSetupRecord> {
     if (instant.record.state !== 'ready') return instant.record;
     const { config } = parsed;
     // Approval covers every command in the file, teardown included.
     const hasCommands = config.setup.length > 0 || config.teardown.length > 0;
     if (hasCommands && !deps.repository.isApproved(record.repositoryId, parsed.hash)) {
-      return store({ ...instant.record, state: 'needs_approval', step: null });
+      return publish(record.path, { ...instant.record, state: 'needs_approval', step: null });
     }
-    if (config.setup.length === 0) return store(instant.record);
+    if (config.setup.length === 0) return publish(record.path, instant.record);
     return startCommands(record, instant.record, config, instant.variables);
   }
 
@@ -472,7 +504,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     }
     if (approveFirst) deps.repository.approve(record.repositoryId, prepared.parsed.hash, now());
     const instant = await instantSteps(record, prepared.parsed, repositoryTopLevel, deps.repository.get(record.id));
-    return { ok: true, record: finish(record, prepared.parsed, instant) };
+    return { ok: true, record: await finish(record, prepared.parsed, instant) };
   }
 
   const runner: WorktreeSetupRunner = {
@@ -539,19 +571,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
       return deps.repository.get(worktreeId);
     },
 
-    publicSetup(record) {
-      if (!record) return NO_SETUP;
-      return {
-        state: record.state,
-        ports: record.portBase !== null && record.portCount !== null
-          ? { base: record.portBase, count: record.portCount }
-          : null,
-        step: record.step,
-        error: record.error,
-        warning: record.warning,
-        commands: record.commands,
-      };
-    },
+    publicSetup: publicWorktreeSetup,
 
     isRunning(worktreeId) {
       return active.has(worktreeId);
@@ -576,12 +596,15 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     recoverInterrupted() {
       const stale = deps.repository.listByState('running').filter((record) => !active.has(record.worktreeId));
       for (const record of stale) {
-        deps.repository.upsert({
+        const interrupted = deps.repository.upsert({
           ...record,
           state: 'interrupted',
           error: 'The server restarted while setup was running',
           updatedAt: now(),
         });
+        // The marker still says `running`; agents would wait forever.
+        const path = deps.worktreePath?.(record.worktreeId);
+        if (path) void writeMarker(path, interrupted);
       }
       return stale.length;
     },

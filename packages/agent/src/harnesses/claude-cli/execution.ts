@@ -34,7 +34,7 @@ import { forkClaudeSession } from './fork';
 import { claudeDeveloperInstructions, type ClaudeInstructionSources } from './instructions';
 import { pinDefaultPreconfig, resolveTurnPreconfig } from '#agent/harnesses/shared/cli-instructions';
 import { createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from './dynamic-tools';
-import { resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
+import { resolveCliRootNotice, resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '#agent/harnesses/shared/tool-viz';
@@ -494,8 +494,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part: text });
         };
         const handoffBrief = await getHandoffBrief(sessionId);
+        const rootNotice = await resolveCliRootNotice(session, workspace);
         for await (const event of runClaudeTurn({ cwd: root, prompt: content, images: imageData,
-          userMessageId: user.id, instructions: [developerInstructions, sessionTempInstructions(tempDirectory), handoffBrief].filter(Boolean).join('\n\n'), dynamicTools, workspaceMcp, tempDirectory,
+          userMessageId: user.id, instructions: [developerInstructions, sessionTempInstructions(tempDirectory), handoffBrief, rootNotice].filter(Boolean).join('\n\n'), dynamicTools, workspaceMcp, tempDirectory,
           goalCondition, sessionId: nativeId, resume: !!binding,
           model: selection.model, effort: selection.effort,
           controller, canUseTool: approvals.request(sessionId, session.workspaceId, root, wire.delivery,

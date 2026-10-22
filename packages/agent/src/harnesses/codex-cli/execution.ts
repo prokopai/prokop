@@ -10,7 +10,7 @@ import {
   listMessagesWithParts, updateMessage, updatePart, updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import { storeTransaction } from '@prokopai/core/infrastructure/storage/transaction';
-import { resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
+import { resolveCliRootNotice, resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
 import { parseAttachmentContentUrl } from '@prokopai/core/domains/attachments';
@@ -623,12 +623,14 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           catch { return false; }
         };
         const handoffBrief = await getHandoffBrief(sessionId);
+        const rootNotice = await resolveCliRootNotice(session, workspace);
         // Codex reaches MCP tools only through its bridge, so the instructions name the ones that need guidance.
         const mcpToolNames = deps.mcp ? (await deps.mcp.tools(workspace.path, sessionId)).map(tool => tool.name) : [];
         const instructions = await codexDeveloperInstructions(workspace, root, preconfig, {
           ...sources, getAgentDirectory: async () => agentDir,
         }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
-          + (handoffBrief ? `\n\n${handoffBrief}` : '');
+          + (handoffBrief ? `\n\n${handoffBrief}` : '')
+          + (rootNotice ? `\n\n${rootNotice}` : '');
         await pinDefaultPreconfig(session, preconfigId, agentDir, wire.delivery);
         phase = 'workspace root check';
         const version = deps.version();
