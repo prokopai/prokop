@@ -383,21 +383,95 @@ describe('worktree setup from .prokop/worktree.json', () => {
     expect(final.error).toContain('starting');
   });
 
-  test('removal waits while setup runs; stopping the server leaves the setup interrupted', async () => {
+  test('stopping the server interrupts a running setup; a re-run while it runs is refused', async () => {
     writeConfig({ setup: ['sleep 30'] });
     const created = await create('long', 'feature/a');
     await approve(created.id);
     expect(runner.isRunning(created.id)).toBe(true);
-
-    const removed = await application.remove('workspace-1', created.id);
-    expect(removed).toMatchObject({ ok: false, code: 'setup_running' });
     expect((await application.runSetup('workspace-1', created.id))).toMatchObject({ ok: false, code: 'setup_running' });
 
     await application.stopSetups();
     const final = await settled(created.id);
     expect(final.state).toBe('interrupted');
+    expect(final.error).toBe('Setup was stopped before it finished');
     expect(runner.isRunning(created.id)).toBe(false);
     expect((await application.remove('workspace-1', created.id)).ok).toBe(true);
+  });
+
+  test('removing during a running setup kills it and removes the worktree', async () => {
+    writeConfig({ setup: ['sleep 30'] });
+    const created = await create('busy', 'feature/a');
+    await approve(created.id);
+    expect(runner.isRunning(created.id)).toBe(true);
+
+    const startedAt = Date.now();
+    const removed = await application.remove('workspace-1', created.id);
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(removed.value.state).toBe('removed');
+    expect(removed.value.setup.state).toBe('interrupted');
+    expect(existsSync(created.path)).toBe(false);
+    expect(runner.isRunning(created.id)).toBe(false);
+  });
+
+  test('teardown runs before git worktree remove; a failing teardown still removes, with a warning', async () => {
+    const marker = join(root, 'torn-down');
+    writeConfig({
+      env: { DATABASE_NAME: 'app_{{key}}' },
+      setup: ['echo ready'],
+      teardown: [`printf "%s\\n" "$DATABASE_NAME" > "${marker}"`, 'echo "drop failed: no such database" >&2; exit 3'],
+    });
+    const created = await create('Torn', 'feature/a');
+    await approve(created.id);
+    expect((await settled(created.id)).state).toBe('ready');
+
+    const removed = await application.remove('workspace-1', created.id);
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    expect(removed.value.state).toBe('removed');
+    expect(existsSync(created.path)).toBe(false);
+    const key = `torn_${created.id.replace(/-/g, '').slice(0, 6)}`;
+    expect(readFileSync(marker, 'utf8')).toBe(`app_${key}\n`);
+    expect(removed.value.setup.warning).toBe(
+      'teardown failed at teardown 2/2: echo "drop failed: no such database" >&2; exit 3: exit code 3\ndrop failed: no such database',
+    );
+    const log = await application.setupLog('workspace-1', created.id);
+    expect(log.ok && log.value.log).toContain('# teardown for Torn');
+    expect(log.ok && log.value.log).toContain('# exit code 3');
+
+    // Purge drops the setup row, the log file, and the port block with it.
+    const purged = await application.remove('workspace-1', created.id);
+    expect(purged.ok).toBe(true);
+    expect(db.query('SELECT COUNT(*) AS count FROM managed_worktree_setups').get()).toEqual({ count: 0 });
+    expect(existsSync(join(root, 'data', 'worktree-setup', `${created.id}.log`))).toBe(false);
+  });
+
+  test('a dirty worktree is refused before teardown runs; an unapproved teardown is skipped with a note', async () => {
+    const marker = join(root, 'torn-down');
+    writeConfig({ teardown: [`touch "${marker}"`] });
+    const created = await create('dirty', 'feature/a');
+    // Teardown alone still needs the approval, because it is a command too.
+    expect(created.setup.state).toBe('needs_approval');
+
+    writeFileSync(join(created.path, 'scratch.txt'), 'uncommitted\n');
+    const refused = await application.remove('workspace-1', created.id);
+    expect(refused).toMatchObject({ ok: false, code: 'worktree_dirty' });
+    expect(existsSync(marker)).toBe(false);
+    expect(runner.get(created.id)?.state).toBe('needs_approval');
+
+    rmSync(join(created.path, 'scratch.txt'));
+    const removed = await application.remove('workspace-1', created.id);
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    expect(existsSync(marker)).toBe(false);
+    expect(removed.value.setup.warning).toBe('teardown skipped: the setup file was never approved for this repository');
+
+    // Approved: the teardown runs on the next worktree's removal.
+    const second = await create('approved', 'feature/b');
+    expect((await approve(second.id)).setup.state).toBe('ready');
+    expect((await application.remove('workspace-1', second.id)).ok).toBe(true);
+    expect(existsSync(marker)).toBe(true);
   });
 
   test('a record left running by a previous process becomes interrupted on startup and nothing reruns', async () => {

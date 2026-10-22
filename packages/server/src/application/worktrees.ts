@@ -435,10 +435,13 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
           if (stored) deps.events.sessionChanged(sessionWithWorktree(stored, null));
         }
         deps.terminals.clearWorktreeReferences(worktreeId);
+        const purged = publicWorktree(record, EMPTY_STATUS, deps);
+        // The setup row goes with the worktree row (cascade), which also
+        // releases the port block; the log file is ours to drop.
         if (!deps.repository.delete(worktreeId)) {
           return { ok: false, code: 'worktree_not_found', message: 'Worktree not found' };
         }
-        const purged = publicWorktree(record, EMPTY_STATUS, deps);
+        await deps.setup.purge(worktreeId);
         deps.events.worktreeDeleted(purged);
         return { ok: true, value: purged };
       }
@@ -446,7 +449,51 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         return { ok: false, code: 'worktree_unavailable', message: 'Worktree is not available' };
       }
 
-      return serialized(record.repositoryId, async () => {
+      // Removal in three steps (docs/plans/worktree-setup.md): the cheap
+      // refusals and the reservation inside the repository queue, so a
+      // refused removal tears nothing down; teardown outside the queue, so
+      // a slow teardown blocks no other create or remove; the checks again
+      // and `git worktree remove` inside the queue.
+      const refuseUnlessRemovable = async (current: ManagedWorktreeRecord): Promise<WorktreeRepositoryIdentity> => {
+        const identity = await deps.git.inspectRepository(workspace.path);
+        if (
+          identity.repositoryId !== current.repositoryId
+          || identity.repositoryRoot !== current.repositoryRoot
+          || !containsRepository(identity)
+        ) {
+          throw new WorktreeOperationError('repository_changed', 'Repository identity changed');
+        }
+        const attachments = attachmentsFor(current, deps.sessions);
+        if (attachments.some((attachment) => attachment.running)) {
+          throw new WorktreeOperationError('session_running', 'A session attached to this worktree is running');
+        }
+        if (deps.terminals.listForWorktree(current.id, current.path).length > 0) {
+          throw new WorktreeOperationError('terminal_attached', 'A terminal is attached to this worktree');
+        }
+        const status = await deps.git.status(current.path);
+        if (status.dirty) {
+          throw new WorktreeOperationError('worktree_dirty', 'Worktree has uncommitted changes');
+        }
+        return identity;
+      };
+      const removalFailure = (
+        current: ManagedWorktreeRecord,
+        error: unknown,
+      ): { ok: false; code: WorktreeFailureCode; message: string } => {
+        const nextState = isMissingFailure(error) ? 'missing' : 'available';
+        const restored = deps.repository.update(current.id, { state: nextState }) ?? {
+          ...current,
+          state: nextState,
+        };
+        deps.events.worktreeChanged(publicWorktree(restored, EMPTY_STATUS, deps));
+        return {
+          ok: false,
+          code: isMissingFailure(error) ? 'worktree_unavailable' : failureCode(error),
+          message: messageFor(error, 'Git worktree removal failed'),
+        };
+      };
+
+      const reserved = await serialized(record.repositoryId, async () => {
         const current = deps.repository.get(worktreeId);
         if (!current || current.workspaceId !== workspaceId) {
           return { ok: false, code: 'worktree_not_found', message: 'Worktree not found' } as const;
@@ -454,72 +501,47 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         if (current.state !== 'available') {
           return { ok: false, code: 'worktree_unavailable', message: 'Worktree is not available' } as const;
         }
-
+        let identity: WorktreeRepositoryIdentity;
+        try {
+          identity = await refuseUnlessRemovable(current);
+        } catch (error: unknown) {
+          return removalFailure(current, error);
+        }
         removingWorktrees.add(current.id);
-        const reserved = deps.repository.update(current.id, { state: 'removing' }) ?? {
+        const reservedRecord = deps.repository.update(current.id, { state: 'removing' }) ?? {
           ...current,
           state: 'removing' as const,
         };
-        deps.events.worktreeChanged(publicWorktree(reserved, EMPTY_STATUS, deps));
-
-        try {
-          const identity = await deps.git.inspectRepository(workspace.path);
-          if (
-            identity.repositoryId !== current.repositoryId
-            || identity.repositoryRoot !== current.repositoryRoot
-            || !containsRepository(identity)
-          ) {
-            throw new WorktreeOperationError('repository_changed', 'Repository identity changed');
-          }
-
-          const attachments = attachmentsFor(current, deps.sessions);
-          if (attachments.some((attachment) => attachment.running)) {
-            throw new WorktreeOperationError(
-              'session_running',
-              'A session attached to this worktree is running',
-            );
-          }
-          // Setup commands write into the worktree; removal waits for them
-          // (phase 3 of docs/plans/worktree-setup.md cancels instead).
-          if (deps.setup.isRunning(current.id)) {
-            throw new WorktreeOperationError('setup_running', 'Setup is still running for this worktree');
-          }
-          if (deps.terminals.listForWorktree(current.id, current.path).length > 0) {
-            throw new WorktreeOperationError(
-              'terminal_attached',
-              'A terminal is attached to this worktree',
-            );
-          }
-
-          const status = await deps.git.status(current.path);
-          if (status.dirty) {
-            throw new WorktreeOperationError('worktree_dirty', 'Worktree has uncommitted changes');
-          }
-
-          await deps.git.remove(workspace.path, current.path);
-          const removed = deps.repository.update(current.id, { state: 'removed' }) ?? {
-            ...current,
-            state: 'removed' as const,
-          };
-          const worktree = publicWorktree(removed, EMPTY_STATUS, deps);
-          deps.events.worktreeChanged(worktree);
-          return { ok: true, value: worktree } as const;
-        } catch (error: unknown) {
-          const nextState = isMissingFailure(error) ? 'missing' : 'available';
-          const restored = deps.repository.update(current.id, { state: nextState }) ?? {
-            ...current,
-            state: nextState,
-          };
-          deps.events.worktreeChanged(publicWorktree(restored, EMPTY_STATUS, deps));
-          return {
-            ok: false,
-            code: isMissingFailure(error) ? 'worktree_unavailable' : failureCode(error),
-            message: messageFor(error, 'Git worktree removal failed'),
-          } as const;
-        } finally {
-          removingWorktrees.delete(current.id);
-        }
+        deps.events.worktreeChanged(publicWorktree(reservedRecord, EMPTY_STATUS, deps));
+        return { ok: true, value: { current: reservedRecord, identity } } as const;
       });
+      if (!reserved.ok) return reserved;
+      const { current, identity } = reserved.value;
+
+      try {
+        // Stops a running setup first; a failed teardown only warns.
+        await deps.setup.teardown({ record: current, repositoryTopLevel: identity.repositoryTopLevel });
+
+        return await serialized(current.repositoryId, async () => {
+          try {
+            await refuseUnlessRemovable(current);
+            await deps.git.remove(workspace.path, current.path);
+            const removed = deps.repository.update(current.id, { state: 'removed' }) ?? {
+              ...current,
+              state: 'removed' as const,
+            };
+            const worktree = publicWorktree(removed, EMPTY_STATUS, deps);
+            deps.events.worktreeChanged(worktree);
+            return { ok: true, value: worktree } as const;
+          } catch (error: unknown) {
+            return removalFailure(current, error);
+          }
+        });
+      } catch (error: unknown) {
+        return removalFailure(current, error);
+      } finally {
+        removingWorktrees.delete(current.id);
+      }
     },
 
     async bind(sessionId, worktreeId) {

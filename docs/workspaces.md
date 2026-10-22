@@ -73,7 +73,7 @@ Every key is optional. A missing file means nothing happens.
 | `files` | Files written from templates, keyed by path inside the worktree. |
 | `ports` | Size of the port block reserved for the worktree, 1 to 20. Default 10 when any template uses `{{port}}`; no block is reserved otherwise. |
 | `setup` | Commands run in order inside the worktree after creation, in the background. See below. |
-| `teardown` | Commands to run before removal. Accepted today, not run yet. |
+| `teardown` | Commands run in order inside the worktree before it is removed. See below. |
 
 Templates in `env` and `files` can use:
 
@@ -108,7 +108,11 @@ Rules:
 
 Commands come from the repository, so they run only once you approve the file's current contents for that repository. The first worktree reports `needs_approval`; approving runs the commands and remembers the file. A changed file asks again. The worktree is usable while commands run. Each command has 15 minutes; output goes to `worktree-setup/<worktree id>.log` in the server data directory, keeping the last 1 MB. A failing command reports its step and the last lines of output, and nothing after it runs.
 
-Nothing reruns on its own. "Run setup" again repeats the file steps, keeping the port block, and the commands. A server restart during setup leaves the state `interrupted` until you run it again. Removing a worktree waits for a running setup to finish.
+Nothing reruns on its own. "Run setup" again repeats the file steps, keeping the port block, and the commands. A server restart during setup leaves the state `interrupted` until you run it again.
+
+#### Removal and teardown
+
+Removing a worktree first runs the usual checks (no running session, no attached terminal, nothing uncommitted); a refusal changes nothing. Then a running setup is stopped, and the approved `teardown` commands run in the worktree with the same environment, 5 minutes each. A failing teardown does not block removal: the worktree is removed and its last state carries a warning with the step and the last lines of output. Teardown commands that were never approved are skipped with a note. The port block stays reserved until the removed worktree is purged, which also deletes its log.
 
 Each worktree reports a setup state (`none`, `needs_approval`, `running` with the current step, `ready`, `failed` with the reason, or `interrupted`) and its port block through the API (`POST .../worktrees/:id/setup/approve`, `POST .../setup/run`, `GET .../setup/log`) and the `worktree.updated` event.
 

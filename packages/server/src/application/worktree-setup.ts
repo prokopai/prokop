@@ -1,9 +1,9 @@
 /**
  * Worktree setup from `.prokop/worktree.json`: the instant part (port block,
  * copies, clones, env and template files) right after `git worktree add`,
- * and the background part (the repository's `setup` commands) behind an
- * approval gate, with a log per worktree and one `worktree.updated` per
- * state change.
+ * the background part (the repository's `setup` commands) behind an
+ * approval gate, and `teardown` before removal, with a log per worktree
+ * and one `worktree.updated` per state change.
  *
  * Commands from a repository are code, so a config hash runs only once the
  * user approved it; a changed config asks again. Nothing is ever rerun on
@@ -63,6 +63,14 @@ export interface WorktreeSetupRunner {
   rerun(input: WorktreeSetupRerunInput): Promise<WorktreeSetupRerunResult>;
   /** Approves the primary checkout's current config for this repository, then re-runs. */
   approve(input: WorktreeSetupRerunInput): Promise<WorktreeSetupRerunResult>;
+  /**
+   * Before removal: stops a running setup, then runs the approved
+   * `teardown` commands. Never throws and never blocks removal; a failure
+   * lands as a warning on the setup record.
+   */
+  teardown(input: WorktreeSetupRerunInput): Promise<void>;
+  /** After the worktree row is purged: drops the log file. */
+  purge(worktreeId: string): Promise<void>;
   get(worktreeId: string): WorktreeSetupRecord | null;
   /** The wire shape for a record, or the `none` state without one. */
   publicSetup(record: WorktreeSetupRecord | null): WorktreeSetup;
@@ -89,11 +97,13 @@ export interface WorktreeSetupRunnerDeps {
   /** Base environment for commands; default: the server's minus its own variables. */
   environment?: () => Record<string, string>;
   commandTimeoutMs?: number;
+  teardownTimeoutMs?: number;
   now?: () => string;
 }
 
 const NO_SETUP: WorktreeSetup = { state: 'none', ports: null, step: null, error: null, warning: null };
 const DEFAULT_COMMAND_TIMEOUT_MS = 15 * 60_000;
+const DEFAULT_TEARDOWN_TIMEOUT_MS = 5 * 60_000;
 const ERROR_TAIL_LINES = 30;
 const ERROR_TAIL_CHARS = 4000;
 
@@ -124,11 +134,18 @@ interface ActiveRun {
   cancelled: boolean;
   current: { kill(): void } | null;
   settled: Promise<void>;
+  settle: () => void;
 }
+
+type SequenceOutcome =
+  | { kind: 'ok' }
+  | { kind: 'cancelled' }
+  | { kind: 'failed'; step: string; error: string };
 
 export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): WorktreeSetupRunner {
   const now = deps.now ?? (() => new Date().toISOString());
   const commandTimeoutMs = deps.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+  const teardownTimeoutMs = deps.teardownTimeoutMs ?? DEFAULT_TEARDOWN_TIMEOUT_MS;
   const baseEnvironment = deps.environment ?? (() => setupBaseEnvironment());
   const active = new Map<string, ActiveRun>();
 
@@ -292,16 +309,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     return env;
   }
 
-  /** Runs the commands in order, outside any queue; one state change per step. */
-  function startCommands(
-    record: ManagedWorktreeRecord,
-    base: WorktreeSetupRecord,
-    config: WorktreeSetupConfig,
-    variables: TemplateVariables,
-  ): WorktreeSetupRecord {
-    const worktreeId = record.id;
-    const total = config.setup.length;
-    const stepLabel = (index: number): string => `setup ${index + 1}/${total}: ${config.setup[index]}`;
+  function beginRun(worktreeId: string): ActiveRun {
     let settle: () => void = () => {};
     const run: ActiveRun = {
       cancelled: false,
@@ -309,70 +317,121 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
       settled: new Promise<void>((resolve) => {
         settle = resolve;
       }),
+      settle: () => settle(),
     };
     active.set(worktreeId, run);
-    const started = store({ ...base, state: 'running', step: stepLabel(0), error: null });
+    return run;
+  }
 
+  /**
+   * Runs commands in order inside the worktree, appending to its log, and
+   * stops at the first failure. `onStep` fires before each command so the
+   * caller can publish progress. Registered as the worktree's active run.
+   */
+  async function runSequence(input: {
+    record: ManagedWorktreeRecord;
+    commands: string[];
+    env: Record<string, string>;
+    timeoutMs: number;
+    label: string;
+    run: ActiveRun;
+    onStep?: (step: string) => void;
+  }): Promise<SequenceOutcome> {
+    const { record, commands, env, timeoutMs, label, run } = input;
+    const worktreeId = record.id;
+    const stepLabel = (index: number): string => `${label} ${index + 1}/${commands.length}: ${commands[index]}`;
     let chain = Promise.resolve();
     const write = (text: string): void => {
       chain = chain.then(() => deps.log.append(worktreeId, text)).catch(() => undefined);
     };
-    const env = commandEnvironment(config, variables);
+    let outcome: SequenceOutcome = { kind: 'ok' };
+    try {
+      write(`# ${label} for ${record.name} (${worktreeId}) at ${now()}\n`);
+      for (let index = 0; index < commands.length; index += 1) {
+        if (run.cancelled) break;
+        const command = commands[index] ?? '';
+        input.onStep?.(stepLabel(index));
+        write(`\n$ ${command}\n`);
+        let output = '';
+        const running = deps.commands.run({
+          cwd: record.path,
+          command,
+          env,
+          timeoutMs,
+          onOutput: (chunk) => {
+            output = (output + chunk).slice(-ERROR_TAIL_CHARS * 4);
+            write(chunk);
+          },
+        });
+        run.current = running;
+        const result = await running.done;
+        run.current = null;
+        if (run.cancelled) break;
+        if (result.timedOut) {
+          const minutes = Math.round(timeoutMs / 60_000);
+          write(`\n# timed out after ${minutes} minutes\n`);
+          outcome = { kind: 'failed', step: stepLabel(index), error: `timed out after ${minutes} minutes\n${tail(output)}`.trim() };
+          break;
+        }
+        if (result.exitCode !== 0) {
+          const reason = result.exitCode === null ? `killed by ${result.signal ?? 'signal'}` : `exit code ${result.exitCode}`;
+          write(`\n# ${reason}\n`);
+          outcome = { kind: 'failed', step: stepLabel(index), error: `${reason}\n${tail(output)}`.trim() };
+          break;
+        }
+      }
+      if (run.cancelled) {
+        write('\n# cancelled\n');
+        outcome = { kind: 'cancelled' };
+      }
+    } catch (error: unknown) {
+      outcome = { kind: 'failed', step: label, error: messageOf(error) };
+    } finally {
+      await chain;
+    }
+    return outcome;
+  }
+
+  /** Runs the setup commands in the background, outside any queue; one state change per step. */
+  function startCommands(
+    record: ManagedWorktreeRecord,
+    base: WorktreeSetupRecord,
+    config: WorktreeSetupConfig,
+    variables: TemplateVariables,
+  ): WorktreeSetupRecord {
+    const worktreeId = record.id;
+    const run = beginRun(worktreeId);
+    const started = store({ ...base, state: 'running', step: `setup 1/${config.setup.length}: ${config.setup[0]}`, error: null });
 
     void (async () => {
       let outcome: WorktreeSetupRecord = { ...started, state: 'ready', step: null, error: null };
       try {
         await deps.log.remove(worktreeId).catch(() => undefined);
-        write(`# setup for ${record.name} (${worktreeId}) at ${now()}\n`);
-        for (let index = 0; index < total; index += 1) {
-          if (run.cancelled) break;
-          const command = config.setup[index] ?? '';
-          if (index > 0) store({ ...started, step: stepLabel(index) });
-          write(`\n$ ${command}\n`);
-          let output = '';
-          const running = deps.commands.run({
-            cwd: record.path,
-            command,
-            env,
-            timeoutMs: commandTimeoutMs,
-            onOutput: (chunk) => {
-              output = (output + chunk).slice(-ERROR_TAIL_CHARS * 4);
-              write(chunk);
-            },
-          });
-          run.current = running;
-          const result = await running.done;
-          run.current = null;
-          if (run.cancelled) break;
-          if (result.timedOut) {
-            write(`\n# timed out after ${Math.round(commandTimeoutMs / 60_000)} minutes\n`);
-            outcome = {
-              ...started,
-              state: 'failed',
-              step: stepLabel(index),
-              error: `timed out after ${Math.round(commandTimeoutMs / 60_000)} minutes\n${tail(output)}`.trim(),
-            };
-            break;
-          }
-          if (result.exitCode !== 0) {
-            const reason = result.exitCode === null ? `killed by ${result.signal ?? 'signal'}` : `exit code ${result.exitCode}`;
-            write(`\n# ${reason}\n`);
-            outcome = { ...started, state: 'failed', step: stepLabel(index), error: `${reason}\n${tail(output)}`.trim() };
-            break;
-          }
+        const result = await runSequence({
+          record,
+          commands: config.setup,
+          env: commandEnvironment(config, variables),
+          timeoutMs: commandTimeoutMs,
+          label: 'setup',
+          run,
+          onStep: (step) => {
+            if (step !== started.step) store({ ...started, step });
+          },
+        });
+        if (result.kind === 'failed') outcome = { ...started, state: 'failed', step: result.step, error: result.error };
+        if (result.kind === 'cancelled') {
+          outcome = {
+            ...started,
+            state: 'interrupted',
+            step: deps.repository.get(worktreeId)?.step ?? null,
+            error: 'Setup was stopped before it finished',
+          };
         }
-        if (run.cancelled) {
-          write('\n# cancelled\n');
-          outcome = { ...started, state: 'interrupted', step: deps.repository.get(worktreeId)?.step ?? null, error: 'Setup was stopped before it finished' };
-        }
-      } catch (error: unknown) {
-        outcome = { ...started, state: 'failed', error: messageOf(error) };
       } finally {
-        await chain;
         active.delete(worktreeId);
         // The worktree may have been purged while the command ran.
         if (deps.repository.get(worktreeId)) store(outcome);
-        settle();
+        run.settle();
       }
     })();
 
@@ -386,11 +445,14 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
     instant: { record: WorktreeSetupRecord; variables: TemplateVariables },
   ): WorktreeSetupRecord {
     if (instant.record.state !== 'ready') return instant.record;
-    if (parsed.config.setup.length === 0) return store(instant.record);
-    if (!deps.repository.isApproved(record.repositoryId, parsed.hash)) {
+    const { config } = parsed;
+    // Approval covers every command in the file, teardown included.
+    const hasCommands = config.setup.length > 0 || config.teardown.length > 0;
+    if (hasCommands && !deps.repository.isApproved(record.repositoryId, parsed.hash)) {
       return store({ ...instant.record, state: 'needs_approval', step: null });
     }
-    return startCommands(record, instant.record, parsed.config, instant.variables);
+    if (config.setup.length === 0) return store(instant.record);
+    return startCommands(record, instant.record, config, instant.variables);
   }
 
   async function rerun(
@@ -430,6 +492,45 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
 
     rerun: (input) => rerun(input, false),
     approve: (input) => rerun(input, true),
+
+    async teardown({ record, repositoryTopLevel }) {
+      await runner.cancel(record.id);
+      const existing = deps.repository.get(record.id);
+      const warn = (warning: string): void => {
+        if (existing) store({ ...existing, warning });
+      };
+      const prepared = await runner.prepare(repositoryTopLevel);
+      if (!prepared.ok) {
+        warn(`teardown skipped: ${prepared.message}`);
+        return;
+      }
+      const config = prepared.parsed?.config;
+      if (!prepared.parsed || !config || config.teardown.length === 0) return;
+      if (!deps.repository.isApproved(record.repositoryId, prepared.parsed.hash)) {
+        warn('teardown skipped: the setup file was never approved for this repository');
+        return;
+      }
+      const run = beginRun(record.id);
+      try {
+        const result = await runSequence({
+          record,
+          commands: config.teardown,
+          env: commandEnvironment(config, variablesFor(record, repositoryTopLevel, existing?.portBase ?? null)),
+          timeoutMs: teardownTimeoutMs,
+          label: 'teardown',
+          run,
+        });
+        if (result.kind === 'failed') warn(`teardown failed at ${result.step}: ${result.error}`);
+        if (result.kind === 'cancelled') warn('teardown was stopped before it finished');
+      } finally {
+        active.delete(record.id);
+        run.settle();
+      }
+    },
+
+    purge(worktreeId) {
+      return deps.log.remove(worktreeId);
+    },
 
     get(worktreeId) {
       return deps.repository.get(worktreeId);

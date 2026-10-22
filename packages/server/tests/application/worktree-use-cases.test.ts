@@ -33,6 +33,7 @@ function setupRunnerWithoutConfig() {
     },
     commands: { run: () => { throw new Error('not reached without a config'); } },
     log: { append: never, read: async () => '', remove: async () => {} },
+    environment: () => ({}),
   });
 }
 
