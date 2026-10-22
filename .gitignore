@@ -4,6 +4,7 @@ node_modules/
 .pnp.js
 
 # Build output
+target/
 dist/
 dev-dist/
 client-dist/
@@ -17,6 +18,7 @@ storybook-static/
 .env.local
 .env.production
 .env.*.local
+.env.worktree
 
 # Logs
 logs
@@ -91,16 +93,22 @@ packages/client-tauri/gen/android/.gradle/
 packages/client-tauri/gen/android/app/build/
 packages/client-tauri/gen/android/build/
 
-.jean2
+# Prokop workspace data, except the shared repository config
+.prokop/*
+!.prokop/worktree.json
+!.prokop/mcp.json
 
 # Private architecture sources of truth
 .architecture-specs/
 .architecture-v2/
 
 # Local planning, study, and design documents
+/PLAN.md
 docs/plans/
 docs/study/
 docs/design/
+
+articles/
 
 # Product screenshot output (bun run screenshots)
 scripts/screenshots/out/
