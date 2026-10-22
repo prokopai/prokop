@@ -1,6 +1,7 @@
 import { getDatabase } from './database';
 import type { Ask } from '@prokopai/sdk';
 import { notifyAttentionChanged } from './attention-signals';
+import { notifyAskCreated } from '@/application/sessions/asks';
 
 // =============================================================================
 // Permission Request Lifecycle Status
@@ -99,6 +100,7 @@ export function createPendingAsk(record: Omit<PendingAskRecord, 'id'>): string {
     ],
   );
   notifyAttentionChanged();
+  notifyAskCreated({ sessionId: record.sessionId, requestId, toolName: record.toolName });
   return id;
 }
 

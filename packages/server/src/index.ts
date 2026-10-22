@@ -26,7 +26,8 @@ import { backfillFts } from '@/infrastructure/session-search/fts';
 import type { ServerMessage, AskAuthority } from '@prokopai/sdk';
 import { getTerminalManager, getTerminalEventManager } from '@/transport/terminal';
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
-import { reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
+import { getSession, reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
+import { routeChildAsksToRoot } from '@/transport/websocket/child-asks';
 import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { disposeExecutionLifecycle, initializeExecutionLifecycle } from '@/application/ports/execution-lifecycle';
@@ -139,7 +140,18 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
     console.warn('[startup] Agent learning migration failed:', error);
   }
   createProkopTerminalSessionPort().cleanupRunningSessionsOnStartup();
-  const stuckRunningSessions = reconcileStuckRunningSessions();
+  // A delegated child that was running when the previous process stopped
+  // is interrupted, never resumed on its own; its parent hears it once.
+  const stuckRunningSessions = reconcileStuckRunningSessions((session) => {
+    if (!session.parentId || session.subagentStatus !== 'interrupted') return;
+    void application.sessionDelivery.deliver({
+      sessionId: session.parentId,
+      content: `[task ${session.id} "${session.title ?? ''}" interrupted by a server restart]\n`
+        + `It was not resumed. Start it again with task_id ${session.id} if the work is still needed.`,
+      key: `task-interrupted:${session.id}:${session.updatedAt}`,
+      origin: 'delegation',
+    }).catch(() => undefined);
+  });
   if (stuckRunningSessions > 0) {
     console.log(`[startup] Reconciled ${stuckRunningSessions} session(s) stuck in running state`);
   }
@@ -172,7 +184,9 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
       application.files.fileTreeFeed.disconnect(connectionId);
     },
   });
-  installDeliveryPort(transport.delivery);
+  // Asks from child sessions (delegated CLI children included) surface on
+  // the root session, where the user is.
+  installDeliveryPort(routeChildAsksToRoot(transport.delivery, (id) => getSession(id)));
   application.deviceAccess.subscribe({
     deviceRevoked: (deviceId) => transport.closeDeviceSockets(deviceId),
   });

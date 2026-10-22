@@ -133,6 +133,12 @@ export function getLLMSubagentMaxSteps(): number {
   return parsed > 0 ? parsed : 50;
 }
 
+/** Running delegated children allowed per root session (default 4). */
+export function getDelegationMaxChildren(): number {
+  const parsed = readEnvInt('DELEGATION_MAX_CHILDREN', 4);
+  return parsed > 0 ? parsed : 4;
+}
+
 export function getLLMApiKeys(): Record<string, string | undefined> {
   return {
     openrouter: getLLMOpenRouterApiKey(),

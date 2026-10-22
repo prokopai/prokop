@@ -6,7 +6,7 @@ import type {
   UpdatePreconfigResponse,
   DeletePreconfigResponse,
 } from '../types/rest-responses';
-import type { PreconfigCapabilities, PreconfigMode, SessionHarness } from '../shared';
+import type { DelegationTargets, PreconfigCapabilities, PreconfigMode, SessionHarness } from '../shared';
 
 interface ListOptions {
   signal?: AbortSignal;
@@ -27,6 +27,8 @@ interface CreateOptions {
   mode?: PreconfigMode;
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  /** Explicit delegation targets allowed without a role; omit for any. */
+  delegationTargets?: DelegationTargets | null;
   skills?: string[] | null;
   /** Agent-level capability switches. Absent or null means all enabled. */
   capabilities?: PreconfigCapabilities | null;
@@ -50,6 +52,8 @@ interface UpdateOptions {
   mode?: PreconfigMode;
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  /** Explicit delegation targets allowed without a role. Omit to keep the stored value. */
+  delegationTargets?: DelegationTargets | null;
   skills?: string[] | null;
   /** Agent-level capability switches. Omit to keep the stored value. */
   capabilities?: PreconfigCapabilities | null;

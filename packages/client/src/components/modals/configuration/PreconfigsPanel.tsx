@@ -54,6 +54,7 @@ interface Preconfig {
   mode?: 'primary' | 'subagent' | 'both';
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  delegationTargets?: 'any' | 'none' | Array<'prokop' | 'codex-cli' | 'claude-cli'> | null;
   skills?: string[] | null;
   capabilities?: { memory?: boolean; skills?: boolean } | null;
 }
@@ -97,6 +98,8 @@ export interface PreconfigForm {
   canSpawnSubagentsMode: 'all' | 'none' | 'specific';
   canSpawnSubagentsList: string[];
   allowSelfAsSubagent: boolean;
+  delegationTargetsMode: 'any' | 'none' | 'specific';
+  delegationTargetsList: Array<'prokop' | 'codex-cli' | 'claude-cli'>;
   isDefault: boolean;
   capabilityMemory: boolean;
   capabilitySkills: boolean;
@@ -123,6 +126,8 @@ const emptyForm: PreconfigForm = {
   canSpawnSubagentsMode: 'none',
   canSpawnSubagentsList: [],
   allowSelfAsSubagent: false,
+  delegationTargetsMode: 'any',
+  delegationTargetsList: [],
   isDefault: false,
   capabilityMemory: true,
   capabilitySkills: true,
@@ -275,6 +280,9 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
           : 'specific',
       canSpawnSubagentsList: Array.isArray(preconfig.canSpawnSubagents) ? preconfig.canSpawnSubagents : [],
       allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
+      delegationTargetsMode: preconfig.delegationTargets === 'none' ? 'none'
+        : Array.isArray(preconfig.delegationTargets) ? 'specific' : 'any',
+      delegationTargetsList: Array.isArray(preconfig.delegationTargets) ? preconfig.delegationTargets : [],
       isDefault: preconfig.isDefault,
       capabilityMemory: preconfig.capabilities?.memory !== false,
       capabilitySkills: preconfig.capabilities?.skills !== false,
@@ -360,6 +368,9 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         settings: Object.keys(settings).length > 0 ? settings : null,
         canSpawnSubagents,
         allowSelfAsSubagent: form.allowSelfAsSubagent,
+        delegationTargets: form.delegationTargetsMode === 'any' ? 'any'
+          : form.delegationTargetsMode === 'none' ? 'none'
+            : form.delegationTargetsList,
         skills: null,
         ...(form.mode !== 'subagent'
           ? { capabilities: { memory: form.capabilityMemory, skills: form.capabilitySkills } }
@@ -401,6 +412,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         settings: preconfig.settings,
         canSpawnSubagents: preconfig.canSpawnSubagents ?? false,
         allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
+        delegationTargets: preconfig.delegationTargets ?? null,
         skills: null,
         capabilities: preconfig.capabilities ?? null,
         format: 'md',
@@ -830,6 +842,61 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                     onCheckedChange={(checked) => setForm({ ...form, allowSelfAsSubagent: checked })}
                   />
                 </SettingsRow>
+                <SettingsRow
+                  className={nested}
+                  label="Delegation targets"
+                  htmlFor="delegation-targets"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
+                    : 'Where this agent may send a task without naming a role: a harness and model it picks itself. Roles pinned to a harness always run there.'}
+                >
+                  <Select
+                    value={form.delegationTargetsMode}
+                    onValueChange={(value) => setForm({ ...form, delegationTargetsMode: value as 'any' | 'none' | 'specific' })}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                  >
+                    <SelectTrigger id="delegation-targets" className="sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="any">Any enabled harness</SelectItem>
+                        <SelectItem value="none">Roles only</SelectItem>
+                        <SelectItem value="specific">Specific harnesses</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                {form.delegationTargetsMode === 'specific' && (
+                  <SettingsRow className={nested} label="Allowed harnesses" stacked>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['prokop', 'Prokop'], ['codex-cli', 'Codex CLI'], ['claude-cli', 'Claude CLI']] as const).map(([id, label]) => {
+                        const selected = form.delegationTargetsList.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setForm(prev => ({
+                              ...prev,
+                              delegationTargetsList: selected
+                                ? prev.delegationTargetsList.filter(entry => entry !== id)
+                                : [...prev.delegationTargetsList, id],
+                            }))}
+                            className={cn(
+                              'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
+                              selected
+                                ? 'border-highlight bg-highlight/10 text-foreground'
+                                : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
+                          >
+                            {selected && <Check className="size-2.5" />}
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </SettingsRow>
+                )}
                 <SettingsRow className={nested} label="Temperature" htmlFor="agent-temperature" description="0.1 to 0.9; empty uses the server default. Not applied to GPT models on the Codex provider.">
                   <Input
                     id="agent-temperature"

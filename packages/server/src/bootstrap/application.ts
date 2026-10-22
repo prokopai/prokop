@@ -51,6 +51,8 @@ import { createWorktreeGitPort } from '@/infrastructure/git-worktrees';
 import { createWorktreeSetupRunner } from '@/application/worktree-setup';
 import { createSessionDeliveryApplication, type SessionDeliveryApplication } from '@/application/sessions/delivery';
 import { addSessionUpdatedObserver } from '@/application/sessions/updates';
+import { addAskCreatedObserver } from '@/application/sessions/asks';
+import { listPendingRequestsByRootSession } from '@/infrastructure/sqlite/pending-asks';
 import { createSessionDeliveryRepository } from '@/infrastructure/sqlite/session-deliveries';
 import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
 import {
@@ -125,6 +127,8 @@ import {
 import { createHarnessExecution } from '@prokopai/core/application/sessions/harness-execution';
 import { onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort, type HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
+import { installDelegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
@@ -311,6 +315,23 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const toolCatalog = createProkopToolCatalogPort();
   const managedWorktrees = createManagedWorktreeRepository(getDatabase);
   const harnessSettings = createHarnessSettingsApplication(createServerSettingsRepository(getDatabase));
+  // What a delegation checks before creating a child: the harness is enabled
+  // here and installed on this machine, and the root is under its child limit.
+  installDelegationHost({
+    harnessEnabled: harness => harness === 'prokop' || !harnessSettings.isDisabled(harness),
+    harnessAvailable: harness => harness === 'prokop' ? true : harness === 'codex-cli' ? codexCliAvailable() : claudeCliAvailable(),
+    maxChildren: getDelegationMaxChildren,
+    // After the parent stops waiting: results and ask wake-ups travel as
+    // deliveries; a cancel is the normal session interrupt.
+    deliver: async ({ sessionId, content, key }) => {
+      await sessionDelivery.deliver({ sessionId, content, key, origin: 'delegation' });
+    },
+    onAskCreated: addAskCreatedObserver,
+    hasPendingAsk: sessionId => listPendingRequestsByRootSession(sessionId).length > 0,
+    interrupt: async (sessionId, reason) => {
+      await execution.interruptSession(sessionId, reason);
+    },
+  });
   // Shared by both CLI harnesses: the same rule their turns enforce, plus the folder must exist.
   const codexWorkspaceAvailable = (workspaceId: string): boolean => {
     const workspace = getWorkspace(workspaceId);

@@ -7,14 +7,35 @@ import {
   emitToSession,
 } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
+import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
+import { getModelsConfig } from '@prokopai/core/config';
+import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
 import { getPreconfigOrAgent, listSubagentPreconfigs } from '#agent/harnesses/prokop/context/sources';
 import {
   createSession,
+  getChildSessions,
   getSession,
   getWorkspaceAutoApproveSeverity,
   listMessagesWithParts,
   updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
+import {
+  DEFAULT_WAIT_TIMEOUT_MS,
+  getTaskRegistry,
+  type TaskHandle,
+  type TaskRegistry,
+} from '#agent/harnesses/prokop/subagent/task-registry';
+import {
+  isSessionHarness,
+  resolveDelegationTarget,
+  validateDelegationTarget,
+  type DelegationCatalog,
+  type DelegationFailureCode,
+  type DelegationHostView,
+  type DelegationTarget,
+  type ResolvedDelegationTarget,
+} from '#agent/harnesses/prokop/subagent/delegation';
 import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
 import type { RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import type { SessionUpdates } from '@prokopai/core/infrastructure/storage/contracts';
@@ -43,7 +64,14 @@ const MAX_SUBAGENT_DEPTH = 2;
 export interface SubagentInput {
   description: string;
   prompt: string;
-  subagent_type: string;
+  /** A role. Optional when `target` names where the child runs. */
+  subagent_type?: string;
+  /** Where the child runs when the role does not pin it, or with no role at all. */
+  target?: DelegationTarget;
+  /** `wait` (default) returns the result; `async` returns at once and the result arrives as a message. */
+  mode?: 'wait' | 'async';
+  /** Wait only. On expiry the task turns async; it is never cancelled. */
+  timeoutMs?: number;
   task_id?: string;
   sessionId: string;
   workspaceId?: string;
@@ -64,8 +92,17 @@ export interface SubagentOutput {
   task_id: string;
   result: string;
   error?: string;
+  /** Why the delegation was refused, when it was. */
+  code?: DelegationFailureCode;
   /** Structured JSON result when outputSchema was provided */
   structuredResult?: Record<string, unknown>;
+  /** Present when the call returned before the child finished. */
+  status?: 'running';
+  harness?: SessionHarness;
+  model?: string | null;
+  waitTimedOut?: boolean;
+  /** The child is blocked on a question or approval the user sees on this session. */
+  pendingAsk?: boolean;
 }
 
 export interface SubagentServiceSessionAccess {
@@ -73,6 +110,8 @@ export interface SubagentServiceSessionAccess {
   createSession(session: Omit<Session, 'createdAt' | 'updatedAt'> & { createdAt?: string; updatedAt?: string }): Session | Promise<Session>;
   updateSession(id: string, updates: SessionUpdates): Session | null | Promise<Session | null>;
   getWorkspaceAutoApproveSeverity(workspaceId: string): Promise<Session['autoApproveSeverity']>;
+  /** Direct children, for the running-children limit. Absent: no limit is enforced. */
+  listChildSessions?(parentId: string): Session[] | Promise<Session[]>;
 }
 
 export interface SubagentServicePreconfigs {
@@ -99,7 +138,71 @@ export interface SubagentServiceDeps {
    */
   runOnHarness?: HeadlessSessionRunPort['run'];
   readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
+  /** Harness enabled and installed checks; absent means everything is allowed. */
+  host?: DelegationHostView;
+  /** Model catalogs for validating an explicit target. */
+  catalog?: DelegationCatalog;
+  /** Running children allowed per root session. */
+  maxChildren?: () => number;
+  /** Tracks tasks after the parent stops waiting; default: the shared registry. */
+  registry?: TaskRegistry;
 }
+
+/** Running descendants of `rootId`, the number the concurrency limit is checked against. */
+export async function countRunningDescendants(
+  rootId: string,
+  listChildSessions: NonNullable<SubagentServiceSessionAccess['listChildSessions']>,
+): Promise<number> {
+  let count = 0;
+  const pending = [rootId];
+  const seen = new Set<string>();
+  while (pending.length) {
+    const parentId = pending.pop()!;
+    if (seen.has(parentId)) continue;
+    seen.add(parentId);
+    for (const child of await listChildSessions(parentId)) {
+      if (child.subagentStatus === 'running') count += 1;
+      pending.push(child.id);
+    }
+  }
+  return count;
+}
+
+async function rootSessionId(
+  sessionId: string,
+  getSessionFn: (id: string) => Session | null | Promise<Session | null>,
+): Promise<string> {
+  let current = sessionId;
+  const seen = new Set<string>();
+  while (!seen.has(current)) {
+    seen.add(current);
+    const session = await getSessionFn(current);
+    if (!session?.parentId) break;
+    current = session.parentId;
+  }
+  return current;
+}
+
+function moduleCatalog(): DelegationCatalog {
+  return {
+    prokopModels: () => getModelsConfig().providers.flatMap((provider) =>
+      provider.models.map((model) => ({ id: model.id, name: model.name, providerId: provider.id }))),
+    harnessModels: (harness) => harnessProbes().models(harness),
+  };
+}
+
+function readTarget(raw: unknown): DelegationTarget | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const value = raw as Record<string, unknown>;
+  const target: DelegationTarget = {};
+  if (isSessionHarness(value.harness)) target.harness = value.harness;
+  for (const key of ['provider', 'model', 'variant'] as const) {
+    if (typeof value[key] === 'string' && value[key]) target[key] = value[key] as string;
+  }
+  return Object.keys(target).length ? target : undefined;
+}
+
+export { readTarget as readDelegationTarget };
 
 /** The harness a subagent role runs on; a Prokop role (or no pin) stays in-process. */
 export function subagentHarness(preconfig: Pick<Preconfig, 'modelHarness'>): SessionHarness {
@@ -164,6 +267,8 @@ Usage notes:
 4. Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches), since it is not aware of the user's intent. Tell it how to verify its work if possible (e.g., relevant test commands).
 5. If the agent description mentions that it should be proactively used, then you should try your best to use it without the user having to ask you to do so first. Use your judgement.
 6. Use the outputSchema parameter (a JSON Schema) to get structured, machine-readable output from a subagent instead of a free-text prose response. The subagent will be constrained to return JSON conforming to that schema.
+7. A role pinned to a harness or model always runs there; a target cannot change it. A role without a pin, or no role at all (then the child uses your own role), may take a target: the harness (prokop, codex-cli, claude-cli) and model to run on. Call delegation_capabilities to see roles, harnesses, models and what you may target.
+8. mode "wait" (default) returns the result in this call. mode "async" returns at once with status "running"; the result arrives later as a new message "[task <id> ... finished]" and you continue other work meanwhile. A wait that hits timeoutMs (default 10 minutes), or a child that stops for a question or approval, also returns with status "running" and the task continues async: never poll for it, it will come to you. Use task_status for an explicit check and task_cancel to stop one.
 
 When to use outputSchema (IMPORTANT - prefer it over free text in these cases):
 - AGGREGATION: When spawning multiple parallel agents and you need to combine, filter, compare, or deduplicate their results. Define a shared schema for all agents so you can merge results programmatically.
@@ -193,8 +298,28 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
         },
         subagent_type: {
           type: 'string',
-          description: 'The type of specialized agent to use for this agent',
+          description: 'The type of specialized agent to use for this agent. Omit only when target names where to run; the child then uses your own role.',
           ...(subagentTypeEnum.length > 0 && { enum: subagentTypeEnum }),
+        },
+        target: {
+          type: 'object',
+          description: 'Where the child runs when the role does not pin it: a harness and, optionally, a model, provider (Prokop only) and variant or effort. Refused when it contradicts the role\'s pin or your allowed targets.',
+          properties: {
+            harness: { type: 'string', enum: ['prokop', 'codex-cli', 'claude-cli'] },
+            model: { type: 'string' },
+            provider: { type: 'string' },
+            variant: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
+        mode: {
+          type: 'string',
+          enum: ['wait', 'async'],
+          description: 'wait (default): return the result here. async: return now; the result arrives as a message when the task finishes.',
+        },
+        timeoutMs: {
+          type: 'number',
+          description: 'wait only: how long to wait before the task turns async (default 600000). The task is never cancelled by a timeout.',
         },
         task_id: {
           type: 'string',
@@ -207,7 +332,7 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
           additionalProperties: true,
         },
       },
-      required: ['description', 'prompt', 'subagent_type'],
+      required: ['description', 'prompt'],
     },
     outputSchema: {
       type: 'object',
@@ -215,7 +340,13 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
         task_id: { type: 'string' },
         result: { type: 'string' },
         error: { type: 'string' },
+        code: { type: 'string' },
         structuredResult: { type: 'object', additionalProperties: true },
+        status: { type: 'string' },
+        harness: { type: 'string' },
+        model: { type: 'string' },
+        waitTimedOut: { type: 'boolean' },
+        pendingAsk: { type: 'boolean' },
       },
     },
   };
@@ -280,7 +411,11 @@ function moduleServiceDeps(): SubagentServiceDeps {
       createSession,
       updateSession,
       getWorkspaceAutoApproveSeverity,
+      listChildSessions: getChildSessions,
     },
+    host: delegationHost(),
+    catalog: moduleCatalog(),
+    maxChildren: getDelegationMaxChildren,
     preconfigs: {
       getPreconfigOrAgent,
       listSubagentPreconfigs,
@@ -311,6 +446,7 @@ async function runChildOnHarness(
     parentSessionId: string;
     child: Session;
     preconfig: Preconfig;
+    target: ResolvedDelegationTarget;
     prompt: string;
     workspacePath?: string;
     workspaceId?: string;
@@ -327,14 +463,16 @@ async function runChildOnHarness(
     harness: input.harness,
     parentSessionId: input.parentSessionId,
     childSessionId: input.child.id,
-    preconfig: input.preconfig,
+    // The resolved model and variant travel on the preconfig copy: the
+    // dispatcher pins them on the CLI session from there.
+    preconfig: { ...input.preconfig, modelHarness: input.harness, model: input.target.modelId, variant: input.target.variant },
     prompt: input.outputSchema
       ? `${input.prompt}\n\nReply with only a JSON object matching this schema, no prose:\n${JSON.stringify(input.outputSchema)}`
       : input.prompt,
     workspacePath: input.workspacePath,
     workspaceId: input.workspaceId ?? input.child.workspaceId,
-    modelId: input.preconfig.model ?? '',
-    providerId: input.preconfig.provider ?? '',
+    modelId: input.target.modelId ?? '',
+    providerId: input.target.providerId ?? '',
     resumeFromHistory: input.resumeFromHistory,
   }, { visible: true, signal: input.abortSignal });
   const messages = (await deps.readTranscript(input.child.id)).slice(before);
@@ -374,6 +512,9 @@ async function runSubagent(
     description,
     prompt,
     subagent_type,
+    target,
+    mode = 'wait',
+    timeoutMs,
     task_id,
     sessionId,
     workspaceId,
@@ -423,6 +564,7 @@ async function runSubagent(
       task_id: '',
       result: '',
       error: `Maximum subagent depth (${MAX_SUBAGENT_DEPTH}) reached. Cannot spawn more subagents.`,
+      code: 'depth_exceeded',
     };
   }
 
@@ -431,37 +573,55 @@ async function runSubagent(
       task_id: '',
       result: '',
       error: 'Subagent spawning is disabled for this agent.',
+      code: 'subagent_not_allowed',
     };
   }
 
-  // Validate subagent_type against the effective allowed list
-  const configuredAllowedIds = Array.isArray(parentPreconfig?.canSpawnSubagents)
-    ? [...parentPreconfig.canSpawnSubagents]
-    : allowedSubagentIds ? [...allowedSubagentIds] : undefined;
-  if (parentSession?.preconfigId && parentPreconfig?.allowSelfAsSubagent) {
-    configuredAllowedIds?.push(parentSession.preconfigId);
-  }
-  if (configuredAllowedIds && !configuredAllowedIds.includes(subagent_type)) {
+  // No role: the child is a copy of the parent's own role on an explicit
+  // target, governed by the parent's allowed targets rather than by the
+  // subagent allow-list (the plan's "pure parallelism" case).
+  const roleId = subagent_type ?? parentSession?.preconfigId ?? null;
+  if (!subagent_type && (!target || !parentPreconfig || !roleId)) {
     return {
       task_id: '',
       result: '',
-      error: `Subagent type "${subagent_type}" is not allowed for this agent. Allowed types: ${configuredAllowedIds.join(', ')}`,
+      error: 'Name a subagent_type (a role) or a target harness or model.',
+      code: 'invalid_request',
     };
   }
 
-  const ancestry = await collectSubagentAncestry(sessionId, getSessionFn);
-  const policy = evaluateSubagentTarget({
-    targetPreconfigId: subagent_type,
-    currentPreconfigId: parentSession?.preconfigId ?? null,
-    ancestryPreconfigIds: ancestry.preconfigIds,
-    allowSelfAsSubagent: parentPreconfig?.allowSelfAsSubagent === true,
-  });
-  if (!policy.allowed) {
-    return {
-      task_id: '',
-      result: '',
-      error: policy.error,
-    };
+  if (subagent_type) {
+    // Validate subagent_type against the effective allowed list
+    const configuredAllowedIds = Array.isArray(parentPreconfig?.canSpawnSubagents)
+      ? [...parentPreconfig.canSpawnSubagents]
+      : allowedSubagentIds ? [...allowedSubagentIds] : undefined;
+    if (parentSession?.preconfigId && parentPreconfig?.allowSelfAsSubagent) {
+      configuredAllowedIds?.push(parentSession.preconfigId);
+    }
+    if (configuredAllowedIds && !configuredAllowedIds.includes(subagent_type)) {
+      return {
+        task_id: '',
+        result: '',
+        error: `Subagent type "${subagent_type}" is not allowed for this agent. Allowed types: ${configuredAllowedIds.join(', ')}`,
+        code: 'subagent_not_allowed',
+      };
+    }
+
+    const ancestry = await collectSubagentAncestry(sessionId, getSessionFn);
+    const policy = evaluateSubagentTarget({
+      targetPreconfigId: subagent_type,
+      currentPreconfigId: parentSession?.preconfigId ?? null,
+      ancestryPreconfigIds: ancestry.preconfigIds,
+      allowSelfAsSubagent: parentPreconfig?.allowSelfAsSubagent === true,
+    });
+    if (!policy.allowed) {
+      return {
+        task_id: '',
+        result: '',
+        error: policy.error,
+        code: 'subagent_not_allowed',
+      };
+    }
   }
 
   let childSession: Session | undefined | null;
@@ -485,7 +645,9 @@ async function runSubagent(
   };
 
   try {
-    const subagentPreconfig = await getPreconfigOrAgentFn(subagent_type);
+    const subagentPreconfig = subagent_type
+      ? await getPreconfigOrAgentFn(subagent_type)
+      : parentPreconfig;
     if (!subagentPreconfig) {
       const available = await listSubagentPreconfigsFn();
       const availableNames = available.map((s) => s.id).join(', ');
@@ -493,10 +655,11 @@ async function runSubagent(
         task_id: '',
         result: '',
         error: `Unknown subagent type: "${subagent_type}". Available subagents: ${availableNames || 'none'}`,
+        code: 'invalid_request',
       };
     }
 
-    if (!isValidSubagentTargetPreconfig(
+    if (subagent_type && !isValidSubagentTargetPreconfig(
       subagentPreconfig,
       parentSession?.preconfigId ?? null,
       parentPreconfig?.allowSelfAsSubagent === true,
@@ -505,7 +668,38 @@ async function runSubagent(
         task_id: '',
         result: '',
         error: `Preconfig "${subagent_type}" cannot be used as a subagent.`,
+        code: 'subagent_not_allowed',
       };
+    }
+
+    // Where the child runs: the role's pin, then the explicit target, then
+    // the parent's own harness and model. Pins are the user's routing rule.
+    const resolution = resolveDelegationTarget({
+      role: subagent_type ? subagentPreconfig : null,
+      target,
+      inherited: {
+        harness: parentSession?.harness ?? 'prokop',
+        modelId: parentModelId,
+        providerId: parentProviderId,
+        variant: parentSession?.selectedVariant ?? null,
+      },
+      parentPreconfig,
+    });
+    if (!resolution.ok) {
+      return { task_id: '', result: '', error: resolution.error, code: resolution.code };
+    }
+    const resolved = resolution.target;
+    const harness = resolved.harness;
+    const crossHarness = harness !== 'prokop';
+    // A model the model chose itself is checked against the host; a pin was
+    // checked when the role was saved, an inherited one is already in use.
+    if (deps.host || resolution.source === 'target') {
+      const valid = await validateDelegationTarget(
+        resolution.source === 'target' ? resolved : { ...resolved, modelId: null },
+        deps.host ?? { harnessEnabled: () => true, harnessAvailable: () => true },
+        deps.catalog ?? { prokopModels: () => [], harnessModels: async () => [] },
+      );
+      if (!valid.ok) return { task_id: '', result: '', error: valid.error, code: valid.code };
     }
 
     if (task_id) {
@@ -513,12 +707,13 @@ async function runSubagent(
       if (!childSession) {
         childSession = null;
       } else {
-        const resumeError = getSubagentResumeError(childSession, sessionId, subagent_type);
+        const resumeError = getSubagentResumeError(childSession, sessionId, roleId!);
         if (resumeError) {
           return {
             task_id: '',
             result: '',
             error: resumeError,
+            code: 'task_not_found',
           };
         }
 
@@ -527,43 +722,48 @@ async function runSubagent(
       }
     }
 
-    // A role pinned to Claude CLI or Codex CLI runs there; its session is
-    // owned by that harness from creation, with the harness's own model
-    // choice (the CLI default unless the role pins one).
-    const harness = subagentHarness(subagentPreconfig);
-    const crossHarness = harness !== 'prokop';
-    if (crossHarness && childSession && childSession.harness !== harness) {
+    if (childSession && (childSession.harness ?? 'prokop') !== harness) {
       return {
         task_id: '',
         result: '',
         error: `Invalid task_id: the subagent runs on ${childSession.harness ?? 'prokop'}, not ${harness}`,
+        code: 'task_not_found',
       };
     }
 
     if (!childSession) {
+      // At most N running children per root, however deep they sit.
+      if (deps.sessionAccess.listChildSessions && deps.maxChildren) {
+        const limit = deps.maxChildren();
+        const root = await rootSessionId(sessionId, getSessionFn);
+        const running = await countRunningDescendants(root, deps.sessionAccess.listChildSessions);
+        if (running >= limit) {
+          return {
+            task_id: '',
+            result: '',
+            error: `${running} subagents are already running under this session (limit ${limit}). Wait for one to finish.`,
+            code: 'concurrency_limit',
+          };
+        }
+      }
+
       childSession = await createSessionFn({
         id: randomUUID(),
         workspaceId: workspaceId || parentSession?.workspaceId || '',
         workspaceRootId: parentSession?.workspaceRootId ?? null,
-        preconfigId: subagent_type,
-        title: `${description} (@${subagent_type} subagent)`,
+        preconfigId: roleId,
+        title: `${description} (@${roleId} subagent)`,
         status: 'active',
         metadata: null,
         parentId: sessionId,
-        agentName: subagent_type,
+        agentName: roleId,
         subagentStatus: 'running',
         ...(crossHarness ? { harness } : {}),
-        selectedModel: crossHarness
-          ? subagentPreconfig.model
-          : subagentPreconfig.model !== null
-            ? subagentPreconfig.model
-            : parentModelId,
-        selectedProvider: crossHarness
-          ? null
-          : subagentPreconfig.provider !== null
-            ? subagentPreconfig.provider
-            : parentProviderId,
-        selectedVariant: subagentPreconfig.variant ?? null,
+        selectedModel: resolved.modelId,
+        selectedProvider: resolved.providerId,
+        selectedVariant: resolved.variant,
+        // The child never widens what the parent may do.
+        permissionMode: parentSession?.permissionMode ?? null,
         autoApproveSeverity: await getWorkspaceAutoApproveSeverityFn(workspaceId || ''),
       });
 
@@ -592,37 +792,43 @@ async function runSubagent(
         }
       : undefined;
 
+    const child = childSession;
+    // Parent aborts reach the child only while the parent waits; once the
+    // task turns async it runs to completion on its own.
+    const childAbort = new AbortController();
+    const forwardAbort = (): void => childAbort.abort(abortSignal?.reason);
+    if (abortSignal?.aborted) forwardAbort();
+    else abortSignal?.addEventListener('abort', forwardAbort, { once: true });
+    const detachAbort = (): void => abortSignal?.removeEventListener('abort', forwardAbort);
+
+    const finishRun = async (): Promise<SubagentOutput> => {
     const result = crossHarness
       ? await runChildOnHarness(deps, {
           harness,
           parentSessionId: sessionId,
-          child: childSession,
+          child,
           preconfig: subagentPreconfig,
+          target: resolved,
           prompt,
           workspacePath,
           workspaceId,
           resumeFromHistory,
           outputSchema,
-          abortSignal,
+          abortSignal: childAbort.signal,
         })
       : await executeChild({
           parentSessionId: sessionId,
-          childSessionId: childSession.id,
+          childSessionId: child.id,
           preconfig: subagentPreconfig,
           prompt,
           workspacePath,
           workspaceId,
           resumeFromHistory,
-          // Inherit model from parent if preconfig doesn't specify one
-          modelId: subagentPreconfig.model !== null
-            ? subagentPreconfig.model
-            : parentModelId,
-          providerId: subagentPreconfig.provider !== null
-            ? subagentPreconfig.provider
-            : parentProviderId,
-          variant: subagentPreconfig.variant ?? undefined,
+          modelId: resolved.modelId,
+          providerId: resolved.providerId,
+          variant: resolved.variant ?? undefined,
           broadcast: broadcastFn,
-          abortSignal,
+          abortSignal: childAbort.signal,
           broadcastToSession: broadcastToSessionFn ?? ((event: Parameters<BroadcastFn>[0]) => {
             deps.broadcasts.toSession(sessionId, event);
           }),
@@ -632,7 +838,7 @@ async function runSubagent(
     // Check if was aborted during execution
     if (wasAborted) {
       return {
-        task_id: childSession.id,
+        task_id: child.id,
         result: '',
         error: 'Subagent execution was interrupted',
       };
@@ -640,14 +846,14 @@ async function runSubagent(
 
     // Update subagent status based on execution result
     if (result.error) {
-      await updateSessionFn(childSession.id, { subagentStatus: 'error' });
-      const updatedSession = await getSessionFn(childSession.id);
+      await updateSessionFn(child.id, { subagentStatus: 'error' });
+      const updatedSession = await getSessionFn(child.id);
       if (updatedSession) {
         broadcastSessUpdated(updatedSession);
       }
     } else {
-      await updateSessionFn(childSession.id, { subagentStatus: 'completed' });
-      const updatedSession = await getSessionFn(childSession.id);
+      await updateSessionFn(child.id, { subagentStatus: 'completed' });
+      const updatedSession = await getSessionFn(child.id);
       if (updatedSession) {
         broadcastSessUpdated(updatedSession);
       }
@@ -666,7 +872,7 @@ async function runSubagent(
     // If there's an error and no text, return it directly
     if (result.error && !text) {
       return {
-        task_id: childSession.id,
+        task_id: child.id,
         result: '',
         error: result.error,
       };
@@ -674,7 +880,7 @@ async function runSubagent(
 
     // Format output like OpenCode with task_result tags
     const output = [
-      `task_id: ${childSession.id} (for resuming to continue this task if needed)`,
+      `task_id: ${child.id} (for resuming to continue this task if needed)`,
       '',
       '<task_result>',
       text || 'No response generated',
@@ -685,16 +891,47 @@ async function runSubagent(
     ].join('\n');
 
     return {
-      task_id: childSession.id,
+      task_id: child.id,
       result: output,
       ...(structuredResult ? { structuredResult } : {}),
       ...(result.error && { error: result.error }),
     };
+    };
+
+    const handle: TaskHandle = {
+      taskId: child.id,
+      parentSessionId: sessionId,
+      description,
+      harness,
+      model: resolved.modelId,
+      run: finishRun().finally(detachAbort),
+    };
+    const registry = deps.registry ?? getTaskRegistry(getSessionFn);
+    const accepted = (flags: { waitTimedOut: boolean; pendingAsk: boolean }): SubagentOutput => {
+      detachAbort();
+      registry.watch(handle);
+      return {
+        task_id: child.id,
+        status: 'running',
+        harness,
+        model: resolved.modelId,
+        waitTimedOut: flags.waitTimedOut,
+        pendingAsk: flags.pendingAsk,
+        result: `task_id: ${child.id} is running on ${harness}/${resolved.modelId ?? 'default'}. `
+          + 'Its result arrives as a new message when it finishes; continue other work meanwhile, do not poll.'
+          + (flags.pendingAsk ? ' It is waiting for the user to answer a question or approval shown on this session.' : '')
+          + (flags.waitTimedOut ? ' The wait timed out; the task was not cancelled.' : ''),
+      };
+    };
+    if (mode === 'async') return accepted({ waitTimedOut: false, pendingAsk: false });
+    const waited = await registry.wait(handle, timeoutMs && timeoutMs > 0 ? timeoutMs : DEFAULT_WAIT_TIMEOUT_MS);
+    if (waited.kind === 'done') return waited.output;
+    return accepted({ waitTimedOut: waited.kind === 'timeout', pendingAsk: waited.kind === 'ask' });
   } catch (err: unknown) {
     console.error('[executeSubagent] AI SDK error', {
       sessionId,
       childSessionId: childSession?.id,
-      subagentType: subagent_type,
+      subagentType: roleId,
       rawError: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err,
     });
 

@@ -56,4 +56,14 @@ export interface Preconfig {
   capabilities?: PreconfigCapabilities | null;
 
   modelHarness?: SessionHarness | null;
+  /**
+   * Which explicit delegation targets (a harness or model named by the model
+   * itself, without a role) this preconfig may use.
+   * - undefined, null or 'any': any enabled harness and model (default)
+   * - 'none': only subagent roles
+   * - string[]: only these harnesses
+   */
+  delegationTargets?: DelegationTargets | null;
 }
+
+export type DelegationTargets = 'any' | 'none' | SessionHarness[];

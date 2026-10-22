@@ -16,6 +16,22 @@ const MODEL_HARNESSES = new Set(['prokop', 'codex-cli', 'claude-cli']);
 /** Stored modelHarness is coerced at every read exit: an unknown or
  * malformed value falls back to null (Prokop semantics), so a hand-edited
  * file can never pin a session onto a nonexistent harness. */
+const DELEGATION_HARNESSES = new Set(['prokop', 'codex-cli', 'claude-cli']);
+
+/**
+ * Stored delegationTargets coerced at every read exit: `any`, `none`, or a
+ * list of known harnesses; anything else reads as null (any).
+ */
+export function parseDelegationTargets(raw: unknown): Preconfig['delegationTargets'] {
+  if (raw === 'any' || raw === 'none') return raw;
+  if (Array.isArray(raw)) {
+    const harnesses = raw.filter((entry): entry is NonNullable<Preconfig['modelHarness']> =>
+      typeof entry === 'string' && DELEGATION_HARNESSES.has(entry));
+    return [...new Set(harnesses)];
+  }
+  return null;
+}
+
 function parseModelHarness(raw: unknown): NonNullable<Preconfig['modelHarness']> | null {
   return typeof raw === 'string' && MODEL_HARNESSES.has(raw)
     ? (raw as NonNullable<Preconfig['modelHarness']>)
@@ -199,6 +215,7 @@ function parsePreconfigMd(content: string): Preconfig {
     provider: data.provider ?? null,
     variant: data.variant ?? null,
     modelHarness: parseModelHarness(data.modelHarness),
+    delegationTargets: parseDelegationTargets(data.delegationTargets),
     settings: data.settings ?? null,
     isDefault: data.isDefault ?? false,
     mode: data.mode,
@@ -319,6 +336,7 @@ export async function listPreconfigs(): Promise<Preconfig[]> {
         ...parsed,
         allowSelfAsSubagent: parsed.allowSelfAsSubagent ?? false,
         modelHarness: parseModelHarness(parsed.modelHarness),
+        delegationTargets: parseDelegationTargets(parsed.delegationTargets),
       });
     } catch (e) {
       console.error(`Failed to read preconfig ${file}:`, e);
@@ -348,7 +366,11 @@ export function getPreconfigSync(id: string): Preconfig | null {
     const jsonPath = getPreconfigJsonPath(id);
     if (existsSync(jsonPath)) {
       const parsed = JSON.parse(readFileSync(jsonPath, 'utf-8')) as Preconfig;
-      return { ...parsed, modelHarness: parseModelHarness(parsed.modelHarness) };
+      return {
+        ...parsed,
+        modelHarness: parseModelHarness(parsed.modelHarness),
+        delegationTargets: parseDelegationTargets(parsed.delegationTargets),
+      };
     }
   } catch {
     return null;
@@ -397,6 +419,7 @@ export async function getPreconfig(id: string): Promise<Preconfig | null> {
       ...parsed,
       allowSelfAsSubagent: parsed.allowSelfAsSubagent ?? false,
       modelHarness: parseModelHarness(parsed.modelHarness),
+      delegationTargets: parseDelegationTargets(parsed.delegationTargets),
     };
   } catch (_e) {
     return null;

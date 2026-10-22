@@ -29,12 +29,26 @@ import {
   executeSubagent,
   executeSubagentWithDeps,
   getSubagentToolDefinition,
+  readDelegationTarget,
   type GetSubagentToolDefinitionOptions,
   type SubagentInput,
   type SubagentServiceBroadcasts,
   type SubagentServiceDeps,
   type SubagentServiceSessionAccess,
 } from '#agent/harnesses/prokop/subagent/task-tool';
+import {
+  buildDelegationCapabilities,
+  type DelegationCatalog,
+  type DelegationHostView,
+} from '#agent/harnesses/prokop/subagent/delegation';
+import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
+import { getModelsConfig } from '@prokopai/core/config';
+import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
+import { resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure/providers/model-selection';
+import { getPreconfigOrAgent, listSubagentPreconfigs } from '#agent/harnesses/prokop/context/sources';
+import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
+import type { Session } from '@prokopai/sdk/types';
 import {
   capekContextSourcesKey,
   capekRuntimeHostKey,
@@ -53,6 +67,8 @@ import {
 
 export const CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID = 'current.subagent-domain';
 export const SUBAGENT_TOOL_CONTRIBUTION_ID = 'subagent.task';
+export const DELEGATION_CAPABILITIES_CONTRIBUTION_ID = 'subagent.delegation-capabilities';
+export const DELEGATION_CAPABILITIES_TOOL_NAME = 'delegation_capabilities';
 /** Before session-search (700) so the contributed tool
  * order keeps `task` ahead of the workspace-gated domain tools, matching
  * the pre-C5 buildAiSdkTools phase-1 placement. */
@@ -143,7 +159,10 @@ function taskPayload(deps: TaskPayloadDeps): DomainToolPayload {
       const subagentInput: SubagentInput = {
         description: input.description as string,
         prompt: input.prompt as string,
-        subagent_type: input.subagent_type as string,
+        subagent_type: typeof input.subagent_type === 'string' && input.subagent_type ? input.subagent_type : undefined,
+        target: readDelegationTarget(input.target),
+        mode: input.mode === 'async' ? 'async' : 'wait',
+        timeoutMs: typeof input.timeoutMs === 'number' ? input.timeoutMs : undefined,
         task_id: input.task_id as string | undefined,
         sessionId: context.sessionId,
         workspaceId: typeof context.workspaceId === 'string' ? context.workspaceId : undefined,
@@ -159,6 +178,65 @@ function taskPayload(deps: TaskPayloadDeps): DomainToolPayload {
   };
 }
 
+interface CapabilitiesPayloadDeps {
+  canSpawn: (sessionId: string) => boolean | Promise<boolean>;
+  getSession: (sessionId: string) => Session | null | Promise<Session | null>;
+  getPreconfig: (id: string) => Promise<Preconfig | null>;
+  listRoles: (sessionId: string, allowedSubagentIds?: string[]) => Promise<Preconfig[]>;
+  host: () => DelegationHostView;
+  catalog: () => DelegationCatalog;
+  maxChildren: () => number;
+}
+
+/** The module-level catalog: Prokop models from the config, CLI models from the probes. */
+export function moduleDelegationCatalog(): DelegationCatalog {
+  return {
+    prokopModels: () => getModelsConfig().providers.flatMap((provider) =>
+      provider.models.map((model) => ({ id: model.id, name: model.name, providerId: provider.id }))),
+    harnessModels: (harness) => harnessProbes().models(harness),
+  };
+}
+
+/**
+ * `delegation_capabilities`: the short picture a model needs before it
+ * delegates. Visible wherever `task` is.
+ */
+export function capabilitiesPayload(deps: CapabilitiesPayloadDeps): DomainToolPayload {
+  return {
+    name: DELEGATION_CAPABILITIES_TOOL_NAME,
+    description: 'What you can delegate to: your roles (subagent types) with their pinned harness and model, the harnesses '
+      + 'enabled on this machine with a short list of their models, which targets you may name without a role, and the '
+      + 'limits. Call it before using a target on the task tool. Pass search to find models beyond the short lists.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Filter models by id or name (case-insensitive).' },
+      },
+    },
+    display: { summary: 'delegation capabilities' },
+    isEnabled: async (_workspaceId, sessionId) => typeof sessionId === 'string' && await deps.canSpawn(sessionId),
+    execute: async (input, context) => {
+      const session = await deps.getSession(context.sessionId);
+      const parentPreconfig = session?.preconfigId ? await deps.getPreconfig(session.preconfigId) : null;
+      const roles = await deps.listRoles(context.sessionId, context.allowedSubagentIds as string[] | undefined);
+      const capabilities = await buildDelegationCapabilities({
+        roles,
+        caller: {
+          harness: session?.harness ?? 'prokop',
+          model: session ? resolveModelId(session, parentPreconfig) : null,
+          provider: session ? resolveProviderId(session, parentPreconfig) : null,
+        },
+        parentPreconfig,
+        host: deps.host(),
+        catalog: deps.catalog(),
+        limits: { depth: 2, maxChildren: deps.maxChildren() },
+        search: typeof input.search === 'string' ? input.search : undefined,
+      });
+      return capabilities as unknown as Record<string, unknown>;
+    },
+  };
+}
+
 /** Unscoped compatibility payload: keeps the pre-C5 execute-time module
  * accessors. Installed through `installTaskToolFallback`, never at module
  * load. */
@@ -170,11 +248,32 @@ export function createTaskToolFallbackPayload(): DomainToolPayload {
   });
 }
 
+export function createCapabilitiesFallbackPayload(): DomainToolPayload {
+  return capabilitiesPayload({
+    canSpawn: (sessionId) => canSpawnSubagent(sessionId),
+    getSession,
+    getPreconfig: getPreconfigOrAgent,
+    listRoles: async (sessionId, allowedSubagentIds) => {
+      const session = await getSession(sessionId);
+      const preconfig = session?.preconfigId ? await getPreconfigOrAgent(session.preconfigId) : null;
+      return resolveEffectiveSubagentTargets({
+        sessionId,
+        canSpawnSubagents: allowedSubagentIds ?? preconfig?.canSpawnSubagents ?? true,
+        allowSelfAsSubagent: preconfig?.allowSelfAsSubagent,
+      }, { getSession, listPreconfigs: listSubagentPreconfigs });
+    },
+    host: delegationHost,
+    catalog: moduleDelegationCatalog,
+    maxChildren: getDelegationMaxChildren,
+  });
+}
+
 /** Explicitly installs the unscoped legacy fallback. Called by the Jean2
  * compatibility bindings installation (server bootstrap) and by focused
  * tests; no module-load registration exists. */
 export function installTaskToolFallback(): void {
   registerDomainToolFallback('task', createTaskToolFallbackPayload());
+  registerDomainToolFallback(DELEGATION_CAPABILITIES_TOOL_NAME, createCapabilitiesFallbackPayload());
 }
 
 type GuidanceSectionContribution = ContextSectionContribution<ContextAssemblyData>;
@@ -202,6 +301,7 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
         getWorkspaceAutoApproveSeverity: async (workspaceId) => storage.workspaces.getAutoApproveSeverity?.(workspaceId),
       };
 
+      sessionAccess.listChildSessions = async (parentId) => storage.conversation.getChildSessions(parentId);
       const serviceDeps: SubagentServiceDeps = {
         sessionAccess,
         preconfigs: {
@@ -210,6 +310,19 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
         },
         broadcasts: broadcastsFromHost(host),
         executeChild: executeChildSession,
+        host: delegationHost(),
+        catalog: moduleDelegationCatalog(),
+        maxChildren: getDelegationMaxChildren,
+      };
+      const listRolesScoped = async (sessionId: string, allowedSubagentIds?: string[]): Promise<Preconfig[]> => {
+        const session = await sessionAccess.getSession(sessionId);
+        const preconfig = session?.preconfigId ? await getPreconfigOrAgentScoped(session.preconfigId) : null;
+        return resolveEffectiveSubagentTargets({
+          sessionId,
+          canSpawnSubagents: allowedSubagentIds ?? preconfig?.canSpawnSubagents ?? true,
+          allowSelfAsSubagent: preconfig?.allowSelfAsSubagent,
+          maximumDepthReached: !(await canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession)),
+        }, { getSession: sessionAccess.getSession, listPreconfigs: listSubagentPreconfigsScoped });
       };
 
       const service: SubagentDomainService = {
@@ -231,6 +344,15 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
                 targets.length === 0 ? null : buildTaskToolDefinition(targets));
             },
             execute: (input) => executeSubagentWithDeps(input, serviceDeps) as unknown as Promise<Record<string, unknown>>,
+          }),
+          capabilitiesPayload({
+            canSpawn: async (sessionId) => canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession),
+            getSession: sessionAccess.getSession,
+            getPreconfig: getPreconfigOrAgentScoped,
+            listRoles: listRolesScoped,
+            host: delegationHost,
+            catalog: moduleDelegationCatalog,
+            maxChildren: getDelegationMaxChildren,
           }),
         ],
         canSpawnSubagent: async (sessionId) => canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession),
@@ -272,6 +394,17 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
           inputSchema: service.tools[0].inputSchema,
           timeout: null,
           [DOMAIN_TOOL_PAYLOAD_FIELD]: service.tools[0],
+        } as KernelToolDefinition,
+        requiredCapabilities: [capekSubagentDomainKey],
+      });
+      context.contributeTool({
+        id: DELEGATION_CAPABILITIES_CONTRIBUTION_ID,
+        order: SUBAGENT_TOOL_CONTRIBUTION_ORDER + 1,
+        definition: {
+          name: service.tools[1].name,
+          description: service.tools[1].description,
+          inputSchema: service.tools[1].inputSchema,
+          [DOMAIN_TOOL_PAYLOAD_FIELD]: service.tools[1],
         } as KernelToolDefinition,
         requiredCapabilities: [capekSubagentDomainKey],
       });
