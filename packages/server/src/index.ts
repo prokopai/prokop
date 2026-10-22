@@ -110,6 +110,11 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
   // A worktree setup that was running when the previous process stopped
   // never resumes on its own; its record says so and Retry is manual.
   application.worktrees.recoverSetups();
+  // Deliveries a session could not take before the previous process stopped
+  // get one attempt now; the rest wait for their session's next idle update.
+  void application.sessionDelivery.retryAll().catch((error: unknown) => {
+    console.warn('[startup] Pending session deliveries failed:', error);
+  });
   installWireApplication({ session: application.session, control: application.control, providers: application.providers, notifications: application.notifications, permissions: application.permissions, gitStatus: application.files.gitStatusFeed, fileTree: application.files.fileTreeFeed });
   // Every primary/both preconfig becomes an agent on boot: fresh installs
   // ship prokop-code as a real agent and existing installs gain agents for

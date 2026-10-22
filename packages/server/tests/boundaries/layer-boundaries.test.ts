@@ -1203,8 +1203,10 @@ describe('server layer boundaries', () => {
         resolve(infrastructureSqliteDir, 'session-store.ts'),
         [
           '@/application/ports/session-message',
-          // Activity notices for the learning scheduler and workspace lists.
+          // Activity notices for the learning scheduler and workspace lists,
+          // and row updates for server observers (pending deliveries).
           '@/application/learning/activity',
+          '@/application/sessions/updates',
           '@/application/workspaces/activity',
           '@/infrastructure/session-search/fts',
           '@prokopai/sdk',

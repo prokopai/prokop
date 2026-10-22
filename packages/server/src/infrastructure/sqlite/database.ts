@@ -156,6 +156,24 @@ export function initializeSchema(db: Database): void {
     commands TEXT,
     updated_at TEXT NOT NULL
   )`);
+  // Server-originated messages to sessions (task results, agent messages,
+  // group catch-ups): persisted so one that cannot be accepted right now
+  // (compacting, archived) is retried when the session can take it, and so
+  // a retried tool call or a restart never delivers twice.
+  db.run(`CREATE TABLE IF NOT EXISTS session_deliveries (
+    delivery_key TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    origin TEXT NOT NULL,
+    content TEXT NOT NULL,
+    steer INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    delivered_at TEXT
+  )`);
+  db.run('CREATE INDEX IF NOT EXISTS idx_session_deliveries_pending ON session_deliveries(session_id, state)');
+
   db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
     repository_id TEXT NOT NULL,
     config_hash TEXT NOT NULL,

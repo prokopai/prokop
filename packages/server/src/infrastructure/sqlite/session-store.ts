@@ -7,6 +7,7 @@
 import { getDatabase } from './database';
 import { clearSessionHarnessState, putHarnessState } from './harness-state';
 import { notifyLearningActivity } from '@/application/learning/activity';
+import { notifySessionUpdated } from '@/application/sessions/updates';
 import type { Session, SessionStatus, SessionHarness, HarnessModelChoice, Workspace, SessionListFilter, SessionCategoryCounts } from '@prokopai/sdk';
 import { getWorkspace, getWorkspaceLastConversationAt } from './workspaces';
 import { notifyWorkspaceActivity } from '@/application/workspaces/activity';
@@ -141,6 +142,7 @@ export function updateSession(
 ): Session | null {
   const result = repo().updateSession(id, updates);
   notifyLearningActivity();
+  if (result) notifySessionUpdated(result);
   return result;
 }
 

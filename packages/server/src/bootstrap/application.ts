@@ -49,6 +49,9 @@ import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed
 import { countMessagesInSession } from '@/infrastructure/sqlite/message-store';
 import { createWorktreeGitPort } from '@/infrastructure/git-worktrees';
 import { createWorktreeSetupRunner } from '@/application/worktree-setup';
+import { createSessionDeliveryApplication, type SessionDeliveryApplication } from '@/application/sessions/delivery';
+import { addSessionUpdatedObserver } from '@/application/sessions/updates';
+import { createSessionDeliveryRepository } from '@/infrastructure/sqlite/session-deliveries';
 import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
 import {
   createWorktreePortProbe,
@@ -145,6 +148,8 @@ export interface WiredApplication {
   workspaces: WorkspaceApplication;
   /** Managed session worktree lifecycle and binding use cases. */
   worktrees: WorktreeApplication;
+  /** Server-originated messages to sessions: task results, agent messages, catch-ups. */
+  sessionDelivery: SessionDeliveryApplication;
   /** The wired tools catalog and environment use cases (S4). */
   tools: ToolsHttpApplication;
   /** The wired MCP lifecycle use cases (S5). */
@@ -225,6 +230,22 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       sendToAskTargets: sendToAskTargetsEvent,
     },
   });
+  // Server features (delegation results, agent messages, group catch-ups)
+  // reach a session's model only through this primitive; it persists what a
+  // session cannot take yet and retries on the session's next idle update.
+  const sessionDelivery = createSessionDeliveryApplication<ConnectionId>({
+    repository: createSessionDeliveryRepository(getDatabase),
+    sessions: repository,
+    execution,
+    delivery: {
+      broadcast: broadcastEvent,
+      broadcastToSession: broadcastToSessionEvent,
+      sendToController: sendToControllerEvent,
+      sendToAskTargets: sendToAskTargetsEvent,
+    },
+    originFor: (key) => `delivery:${key}` as ConnectionId,
+  });
+  addSessionUpdatedObserver(sessionDelivery.onSessionUpdated);
   // Headless (scheduled) dispatch routes through the harness registry: the
   // Prokop registration owns the composed-scope child run; harnesses
   // without headless support fail closed per run and are rejected at job
@@ -498,7 +519,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       if (harness === 'codex-cli') saveCodexModelSelection(sessionId, { model, effort });
       else saveClaudeModelSelection(sessionId, { model, effort });
     },
-  }), session, control, http, scheduling, schedulerTicker, agents, workspaces, worktrees, tools, mcp, providers, notifications, permissions, files, pullRequests, configuration, maintenance, responseFormats, deviceAccess, attention };
+  }), session, control, http, scheduling, schedulerTicker, agents, workspaces, worktrees, sessionDelivery, tools, mcp, providers, notifications, permissions, files, pullRequests, configuration, maintenance, responseFormats, deviceAccess, attention };
 }
 
 /**
