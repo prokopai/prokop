@@ -7,7 +7,7 @@ import {
   emitToSession,
 } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
-import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { delegationHost, type DelegationHostPort } from '@prokopai/core/application/ports/delegation-host';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { getModelsConfig } from '@prokopai/core/config';
 import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
@@ -72,6 +72,8 @@ export interface SubagentInput {
   mode?: 'wait' | 'async';
   /** Wait only. On expiry the task turns async; it is never cancelled. */
   timeoutMs?: number;
+  /** Stable per logical task: a retried call returns the same task instead of a second child. */
+  clientRequestId?: string;
   task_id?: string;
   sessionId: string;
   workspaceId?: string;
@@ -138,14 +140,97 @@ export interface SubagentServiceDeps {
    */
   runOnHarness?: HeadlessSessionRunPort['run'];
   readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
-  /** Harness enabled and installed checks; absent means everything is allowed. */
-  host?: DelegationHostView;
+  /** Harness enabled and installed checks (plus asks, interrupts and task rows); absent means everything is allowed, nothing persisted. */
+  host?: DelegationHostView & Partial<Pick<DelegationHostPort, 'hasPendingAsk' | 'interrupt' | 'tasks'>>;
   /** Model catalogs for validating an explicit target. */
   catalog?: DelegationCatalog;
   /** Running children allowed per root session. */
   maxChildren?: () => number;
   /** Tracks tasks after the parent stops waiting; default: the shared registry. */
   registry?: TaskRegistry;
+  /**
+   * Run every child, Prokop ones included, through the host's harness
+   * dispatch. CLI parents set this: their tool call runs outside the Prokop
+   * execution scope the in-process child needs.
+   */
+  childrenOnHost?: boolean;
+}
+
+export type TaskLifecycleStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+
+export interface TaskStatusOutput {
+  task_id: string;
+  status: TaskLifecycleStatus;
+  harness: SessionHarness;
+  model: string | null;
+  /** The child's last answer once it is no longer running. */
+  result: string | null;
+  pendingAsk: boolean;
+  error?: string;
+  code?: DelegationFailureCode;
+}
+
+function lifecycleStatus(session: Session): TaskLifecycleStatus {
+  switch (session.subagentStatus) {
+    case 'running': return 'running';
+    case 'completed': return 'completed';
+    case 'error': return 'failed';
+    case 'interrupted': return 'interrupted';
+    default: return session.runningAt ? 'running' : 'completed';
+  }
+}
+
+/** The child when it belongs to the caller's subtree, else a typed refusal. */
+async function ownedChild(
+  taskId: string,
+  callerSessionId: string,
+  getSessionFn: (id: string) => Session | null | Promise<Session | null>,
+): Promise<{ ok: true; child: Session } | { ok: false; code: DelegationFailureCode; error: string }> {
+  const child = await getSessionFn(taskId);
+  if (!child || !child.parentId) return { ok: false, code: 'task_not_found', error: `No task with id "${taskId}"` };
+  let current: string | null = child.parentId;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    if (current === callerSessionId) return { ok: true, child };
+    seen.add(current);
+    current = (await getSessionFn(current))?.parentId ?? null;
+  }
+  return { ok: false, code: 'task_not_found', error: `Task "${taskId}" does not belong to this session` };
+}
+
+/** `task_status`: where a child stands and, once settled, its last answer. */
+export async function executeTaskStatus(
+  input: { task_id: string; sessionId: string },
+  deps: Pick<SubagentServiceDeps, 'sessionAccess' | 'readTranscript' | 'host'>,
+): Promise<TaskStatusOutput> {
+  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession);
+  if (!owned.ok) {
+    return { task_id: input.task_id, status: 'failed', harness: 'prokop', model: null, result: null, pendingAsk: false, error: owned.error, code: owned.code };
+  }
+  const status = lifecycleStatus(owned.child);
+  const result = status === 'running' || !deps.readTranscript ? null : lastAssistantText(await deps.readTranscript(owned.child.id)) || null;
+  return {
+    task_id: owned.child.id,
+    status,
+    harness: owned.child.harness ?? 'prokop',
+    model: owned.child.selectedModel ?? null,
+    result,
+    pendingAsk: deps.host?.hasPendingAsk?.(owned.child.id) ?? false,
+  };
+}
+
+/** `task_cancel`: stops a running child; the parent is not told again. */
+export async function executeTaskCancel(
+  input: { task_id: string; sessionId: string },
+  deps: Pick<SubagentServiceDeps, 'sessionAccess' | 'host' | 'broadcasts'>,
+): Promise<{ task_id: string; status: TaskLifecycleStatus; error?: string; code?: DelegationFailureCode }> {
+  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession);
+  if (!owned.ok) return { task_id: input.task_id, status: 'failed', error: owned.error, code: owned.code };
+  if (lifecycleStatus(owned.child) !== 'running') return { task_id: owned.child.id, status: lifecycleStatus(owned.child) };
+  await deps.host?.interrupt?.(owned.child.id, 'Cancelled by the parent session');
+  const updated = await deps.sessionAccess.updateSession(owned.child.id, { subagentStatus: 'interrupted' });
+  if (updated) deps.broadcasts.sessionUpdated(updated);
+  return { task_id: owned.child.id, status: 'cancelled' };
 }
 
 /** Running descendants of `rootId`, the number the concurrency limit is checked against. */
@@ -209,6 +294,20 @@ export function subagentHarness(preconfig: Pick<Preconfig, 'modelHarness'>): Ses
   return preconfig.modelHarness ?? 'prokop';
 }
 
+/** The task result as the parent reads it (OpenCode's task_result tags), byte for byte as before. */
+export function formatTaskOutput(taskId: string, text: string, structuredResult?: Record<string, unknown>): string {
+  return [
+    `task_id: ${taskId} (for resuming to continue this task if needed)`,
+    '',
+    '<task_result>',
+    text || 'No response generated',
+    '</task_result>',
+    structuredResult
+      ? '\n<structured_result>\n' + JSON.stringify(structuredResult, null, 2) + '\n</structured_result>'
+      : '',
+  ].join('\n');
+}
+
 /** The last assistant text of a transcript, the same way the in-process child reports its answer. */
 export function lastAssistantText(messages: MessageWithParts[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -268,7 +367,7 @@ Usage notes:
 5. If the agent description mentions that it should be proactively used, then you should try your best to use it without the user having to ask you to do so first. Use your judgement.
 6. Use the outputSchema parameter (a JSON Schema) to get structured, machine-readable output from a subagent instead of a free-text prose response. The subagent will be constrained to return JSON conforming to that schema.
 7. A role pinned to a harness or model always runs there; a target cannot change it. A role without a pin, or no role at all (then the child uses your own role), may take a target: the harness (prokop, codex-cli, claude-cli) and model to run on. Call delegation_capabilities to see roles, harnesses, models and what you may target.
-8. mode "wait" (default) returns the result in this call. mode "async" returns at once with status "running"; the result arrives later as a new message "[task <id> ... finished]" and you continue other work meanwhile. A wait that hits timeoutMs (default 10 minutes), or a child that stops for a question or approval, also returns with status "running" and the task continues async: never poll for it, it will come to you. Use task_status for an explicit check and task_cancel to stop one.
+8. mode "wait" (default) returns the result in this call. mode "async" returns at once with status "running"; the result arrives later as a new message "[task <id> ... finished]" and you continue other work meanwhile. A wait that hits timeoutMs (default 10 minutes), or a child that stops for a question or approval, also returns with status "running" and the task continues async: never poll for it, it will come to you. Use task_status for an explicit check and task_cancel to stop one. Pass a stable clientRequestId per logical task so a retried call never starts a second child.
 
 When to use outputSchema (IMPORTANT - prefer it over free text in these cases):
 - AGGREGATION: When spawning multiple parallel agents and you need to combine, filter, compare, or deduplicate their results. Define a shared schema for all agents so you can merge results programmatically.
@@ -320,6 +419,10 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
         timeoutMs: {
           type: 'number',
           description: 'wait only: how long to wait before the task turns async (default 600000). The task is never cancelled by a timeout.',
+        },
+        clientRequestId: {
+          type: 'string',
+          description: 'Stable id for this logical task. Retrying a call with the same id returns the same task instead of starting a second child.',
         },
         task_id: {
           type: 'string',
@@ -515,6 +618,7 @@ async function runSubagent(
     target,
     mode = 'wait',
     timeoutMs,
+    clientRequestId,
     task_id,
     sessionId,
     workspaceId,
@@ -548,6 +652,29 @@ async function runSubagent(
 
   // Get parent session for model inheritance
   const parentSession = await getSessionFn(sessionId);
+
+  // A retried call for the same logical task returns the task it already
+  // started: running as `running`, settled with its result.
+  const tasks = deps.host?.tasks;
+  if (clientRequestId && tasks) {
+    const existing = tasks.findByRequest(sessionId, clientRequestId);
+    const existingChild = existing ? await getSessionFn(existing.taskId) : null;
+    if (existing && existingChild) {
+      if (lifecycleStatus(existingChild) === 'running') {
+        return {
+          task_id: existing.taskId,
+          status: 'running',
+          harness: existing.harness,
+          model: existing.model,
+          waitTimedOut: false,
+          pendingAsk: deps.host?.hasPendingAsk?.(existing.taskId) ?? false,
+          result: `task_id: ${existing.taskId} is already running for this request. Its result arrives as a new message when it finishes; do not start it again.`,
+        };
+      }
+      const text = deps.readTranscript ? lastAssistantText(await deps.readTranscript(existing.taskId)) : '';
+      return { task_id: existing.taskId, result: formatTaskOutput(existing.taskId, text) };
+    }
+  }
 
   // Resolve parent's actual model using same fallback chain as main chat:
   // session > parent preconfig > config default
@@ -690,7 +817,7 @@ async function runSubagent(
     }
     const resolved = resolution.target;
     const harness = resolved.harness;
-    const crossHarness = harness !== 'prokop';
+    const crossHarness = harness !== 'prokop' || deps.childrenOnHost === true;
     // A model the model chose itself is checked against the host; a pin was
     // checked when the role was saved, an inherited one is already in use.
     if (deps.host || resolution.source === 'target') {
@@ -758,7 +885,7 @@ async function runSubagent(
         parentId: sessionId,
         agentName: roleId,
         subagentStatus: 'running',
-        ...(crossHarness ? { harness } : {}),
+        ...(harness !== 'prokop' ? { harness } : {}),
         selectedModel: resolved.modelId,
         selectedProvider: resolved.providerId,
         selectedVariant: resolved.variant,
@@ -793,6 +920,27 @@ async function runSubagent(
       : undefined;
 
     const child = childSession;
+    // The durable row: a new child starts at run 1, a resumed one counts up.
+    const previous = tasks?.get(child.id);
+    const taskRow = {
+      taskId: child.id,
+      parentSessionId: sessionId,
+      requestKey: clientRequestId ?? previous?.requestKey ?? null,
+      description,
+      harness,
+      model: resolved.modelId,
+      serial: (previous?.serial ?? 0) + 1,
+      watched: false,
+      settled: false,
+      deliveredSerial: previous?.deliveredSerial ?? 0,
+      createdAt: previous?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    tasks?.upsert(taskRow);
+    const markSettled = (): void => {
+      const current = tasks?.get(child.id);
+      if (current) tasks?.upsert({ ...current, settled: true, updatedAt: new Date().toISOString() });
+    };
     // Parent aborts reach the child only while the parent waits; once the
     // task turns async it runs to completion on its own.
     const childAbort = new AbortController();
@@ -878,17 +1026,7 @@ async function runSubagent(
       };
     }
 
-    // Format output like OpenCode with task_result tags
-    const output = [
-      `task_id: ${child.id} (for resuming to continue this task if needed)`,
-      '',
-      '<task_result>',
-      text || 'No response generated',
-      '</task_result>',
-      structuredResult
-        ? '\n<structured_result>\n' + JSON.stringify(structuredResult, null, 2) + '\n</structured_result>'
-        : '',
-    ].join('\n');
+    const output = formatTaskOutput(child.id, text, structuredResult);
 
     return {
       task_id: child.id,
@@ -904,7 +1042,10 @@ async function runSubagent(
       description,
       harness,
       model: resolved.modelId,
-      run: finishRun().finally(detachAbort),
+      run: finishRun().finally(() => {
+        detachAbort();
+        markSettled();
+      }),
     };
     const registry = deps.registry ?? getTaskRegistry(getSessionFn);
     const accepted = (flags: { waitTimedOut: boolean; pendingAsk: boolean }): SubagentOutput => {

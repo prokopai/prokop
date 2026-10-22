@@ -71,6 +71,9 @@ ${workspaceMemoryAvailable ? '- Use "memory" (workspace) for facts about THIS pr
 Before saving, use list to check existing entries and avoid duplicates.`;
 }
 
+/** Native subagents stay the default; delegate_task is for other harnesses, models and user-defined roles. */
+export const DELEGATION_GUIDANCE = `Two kinds of helpers exist. Your native subagents (your own Task or agent tool) are for same-harness, same-model work. delegate_task hands a task to a Prokop child session on another harness (prokop, codex-cli, claude-cli) or model, or to a role the user defined; call delegation_capabilities first to see them. A delegated task returns at once by default and its result arrives later as a new message in this session; do not poll for it with task_status, that tool is for an explicit check. A result that arrives after your turn ended comes as a new user-role message that starts with "[task".`;
+
 const WORKSPACE_MEMORY_GUIDANCE = `You can persist durable workspace knowledge using the memory tool.
 Use target="user" for user preferences and communication/workflow expectations.
 Use target="memory" for workspace facts, repo conventions, commands, lessons, and non-obvious fixes.
@@ -107,6 +110,9 @@ export async function cliDeveloperInstructions(
   }
   if (preconfig.systemPrompt) sections.push(preconfig.systemPrompt);
   sections.push('When you spawn a subagent to answer the current user request, wait for its result within this turn before reporting the result. A completed parent turn is not automatically resumed by later child activity. Do not promise a later summary after ending the turn.');
+  if (availableTools.includes('delegate_task')) {
+    sections.push(DELEGATION_GUIDANCE);
+  }
   sections.push(...(wording.extraGuidance ?? []));
   sections.push(`<workspace>\nWorking directory: ${root}\n${workspace.additionalPaths.length
     ? `Other project directories registered with this workspace:\n${workspace.additionalPaths.map(path => `- ${path}`).join('\n')}\nAccess to these directories remains subject to ${wording.accessGate}.\n`

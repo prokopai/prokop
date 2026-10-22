@@ -6,10 +6,11 @@
  * promise and the host's ask notices drive everything.
  */
 
-import type { Session, SessionHarness } from '@prokopai/sdk/types';
+import type { MessageWithParts, Session, SessionHarness } from '@prokopai/sdk/types';
 import type { DelegationAskNotice, DelegationHostPort } from '@prokopai/core/application/ports/delegation-host';
 import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
-import type { SubagentOutput } from '#agent/harnesses/prokop/subagent/task-tool';
+import { listMessagesWithParts, getSession as runtimeGetSession } from '@prokopai/core/infrastructure/storage/runtime';
+import { formatTaskOutput, lastAssistantText, type SubagentOutput } from '#agent/harnesses/prokop/subagent/task-tool';
 
 export interface TaskHandle {
   taskId: string;
@@ -26,8 +27,10 @@ export type TaskWaitOutcome =
   | { kind: 'ask' };
 
 export interface TaskRegistryDeps {
-  host: Pick<DelegationHostPort, 'deliver' | 'onAskCreated' | 'hasPendingAsk'>;
+  host: Pick<DelegationHostPort, 'deliver' | 'onAskCreated' | 'hasPendingAsk' | 'tasks'>;
   getSession: (id: string) => Session | null | Promise<Session | null>;
+  readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
+  now?: () => string;
 }
 
 export interface TaskRegistry {
@@ -36,6 +39,12 @@ export interface TaskRegistry {
   /** From now on the parent hears about this task through deliveries. */
   watch(handle: TaskHandle): void;
   isWatched(taskId: string): boolean;
+  /**
+   * Startup: a watched task whose child settled but whose result never
+   * reached the parent (the process stopped in between) is delivered now
+   * from the child's transcript.
+   */
+  recover(): Promise<number>;
 }
 
 export const DEFAULT_WAIT_TIMEOUT_MS = 10 * 60_000;
@@ -59,8 +68,32 @@ export function askTaskMessage(handle: TaskHandle, ask: DelegationAskNotice): st
 
 export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
   const watched = new Map<string, TaskHandle>();
-  const serials = new Map<string, number>();
   let unsubscribe: (() => void) | null = null;
+  const now = deps.now ?? (() => new Date().toISOString());
+
+  /** The task's row, created when a child predates the table. */
+  function rowFor(handle: TaskHandle) {
+    return deps.host.tasks.get(handle.taskId) ?? {
+      taskId: handle.taskId,
+      parentSessionId: handle.parentSessionId,
+      requestKey: null,
+      description: handle.description,
+      harness: handle.harness,
+      model: handle.model,
+      serial: 1,
+      watched: false,
+      settled: false,
+      deliveredSerial: 0,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+  }
+
+  async function deliverResult(handle: TaskHandle, serial: number, content: string): Promise<void> {
+    await deps.host.deliver({ sessionId: handle.parentSessionId, content, key: `task-result:${handle.taskId}:${serial}` });
+    const row = deps.host.tasks.get(handle.taskId);
+    if (row) deps.host.tasks.upsert({ ...row, deliveredSerial: Math.max(row.deliveredSerial, serial), updatedAt: now() });
+  }
 
   async function within(sessionId: string, taskId: string): Promise<boolean> {
     let current: string | null = sessionId;
@@ -133,24 +166,49 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
       if (watched.has(handle.taskId)) return;
       watched.set(handle.taskId, handle);
       ensureSubscribed();
-      const serial = (serials.get(handle.taskId) ?? 0) + 1;
-      serials.set(handle.taskId, serial);
+      // The row remembers that a delivery is owed, so a restart can finish it.
+      const row = rowFor(handle);
+      deps.host.tasks.upsert({ ...row, watched: true, updatedAt: now() });
+      const serial = row.serial;
       handle.run
-        .then((output) => deps.host.deliver({
-          sessionId: handle.parentSessionId,
-          content: finishedTaskMessage(handle, output),
-          key: `task-result:${handle.taskId}:${serial}`,
-        }))
-        .catch((error: unknown) => deps.host.deliver({
-          sessionId: handle.parentSessionId,
-          content: `[${label(handle)} failed]\n${error instanceof Error ? error.message : String(error)}`,
-          key: `task-result:${handle.taskId}:${serial}`,
-        }).catch(() => undefined))
+        .then((output) => deliverResult(handle, serial, finishedTaskMessage(handle, output)))
+        .catch((error: unknown) => deliverResult(handle, serial,
+          `[${label(handle)} failed]\n${error instanceof Error ? error.message : String(error)}`).catch(() => undefined))
         .finally(() => release(handle.taskId));
     },
 
     isWatched(taskId) {
       return watched.has(taskId);
+    },
+
+    async recover() {
+      let delivered = 0;
+      for (const row of deps.host.tasks.listUndelivered()) {
+        if (watched.has(row.taskId)) continue;
+        const child = await deps.getSession(row.taskId);
+        if (!child) continue;
+        const text = deps.readTranscript ? lastAssistantText(await deps.readTranscript(row.taskId)) : '';
+        const output: SubagentOutput = child.subagentStatus === 'error' && !text
+          ? { task_id: row.taskId, result: '', error: 'The task failed before its result was delivered' }
+          : child.subagentStatus === 'interrupted' && !text
+            ? { task_id: row.taskId, result: '', error: 'The task was interrupted before its result was delivered' }
+            : { task_id: row.taskId, result: formatTaskOutput(row.taskId, text) };
+        const handle: TaskHandle = {
+          taskId: row.taskId,
+          parentSessionId: row.parentSessionId,
+          description: row.description,
+          harness: row.harness,
+          model: row.model,
+          run: Promise.resolve(output),
+        };
+        try {
+          await deliverResult(handle, row.serial, finishedTaskMessage(handle, output));
+          delivered += 1;
+        } catch {
+          // The parent may be gone; the row stays for the next start.
+        }
+      }
+      return delivered;
     },
   };
 }
@@ -159,6 +217,11 @@ let shared: TaskRegistry | null = null;
 
 /** The process-wide registry over the installed delegation host. */
 export function getTaskRegistry(getSession: TaskRegistryDeps['getSession']): TaskRegistry {
-  if (!shared) shared = createTaskRegistry({ host: delegationHost(), getSession });
+  if (!shared) shared = createTaskRegistry({ host: delegationHost(), getSession, readTranscript: listMessagesWithParts });
   return shared;
+}
+
+/** Startup hook for the host: delivers results a previous process left undelivered. */
+export function recoverDelegatedTasks(): Promise<number> {
+  return getTaskRegistry(runtimeGetSession).recover();
 }

@@ -510,7 +510,10 @@ describe.serial('Phase 2 orchestration contracts', () => {
       },
     });
 
-    expect(receivedSignal).toBe(abortController.signal);
+    // The child gets a signal the parent's abort reaches while the parent
+    // waits (a forwarding signal, so a task that turns async can detach).
+    expect(receivedSignal?.aborted).toBe(true);
+    expect((receivedSignal?.reason as Error).message).toBe('cancelled');
     expect(result.error).toContain('child aborted');
     expect(state.sessions.get(result.task_id)?.subagentStatus).toBe('interrupted');
   });

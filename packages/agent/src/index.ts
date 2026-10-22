@@ -9,6 +9,7 @@
 export { createHarnessRegistration, createHarnessRegistrations } from '#agent/composition/harness-registrations';
 export { directAgentAsks } from '#agent/composition/asks';
 export { localHarnessProbes } from '#agent/composition/probes';
+export { recoverDelegatedTasks } from '#agent/harnesses/prokop/subagent/task-registry';
 
 // The Prokop runtime's own bindings and process defaults.
 export * from '#agent/harnesses/prokop/bindings/index';

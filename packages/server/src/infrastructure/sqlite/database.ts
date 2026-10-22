@@ -174,6 +174,25 @@ export function initializeSchema(db: Database): void {
   )`);
   db.run('CREATE INDEX IF NOT EXISTS idx_session_deliveries_pending ON session_deliveries(session_id, state)');
 
+  // Delegated tasks: one row per child session a task tool created, so a
+  // retried call returns the same task and a restart can deliver a result
+  // the parent still waits for.
+  db.run(`CREATE TABLE IF NOT EXISTS delegated_tasks (
+    task_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    parent_session_id TEXT NOT NULL,
+    request_key TEXT,
+    description TEXT NOT NULL,
+    harness TEXT NOT NULL,
+    model TEXT,
+    serial INTEGER NOT NULL,
+    watched INTEGER NOT NULL DEFAULT 0,
+    settled INTEGER NOT NULL DEFAULT 0,
+    delivered_serial INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_delegated_tasks_request ON delegated_tasks(parent_session_id, request_key) WHERE request_key IS NOT NULL');
+
   db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
     repository_id TEXT NOT NULL,
     config_hash TEXT NOT NULL,

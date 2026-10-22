@@ -28,6 +28,7 @@ import { getTerminalManager, getTerminalEventManager } from '@/transport/termina
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { getSession, reconcileStuckRunningSessions } from '@/infrastructure/sqlite/session-store';
 import { routeChildAsksToRoot } from '@/transport/websocket/child-asks';
+import { agentRuntime } from '@/bootstrap/agent-runtime';
 import { reconcileAllSessionsCompaction } from '@/adapters/prokop/runtime-host/compaction-recovery';
 import { readEnv } from '@prokopai/core/infrastructure/runtime/env-compat';
 import { disposeExecutionLifecycle, initializeExecutionLifecycle } from '@/application/ports/execution-lifecycle';
@@ -115,6 +116,13 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
   // get one attempt now; the rest wait for their session's next idle update.
   void application.sessionDelivery.retryAll().catch((error: unknown) => {
     console.warn('[startup] Pending session deliveries failed:', error);
+  });
+  // A delegated task whose child finished but whose result never reached
+  // the parent is delivered from the child's transcript.
+  void agentRuntime().recoverDelegatedTasks().then((count) => {
+    if (count > 0) console.log(`[startup] Delivered ${count} delegated task result(s) left over from the previous run`);
+  }).catch((error: unknown) => {
+    console.warn('[startup] Delegated task recovery failed:', error);
   });
   installWireApplication({ session: application.session, control: application.control, providers: application.providers, notifications: application.notifications, permissions: application.permissions, gitStatus: application.files.gitStatusFeed, fileTree: application.files.fileTreeFeed });
   // Every primary/both preconfig becomes an agent on boot: fresh installs

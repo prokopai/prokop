@@ -410,6 +410,9 @@ describe('C4 coding bundle in the Jean2 composition', () => {
     expect(tools.map((tool) => tool.definition.name)).toEqual([
       'retrieve-tool-output',
       'task',
+      'delegation_capabilities',
+      'task_status',
+      'task_cancel',
     'skill',
     'memory',
     'skill_manage',

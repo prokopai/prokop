@@ -53,6 +53,7 @@ import { createSessionDeliveryApplication, type SessionDeliveryApplication } fro
 import { addSessionUpdatedObserver } from '@/application/sessions/updates';
 import { addAskCreatedObserver } from '@/application/sessions/asks';
 import { listPendingRequestsByRootSession } from '@/infrastructure/sqlite/pending-asks';
+import { createDelegatedTaskStore } from '@/infrastructure/sqlite/delegated-tasks';
 import { createSessionDeliveryRepository } from '@/infrastructure/sqlite/session-deliveries';
 import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
 import {
@@ -331,6 +332,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     interrupt: async (sessionId, reason) => {
       await execution.interruptSession(sessionId, reason);
     },
+    tasks: createDelegatedTaskStore(getDatabase),
   });
   // Shared by both CLI harnesses: the same rule their turns enforce, plus the folder must exist.
   const codexWorkspaceAvailable = (workspaceId: string): boolean => {

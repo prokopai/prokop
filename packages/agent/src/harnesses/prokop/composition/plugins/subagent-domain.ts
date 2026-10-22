@@ -28,6 +28,8 @@ import {
   canSpawnSubagentWithDeps,
   executeSubagent,
   executeSubagentWithDeps,
+  executeTaskCancel,
+  executeTaskStatus,
   getSubagentToolDefinition,
   readDelegationTarget,
   type GetSubagentToolDefinitionOptions,
@@ -47,7 +49,20 @@ import { getModelsConfig } from '@prokopai/core/config';
 import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
 import { resolveModelId, resolveProviderId } from '@prokopai/core/infrastructure/providers/model-selection';
 import { getPreconfigOrAgent, listSubagentPreconfigs } from '#agent/harnesses/prokop/context/sources';
-import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
+import {
+  createSession,
+  getSession,
+  getWorkspaceAutoApproveSeverity,
+  listMessagesWithParts,
+  updateSession,
+} from '@prokopai/core/infrastructure/storage/runtime';
+import {
+  emitRuntimeEvent,
+  emitSessionCreated,
+  emitSessionUpdated,
+  emitToSession,
+} from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { CANCEL_DEFINITION, STATUS_DEFINITION } from '#agent/harnesses/shared/delegation/cli-delegation';
 import type { Session } from '@prokopai/sdk/types';
 import {
   capekContextSourcesKey,
@@ -69,6 +84,8 @@ export const CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID = 'current.subagent-domain';
 export const SUBAGENT_TOOL_CONTRIBUTION_ID = 'subagent.task';
 export const DELEGATION_CAPABILITIES_CONTRIBUTION_ID = 'subagent.delegation-capabilities';
 export const DELEGATION_CAPABILITIES_TOOL_NAME = 'delegation_capabilities';
+export const TASK_STATUS_CONTRIBUTION_ID = 'subagent.task-status';
+export const TASK_CANCEL_CONTRIBUTION_ID = 'subagent.task-cancel';
 /** Before session-search (700) so the contributed tool
  * order keeps `task` ahead of the workspace-gated domain tools, matching
  * the pre-C5 buildAiSdkTools phase-1 placement. */
@@ -163,6 +180,7 @@ function taskPayload(deps: TaskPayloadDeps): DomainToolPayload {
         target: readDelegationTarget(input.target),
         mode: input.mode === 'async' ? 'async' : 'wait',
         timeoutMs: typeof input.timeoutMs === 'number' ? input.timeoutMs : undefined,
+        clientRequestId: typeof input.clientRequestId === 'string' && input.clientRequestId ? input.clientRequestId : undefined,
         task_id: input.task_id as string | undefined,
         sessionId: context.sessionId,
         workspaceId: typeof context.workspaceId === 'string' ? context.workspaceId : undefined,
@@ -237,6 +255,36 @@ export function capabilitiesPayload(deps: CapabilitiesPayloadDeps): DomainToolPa
   };
 }
 
+type TaskControlDeps = Pick<SubagentServiceDeps, 'sessionAccess' | 'readTranscript' | 'host' | 'broadcasts'>;
+
+/** `task_status` and `task_cancel` for Prokop sessions, the same operations CLI parents get. */
+export function taskControlPayloads(deps: TaskControlDeps, canSpawn: (sessionId: string) => boolean | Promise<boolean>): DomainToolPayload[] {
+  const isEnabled = async (_workspaceId: string, sessionId?: string): Promise<boolean> =>
+    typeof sessionId === 'string' && await canSpawn(sessionId);
+  return [
+    {
+      name: STATUS_DEFINITION.name,
+      description: STATUS_DEFINITION.description,
+      inputSchema: STATUS_DEFINITION.inputSchema as Record<string, unknown>,
+      display: { summary: 'task status' },
+      isEnabled,
+      execute: async (input, context) => executeTaskStatus(
+        { task_id: String(input.task_id ?? ''), sessionId: context.sessionId }, deps,
+      ) as unknown as Record<string, unknown>,
+    },
+    {
+      name: CANCEL_DEFINITION.name,
+      description: CANCEL_DEFINITION.description,
+      inputSchema: CANCEL_DEFINITION.inputSchema as Record<string, unknown>,
+      display: { summary: 'cancel task' },
+      isEnabled,
+      execute: async (input, context) => executeTaskCancel(
+        { task_id: String(input.task_id ?? ''), sessionId: context.sessionId }, deps,
+      ) as unknown as Record<string, unknown>,
+    },
+  ];
+}
+
 /** Unscoped compatibility payload: keeps the pre-C5 execute-time module
  * accessors. Installed through `installTaskToolFallback`, never at module
  * load. */
@@ -274,6 +322,18 @@ export function createCapabilitiesFallbackPayload(): DomainToolPayload {
 export function installTaskToolFallback(): void {
   registerDomainToolFallback('task', createTaskToolFallbackPayload());
   registerDomainToolFallback(DELEGATION_CAPABILITIES_TOOL_NAME, createCapabilitiesFallbackPayload());
+  const controls = taskControlPayloads({
+    sessionAccess: { getSession, createSession, updateSession, getWorkspaceAutoApproveSeverity },
+    readTranscript: listMessagesWithParts,
+    host: delegationHost(),
+    broadcasts: {
+      event: emitRuntimeEvent,
+      sessionCreated: emitSessionCreated,
+      sessionUpdated: emitSessionUpdated,
+      toSession: (sessionId, event) => emitToSession(sessionId, event),
+    },
+  }, (sessionId) => canSpawnSubagent(sessionId));
+  for (const payload of controls) registerDomainToolFallback(payload.name, payload);
 }
 
 type GuidanceSectionContribution = ContextSectionContribution<ContextAssemblyData>;
@@ -313,6 +373,7 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
         host: delegationHost(),
         catalog: moduleDelegationCatalog(),
         maxChildren: getDelegationMaxChildren,
+        readTranscript: async (sessionId) => storage.conversation.listMessagesWithParts(sessionId),
       };
       const listRolesScoped = async (sessionId: string, allowedSubagentIds?: string[]): Promise<Preconfig[]> => {
         const session = await sessionAccess.getSession(sessionId);
@@ -354,6 +415,7 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
             catalog: moduleDelegationCatalog,
             maxChildren: getDelegationMaxChildren,
           }),
+          ...taskControlPayloads(serviceDeps, async (sessionId) => canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession)),
         ],
         canSpawnSubagent: async (sessionId) => canSpawnSubagentWithDeps(sessionId, sessionAccess.getSession),
         resolveTargets: (options) => resolveEffectiveSubagentTargets(options, {
@@ -397,17 +459,25 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
         } as KernelToolDefinition,
         requiredCapabilities: [capekSubagentDomainKey],
       });
-      context.contributeTool({
-        id: DELEGATION_CAPABILITIES_CONTRIBUTION_ID,
-        order: SUBAGENT_TOOL_CONTRIBUTION_ORDER + 1,
-        definition: {
-          name: service.tools[1].name,
-          description: service.tools[1].description,
-          inputSchema: service.tools[1].inputSchema,
-          [DOMAIN_TOOL_PAYLOAD_FIELD]: service.tools[1],
-        } as KernelToolDefinition,
-        requiredCapabilities: [capekSubagentDomainKey],
-      });
+      const companions: Array<[string, number]> = [
+        [DELEGATION_CAPABILITIES_CONTRIBUTION_ID, 1],
+        [TASK_STATUS_CONTRIBUTION_ID, 2],
+        [TASK_CANCEL_CONTRIBUTION_ID, 3],
+      ];
+      for (const [id, offset] of companions) {
+        const payload = service.tools[offset]!;
+        context.contributeTool({
+          id,
+          order: SUBAGENT_TOOL_CONTRIBUTION_ORDER + offset,
+          definition: {
+            name: payload.name,
+            description: payload.description,
+            inputSchema: payload.inputSchema,
+            [DOMAIN_TOOL_PAYLOAD_FIELD]: payload,
+          } as KernelToolDefinition,
+          requiredCapabilities: [capekSubagentDomainKey],
+        });
+      }
       context.contributeContext(guidance);
     },
   };
