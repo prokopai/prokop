@@ -139,6 +139,12 @@ export function getDelegationMaxChildren(): number {
   return parsed > 0 ? parsed : 4;
 }
 
+/** Running top-level worktree launches allowed per orchestrating session (default 3). */
+export function getDelegationMaxLaunches(): number {
+  const parsed = readEnvInt('DELEGATION_MAX_LAUNCHES', 3);
+  return parsed > 0 ? parsed : 3;
+}
+
 export function getLLMApiKeys(): Record<string, string | undefined> {
   return {
     openrouter: getLLMOpenRouterApiKey(),

@@ -22,6 +22,7 @@ export type WorktreeGitFailureCode =
   | 'not_a_git_repository'
   | 'invalid_branch_name'
   | 'branch_not_found'
+  | 'branch_exists'
   | 'branch_already_checked_out'
   | 'worktree_missing'
   | 'operation_timed_out'
@@ -92,6 +93,7 @@ async function readStatus(path: string): Promise<WorktreeGitStatus> {
     head: headResult.exitCode === 0 ? headResult.stdout.trim() || null : null,
     dirty: entries.length > 0,
     untrackedCount: entries.filter((entry) => entry.startsWith('? ')).length,
+    changedCount: entries.length,
   };
 }
 
@@ -156,7 +158,7 @@ export function createWorktreeGitPort(): WorktreeGitPort {
           || left.name.localeCompare(right.name));
     },
 
-    async create({ repositoryPath, destinationPath, branch }) {
+    async create({ repositoryPath, destinationPath, branch, createBranchFrom }) {
       if (!branch.startsWith('refs/heads/')) {
         throw new WorktreeGitError('branch_not_found', 'Only local branches can be used');
       }
@@ -166,6 +168,20 @@ export function createWorktreeGitPort(): WorktreeGitPort {
         '--quiet',
         branch,
       ])).exitCode === 0;
+      const branchName = branch.slice('refs/heads/'.length);
+      if (createBranchFrom !== undefined) {
+        // A launch: the branch is new and starts at the base.
+        if (branchExists) {
+          throw new WorktreeGitError('branch_exists', `Local branch already exists: ${branchName}`);
+        }
+        const base = createBranchFrom === 'HEAD' ? 'HEAD' : `refs/heads/${createBranchFrom}`;
+        if ((await runGit(repositoryPath, ['rev-parse', '--verify', '--quiet', `${base}^{commit}`])).exitCode !== 0) {
+          throw new WorktreeGitError('branch_not_found', `Base branch not found: ${createBranchFrom}`);
+        }
+        await mkdir(dirname(destinationPath), { recursive: true });
+        requireSuccess(await runGit(repositoryPath, ['worktree', 'add', '-b', branchName, destinationPath, base]));
+        return readStatus(destinationPath);
+      }
       if (!branchExists) {
         throw new WorktreeGitError('branch_not_found', `Local branch not found: ${branch}`);
       }
@@ -179,7 +195,6 @@ export function createWorktreeGitPort(): WorktreeGitPort {
         );
       }
       await mkdir(dirname(destinationPath), { recursive: true });
-      const branchName = branch.slice('refs/heads/'.length);
       const result = await runGit(repositoryPath, ['worktree', 'add', destinationPath, branchName]);
       if (result.exitCode !== 0 && /already (?:checked out|used by worktree)/i.test(result.stderr)) {
         throw new WorktreeGitError(

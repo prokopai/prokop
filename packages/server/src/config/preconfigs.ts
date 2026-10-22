@@ -185,10 +185,15 @@ export function validatePreconfigData(data: Record<string, unknown>): string[] {
   }
 
   if (data.delegationTargets !== undefined && data.delegationTargets !== null
-    && data.delegationTargets !== 'any' && data.delegationTargets !== 'none'
+    && data.delegationTargets !== 'any' && data.delegationTargets !== 'ask' && data.delegationTargets !== 'none'
     && !(Array.isArray(data.delegationTargets)
       && data.delegationTargets.every((entry: unknown) => entry === 'prokop' || entry === 'codex-cli' || entry === 'claude-cli'))) {
-    errors.push('delegationTargets must be "any", "none", or a list of: prokop, codex-cli, claude-cli');
+    errors.push('delegationTargets must be "any", "ask", "none", or a list of: prokop, codex-cli, claude-cli');
+  }
+
+  if (data.launches !== undefined && data.launches !== null
+    && data.launches !== 'ask' && data.launches !== 'allow' && data.launches !== 'never') {
+    errors.push('launches must be "ask", "allow", or "never"');
   }
 
   if (data.allowSelfAsSubagent !== undefined && typeof data.allowSelfAsSubagent !== 'boolean') {

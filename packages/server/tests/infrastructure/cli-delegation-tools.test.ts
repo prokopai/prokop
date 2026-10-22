@@ -47,7 +47,8 @@ test('the shared definitions carry the four tools with delegate_task defaulting 
   const definitions = cliDelegationDefinitions();
   expect(definitions.map((definition) => definition.name)).toEqual([...DELEGATION_TOOL_NAMES]);
   const delegate = definitions[0]!.inputSchema as { properties: Record<string, { description?: string }>; required: string[] };
-  expect(delegate.required).toEqual(['description', 'prompt']);
+  expect(delegate.required).toEqual(['description', 'prompt', 'subagent_type']);
+  expect(delegate.properties.subagent_type!.description).toContain('Required');
   expect(delegate.properties.mode!.description).toStartWith('async (default)');
   expect(delegate.properties.target).toBeDefined();
   expect(definitions[0]!.description).toContain('native subagents for same-harness');

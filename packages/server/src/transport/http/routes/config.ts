@@ -50,6 +50,7 @@ export function registerConfigRoutes(
         canSpawnSubagents: body.canSpawnSubagents as boolean | string[] | undefined,
         allowSelfAsSubagent: body.allowSelfAsSubagent,
         delegationTargets: body.delegationTargets ?? null,
+        launches: body.launches ?? null,
         skills: body.skills ?? null,
         capabilities: body.capabilities ?? null,
       }, format);
@@ -90,6 +91,7 @@ export function registerConfigRoutes(
           ? { allowSelfAsSubagent: body.allowSelfAsSubagent }
           : {}),
         ...(body.delegationTargets !== undefined ? { delegationTargets: body.delegationTargets } : {}),
+        ...(body.launches !== undefined ? { launches: body.launches } : {}),
         skills: body.skills,
         ...(body.capabilities !== undefined ? { capabilities: body.capabilities } : {}),
       });

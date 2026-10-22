@@ -81,5 +81,8 @@ export interface GitWorktreeRef {
 
 export interface CreateManagedWorktreeInput {
   name: string;
+  /** `refs/heads/<name>`: an existing local branch, or the branch to create when `createBranchFrom` is set. */
   branch: string;
+  /** Create `branch` from this local branch (or `HEAD`) instead of checking out an existing one. */
+  createBranchFrom?: string;
 }

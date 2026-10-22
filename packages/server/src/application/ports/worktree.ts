@@ -120,6 +120,8 @@ export interface WorktreeGitStatus {
   head: string | null;
   dirty: boolean;
   untrackedCount: number;
+  /** Every changed, added, deleted or untracked path. */
+  changedCount?: number;
 }
 
 export interface WorktreeRepositoryIdentity {
@@ -136,6 +138,8 @@ export interface WorktreeGitPort {
     repositoryPath: string;
     destinationPath: string;
     branch: string;
+    /** Create `branch` from this local branch or `HEAD`; without it `branch` must exist. */
+    createBranchFrom?: string;
   }): Promise<WorktreeGitStatus>;
   status(path: string): Promise<WorktreeGitStatus>;
   remove(repositoryPath: string, worktreePath: string): Promise<void>;

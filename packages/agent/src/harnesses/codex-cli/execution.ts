@@ -923,6 +923,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           isActive: turnId => !!run && active.get(sessionId) === run && run.turnId === turnId
             && !completed && !run.stopRequested,
           authorizeRoot,
+          ask: ask => codexApprovals.askUser(ask, 'delegate_task', sessionId, session.workspaceId, wire.delivery),
         }) : undefined;
         const mcpAbort = new AbortController();
         const mcp = deps.mcp && createCodexMcpTools({ bridge: deps.mcp, path: workspace.path,

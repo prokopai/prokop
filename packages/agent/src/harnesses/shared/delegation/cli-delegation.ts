@@ -6,6 +6,7 @@
  */
 
 import type { ToolDefinition } from '@prokopai/sdk/tool';
+import type { PermissionAsk } from '@prokopai/sdk/types';
 import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
 import { getHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
@@ -45,13 +46,15 @@ interface Context {
   sessionId: string;
   workspaceId: string;
   workspacePath: string;
+  /** Asks the user through the harness's own approval path; absent means policy asks are refused. */
+  ask?: (ask: PermissionAsk) => Promise<boolean>;
 }
 
-const DELEGATE_DESCRIPTION = `Hand a task to a child session on any enabled harness and model, and get its result back.
+const DELEGATE_DESCRIPTION = `Hand a task to a child session running one of the user's roles, on that role's harness and model or on ones you pick, and get its result back.
 
-Use your own native subagents for same-harness, same-model work. Use delegate_task when the task should run on another harness (prokop, codex-cli, claude-cli) or model, when the user defined a role (subagent_type) for it, or when the user asks. Call delegation_capabilities first to see roles, harnesses, models and what you may target.
+Use your own native subagents for same-harness, same-model work. Use delegate_task when the user defined a role (subagent_type) for the task, when it should run on another harness (prokop, codex-cli, claude-cli) or model, or when the user asks. Call delegation_capabilities first to see the roles with their defaults, the harnesses and models, and whether you may override.
 
-A role pinned to a harness or model always runs there; a target cannot change it. A role without a pin, or no role at all (then the child uses your own role), may take a target.
+subagent_type is always required. The role runs on its own harness and model, or on yours when it sets none. target overrides that for one task; the agent's delegation targets setting says whether that is allowed outright, asks the user, or is refused.
 
 mode "async" (default here) returns at once with status "running"; the result arrives later as a new message "[task <id> ... finished]" and you continue other work meanwhile. mode "wait" blocks until the child finishes or timeoutMs passes (default 10 minutes), after which the task continues async. Never poll for a result; it comes to you. task_status is for an explicit check, task_cancel stops a task.
 
@@ -62,26 +65,32 @@ function delegateDefinition(): ToolDefinition {
   const properties = { ...(base.inputSchema as { properties: Record<string, unknown> }).properties };
   // CLI parents default to async: an MCP or dynamic tool call should not sit
   // on a long child turn unless the model asks for it.
-  properties.subagent_type = { type: 'string', description: 'A role (subagent type) from delegation_capabilities. Omit to use your own role on a target.' };
+  properties.subagent_type = { type: 'string', description: 'A role (subagent type) from delegation_capabilities. Required.' };
   properties.mode = {
     type: 'string',
     enum: ['wait', 'async'],
     description: 'async (default): return now; the result arrives as a message. wait: block for the result, up to timeoutMs.',
   };
+  properties.isolation = {
+    type: 'string',
+    enum: ['worktree'],
+    description: 'worktree: start a top-level session on its own branch and managed worktree instead of a subagent, for implementation work that becomes a branch. The user may be asked first.',
+  };
+  properties.baseBranch = { type: 'string', description: 'With isolation worktree: the local branch to branch from (default: the current branch).' };
   return {
     ...base,
     name: 'delegate_task',
     description: DELEGATE_DESCRIPTION,
-    inputSchema: { ...(base.inputSchema as Record<string, unknown>), properties, required: ['description', 'prompt'] },
+    inputSchema: { ...(base.inputSchema as Record<string, unknown>), properties, required: ['description', 'prompt', 'subagent_type'] },
   };
 }
 
 const CAPABILITIES_DEFINITION: Definition = {
   type: 'function',
   name: 'delegation_capabilities',
-  description: 'What you can delegate to: your roles (subagent types) with their pinned harness and model, the harnesses '
-    + 'enabled on this machine with a short list of their models, which targets you may name without a role, and the '
-    + 'limits. Call it before delegate_task with a target. Pass search to find models beyond the short lists.',
+  description: 'What you can delegate to: your roles (subagent types) with their default harness and model, the harnesses '
+    + 'enabled on this machine with a short list of their models, whether you may override a role\'s harness and model, '
+    + 'and the limits. Call it before delegate_task with a target. Pass search to find models beyond the short lists.',
   inputSchema: {
     type: 'object',
     properties: { search: { type: 'string', description: 'Filter models by id or name (case-insensitive).' } },
@@ -156,6 +165,10 @@ export async function executeCliDelegation(
         mode: input.mode === 'wait' ? 'wait' : 'async',
         timeoutMs: typeof input.timeoutMs === 'number' ? input.timeoutMs : undefined,
         clientRequestId: typeof input.clientRequestId === 'string' && input.clientRequestId ? input.clientRequestId : undefined,
+        isolation: input.isolation === 'worktree' ? 'worktree' : undefined,
+        baseBranch: typeof input.baseBranch === 'string' && input.baseBranch ? input.baseBranch : undefined,
+        // CLI asks are once-only; "allow for this agent" stays a Prokop answer.
+        ...(context.ask ? { ask: async (permissionAsk: PermissionAsk) => ({ approved: await context.ask!(permissionAsk) }) } : {}),
         task_id: typeof input.task_id === 'string' ? input.task_id : undefined,
         sessionId: context.sessionId,
         workspaceId: context.workspaceId,
@@ -182,7 +195,7 @@ export async function executeCliDelegation(
         parentPreconfig,
         host: deps.host!,
         catalog: deps.catalog!,
-        limits: { depth: 2, maxChildren: getDelegationMaxChildren() },
+        limits: { depth: 2, maxChildren: getDelegationMaxChildren(), maxLaunches: delegationHost().maxLaunches() },
         search: typeof input.search === 'string' ? input.search : undefined,
       });
       return capabilities as unknown as Record<string, unknown>;

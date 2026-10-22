@@ -1,5 +1,5 @@
 import type { CanUseTool, PermissionResult } from '@anthropic-ai/claude-agent-sdk';
-import type { Ask } from '@prokopai/sdk';
+import type { Ask, PermissionAsk } from '@prokopai/sdk';
 import { shouldAutoApproveAsk } from '@prokopai/core/domains/permissions';
 import { classifyClaudeTool } from './tool-policy';
 import { CLAUDE_QUESTION_TOOL, claudeQuestionAnswers, claudeQuestionAsk, parseClaudeQuestions,
@@ -115,6 +115,21 @@ export class ClaudeApprovals {
       return this.open(sessionId, workspaceId, toolName, delivery, signal, options, childForTool,
         ask, { key: grantKey, scopes: grantScopes }, null);
     };
+  }
+
+  /**
+   * A question from a Prokop in-process tool (a delegation that needs the
+   * user's yes), stored and answered like a native approval, once-only.
+   */
+  async askUser(sessionId: string, workspaceId: string, toolName: string,
+    delivery: ApplicationDeliveryPort<unknown>, signal: AbortSignal, ask: PermissionAsk): Promise<boolean> {
+    const session = await getSession(sessionId);
+    if (signal.aborted || session?.harness !== 'claude-cli' || session.workspaceId !== workspaceId) return false;
+    if (!(await harnessAsks().sessionControl(sessionId)).controlled) return false;
+    const result = await this.open(sessionId, workspaceId, toolName, delivery, signal,
+      { signal } as Parameters<CanUseTool>[2], undefined, { ...ask, allowedScopes: ['once'] },
+      { key: null, scopes: ['once'] }, null);
+    return result.behavior === 'allow';
   }
 
   /** Stores the ask, delivers it to the controller and waits for its answer. */

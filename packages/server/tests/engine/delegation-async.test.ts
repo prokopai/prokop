@@ -258,7 +258,7 @@ describe('async delegation', () => {
     const h = harness();
     h.sessions.set('old-child', session({ id: 'old-child', parentId: 'root', preconfigId: 'explore', subagentStatus: 'completed' }));
     h.tasks.upsert({
-      taskId: 'old-child', parentSessionId: 'root', requestKey: null, description: 'Old review', harness: 'codex-cli', model: 'gpt-5.5',
+      taskId: 'old-child', parentSessionId: 'root', kind: 'child', worktreeId: null, branch: null, requestKey: null, description: 'Old review', harness: 'codex-cli', model: 'gpt-5.5',
       serial: 2, watched: true, settled: true, deliveredSerial: 1, createdAt: '', updatedAt: '',
     });
     h.transcripts.set('old-child', [{
@@ -267,7 +267,7 @@ describe('async delegation', () => {
     }]);
     // Already delivered rows are left alone.
     h.sessions.set('done-child', session({ id: 'done-child', parentId: 'root', subagentStatus: 'completed' }));
-    h.tasks.upsert({ taskId: 'done-child', parentSessionId: 'root', requestKey: null, description: 'Done', harness: 'prokop', model: null,
+    h.tasks.upsert({ taskId: 'done-child', parentSessionId: 'root', kind: 'child', worktreeId: null, branch: null, requestKey: null, description: 'Done', harness: 'prokop', model: null,
       serial: 1, watched: true, settled: true, deliveredSerial: 1, createdAt: '', updatedAt: '' });
 
     expect(await h.registry.recover()).toBe(1);

@@ -59,11 +59,20 @@ export interface Preconfig {
   /**
    * Which explicit delegation targets (a harness or model named by the model
    * itself, without a role) this preconfig may use.
-   * - undefined, null or 'any': any enabled harness and model (default)
+   * - undefined, null or 'any': any enabled harness and model
+   * - 'ask': the user is asked each time
    * - 'none': only subagent roles
-   * - string[]: only these harnesses
+   * - string[]: these harnesses without asking, the user is asked for the rest
    */
   delegationTargets?: DelegationTargets | null;
+  /**
+   * Whether this preconfig may start top-level sessions in their own worktrees.
+   * - undefined, null or 'ask': the user is asked each time
+   * - 'allow': without asking
+   * - 'never': refused
+   */
+  launches?: DelegationLaunches | null;
 }
 
-export type DelegationTargets = 'any' | 'none' | SessionHarness[];
+export type DelegationTargets = 'any' | 'ask' | 'none' | SessionHarness[];
+export type DelegationLaunches = 'ask' | 'allow' | 'never';

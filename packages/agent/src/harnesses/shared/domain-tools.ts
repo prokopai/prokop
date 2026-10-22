@@ -92,6 +92,8 @@ export interface DelegationToolContext {
   sessionId: string;
   workspaceId: string;
   workspacePath: string;
+  /** Asks the user through the harness's approval path (a free target, a launch). */
+  ask?: (ask: PermissionAsk) => Promise<boolean>;
 }
 
 /**

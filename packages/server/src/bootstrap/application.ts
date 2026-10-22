@@ -129,7 +129,7 @@ import { createHarnessExecution } from '@prokopai/core/application/sessions/harn
 import { onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort, type HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import { installDelegationHost } from '@prokopai/core/application/ports/delegation-host';
-import { getDelegationMaxChildren } from '@prokopai/core/infrastructure/runtime/environment';
+import { getDelegationMaxChildren, getDelegationMaxLaunches } from '@prokopai/core/infrastructure/runtime/environment';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
@@ -315,6 +315,8 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const transportControl = createTransportControllerPorts();
   const toolCatalog = createProkopToolCatalogPort();
   const managedWorktrees = createManagedWorktreeRepository(getDatabase);
+  const worktreeGit = createWorktreeGitPort();
+  let worktreesRef: WorktreeApplication | null = null;
   const harnessSettings = createHarnessSettingsApplication(createServerSettingsRepository(getDatabase));
   // What a delegation checks before creating a child: the harness is enabled
   // here and installed on this machine, and the root is under its child limit.
@@ -333,6 +335,36 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       await execution.interruptSession(sessionId, reason);
     },
     tasks: createDelegatedTaskStore(getDatabase),
+    maxLaunches: getDelegationMaxLaunches,
+    // Launches: a worktree on a fresh branch through the worktree application
+    // (created below; every call happens long after wiring).
+    worktrees: {
+      currentBranch: async (workspaceId) => {
+        const refs = await worktreesRef?.listRefs(workspaceId);
+        return refs?.ok ? refs.value.find(ref => ref.current)?.name ?? null : null;
+      },
+      createWorktree: async ({ workspaceId, branch, baseBranch }) => {
+        if (!worktreesRef) return { ok: false, error: 'Worktrees are unavailable' };
+        const refs = await worktreesRef.listRefs(workspaceId);
+        if (!refs.ok) return { ok: false, error: refs.message };
+        const taken = new Set(refs.value.map(ref => ref.name));
+        let name = branch;
+        for (let suffix = 2; taken.has(name); suffix += 1) name = `${branch}-${suffix}`;
+        const created = await worktreesRef.create(workspaceId, { name, branch: `refs/heads/${name}`, createBranchFrom: baseBranch });
+        if (!created.ok) return { ok: false, error: created.message };
+        return { ok: true, worktreeId: created.value.id, path: created.value.path, branch: created.value.branch ?? name };
+      },
+      worktreeChanges: async (worktreeId) => {
+        const record = managedWorktrees.get(worktreeId);
+        if (!record) return null;
+        try {
+          const status = await worktreeGit.status(record.path);
+          return { changedFiles: status.changedCount ?? 0, branch: status.branch ?? record.branch, path: record.path };
+        } catch {
+          return null;
+        }
+      },
+    },
   });
   // Shared by both CLI harnesses: the same rule their turns enforce, plus the folder must exist.
   const codexWorkspaceAvailable = (workspaceId: string): boolean => {
@@ -459,7 +491,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const worktrees = createWorktreeApplication({
     dataDir: () => getDataDir(),
     repository: managedWorktrees,
-    git: createWorktreeGitPort(),
+    git: worktreeGit,
     setup: createWorktreeSetupRunner({
       files: createWorktreeSetupFilesPort(),
       ports: createWorktreePortProbe(),
@@ -499,6 +531,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   refreshWorktreeAttachments = (worktreeId) => {
     void worktrees.refreshAttachments(worktreeId);
   };
+  worktreesRef = worktrees;
 
   const tools = createToolsHttpApplication({
     catalog: toolCatalog,

@@ -11,6 +11,7 @@ import { validate } from './validate';
 const createWorktreeSchema = z.object({
   name: z.string().trim().min(1).max(100),
   branch: z.string().startsWith('refs/heads/'),
+  createBranchFrom: z.string().trim().min(1).max(200).optional(),
 }).strict();
 
 const bindWorktreeSchema = z.object({
@@ -30,6 +31,7 @@ function throwFailure(code: WorktreeFailureCode, message: string): never {
     || code === 'worktree_config_invalid'
     || code === 'no_setup_config'
     || code === 'branch_not_found'
+    || code === 'branch_exists'
     || code === 'repository_outside_workspace'
     || code === 'operation_timed_out'
     || code === 'output_limit'

@@ -16,6 +16,10 @@ export interface DelegationAskNotice {
 export interface DelegatedTaskRecord {
   taskId: string;
   parentSessionId: string;
+  /** `child`: a subagent in the parent's checkout. `launch`: a top-level session in its own worktree. */
+  kind: 'child' | 'launch';
+  worktreeId: string | null;
+  branch: string | null;
   requestKey: string | null;
   description: string;
   harness: SessionHarness;
@@ -35,6 +39,8 @@ export interface DelegatedTaskRecord {
 export interface DelegatedTaskStore {
   get(taskId: string): DelegatedTaskRecord | null;
   findByRequest(parentSessionId: string, requestKey: string): DelegatedTaskRecord | null;
+  /** Every task the session started, children and launches. */
+  listByParent(parentSessionId: string): DelegatedTaskRecord[];
   upsert(record: DelegatedTaskRecord): void;
   /** Watched, settled, and not yet delivered: what a restart has to catch up on. */
   listUndelivered(): DelegatedTaskRecord[];
@@ -47,9 +53,24 @@ export function createMemoryDelegatedTaskStore(): DelegatedTaskStore {
     get: (taskId) => rows.get(taskId) ?? null,
     findByRequest: (parentSessionId, requestKey) =>
       [...rows.values()].find((row) => row.parentSessionId === parentSessionId && row.requestKey === requestKey) ?? null,
+    listByParent: (parentSessionId) => [...rows.values()].filter((row) => row.parentSessionId === parentSessionId),
     upsert: (record) => { rows.set(record.taskId, record); },
     listUndelivered: () => [...rows.values()].filter((row) => row.watched && row.settled && row.deliveredSerial < row.serial),
   };
+}
+
+/** What a launch needs from the host: a worktree on a fresh branch, and its changes when done. */
+export interface DelegationWorktreeHost {
+  /** The workspace's checked-out branch, the default base for a launch; null outside a Git repository. */
+  currentBranch(workspaceId: string): Promise<string | null>;
+  /**
+   * A managed worktree on a new branch named `branch` (suffixed when taken)
+   * created from `baseBranch`, with the repository's worktree setup applied.
+   */
+  createWorktree(input: { workspaceId: string; branch: string; baseBranch: string }):
+    Promise<{ ok: true; worktreeId: string; path: string; branch: string } | { ok: false; error: string }>;
+  /** Uncommitted changes in the worktree, for the finish note; null when unknown. */
+  worktreeChanges(worktreeId: string): Promise<{ changedFiles: number; branch: string | null; path: string } | null>;
 }
 
 /**
@@ -76,6 +97,10 @@ export interface DelegationHostPort {
   /** Stops a session's turn (cancel). */
   interrupt(sessionId: string, reason: string): Promise<void>;
   tasks: DelegatedTaskStore;
+  /** Running top-level launches allowed per orchestrating session. */
+  maxLaunches(): number;
+  /** Absent: this host cannot create worktrees, launches are refused. */
+  worktrees?: DelegationWorktreeHost;
 }
 
 export const DEFAULT_MAX_DELEGATION_CHILDREN = 4;
@@ -89,6 +114,7 @@ const permissive: DelegationHostPort = {
   hasPendingAsk: () => false,
   interrupt: async () => {},
   tasks: createMemoryDelegatedTaskStore(),
+  maxLaunches: () => 3,
 };
 
 let current: DelegationHostPort = permissive;

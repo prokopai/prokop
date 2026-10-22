@@ -180,6 +180,9 @@ export function initializeSchema(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS delegated_tasks (
     task_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
     parent_session_id TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'child',
+    worktree_id TEXT,
+    branch TEXT,
     request_key TEXT,
     description TEXT NOT NULL,
     harness TEXT NOT NULL,
@@ -394,6 +397,9 @@ export function initializeSchema(db: Database): void {
     'ALTER TABLE managed_worktrees ADD COLUMN name TEXT',
     'ALTER TABLE queued_messages ADD COLUMN steer INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE managed_worktree_setups ADD COLUMN commands TEXT',
+    "ALTER TABLE delegated_tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'child'",
+    'ALTER TABLE delegated_tasks ADD COLUMN worktree_id TEXT',
+    'ALTER TABLE delegated_tasks ADD COLUMN branch TEXT',
   ]) {
     try { db.run(sql); } catch { /* existing column */ }
   }

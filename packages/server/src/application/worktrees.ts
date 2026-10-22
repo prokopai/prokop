@@ -27,6 +27,7 @@ export type WorktreeFailureCode =
   | 'no_setup_config'
   | 'setup_running'
   | 'branch_not_found'
+  | 'branch_exists'
   | 'branch_already_checked_out'
   | 'worktree_dirty'
   | 'terminal_attached'
@@ -49,7 +50,7 @@ export interface WorktreeApplication {
   refreshAttachments(worktreeId: string): Promise<void>;
   create(
     workspaceId: string,
-    input: { name: string; branch: string },
+    input: { name: string; branch: string; createBranchFrom?: string },
   ): Promise<WorktreeResult<ManagedWorktree>>;
   remove(workspaceId: string, worktreeId: string): Promise<WorktreeResult<ManagedWorktree>>;
   bind(sessionId: string, worktreeId: string): Promise<WorktreeResult<Session>>;
@@ -107,6 +108,7 @@ function failureCode(error: unknown): WorktreeFailureCode {
       code === 'git_not_installed'
       || code === 'not_a_git_repository'
       || code === 'branch_not_found'
+      || code === 'branch_exists'
       || code === 'branch_already_checked_out'
       || code === 'invalid_branch_name'
       || code === 'operation_timed_out'
@@ -376,6 +378,7 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
             repositoryPath: workspace.path,
             destinationPath: path,
             branch: input.branch,
+            ...(input.createBranchFrom !== undefined ? { createBranchFrom: input.createBranchFrom } : {}),
           });
           const now = new Date().toISOString();
           const record = deps.repository.create({

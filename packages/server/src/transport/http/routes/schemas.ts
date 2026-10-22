@@ -206,9 +206,11 @@ export const preconfigCapabilitiesSchema = z.object({
 
 const delegationTargetsSchema = z.union([
   z.literal('any'),
+  z.literal('ask'),
   z.literal('none'),
   z.array(z.enum(['prokop', 'codex-cli', 'claude-cli'])),
 ]).nullable().optional();
+const delegationLaunchesSchema = z.enum(['ask', 'allow', 'never']).nullable().optional();
 
 export const createPreconfigSchema = z.object({
   id: z.string().optional(),
@@ -225,6 +227,7 @@ export const createPreconfigSchema = z.object({
   canSpawnSubagents: z.union([z.boolean(), z.array(z.string())]).optional(),
   allowSelfAsSubagent: z.boolean().optional(),
   delegationTargets: delegationTargetsSchema,
+  launches: delegationLaunchesSchema,
   skills: z.array(z.string()).nullable().optional(),
   capabilities: preconfigCapabilitiesSchema,
   isDefault: z.boolean().optional(),
@@ -245,6 +248,7 @@ export const updatePreconfigSchema = z.object({
   canSpawnSubagents: z.union([z.boolean(), z.array(z.string())]).nullable().optional(),
   allowSelfAsSubagent: z.boolean().optional(),
   delegationTargets: delegationTargetsSchema,
+  launches: delegationLaunchesSchema,
   skills: z.array(z.string()).nullable().optional(),
   capabilities: preconfigCapabilitiesSchema,
   isDefault: z.boolean().optional(),

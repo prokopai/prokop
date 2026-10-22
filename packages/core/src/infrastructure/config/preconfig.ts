@@ -22,8 +22,12 @@ const DELEGATION_HARNESSES = new Set(['prokop', 'codex-cli', 'claude-cli']);
  * Stored delegationTargets coerced at every read exit: `any`, `none`, or a
  * list of known harnesses; anything else reads as null (any).
  */
+export function parseDelegationLaunches(raw: unknown): Preconfig['launches'] {
+  return raw === 'ask' || raw === 'allow' || raw === 'never' ? raw : null;
+}
+
 export function parseDelegationTargets(raw: unknown): Preconfig['delegationTargets'] {
-  if (raw === 'any' || raw === 'none') return raw;
+  if (raw === 'any' || raw === 'ask' || raw === 'none') return raw;
   if (Array.isArray(raw)) {
     const harnesses = raw.filter((entry): entry is NonNullable<Preconfig['modelHarness']> =>
       typeof entry === 'string' && DELEGATION_HARNESSES.has(entry));
@@ -216,6 +220,7 @@ function parsePreconfigMd(content: string): Preconfig {
     variant: data.variant ?? null,
     modelHarness: parseModelHarness(data.modelHarness),
     delegationTargets: parseDelegationTargets(data.delegationTargets),
+    launches: parseDelegationLaunches(data.launches),
     settings: data.settings ?? null,
     isDefault: data.isDefault ?? false,
     mode: data.mode,
@@ -337,6 +342,7 @@ export async function listPreconfigs(): Promise<Preconfig[]> {
         allowSelfAsSubagent: parsed.allowSelfAsSubagent ?? false,
         modelHarness: parseModelHarness(parsed.modelHarness),
         delegationTargets: parseDelegationTargets(parsed.delegationTargets),
+        launches: parseDelegationLaunches(parsed.launches),
       });
     } catch (e) {
       console.error(`Failed to read preconfig ${file}:`, e);
@@ -370,6 +376,7 @@ export function getPreconfigSync(id: string): Preconfig | null {
         ...parsed,
         modelHarness: parseModelHarness(parsed.modelHarness),
         delegationTargets: parseDelegationTargets(parsed.delegationTargets),
+        launches: parseDelegationLaunches(parsed.launches),
       };
     }
   } catch {
@@ -420,6 +427,7 @@ export async function getPreconfig(id: string): Promise<Preconfig | null> {
       allowSelfAsSubagent: parsed.allowSelfAsSubagent ?? false,
       modelHarness: parseModelHarness(parsed.modelHarness),
       delegationTargets: parseDelegationTargets(parsed.delegationTargets),
+      launches: parseDelegationLaunches(parsed.launches),
     };
   } catch (_e) {
     return null;

@@ -18,7 +18,16 @@ export interface TaskHandle {
   description: string;
   harness: SessionHarness;
   model: string | null;
+  /** A launch: the worktree the session works in. */
+  worktreeId?: string;
+  branch?: string | null;
   run: Promise<SubagentOutput>;
+}
+
+export interface LaunchOutcome {
+  branch: string | null;
+  path: string;
+  changedFiles: number;
 }
 
 export type TaskWaitOutcome =
@@ -27,7 +36,7 @@ export type TaskWaitOutcome =
   | { kind: 'ask' };
 
 export interface TaskRegistryDeps {
-  host: Pick<DelegationHostPort, 'deliver' | 'onAskCreated' | 'hasPendingAsk' | 'tasks'>;
+  host: Pick<DelegationHostPort, 'deliver' | 'onAskCreated' | 'hasPendingAsk' | 'tasks'> & Partial<Pick<DelegationHostPort, 'worktrees'>>;
   getSession: (id: string) => Session | null | Promise<Session | null>;
   readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
   now?: () => string;
@@ -50,13 +59,22 @@ export interface TaskRegistry {
 export const DEFAULT_WAIT_TIMEOUT_MS = 10 * 60_000;
 
 function label(handle: TaskHandle): string {
-  return `task ${handle.taskId} "${handle.description}" on ${handle.harness}/${handle.model ?? 'default'}`;
+  const kind = handle.worktreeId ? 'launched session' : 'task';
+  return `${kind} ${handle.taskId} "${handle.description}" on ${handle.harness}/${handle.model ?? 'default'}`;
 }
 
-/** The message the parent receives when a watched task settles. */
-export function finishedTaskMessage(handle: TaskHandle, output: SubagentOutput): string {
-  if (output.error && !output.result) return `[${label(handle)} failed]\n${output.error}`;
-  const lines = [`[${label(handle)} finished]`, output.result];
+/** The message the parent receives when a watched task settles. A launch adds what a reviewer needs. */
+export function finishedTaskMessage(handle: TaskHandle, output: SubagentOutput, launch?: LaunchOutcome | null): string {
+  const where = launch
+    ? [
+        `Branch: ${launch.branch ?? handle.branch ?? 'unknown'}`,
+        `Worktree: ${launch.path}`,
+        `Uncommitted changes: ${launch.changedFiles} file${launch.changedFiles === 1 ? '' : 's'}`,
+        'Open that session to review and merge.',
+      ]
+    : [];
+  if (output.error && !output.result) return [`[${label(handle)} failed]`, ...where, output.error].join('\n');
+  const lines = [`[${label(handle)} finished]`, ...where, output.result];
   if (output.error) lines.push(`Note: ${output.error}`);
   return lines.join('\n');
 }
@@ -76,6 +94,9 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
     return deps.host.tasks.get(handle.taskId) ?? {
       taskId: handle.taskId,
       parentSessionId: handle.parentSessionId,
+      kind: handle.worktreeId ? 'launch' as const : 'child' as const,
+      worktreeId: handle.worktreeId ?? null,
+      branch: handle.branch ?? null,
       requestKey: null,
       description: handle.description,
       harness: handle.harness,
@@ -87,6 +108,15 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
       createdAt: now(),
       updatedAt: now(),
     };
+  }
+
+  async function launchOutcome(handle: TaskHandle): Promise<LaunchOutcome | null> {
+    if (!handle.worktreeId || !deps.host.worktrees) return null;
+    try {
+      return await deps.host.worktrees.worktreeChanges(handle.worktreeId);
+    } catch {
+      return null;
+    }
   }
 
   async function deliverResult(handle: TaskHandle, serial: number, content: string): Promise<void> {
@@ -171,7 +201,7 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
       deps.host.tasks.upsert({ ...row, watched: true, updatedAt: now() });
       const serial = row.serial;
       handle.run
-        .then((output) => deliverResult(handle, serial, finishedTaskMessage(handle, output)))
+        .then(async (output) => deliverResult(handle, serial, finishedTaskMessage(handle, output, await launchOutcome(handle))))
         .catch((error: unknown) => deliverResult(handle, serial,
           `[${label(handle)} failed]\n${error instanceof Error ? error.message : String(error)}`).catch(() => undefined))
         .finally(() => release(handle.taskId));
@@ -199,10 +229,11 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
           description: row.description,
           harness: row.harness,
           model: row.model,
+          ...(row.worktreeId ? { worktreeId: row.worktreeId, branch: row.branch } : {}),
           run: Promise.resolve(output),
         };
         try {
-          await deliverResult(handle, row.serial, finishedTaskMessage(handle, output));
+          await deliverResult(handle, row.serial, finishedTaskMessage(handle, output, await launchOutcome(handle)));
           delivered += 1;
         } catch {
           // The parent may be gone; the row stays for the next start.

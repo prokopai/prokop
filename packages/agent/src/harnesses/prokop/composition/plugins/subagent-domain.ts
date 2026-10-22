@@ -26,6 +26,7 @@ import {
   buildTaskToolDefinition,
   canSpawnSubagent,
   canSpawnSubagentWithDeps,
+  delegationDecision,
   executeSubagent,
   executeSubagentWithDeps,
   executeTaskCancel,
@@ -181,6 +182,10 @@ function taskPayload(deps: TaskPayloadDeps): DomainToolPayload {
         mode: input.mode === 'async' ? 'async' : 'wait',
         timeoutMs: typeof input.timeoutMs === 'number' ? input.timeoutMs : undefined,
         clientRequestId: typeof input.clientRequestId === 'string' && input.clientRequestId ? input.clientRequestId : undefined,
+        isolation: input.isolation === 'worktree' ? 'worktree' : undefined,
+        baseBranch: typeof input.baseBranch === 'string' && input.baseBranch ? input.baseBranch : undefined,
+        // The Prokop permission ask: the user answers where they are, the answer carries the grant.
+        ask: async (permissionAsk) => delegationDecision(await context.ask({ ...permissionAsk, target: 'permission' })),
         task_id: input.task_id as string | undefined,
         sessionId: context.sessionId,
         workspaceId: typeof context.workspaceId === 'string' ? context.workspaceId : undefined,
@@ -222,9 +227,9 @@ export function moduleDelegationCatalog(): DelegationCatalog {
 export function capabilitiesPayload(deps: CapabilitiesPayloadDeps): DomainToolPayload {
   return {
     name: DELEGATION_CAPABILITIES_TOOL_NAME,
-    description: 'What you can delegate to: your roles (subagent types) with their pinned harness and model, the harnesses '
-      + 'enabled on this machine with a short list of their models, which targets you may name without a role, and the '
-      + 'limits. Call it before using a target on the task tool. Pass search to find models beyond the short lists.',
+    description: 'What you can delegate to: your roles (subagent types) with their default harness and model, the harnesses '
+      + 'enabled on this machine with a short list of their models, whether you may override a role\'s harness and model, '
+      + 'and the limits. Call it before using a target on the task tool. Pass search to find models beyond the short lists.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -247,7 +252,7 @@ export function capabilitiesPayload(deps: CapabilitiesPayloadDeps): DomainToolPa
         parentPreconfig,
         host: deps.host(),
         catalog: deps.catalog(),
-        limits: { depth: 2, maxChildren: deps.maxChildren() },
+        limits: { depth: 2, maxChildren: deps.maxChildren(), maxLaunches: delegationHost().maxLaunches() },
         search: typeof input.search === 'string' ? input.search : undefined,
       });
       return capabilities as unknown as Record<string, unknown>;

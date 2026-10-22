@@ -360,7 +360,8 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
             // Delegation to roles and other harnesses; the CLI keeps its own subagents for the rest.
             dynamicTools = [...dynamicTools, ...createClaudeDelegationTools({
               bridge: deps.delegation, sessionId, workspaceId: session.workspaceId, root,
-              preconfigId, signal: controller.signal })];
+              preconfigId, signal: controller.signal,
+              ask: (ask) => approvals.askUser(sessionId, session.workspaceId, 'delegate_task', wire.delivery, controller.signal, ask) })];
           }
           developerInstructions = await claudeDeveloperInstructions(workspace, root, preconfig, {
             ...sources, getAgentDirectory: async () => agentDir,

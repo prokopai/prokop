@@ -1,4 +1,5 @@
 import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
+import type { PermissionAsk } from '@prokopai/sdk/types';
 import { DELEGATION_TOOL_NAMES, type DelegationDomainBridge } from '#agent/harnesses/shared/domain-tools';
 import { codexObject } from './app-server';
 import type { CodexMemoryCallResult } from './memory-tools';
@@ -19,6 +20,8 @@ export function createCodexDelegationTools(options: {
   preconfigId: string;
   isActive(turnId: string): boolean;
   authorizeRoot(): Promise<boolean>;
+  /** Asks the user through the Codex approval path (a free target, a launch). */
+  ask?: (ask: PermissionAsk) => Promise<boolean>;
 }): { definitions: ReturnType<DelegationDomainBridge['definitions']>; call(raw: unknown): Promise<CodexMemoryCallResult> } {
   const definitions = (options.definitions ?? options.bridge.definitions())
     .filter(definition => definition.type === 'function' && (DELEGATION_TOOL_NAMES as readonly string[]).includes(definition.name));
@@ -30,7 +33,8 @@ export function createCodexDelegationTools(options: {
     return session?.harness === 'codex-cli' && session.status === 'active'
       && session.workspaceId === options.workspaceId && session.preconfigId === options.preconfigId;
   };
-  const context = { sessionId: options.sessionId, workspaceId: options.workspaceId, workspacePath: options.root };
+  const context = { sessionId: options.sessionId, workspaceId: options.workspaceId, workspacePath: options.root,
+    ...(options.ask ? { ask: options.ask } : {}) };
   return {
     definitions,
     async call(raw) {

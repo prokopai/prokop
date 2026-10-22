@@ -54,7 +54,8 @@ interface Preconfig {
   mode?: 'primary' | 'subagent' | 'both';
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
-  delegationTargets?: 'any' | 'none' | Array<'prokop' | 'codex-cli' | 'claude-cli'> | null;
+  delegationTargets?: 'any' | 'ask' | 'none' | Array<'prokop' | 'codex-cli' | 'claude-cli'> | null;
+  launches?: 'ask' | 'allow' | 'never' | null;
   skills?: string[] | null;
   capabilities?: { memory?: boolean; skills?: boolean } | null;
 }
@@ -98,8 +99,9 @@ export interface PreconfigForm {
   canSpawnSubagentsMode: 'all' | 'none' | 'specific';
   canSpawnSubagentsList: string[];
   allowSelfAsSubagent: boolean;
-  delegationTargetsMode: 'any' | 'none' | 'specific';
+  delegationTargetsMode: 'any' | 'ask' | 'none' | 'specific';
   delegationTargetsList: Array<'prokop' | 'codex-cli' | 'claude-cli'>;
+  launches: 'ask' | 'allow' | 'never';
   isDefault: boolean;
   capabilityMemory: boolean;
   capabilitySkills: boolean;
@@ -126,8 +128,10 @@ const emptyForm: PreconfigForm = {
   canSpawnSubagentsMode: 'none',
   canSpawnSubagentsList: [],
   allowSelfAsSubagent: false,
-  delegationTargetsMode: 'any',
+  // New agents ask before picking a harness or model, or starting worktree sessions.
+  delegationTargetsMode: 'ask',
   delegationTargetsList: [],
+  launches: 'ask',
   isDefault: false,
   capabilityMemory: true,
   capabilitySkills: true,
@@ -281,8 +285,10 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
       canSpawnSubagentsList: Array.isArray(preconfig.canSpawnSubagents) ? preconfig.canSpawnSubagents : [],
       allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
       delegationTargetsMode: preconfig.delegationTargets === 'none' ? 'none'
-        : Array.isArray(preconfig.delegationTargets) ? 'specific' : 'any',
+        : preconfig.delegationTargets === 'ask' ? 'ask'
+          : Array.isArray(preconfig.delegationTargets) ? 'specific' : 'any',
       delegationTargetsList: Array.isArray(preconfig.delegationTargets) ? preconfig.delegationTargets : [],
+      launches: preconfig.launches ?? 'ask',
       isDefault: preconfig.isDefault,
       capabilityMemory: preconfig.capabilities?.memory !== false,
       capabilitySkills: preconfig.capabilities?.skills !== false,
@@ -369,8 +375,10 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         canSpawnSubagents,
         allowSelfAsSubagent: form.allowSelfAsSubagent,
         delegationTargets: form.delegationTargetsMode === 'any' ? 'any'
-          : form.delegationTargetsMode === 'none' ? 'none'
-            : form.delegationTargetsList,
+          : form.delegationTargetsMode === 'ask' ? 'ask'
+            : form.delegationTargetsMode === 'none' ? 'none'
+              : form.delegationTargetsList,
+        launches: form.launches,
         skills: null,
         ...(form.mode !== 'subagent'
           ? { capabilities: { memory: form.capabilityMemory, skills: form.capabilitySkills } }
@@ -413,6 +421,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         canSpawnSubagents: preconfig.canSpawnSubagents ?? false,
         allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
         delegationTargets: preconfig.delegationTargets ?? null,
+        launches: preconfig.launches ?? null,
         skills: null,
         capabilities: preconfig.capabilities ?? null,
         format: 'md',
@@ -847,11 +856,11 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                   label="Delegation targets"
                   htmlFor="delegation-targets"
                   description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
-                    : 'Where this agent may send a task without naming a role: a harness and model it picks itself. Roles pinned to a harness always run there.'}
+                    : 'Whether this agent may change a role\'s harness and model for a task it delegates. Roles only runs every role exactly as configured.'}
                 >
                   <Select
                     value={form.delegationTargetsMode}
-                    onValueChange={(value) => setForm({ ...form, delegationTargetsMode: value as 'any' | 'none' | 'specific' })}
+                    onValueChange={(value) => setForm({ ...form, delegationTargetsMode: value as 'any' | 'ask' | 'none' | 'specific' })}
                     disabled={form.canSpawnSubagentsMode === 'none'}
                   >
                     <SelectTrigger id="delegation-targets" className="sm:w-56">
@@ -859,9 +868,34 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
+                        <SelectItem value="ask">Ask me each time</SelectItem>
                         <SelectItem value="any">Any enabled harness</SelectItem>
                         <SelectItem value="none">Roles only</SelectItem>
-                        <SelectItem value="specific">Specific harnesses</SelectItem>
+                        <SelectItem value="specific">Specific harnesses, ask for others</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                <SettingsRow
+                  className={nested}
+                  label="Worktree sessions"
+                  htmlFor="delegation-launches"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
+                    : 'Whether this agent may start top-level sessions in new worktrees, one branch each, for work it hands off.'}
+                >
+                  <Select
+                    value={form.launches}
+                    onValueChange={(value) => setForm({ ...form, launches: value as 'ask' | 'allow' | 'never' })}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                  >
+                    <SelectTrigger id="delegation-launches" className="sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="ask">Ask me each time</SelectItem>
+                        <SelectItem value="allow">Start without asking</SelectItem>
+                        <SelectItem value="never">Never</SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>

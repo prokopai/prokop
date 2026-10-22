@@ -1,6 +1,7 @@
 /**
- * Where a delegated child runs: the role's pin, the model's explicit target,
- * or the parent's own harness and model, in that order, plus the refusals a
+ * Where a delegated child runs: the role's own harness and model (or the
+ * parent's, when the role sets none), with the caller's `target` overriding
+ * any of it when the parent's delegation targets allow, plus the refusals a
  * caller gets back as typed codes (docs/plans/cross-harness-delegation.md,
  * "Choosing the target"). Pure; the task tool validates the result against
  * the host (enabled, installed, catalog) and the running-children limit.
@@ -11,8 +12,8 @@ import type { CodexModel, Preconfig, SessionHarness } from '@prokopai/sdk/types'
 export type DelegationFailureCode =
   | 'harness_unavailable'
   | 'model_unavailable'
-  | 'target_conflicts_with_role'
   | 'target_not_allowed'
+  | 'launch_not_allowed'
   | 'subagent_not_allowed'
   | 'depth_exceeded'
   | 'concurrency_limit'
@@ -34,7 +35,14 @@ export interface ResolvedDelegationTarget {
 }
 
 export type DelegationResolution =
-  | { ok: true; target: ResolvedDelegationTarget; source: 'pin' | 'target' | 'inherited' }
+  | {
+    ok: true;
+    target: ResolvedDelegationTarget;
+    /** `role`: the role as configured. `target`: the caller changed its harness, model, provider or variant. */
+    source: 'role' | 'target';
+    /** The parent may not override the role on its own; the user has to agree. */
+    needsApproval: boolean;
+  }
   | { ok: false; code: DelegationFailureCode; error: string };
 
 const HARNESSES: readonly SessionHarness[] = ['prokop', 'codex-cli', 'claude-cli'];
@@ -44,10 +52,11 @@ export function isSessionHarness(value: unknown): value is SessionHarness {
 }
 
 /**
- * A role pins a harness when it names one, or a model (a model without a
- * harness is a Prokop model). The pin is the user's routing rule.
+ * What a role runs on by default: the harness it names, or Prokop when it
+ * names only a model; null harness means "where the parent runs". A target
+ * on the task tool may override any of it.
  */
-export function rolePin(role: Pick<Preconfig, 'modelHarness' | 'model' | 'provider' | 'variant'>): {
+export function roleDefaults(role: Pick<Preconfig, 'modelHarness' | 'model' | 'provider' | 'variant'>): {
   harness: SessionHarness | null;
   model: string | null;
   provider: string | null;
@@ -57,81 +66,90 @@ export function rolePin(role: Pick<Preconfig, 'modelHarness' | 'model' | 'provid
   return { harness, model: role.model ?? null, provider: role.provider ?? null, variant: role.variant ?? null };
 }
 
-/** Whether a parent may name `harness` itself, with no role. */
-export function freeTargetAllowed(targets: Preconfig['delegationTargets'], harness: SessionHarness): boolean {
-  if (targets === undefined || targets === null || targets === 'any') return true;
-  if (targets === 'none') return false;
-  return targets.includes(harness);
+/**
+ * Whether a parent may override a role so the child runs on `harness`:
+ * outright, after asking the user, or not at all. A stored null (agents from
+ * before the setting existed) stays "any"; the editor gives new agents "ask".
+ */
+export function overridePolicy(targets: Preconfig['delegationTargets'], harness: SessionHarness): 'allow' | 'ask' | 'deny' {
+  if (targets === undefined || targets === null || targets === 'any') return 'allow';
+  if (targets === 'ask') return 'ask';
+  if (targets === 'none') return 'deny';
+  return targets.includes(harness) ? 'allow' : 'ask';
 }
 
+/**
+ * The role's own harness and model, with the parent's model filling in on
+ * the parent's harness; then the target over it. A role's model, provider
+ * and variant belong to the role's harness, so a target that moves the
+ * child to another harness drops them, and a target model drops the role's
+ * variant. The parent's variant is never inherited: the in-process child
+ * always behaved that way.
+ */
 export function resolveDelegationTarget(input: {
-  role: Preconfig | null;
+  role: Preconfig;
   target?: DelegationTarget;
   inherited: ResolvedDelegationTarget;
   parentPreconfig: Preconfig | null;
 }): DelegationResolution {
   const { role, target, inherited, parentPreconfig } = input;
-  const sameHarness = (harness: SessionHarness): ResolvedDelegationTarget | null =>
-    harness === inherited.harness ? inherited : null;
+  const defaults = roleDefaults(role);
+  const defaultHarness = defaults.harness ?? inherited.harness;
 
-  if (role) {
-    const pin = rolePin(role);
-    if (target) {
-      const conflicts: string[] = [];
-      if (pin.harness && target.harness && target.harness !== pin.harness) conflicts.push(`harness ${pin.harness}`);
-      if (pin.model && target.model && target.model !== pin.model) conflicts.push(`model ${pin.model}`);
-      if (pin.provider && target.provider && target.provider !== pin.provider) conflicts.push(`provider ${pin.provider}`);
-      if (pin.variant && target.variant && target.variant !== pin.variant) conflicts.push(`variant ${pin.variant}`);
-      if (conflicts.length) {
-        return {
-          ok: false,
-          code: 'target_conflicts_with_role',
-          error: `Role "${role.id}" is pinned to ${conflicts.join(', ')}; the target cannot change that. Drop the target or pick another role.`,
-        };
-      }
+  const layered = (harness: SessionHarness): ResolvedDelegationTarget => {
+    let modelId: string | null = null;
+    let providerId: string | null = null;
+    let variant: string | null = null;
+    if (harness === inherited.harness) {
+      modelId = inherited.modelId;
+      providerId = inherited.providerId;
     }
-    const harness = pin.harness ?? target?.harness ?? inherited.harness;
-    const fallback = sameHarness(harness);
-    const explicit = Boolean(target?.harness || target?.model || target?.provider || target?.variant);
-    // A role's variant is its own (null when unset), never the parent's: the
-    // in-process child always behaved that way.
-    return {
-      ok: true,
-      source: pin.harness || pin.model ? 'pin' : explicit ? 'target' : 'inherited',
-      target: {
-        harness,
-        modelId: pin.model ?? target?.model ?? fallback?.modelId ?? null,
-        providerId: pin.provider ?? target?.provider ?? (pin.model || target?.model ? null : fallback?.providerId ?? null),
-        variant: pin.variant ?? target?.variant ?? null,
-      },
-    };
-  }
+    if (harness === defaultHarness) {
+      if (defaults.model) {
+        modelId = defaults.model;
+        providerId = defaults.provider;
+      }
+      if (defaults.variant) variant = defaults.variant;
+    }
+    return { harness, modelId, providerId, variant };
+  };
 
-  if (!target || !(target.harness || target.model || target.provider || target.variant)) {
-    return { ok: false, code: 'invalid_request', error: 'Name a subagent_type (a role) or a target harness or model.' };
+  const asConfigured = layered(defaultHarness);
+  const resolved = layered(target?.harness ?? defaultHarness);
+  if (target?.model && target.model !== resolved.modelId) {
+    resolved.modelId = target.model;
+    resolved.providerId = null;
+    resolved.variant = null;
   }
-  const harness = target.harness ?? inherited.harness;
-  if (!freeTargetAllowed(parentPreconfig?.delegationTargets, harness)) {
-    const allowed = parentPreconfig?.delegationTargets;
+  if (target?.provider) resolved.providerId = target.provider;
+  if (target?.variant) resolved.variant = target.variant;
+
+  const overridden = resolved.harness !== asConfigured.harness
+    || resolved.modelId !== asConfigured.modelId
+    || resolved.providerId !== asConfigured.providerId
+    || resolved.variant !== asConfigured.variant;
+  if (!overridden) return { ok: true, source: 'role', needsApproval: false, target: resolved };
+
+  const policy = overridePolicy(parentPreconfig?.delegationTargets, resolved.harness);
+  if (policy === 'deny') {
     return {
       ok: false,
       code: 'target_not_allowed',
-      error: allowed === 'none'
-        ? 'This agent may delegate only to its roles (subagent_type), not to a harness or model of its own choosing.'
-        : `This agent may delegate without a role only to: ${Array.isArray(allowed) ? allowed.join(', ') : 'any'}.`,
+      error: `This agent runs its roles as configured; it may not change the harness or model of role "${role.id}". Drop the target.`,
     };
   }
-  const fallback = sameHarness(harness);
-  return {
-    ok: true,
-    source: 'target',
-    target: {
-      harness,
-      modelId: target.model ?? fallback?.modelId ?? null,
-      providerId: target.provider ?? (target.model ? null : fallback?.providerId ?? null),
-      variant: target.variant ?? (target.model ? null : fallback?.variant ?? null),
-    },
-  };
+  return { ok: true, source: 'target', needsApproval: policy === 'ask', target: resolved };
+}
+
+/** A branch name from a task description: lowercase, dashes, at most 40 characters, never empty. */
+export function launchBranchName(description: string): string {
+  const slug = description
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '');
+  return slug || 'task';
 }
 
 export interface DelegationCatalog {
@@ -186,7 +204,8 @@ export function harnessLabel(harness: SessionHarness): string {
 }
 
 export interface DelegationCapabilities {
-  roles: Array<{ id: string; name: string; description: string; pinned: { harness: SessionHarness; model: string | null } | null }>;
+  /** Each role with what it runs on by default; null defaults mean where the caller runs. */
+  roles: Array<{ id: string; name: string; description: string; defaults: { harness: SessionHarness; model: string | null } | null }>;
   harnesses: Array<{
     id: SessionHarness;
     enabled: boolean;
@@ -196,18 +215,21 @@ export interface DelegationCapabilities {
     omittedModels: number;
   }>;
   caller: { harness: SessionHarness; model: string | null; provider: string | null };
-  freeTargets: 'any' | 'none' | SessionHarness[];
-  limits: { depth: number; maxChildren: number };
+  /** Whether a target may change a role's harness or model: freely, after asking the user, never, or freely for the listed harnesses. */
+  overrides: 'any' | 'ask' | 'none' | SessionHarness[];
+  /** Whether this agent may start top-level sessions in their own worktrees. */
+  launches: 'ask' | 'allow' | 'never';
+  limits: { depth: number; maxChildren: number; maxLaunches: number };
   note: string;
 }
 
 const SHORT_LIST = 8;
 
 /**
- * The small picture a model needs to choose: roles with their pins, each
- * harness with a short model list (pins and the caller's model first, then
- * the catalog order), and the limits. `search` widens the list to matching
- * models instead of dumping every catalog.
+ * The small picture a model needs to choose: roles with their defaults, each
+ * harness with a short model list (role defaults and the caller's model
+ * first, then the catalog order), and the limits. `search` widens the list
+ * to matching models instead of dumping every catalog.
  */
 export async function buildDelegationCapabilities(input: {
   roles: Preconfig[];
@@ -215,15 +237,15 @@ export async function buildDelegationCapabilities(input: {
   parentPreconfig: Preconfig | null;
   host: DelegationHostView;
   catalog: DelegationCatalog;
-  limits: { depth: number; maxChildren: number };
+  limits: { depth: number; maxChildren: number; maxLaunches: number };
   search?: string;
 }): Promise<DelegationCapabilities> {
   const search = input.search?.trim().toLowerCase() ?? '';
-  const pinnedModels = new Set(input.roles.map((role) => rolePin(role).model).filter((model): model is string => Boolean(model)));
+  const roleModels = new Set(input.roles.map((role) => roleDefaults(role).model).filter((model): model is string => Boolean(model)));
   const prioritized = <T extends { id: string }>(models: T[]): { kept: T[]; omitted: number } => {
     const matches = search ? models.filter((model) => JSON.stringify(model).toLowerCase().includes(search)) : models;
     if (search) return { kept: matches, omitted: models.length - matches.length };
-    const first = matches.filter((model) => pinnedModels.has(model.id) || model.id === input.caller.model);
+    const first = matches.filter((model) => roleModels.has(model.id) || model.id === input.caller.model);
     const rest = matches.filter((model) => !first.includes(model));
     const kept = [...first, ...rest.slice(0, Math.max(0, SHORT_LIST - first.length))];
     return { kept, omitted: matches.length - kept.length };
@@ -251,20 +273,23 @@ export async function buildDelegationCapabilities(input: {
 
   return {
     roles: input.roles.map((role) => {
-      const pin = rolePin(role);
+      const defaults = roleDefaults(role);
       return {
         id: role.id,
         name: role.name,
         description: role.description,
-        pinned: pin.harness ? { harness: pin.harness, model: pin.model } : null,
+        defaults: defaults.harness ? { harness: defaults.harness, model: defaults.model } : null,
       };
     }),
     harnesses,
     caller: input.caller,
-    freeTargets: input.parentPreconfig?.delegationTargets ?? 'any',
+    overrides: input.parentPreconfig?.delegationTargets ?? 'any',
+    launches: input.parentPreconfig?.launches ?? 'ask',
     limits: input.limits,
-    note: 'A role pinned to a harness or model always runs there; a target cannot change it. '
-      + 'Without a role, the child uses your own role on the target you name, within freeTargets. '
-      + 'Pass search to see models beyond the short lists.',
+    note: 'Every delegation names a role (subagent_type); it runs on its defaults, or where you run when it has none. '
+      + 'A target changes that harness, model, provider or variant for one task, within overrides '
+      + '("ask" means the user is asked, "none" means roles run only as configured). '
+      + 'isolation "worktree" starts a top-level session on its own branch and worktree instead of a subagent; '
+      + 'launches says whether that needs the user\'s approval. Pass search to see models beyond the short lists.',
   };
 }

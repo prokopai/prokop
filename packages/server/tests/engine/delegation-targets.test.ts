@@ -1,8 +1,8 @@
 /**
- * Delegation targets and policy: a role's pin always wins, an unpinned role
- * or no role takes an explicit target within the parent's allowed targets,
- * the host validates harness and model, the root's running children are
- * capped, and every refusal carries a typed code.
+ * Delegation targets and policy: every delegation names a role, the role's
+ * harness and model are its defaults, a target overrides them within the
+ * parent's delegation targets, the host validates harness and model, the
+ * root's running children are capped, and every refusal carries a typed code.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -10,9 +10,10 @@ import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/h
 import type { CodexModel, MessageWithParts, Preconfig, Session, TextPart } from '@prokopai/sdk/types';
 import {
   buildDelegationCapabilities,
-  freeTargetAllowed,
+  launchBranchName,
+  overridePolicy,
   resolveDelegationTarget,
-  rolePin,
+  roleDefaults,
   validateDelegationTarget,
 } from '@prokopai/agent/internal/harnesses/prokop/subagent/delegation';
 import {
@@ -41,42 +42,65 @@ const catalog = {
 };
 
 describe('resolving where a delegated child runs', () => {
-  test('a pinned role ignores an agreeing target and refuses a conflicting one', () => {
-    expect(rolePin(REVIEWER)).toEqual({ harness: 'codex-cli', model: 'gpt-5.5', provider: null, variant: 'high' });
-    expect(rolePin(PROKOP_PIN).harness).toBe('prokop');
+  test('a role runs on its own harness and model; a target that restates them is no override', () => {
+    expect(roleDefaults(REVIEWER)).toEqual({ harness: 'codex-cli', model: 'gpt-5.5', provider: null, variant: 'high' });
+    expect(roleDefaults(PROKOP_PIN).harness).toBe('prokop');
 
-    const agreeing = resolveDelegationTarget({ role: REVIEWER, target: { harness: 'codex-cli' }, inherited, parentPreconfig: base });
-    expect(agreeing).toEqual({ ok: true, source: 'pin', target: { harness: 'codex-cli', modelId: 'gpt-5.5', providerId: null, variant: 'high' } });
-
-    const conflict = resolveDelegationTarget({ role: REVIEWER, target: { harness: 'claude-cli', model: 'opus' }, inherited, parentPreconfig: base });
-    expect(conflict).toMatchObject({ ok: false, code: 'target_conflicts_with_role' });
-    if (!conflict.ok) expect(conflict.error).toContain('harness codex-cli, model gpt-5.5');
+    const asConfigured = { harness: 'codex-cli', modelId: 'gpt-5.5', providerId: null, variant: 'high' };
+    expect(resolveDelegationTarget({ role: REVIEWER, inherited, parentPreconfig: base }))
+      .toEqual({ ok: true, source: 'role', needsApproval: false, target: asConfigured });
+    expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'codex-cli', model: 'gpt-5.5' }, inherited, parentPreconfig: { ...base, delegationTargets: 'none' } }))
+      .toEqual({ ok: true, source: 'role', needsApproval: false, target: asConfigured });
   });
 
-  test('an unpinned role inherits the parent, or takes the target it is given', () => {
+  test('a target overrides the role: another harness drops the role\'s model, another model drops its variant', () => {
+    expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'claude-cli', model: 'opus' }, inherited, parentPreconfig: base })).toEqual({
+      ok: true, source: 'target', needsApproval: false, target: { harness: 'claude-cli', modelId: 'opus', providerId: null, variant: null },
+    });
+    // Moved onto the parent's harness without a model: the parent's model, not the role's Codex one.
+    expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'prokop' }, inherited, parentPreconfig: base })).toMatchObject({
+      source: 'target', target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: null },
+    });
+    expect(resolveDelegationTarget({ role: REVIEWER, target: { model: 'gpt-5.5-mini' }, inherited, parentPreconfig: base })).toMatchObject({
+      source: 'target', target: { harness: 'codex-cli', modelId: 'gpt-5.5-mini', variant: null },
+    });
+    expect(resolveDelegationTarget({ role: REVIEWER, target: { variant: 'low' }, inherited, parentPreconfig: base })).toMatchObject({
+      source: 'target', target: { harness: 'codex-cli', modelId: 'gpt-5.5', variant: 'low' },
+    });
+  });
+
+  test('a role with no defaults runs where the parent runs, or where the target says', () => {
     expect(resolveDelegationTarget({ role: EXPLORE, inherited, parentPreconfig: base })).toEqual({
-      ok: true, source: 'inherited', target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: null },
+      ok: true, source: 'role', needsApproval: false, target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: null },
     });
     expect(resolveDelegationTarget({ role: EXPLORE, target: { harness: 'claude-cli', model: 'opus', variant: 'max' }, inherited, parentPreconfig: base })).toEqual({
-      ok: true, source: 'target', target: { harness: 'claude-cli', modelId: 'opus', providerId: null, variant: 'max' },
+      ok: true, source: 'target', needsApproval: false, target: { harness: 'claude-cli', modelId: 'opus', providerId: null, variant: 'max' },
     });
     // A target on the parent's own harness without a model keeps the parent's model.
     expect(resolveDelegationTarget({ role: EXPLORE, target: { harness: 'prokop', variant: 'high' }, inherited, parentPreconfig: base })).toMatchObject({
-      ok: true, target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: 'high' },
+      ok: true, source: 'target', target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: 'high' },
     });
   });
 
-  test('no role needs a target, within the parent\'s allowed targets', () => {
-    expect(resolveDelegationTarget({ role: null, inherited, parentPreconfig: base })).toMatchObject({ ok: false, code: 'invalid_request' });
-    expect(resolveDelegationTarget({ role: null, target: { harness: 'codex-cli' }, inherited, parentPreconfig: base })).toEqual({
-      ok: true, source: 'target', target: { harness: 'codex-cli', modelId: null, providerId: null, variant: null },
-    });
-    expect(resolveDelegationTarget({ role: null, target: { harness: 'codex-cli' }, inherited, parentPreconfig: { ...base, delegationTargets: 'none' } }))
+  test('overrides follow the parent\'s delegation targets: allow, ask, or refuse', () => {
+    const override = { harness: 'codex-cli' as const };
+    expect(resolveDelegationTarget({ role: EXPLORE, target: override, inherited, parentPreconfig: { ...base, delegationTargets: 'none' } }))
       .toMatchObject({ ok: false, code: 'target_not_allowed' });
-    expect(resolveDelegationTarget({ role: null, target: { harness: 'codex-cli' }, inherited, parentPreconfig: { ...base, delegationTargets: ['prokop'] } }))
-      .toMatchObject({ ok: false, code: 'target_not_allowed' });
-    expect(freeTargetAllowed(['prokop', 'claude-cli'], 'claude-cli')).toBe(true);
-    expect(freeTargetAllowed(undefined, 'codex-cli')).toBe(true);
+    // Outside the list, or with "ask": the user decides.
+    expect(resolveDelegationTarget({ role: EXPLORE, target: override, inherited, parentPreconfig: { ...base, delegationTargets: ['prokop'] } }))
+      .toMatchObject({ ok: true, needsApproval: true });
+    expect(resolveDelegationTarget({ role: EXPLORE, target: { harness: 'prokop', variant: 'high' }, inherited, parentPreconfig: { ...base, delegationTargets: ['prokop'] } }))
+      .toMatchObject({ ok: true, needsApproval: false });
+    expect(resolveDelegationTarget({ role: EXPLORE, target: override, inherited, parentPreconfig: { ...base, delegationTargets: 'ask' } }))
+      .toMatchObject({ ok: true, needsApproval: true });
+    // The role as configured never asks, whatever the setting.
+    expect(resolveDelegationTarget({ role: REVIEWER, inherited, parentPreconfig: { ...base, delegationTargets: 'ask' } }))
+      .toMatchObject({ ok: true, needsApproval: false });
+    expect(overridePolicy(['prokop', 'claude-cli'], 'claude-cli')).toBe('allow');
+    expect(overridePolicy(['prokop'], 'claude-cli')).toBe('ask');
+    expect(overridePolicy(undefined, 'codex-cli')).toBe('allow');
+    expect(overridePolicy('ask', 'prokop')).toBe('ask');
+    expect(overridePolicy('none', 'prokop')).toBe('deny');
   });
 
   test('the host validates harness state and the model against the right catalog', async () => {
@@ -98,7 +122,7 @@ describe('resolving where a delegated child runs', () => {
     })).toMatchObject({ ok: false, code: 'harness_unavailable' });
   });
 
-  test('capabilities list roles with pins, harness state, short model lists and the caller', async () => {
+  test('capabilities list roles with defaults, harness state, short model lists and the caller', async () => {
     const many = Array.from({ length: 12 }, (_, index) => ({ id: `m-${index}`, name: `Model ${index}`, providerId: 'p' }));
     const capabilities = await buildDelegationCapabilities({
       roles: [REVIEWER, EXPLORE, PROKOP_PIN],
@@ -106,27 +130,32 @@ describe('resolving where a delegated child runs', () => {
       parentPreconfig: { ...base, delegationTargets: ['prokop', 'codex-cli'] },
       host: { harnessEnabled: (harness) => harness !== 'claude-cli', harnessAvailable: () => true },
       catalog: { prokopModels: () => [...many, { id: 'minimax-m3', name: 'MiniMax', providerId: 'minimax' }], harnessModels: async () => CLI_MODELS },
-      limits: { depth: 2, maxChildren: 4 },
+      limits: { depth: 2, maxChildren: 4, maxLaunches: 3 },
     });
 
+    expect(capabilities.launches).toBe('ask');
+    expect(capabilities.limits.maxLaunches).toBe(3);
+    expect(launchBranchName('Add rate limiting to the API!')).toBe('add-rate-limiting-to-the-api');
+    expect(launchBranchName('???')).toBe('task');
     expect(capabilities.roles).toEqual([
-      { id: 'reviewer', name: 'Reviewer', description: 'Reviews on Codex', pinned: { harness: 'codex-cli', model: 'gpt-5.5' } },
-      { id: 'explore', name: 'Explore', description: 'Explores', pinned: null },
-      { id: 'writer', name: 'Writer', description: 'Builds things', pinned: { harness: 'prokop', model: 'minimax-m3' } },
+      { id: 'reviewer', name: 'Reviewer', description: 'Reviews on Codex', defaults: { harness: 'codex-cli', model: 'gpt-5.5' } },
+      { id: 'explore', name: 'Explore', description: 'Explores', defaults: null },
+      { id: 'writer', name: 'Writer', description: 'Builds things', defaults: { harness: 'prokop', model: 'minimax-m3' } },
     ]);
     const prokop = capabilities.harnesses.find((harness) => harness.id === 'prokop')!;
-    // The caller's model and the pinned model come first, then the catalog order, capped.
+    // The caller's model and the roles' models come first, then the catalog order, capped.
     expect(prokop.models.slice(0, 2).map((model) => model.id)).toEqual(['m-11', 'minimax-m3']);
     expect(prokop.models).toHaveLength(8);
     expect(prokop.omittedModels).toBe(5);
     expect(prokop.current).toBe(true);
     expect(capabilities.harnesses.find((harness) => harness.id === 'claude-cli')).toMatchObject({ enabled: false, available: false, models: [] });
     expect(capabilities.harnesses.find((harness) => harness.id === 'codex-cli')!.models).toEqual([{ id: 'gpt-5.5', name: 'GPT-5.5', efforts: ['low', 'medium', 'high'] }]);
-    expect(capabilities.freeTargets).toEqual(['prokop', 'codex-cli']);
+    expect(capabilities.overrides).toEqual(['prokop', 'codex-cli']);
+    expect(capabilities.note).toContain('subagent_type');
 
     const searched = await buildDelegationCapabilities({
       roles: [], caller: { harness: 'prokop', model: null, provider: null }, parentPreconfig: null, host, catalog: { prokopModels: () => many, harnessModels: async () => [] },
-      limits: { depth: 2, maxChildren: 4 }, search: 'model 1',
+      limits: { depth: 2, maxChildren: 4, maxLaunches: 3 }, search: 'model 1',
     });
     expect(searched.harnesses.find((harness) => harness.id === 'prokop')!.models.map((model) => model.id)).toEqual(['m-1', 'm-10', 'm-11']);
   });
@@ -194,7 +223,7 @@ const ask = (overrides: Record<string, unknown>) => ({
 }) as Parameters<typeof executeSubagentWithDeps>[0];
 
 describe('the task tool with targets', () => {
-  test('an unpinned role on a target harness runs there with the target model; the child keeps the parent\'s permission mode', async () => {
+  test('a role with no defaults on a target harness runs there with the target model; the child keeps the parent\'s permission mode', async () => {
     const { deps, sessions, runs, children } = makeDeps();
 
     const result = await executeSubagentWithDeps(ask({ subagent_type: 'explore', target: { harness: 'codex-cli', model: 'gpt-5.5', variant: 'low' } }), deps);
@@ -206,26 +235,29 @@ describe('the task tool with targets', () => {
     expect(result.result).toContain('cli answer');
   });
 
-  test('a pinned role refuses a conflicting target with a typed code and creates nothing', async () => {
-    const { deps, sessions } = makeDeps();
+  test('a role with its own harness and model takes an override, and runs there with the override\'s model', async () => {
+    const { deps, sessions, runs } = makeDeps();
 
     const result = await executeSubagentWithDeps(ask({ subagent_type: 'reviewer', target: { harness: 'claude-cli' } }), deps);
 
-    expect(result).toMatchObject({ task_id: '', code: 'target_conflicts_with_role' });
-    expect(sessions.size).toBe(1);
+    expect(result.error).toBeUndefined();
+    expect(runs[0]).toMatchObject({ harness: 'claude-cli', modelId: '', preconfig: { id: 'reviewer', model: null, variant: null, modelHarness: 'claude-cli' } });
+    expect(sessions.get(result.task_id)).toMatchObject({ harness: 'claude-cli', selectedModel: null, selectedVariant: null });
   });
 
-  test('no role copies the parent\'s own role onto the target, within delegationTargets', async () => {
-    const { deps, sessions, runs } = makeDeps();
+  test('a call without a role is refused, with or without a target, and "roles only" refuses every override', async () => {
+    const { deps, sessions } = makeDeps();
 
-    const result = await executeSubagentWithDeps(ask({ target: { harness: 'codex-cli' } }), deps);
-    expect(result.error).toBeUndefined();
-    expect(sessions.get(result.task_id)).toMatchObject({ preconfigId: 'dev', agentName: 'dev', harness: 'codex-cli', title: 'Task (@dev subagent)' });
-    expect(runs[0]?.preconfig.id).toBe('dev');
+    expect(await executeSubagentWithDeps(ask({ target: { harness: 'codex-cli' } }), deps)).toMatchObject({ task_id: '', code: 'invalid_request' });
+    expect(await executeSubagentWithDeps(ask({}), deps)).toMatchObject({ task_id: '', code: 'invalid_request' });
+    expect(sessions.size).toBe(1);
 
-    const limited = makeDeps({ preconfigs: [{ ...base, delegationTargets: 'none' }, EXPLORE] });
-    expect(await executeSubagentWithDeps(ask({ target: { harness: 'codex-cli' } }), limited.deps)).toMatchObject({ code: 'target_not_allowed' });
-    expect(await executeSubagentWithDeps(ask({}), limited.deps)).toMatchObject({ code: 'invalid_request' });
+    const limited = makeDeps({ preconfigs: [{ ...base, delegationTargets: 'none' }, REVIEWER, EXPLORE] });
+    expect(await executeSubagentWithDeps(ask({ subagent_type: 'explore', target: { harness: 'codex-cli' } }), limited.deps)).toMatchObject({ code: 'target_not_allowed' });
+    expect(await executeSubagentWithDeps(ask({ subagent_type: 'reviewer', target: { model: 'gpt-5.5-mini' } }), limited.deps)).toMatchObject({ code: 'target_not_allowed' });
+    expect(limited.sessions.size).toBe(1);
+    // The role as configured still runs.
+    expect((await executeSubagentWithDeps(ask({ subagent_type: 'reviewer' }), limited.deps)).error).toBeUndefined();
   });
 
   test('a disabled harness and an unknown model are refused before a session exists', async () => {
@@ -240,7 +272,7 @@ describe('the task tool with targets', () => {
     expect(sessions.size).toBe(1);
   });
 
-  test('a Prokop-pinned role still runs in-process with its pin and the plain call stays as before', async () => {
+  test('a role with a Prokop model still runs in-process with it and the plain call stays as before', async () => {
     const { deps, children, sessions } = makeDeps();
 
     const pinned = await executeSubagentWithDeps(ask({ subagent_type: 'writer' }), deps);

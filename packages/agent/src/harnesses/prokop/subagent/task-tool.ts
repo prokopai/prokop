@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '@prokopai/sdk/tool'
-import type { TextPart, Session, ResponseFormat, Preconfig, MessageWithParts, Part, SessionHarness, StructuredOutputData } from '@prokopai/sdk/types';
+import type { TextPart, Session, ResponseFormat, Preconfig, MessageWithParts, Part, PermissionAsk, SessionHarness, StructuredOutputData } from '@prokopai/sdk/types';
 import {
   emitRuntimeEvent,
   emitSessionCreated,
@@ -26,8 +26,11 @@ import {
   type TaskHandle,
   type TaskRegistry,
 } from '#agent/harnesses/prokop/subagent/task-registry';
+import { getPreconfig, updatePreconfig } from '@prokopai/core/infrastructure/config/preconfig';
 import {
+  harnessLabel,
   isSessionHarness,
+  launchBranchName,
   resolveDelegationTarget,
   validateDelegationTarget,
   type DelegationCatalog,
@@ -64,9 +67,9 @@ const MAX_SUBAGENT_DEPTH = 2;
 export interface SubagentInput {
   description: string;
   prompt: string;
-  /** A role. Optional when `target` names where the child runs. */
+  /** The role. Required; refused with `invalid_request` when missing. */
   subagent_type?: string;
-  /** Where the child runs when the role does not pin it, or with no role at all. */
+  /** Overrides the role's default harness, model, provider or variant for this task. */
   target?: DelegationTarget;
   /** `wait` (default) returns the result; `async` returns at once and the result arrives as a message. */
   mode?: 'wait' | 'async';
@@ -74,6 +77,15 @@ export interface SubagentInput {
   timeoutMs?: number;
   /** Stable per logical task: a retried call returns the same task instead of a second child. */
   clientRequestId?: string;
+  /**
+   * `worktree`: not a subagent but a top-level session on its own branch and
+   * managed worktree, async, linked to the caller only through the task row.
+   */
+  isolation?: 'worktree';
+  /** Branch the launch's branch starts from; default the workspace's current branch. */
+  baseBranch?: string;
+  /** Asks the user when policy says so (a free target, a launch); absent means those are refused. */
+  ask?: DelegationAsk;
   task_id?: string;
   sessionId: string;
   workspaceId?: string;
@@ -88,6 +100,19 @@ export interface SubagentInput {
   /** Optional JSON Schema for structured subagent output */
   outputSchema?: Record<string, unknown>;
   executeChild?: typeof executeChildSession;
+}
+
+/** The user's answer to a delegation ask: approved, and whether to remember it for the agent. */
+export type DelegationAsk = (ask: PermissionAsk) => Promise<{ approved: boolean; remember?: boolean }>;
+
+/** A permission ask's answer, as the Prokop ask API returns it, read as a decision. */
+export function delegationDecision(answer: unknown): { approved: boolean; remember: boolean } {
+  if (!answer) return { approved: false, remember: false };
+  if (typeof answer !== 'object') return { approved: true, remember: false };
+  const value = answer as Record<string, unknown>;
+  if (value.approved === false || value.decision === 'decline' || value.behavior === 'deny') return { approved: false, remember: false };
+  const grant = value.grant;
+  return { approved: true, remember: grant === 'session' || grant === 'workspace' || value.remember === true };
 }
 
 export interface SubagentOutput {
@@ -119,6 +144,8 @@ export interface SubagentServiceSessionAccess {
 export interface SubagentServicePreconfigs {
   getPreconfigOrAgent(id: string): Promise<Preconfig | null>;
   listSubagentPreconfigs(): Promise<Preconfig[]>;
+  /** "Allow for this agent": the harness joins the agent's delegation targets. */
+  allowDelegationTarget?(preconfigId: string, harness: SessionHarness): Promise<void>;
 }
 
 export interface SubagentServiceBroadcasts {
@@ -140,8 +167,8 @@ export interface SubagentServiceDeps {
    */
   runOnHarness?: HeadlessSessionRunPort['run'];
   readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
-  /** Harness enabled and installed checks (plus asks, interrupts and task rows); absent means everything is allowed, nothing persisted. */
-  host?: DelegationHostView & Partial<Pick<DelegationHostPort, 'hasPendingAsk' | 'interrupt' | 'tasks'>>;
+  /** Harness enabled and installed checks (plus asks, interrupts, task rows and worktrees); absent means everything is allowed, nothing persisted. */
+  host?: DelegationHostView & Partial<Pick<DelegationHostPort, 'hasPendingAsk' | 'interrupt' | 'tasks' | 'worktrees' | 'maxLaunches'>>;
   /** Model catalogs for validating an explicit target. */
   catalog?: DelegationCatalog;
   /** Running children allowed per root session. */
@@ -180,13 +207,15 @@ function lifecycleStatus(session: Session): TaskLifecycleStatus {
   }
 }
 
-/** The child when it belongs to the caller's subtree, else a typed refusal. */
+/** The child when it belongs to the caller's subtree or was launched by the caller, else a typed refusal. */
 async function ownedChild(
   taskId: string,
   callerSessionId: string,
   getSessionFn: (id: string) => Session | null | Promise<Session | null>,
+  tasks?: DelegationHostPort['tasks'],
 ): Promise<{ ok: true; child: Session } | { ok: false; code: DelegationFailureCode; error: string }> {
   const child = await getSessionFn(taskId);
+  if (child && tasks?.get(taskId)?.parentSessionId === callerSessionId) return { ok: true, child };
   if (!child || !child.parentId) return { ok: false, code: 'task_not_found', error: `No task with id "${taskId}"` };
   let current: string | null = child.parentId;
   const seen = new Set<string>();
@@ -203,7 +232,7 @@ export async function executeTaskStatus(
   input: { task_id: string; sessionId: string },
   deps: Pick<SubagentServiceDeps, 'sessionAccess' | 'readTranscript' | 'host'>,
 ): Promise<TaskStatusOutput> {
-  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession);
+  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession, deps.host?.tasks);
   if (!owned.ok) {
     return { task_id: input.task_id, status: 'failed', harness: 'prokop', model: null, result: null, pendingAsk: false, error: owned.error, code: owned.code };
   }
@@ -224,7 +253,7 @@ export async function executeTaskCancel(
   input: { task_id: string; sessionId: string },
   deps: Pick<SubagentServiceDeps, 'sessionAccess' | 'host' | 'broadcasts'>,
 ): Promise<{ task_id: string; status: TaskLifecycleStatus; error?: string; code?: DelegationFailureCode }> {
-  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession);
+  const owned = await ownedChild(input.task_id, input.sessionId, deps.sessionAccess.getSession, deps.host?.tasks);
   if (!owned.ok) return { task_id: input.task_id, status: 'failed', error: owned.error, code: owned.code };
   if (lifecycleStatus(owned.child) !== 'running') return { task_id: owned.child.id, status: lifecycleStatus(owned.child) };
   await deps.host?.interrupt?.(owned.child.id, 'Cancelled by the parent session');
@@ -268,6 +297,54 @@ async function rootSessionId(
   return current;
 }
 
+/** "Allow for this agent": writes the harness into the preconfig's delegation targets. */
+export async function rememberDelegationTarget(preconfigId: string, harness: SessionHarness): Promise<void> {
+  const current = await getPreconfig(preconfigId);
+  if (!current) return;
+  const targets = current.delegationTargets;
+  if (targets === 'any' || (Array.isArray(targets) && targets.includes(harness))) return;
+  const next: SessionHarness[] = Array.isArray(targets) ? [...targets, harness] : [harness];
+  await updatePreconfig(preconfigId, { delegationTargets: next });
+}
+
+/** The message the user sees when an override or a launch needs their approval. */
+export function delegationAsk(input: {
+  kind: 'target' | 'launch';
+  description: string;
+  harness: SessionHarness;
+  model: string | null;
+  role: string;
+  branch?: string;
+  baseBranch?: string;
+}): PermissionAsk {
+  const where = `${harnessLabel(input.harness)} with ${input.model ?? 'its default model'}`;
+  const details = [
+    `Task: ${input.description}`,
+    `Role: ${input.role}`,
+    `Harness and model: ${where}`,
+    input.branch ? `Branch: ${input.branch} from ${input.baseBranch ?? 'the current branch'}` : null,
+  ].filter(Boolean).join('\n');
+  return input.kind === 'launch'
+    ? {
+        type: 'permission',
+        question: `Start a session in a new worktree for "${input.description}"?`,
+        description: details,
+        risk: 'medium',
+        action: 'launch',
+        allowedScopes: ['once'],
+        metadata: { delegation: 'launch', harness: input.harness, model: input.model, branch: input.branch },
+      }
+    : {
+        type: 'permission',
+        question: `Run "${input.description}" on ${where}?`,
+        description: `${details}\nThis agent may not change a role's harness or model on its own. Allow for this agent remembers the harness.`,
+        risk: 'low',
+        action: 'delegate',
+        allowedScopes: ['once', 'workspace'],
+        metadata: { delegation: 'target', harness: input.harness, model: input.model },
+      };
+}
+
 function moduleCatalog(): DelegationCatalog {
   return {
     prokopModels: () => getModelsConfig().providers.flatMap((provider) =>
@@ -289,7 +366,7 @@ function readTarget(raw: unknown): DelegationTarget | undefined {
 
 export { readTarget as readDelegationTarget };
 
-/** The harness a subagent role runs on; a Prokop role (or no pin) stays in-process. */
+/** The harness a subagent role runs on by default; a Prokop role (or none) stays in-process. */
 export function subagentHarness(preconfig: Pick<Preconfig, 'modelHarness'>): SessionHarness {
   return preconfig.modelHarness ?? 'prokop';
 }
@@ -366,7 +443,8 @@ Usage notes:
 4. Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches), since it is not aware of the user's intent. Tell it how to verify its work if possible (e.g., relevant test commands).
 5. If the agent description mentions that it should be proactively used, then you should try your best to use it without the user having to ask you to do so first. Use your judgement.
 6. Use the outputSchema parameter (a JSON Schema) to get structured, machine-readable output from a subagent instead of a free-text prose response. The subagent will be constrained to return JSON conforming to that schema.
-7. A role pinned to a harness or model always runs there; a target cannot change it. A role without a pin, or no role at all (then the child uses your own role), may take a target: the harness (prokop, codex-cli, claude-cli) and model to run on. Call delegation_capabilities to see roles, harnesses, models and what you may target.
+7. subagent_type is always required. The role runs on its own harness and model, or on yours when it sets none. target overrides that for one task: the harness (prokop, codex-cli, claude-cli), model, provider (Prokop only) and variant or effort. Whether you may override without asking is the agent's delegation targets setting; call delegation_capabilities to see roles with their defaults, harnesses, models and that setting.
+9. isolation "worktree" is for implementation work that should become its own branch: it starts a top-level session (not a subagent) in a fresh managed worktree with the repository's setup applied, always async, and the user may be asked before it starts. The finish message names the branch, the worktree and the number of changed files; the user opens that session to review and merge. Subagents never get their own worktree.
 8. mode "wait" (default) returns the result in this call. mode "async" returns at once with status "running"; the result arrives later as a new message "[task <id> ... finished]" and you continue other work meanwhile. A wait that hits timeoutMs (default 10 minutes), or a child that stops for a question or approval, also returns with status "running" and the task continues async: never poll for it, it will come to you. Use task_status for an explicit check and task_cancel to stop one. Pass a stable clientRequestId per logical task so a retried call never starts a second child.
 
 When to use outputSchema (IMPORTANT - prefer it over free text in these cases):
@@ -397,12 +475,12 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
         },
         subagent_type: {
           type: 'string',
-          description: 'The type of specialized agent to use for this agent. Omit only when target names where to run; the child then uses your own role.',
+          description: 'The role (specialized agent) to run. Required.',
           ...(subagentTypeEnum.length > 0 && { enum: subagentTypeEnum }),
         },
         target: {
           type: 'object',
-          description: 'Where the child runs when the role does not pin it: a harness and, optionally, a model, provider (Prokop only) and variant or effort. Refused when it contradicts the role\'s pin or your allowed targets.',
+          description: 'Optional override of the role\'s default harness, model, provider (Prokop only) and variant or effort for this task. Omit to run the role as configured. May ask the user or be refused, per the agent\'s delegation targets setting.',
           properties: {
             harness: { type: 'string', enum: ['prokop', 'codex-cli', 'claude-cli'] },
             model: { type: 'string' },
@@ -424,6 +502,15 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
           type: 'string',
           description: 'Stable id for this logical task. Retrying a call with the same id returns the same task instead of starting a second child.',
         },
+        isolation: {
+          type: 'string',
+          enum: ['worktree'],
+          description: 'worktree: start a top-level session on its own branch and managed worktree instead of a subagent (implementation work that becomes a branch). Always async; the user may be asked first.',
+        },
+        baseBranch: {
+          type: 'string',
+          description: 'With isolation worktree: the local branch to branch from (default: the workspace\'s current branch).',
+        },
         task_id: {
           type: 'string',
           description:
@@ -435,7 +522,7 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
           additionalProperties: true,
         },
       },
-      required: ['description', 'prompt'],
+      required: ['description', 'prompt', 'subagent_type'],
     },
     outputSchema: {
       type: 'object',
@@ -522,6 +609,7 @@ function moduleServiceDeps(): SubagentServiceDeps {
     preconfigs: {
       getPreconfigOrAgent,
       listSubagentPreconfigs,
+      allowDelegationTarget: rememberDelegationTarget,
     },
     broadcasts: {
       event: emitRuntimeEvent,
@@ -616,9 +704,12 @@ async function runSubagent(
     prompt,
     subagent_type,
     target,
-    mode = 'wait',
+    mode: requestedMode = 'wait',
     timeoutMs,
     clientRequestId,
+    isolation,
+    baseBranch,
+    ask,
     task_id,
     sessionId,
     workspaceId,
@@ -704,25 +795,26 @@ async function runSubagent(
     };
   }
 
-  // No role: the child is a copy of the parent's own role on an explicit
-  // target, governed by the parent's allowed targets rather than by the
-  // subagent allow-list (the plan's "pure parallelism" case).
-  const roleId = subagent_type ?? parentSession?.preconfigId ?? null;
-  if (!subagent_type && (!target || !parentPreconfig || !roleId)) {
+  // Every delegation names a role; a target only changes where it runs.
+  if (!subagent_type) {
     return {
       task_id: '',
       result: '',
-      error: 'Name a subagent_type (a role) or a target harness or model.',
+      error: 'Name a subagent_type (a role). A target only overrides the role\'s harness or model; it does not replace the role.',
       code: 'invalid_request',
     };
   }
+  const roleId = subagent_type;
+  const launching = isolation === 'worktree';
+  // The caller's own role, for a subagent or a launch alike, only with allowSelfAsSubagent.
+  const selfAllowed = parentPreconfig?.allowSelfAsSubagent === true;
 
-  if (subagent_type) {
+  {
     // Validate subagent_type against the effective allowed list
     const configuredAllowedIds = Array.isArray(parentPreconfig?.canSpawnSubagents)
       ? [...parentPreconfig.canSpawnSubagents]
       : allowedSubagentIds ? [...allowedSubagentIds] : undefined;
-    if (parentSession?.preconfigId && parentPreconfig?.allowSelfAsSubagent) {
+    if (parentSession?.preconfigId && selfAllowed) {
       configuredAllowedIds?.push(parentSession.preconfigId);
     }
     if (configuredAllowedIds && !configuredAllowedIds.includes(subagent_type)) {
@@ -739,7 +831,7 @@ async function runSubagent(
       targetPreconfigId: subagent_type,
       currentPreconfigId: parentSession?.preconfigId ?? null,
       ancestryPreconfigIds: ancestry.preconfigIds,
-      allowSelfAsSubagent: parentPreconfig?.allowSelfAsSubagent === true,
+      allowSelfAsSubagent: selfAllowed,
     });
     if (!policy.allowed) {
       return {
@@ -772,9 +864,7 @@ async function runSubagent(
   };
 
   try {
-    const subagentPreconfig = subagent_type
-      ? await getPreconfigOrAgentFn(subagent_type)
-      : parentPreconfig;
+    const subagentPreconfig = await getPreconfigOrAgentFn(subagent_type);
     if (!subagentPreconfig) {
       const available = await listSubagentPreconfigsFn();
       const availableNames = available.map((s) => s.id).join(', ');
@@ -786,10 +876,10 @@ async function runSubagent(
       };
     }
 
-    if (subagent_type && !isValidSubagentTargetPreconfig(
+    if (!isValidSubagentTargetPreconfig(
       subagentPreconfig,
       parentSession?.preconfigId ?? null,
-      parentPreconfig?.allowSelfAsSubagent === true,
+      selfAllowed,
     )) {
       return {
         task_id: '',
@@ -799,10 +889,10 @@ async function runSubagent(
       };
     }
 
-    // Where the child runs: the role's pin, then the explicit target, then
-    // the parent's own harness and model. Pins are the user's routing rule.
+    // Where the child runs: the role's own harness and model (the parent's
+    // when it sets none), changed by the target where the parent may.
     const resolution = resolveDelegationTarget({
-      role: subagent_type ? subagentPreconfig : null,
+      role: subagentPreconfig,
       target,
       inherited: {
         harness: parentSession?.harness ?? 'prokop',
@@ -817,9 +907,30 @@ async function runSubagent(
     }
     const resolved = resolution.target;
     const harness = resolved.harness;
-    const crossHarness = harness !== 'prokop' || deps.childrenOnHost === true;
-    // A model the model chose itself is checked against the host; a pin was
-    // checked when the role was saved, an inherited one is already in use.
+    // A launch is always a host-dispatched top-level run and never waits.
+    const crossHarness = harness !== 'prokop' || deps.childrenOnHost === true || launching;
+    const mode = launching ? 'async' : requestedMode;
+
+    // An override the agent may not make on its own: the user decides.
+    if (resolution.needsApproval) {
+      if (!ask) {
+        return {
+          task_id: '',
+          result: '',
+          error: `This agent needs the user's approval to run on ${harnessLabel(harness)}, and nobody can be asked here. Use a role instead.`,
+          code: 'target_not_allowed',
+        };
+      }
+      const decision = await ask(delegationAsk({ kind: 'target', description, harness, model: resolved.modelId, role: subagent_type }));
+      if (!decision.approved) {
+        return { task_id: '', result: '', error: `The user declined running "${description}" on ${harnessLabel(harness)}.`, code: 'target_not_allowed' };
+      }
+      if (decision.remember && parentPreconfig) {
+        await deps.preconfigs.allowDelegationTarget?.(parentPreconfig.id, harness).catch(() => undefined);
+      }
+    }
+    // A model the agent chose itself is checked against the host; a role's
+    // own was checked when the role was saved, an inherited one is in use.
     if (deps.host || resolution.source === 'target') {
       const valid = await validateDelegationTarget(
         resolution.source === 'target' ? resolved : { ...resolved, modelId: null },
@@ -834,7 +945,7 @@ async function runSubagent(
       if (!childSession) {
         childSession = null;
       } else {
-        const resumeError = getSubagentResumeError(childSession, sessionId, roleId!);
+        const resumeError = getSubagentResumeError(childSession, sessionId, roleId);
         if (resumeError) {
           return {
             task_id: '',
@@ -856,6 +967,76 @@ async function runSubagent(
         error: `Invalid task_id: the subagent runs on ${childSession.harness ?? 'prokop'}, not ${harness}`,
         code: 'task_not_found',
       };
+    }
+
+    let launch: { worktreeId: string; path: string; branch: string } | null = null;
+    if (!childSession && launching) {
+      const worktrees = deps.host?.worktrees;
+      if (!worktrees) {
+        return { task_id: '', result: '', error: 'This host cannot create worktrees, so nothing can be launched here.', code: 'invalid_request' };
+      }
+      const policy = parentPreconfig?.launches ?? 'ask';
+      if (policy === 'never') {
+        return { task_id: '', result: '', error: 'This agent may not start sessions in new worktrees.', code: 'launch_not_allowed' };
+      }
+      // Running launches under this orchestrator, however they were started.
+      const limit = deps.host?.maxLaunches?.() ?? 3;
+      const rows = (deps.host?.tasks?.listByParent(sessionId) ?? []).filter((row) => row.kind === 'launch');
+      let running = 0;
+      for (const row of rows) {
+        const launched = await getSessionFn(row.taskId);
+        if (launched && lifecycleStatus(launched) === 'running') running += 1;
+      }
+      if (running >= limit) {
+        return {
+          task_id: '',
+          result: '',
+          error: `${running} launched sessions are already running from this session (limit ${limit}). Wait for one to finish.`,
+          code: 'concurrency_limit',
+        };
+      }
+      const workspaceIdForLaunch = workspaceId || parentSession?.workspaceId || '';
+      const base = baseBranch ?? await worktrees.currentBranch(workspaceIdForLaunch);
+      if (!base) {
+        return { task_id: '', result: '', error: 'The workspace is not on a Git branch; nothing to branch from.', code: 'invalid_request' };
+      }
+      const branchName = launchBranchName(description);
+      if (policy === 'ask') {
+        if (!ask) {
+          return { task_id: '', result: '', error: "Starting a session in a new worktree needs the user's approval, and nobody can be asked here.", code: 'launch_not_allowed' };
+        }
+        const decision = await ask(delegationAsk({
+          kind: 'launch', description, harness, model: resolved.modelId, role: subagent_type, branch: branchName, baseBranch: base,
+        }));
+        if (!decision.approved) {
+          return { task_id: '', result: '', error: `The user declined starting a worktree session for "${description}".`, code: 'launch_not_allowed' };
+        }
+      }
+      const created = await worktrees.createWorktree({ workspaceId: workspaceIdForLaunch, branch: branchName, baseBranch: base });
+      if (!created.ok) {
+        return { task_id: '', result: '', error: `Could not create the worktree: ${created.error}`, code: 'invalid_request' };
+      }
+      launch = { worktreeId: created.worktreeId, path: created.path, branch: created.branch };
+
+      childSession = await createSessionFn({
+        id: randomUUID(),
+        workspaceId: workspaceIdForLaunch,
+        workspaceRootId: launch.worktreeId,
+        preconfigId: roleId,
+        title: description,
+        status: 'active',
+        metadata: null,
+        parentId: null,
+        agentName: null,
+        subagentStatus: 'running',
+        ...(harness !== 'prokop' ? { harness } : {}),
+        selectedModel: resolved.modelId,
+        selectedProvider: resolved.providerId,
+        selectedVariant: resolved.variant,
+        permissionMode: parentSession?.permissionMode ?? null,
+        autoApproveSeverity: await getWorkspaceAutoApproveSeverityFn(workspaceIdForLaunch),
+      });
+      broadcastSessCreated(childSession);
     }
 
     if (!childSession) {
@@ -925,6 +1106,9 @@ async function runSubagent(
     const taskRow = {
       taskId: child.id,
       parentSessionId: sessionId,
+      kind: launch || previous?.kind === 'launch' ? 'launch' as const : 'child' as const,
+      worktreeId: launch?.worktreeId ?? previous?.worktreeId ?? null,
+      branch: launch?.branch ?? previous?.branch ?? null,
       requestKey: clientRequestId ?? previous?.requestKey ?? null,
       description,
       harness,
@@ -950,6 +1134,11 @@ async function runSubagent(
     const detachAbort = (): void => abortSignal?.removeEventListener('abort', forwardAbort);
 
     const finishRun = async (): Promise<SubagentOutput> => {
+    const launchNote = launch
+      ? `You work in a dedicated worktree at ${launch.path} on branch ${launch.branch}, created for this task. `
+        + 'Commit your work on that branch when it is done; do not switch branches. '
+        + `When you finish, state what you changed and whether tests ran.\n\n`
+      : '';
     const result = crossHarness
       ? await runChildOnHarness(deps, {
           harness,
@@ -957,9 +1146,9 @@ async function runSubagent(
           child,
           preconfig: subagentPreconfig,
           target: resolved,
-          prompt,
-          workspacePath,
-          workspaceId,
+          prompt: launchNote + prompt,
+          workspacePath: launch?.path ?? workspacePath,
+          workspaceId: launch ? child.workspaceId : workspaceId,
           resumeFromHistory,
           outputSchema,
           abortSignal: childAbort.signal,
@@ -1042,6 +1231,7 @@ async function runSubagent(
       description,
       harness,
       model: resolved.modelId,
+      ...(taskRow.worktreeId ? { worktreeId: taskRow.worktreeId, branch: taskRow.branch } : {}),
       run: finishRun().finally(() => {
         detachAbort();
         markSettled();
@@ -1058,7 +1248,8 @@ async function runSubagent(
         model: resolved.modelId,
         waitTimedOut: flags.waitTimedOut,
         pendingAsk: flags.pendingAsk,
-        result: `task_id: ${child.id} is running on ${harness}/${resolved.modelId ?? 'default'}. `
+        result: `task_id: ${child.id} is running on ${harness}/${resolved.modelId ?? 'default'}`
+          + (launch ? ` as a top-level session in worktree ${launch.path} on branch ${launch.branch}` : '') + '. '
           + 'Its result arrives as a new message when it finishes; continue other work meanwhile, do not poll.'
           + (flags.pendingAsk ? ' It is waiting for the user to answer a question or approval shown on this session.' : '')
           + (flags.waitTimedOut ? ' The wait timed out; the task was not cancelled.' : ''),

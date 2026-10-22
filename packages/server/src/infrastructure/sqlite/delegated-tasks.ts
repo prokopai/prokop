@@ -5,6 +5,9 @@ import type { DelegatedTaskRecord, DelegatedTaskStore } from '@prokopai/core/app
 interface Row {
   task_id: string;
   parent_session_id: string;
+  kind: string;
+  worktree_id: string | null;
+  branch: string | null;
   request_key: string | null;
   description: string;
   harness: string;
@@ -21,6 +24,9 @@ function mapRow(row: Row): DelegatedTaskRecord {
   return {
     taskId: row.task_id,
     parentSessionId: row.parent_session_id,
+    kind: row.kind === 'launch' ? 'launch' : 'child',
+    worktreeId: row.worktree_id,
+    branch: row.branch,
     requestKey: row.request_key,
     description: row.description,
     harness: row.harness as SessionHarness,
@@ -46,12 +52,20 @@ export function createDelegatedTaskStore(getDatabase: () => Database): Delegated
       ).get(parentSessionId, requestKey) as Row | null;
       return row ? mapRow(row) : null;
     },
+    listByParent(parentSessionId) {
+      return (getDatabase().query(
+        'SELECT * FROM delegated_tasks WHERE parent_session_id = ? ORDER BY created_at',
+      ).all(parentSessionId) as Row[]).map(mapRow);
+    },
     upsert(record) {
       getDatabase().run(
         `INSERT INTO delegated_tasks (
-          task_id, parent_session_id, request_key, description, harness, model, serial, watched, settled, delivered_serial, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          task_id, parent_session_id, kind, worktree_id, branch, request_key, description, harness, model, serial, watched, settled, delivered_serial, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(task_id) DO UPDATE SET
+          kind = excluded.kind,
+          worktree_id = excluded.worktree_id,
+          branch = excluded.branch,
           request_key = excluded.request_key,
           description = excluded.description,
           harness = excluded.harness,
@@ -62,7 +76,8 @@ export function createDelegatedTaskStore(getDatabase: () => Database): Delegated
           delivered_serial = excluded.delivered_serial,
           updated_at = excluded.updated_at`,
         [
-          record.taskId, record.parentSessionId, record.requestKey, record.description, record.harness, record.model,
+          record.taskId, record.parentSessionId, record.kind, record.worktreeId, record.branch, record.requestKey,
+          record.description, record.harness, record.model,
           record.serial, record.watched ? 1 : 0, record.settled ? 1 : 0, record.deliveredSerial, record.createdAt, record.updatedAt,
         ],
       );

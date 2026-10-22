@@ -108,6 +108,18 @@ export class CodexApprovals {
 
   constructor(private readonly timeoutMs: () => number = getPermissionTimeoutMs) {}
 
+  /**
+   * A question from a Prokop dynamic tool (a delegation that needs the user's
+   * yes), stored and answered like a native approval, once-only.
+   */
+  async askUser(ask: PermissionAsk, toolName: string, sessionId: string, workspaceId: string,
+    delivery: ApplicationDeliveryPort<unknown>): Promise<boolean> {
+    if ((await getSession(sessionId))?.harness !== 'codex-cli') return false;
+    if (!(await harnessAsks().sessionControl(sessionId)).controlled) return false;
+    const decision = await this.enqueue({ ...ask, allowedScopes: ['once'] }, toolName, null, sessionId, workspaceId, delivery);
+    return decision.decision === 'accept';
+  }
+
   hasLiveRequest(requestId: string): boolean { return this.pending.has(requestId); }
 
   getSessionId(toolCallId: string, requestId?: string): string | null {

@@ -1,6 +1,7 @@
 import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { getSession } from '@prokopai/core/infrastructure/storage/runtime';
+import type { PermissionAsk } from '@prokopai/sdk/types';
 import type { DelegationDomainBridge } from '#agent/harnesses/shared/domain-tools';
 
 const MAX_ARGUMENTS = 64_000;
@@ -11,17 +12,19 @@ const targetShape = z.object({
   model: z.string().optional(),
   provider: z.string().optional(),
   variant: z.string().optional(),
-}).optional().describe('Where the child runs when the role does not pin it: harness and, optionally, model, provider (Prokop only) and variant or effort.');
+}).optional().describe('Optional override of the role\'s default harness, model, provider (Prokop only) and variant or effort for this task.');
 
 /** Mirrors the delegate_task input schema; a test pins it to the live definition. */
 export const claudeDelegateShape = {
   description: z.string().describe('A short (3-5 words) description of the task'),
   prompt: z.string().describe('The task for the child, with exactly what to return in its final message'),
-  subagent_type: z.string().optional().describe('A role (subagent type) from delegation_capabilities. Omit to use your own role on a target.'),
+  subagent_type: z.string().describe('A role (subagent type) from delegation_capabilities. Required.'),
   target: targetShape,
   mode: z.enum(['wait', 'async']).optional().describe('async (default): return now; the result arrives as a message. wait: block for the result, up to timeoutMs.'),
   timeoutMs: z.number().optional().describe('wait only: how long to wait before the task turns async (default 600000).'),
   clientRequestId: z.string().optional().describe('Stable id for this logical task; a retried call returns the same task.'),
+  isolation: z.enum(['worktree']).optional().describe('worktree: a top-level session on its own branch and managed worktree instead of a subagent. The user may be asked first.'),
+  baseBranch: z.string().optional().describe('With isolation worktree: the local branch to branch from (default: the current branch).'),
   task_id: z.string().optional().describe('Continue an earlier child with its context.'),
   outputSchema: z.record(z.string(), z.unknown()).optional().describe('JSON Schema the child must answer with.'),
 };
@@ -47,6 +50,8 @@ export function createClaudeDelegationTools(options: {
   root: string;
   preconfigId: string | null;
   signal: AbortSignal;
+  /** Asks the user through the Claude approval path (a free target, a launch). */
+  ask?: (ask: PermissionAsk) => Promise<boolean>;
 }): SdkMcpToolDefinition[] {
   const definitions = (options.definitions ?? options.bridge.definitions()).filter(definition => definition.type === 'function');
   const byName = new Map(definitions.map(definition => [definition.name, definition]));
@@ -59,7 +64,8 @@ export function createClaudeDelegationTools(options: {
         && current.workspaceId === options.workspaceId && current.preconfigId === options.preconfigId;
     } catch { return false; }
   };
-  const context = { sessionId: options.sessionId, workspaceId: options.workspaceId, workspacePath: options.root };
+  const context = { sessionId: options.sessionId, workspaceId: options.workspaceId, workspacePath: options.root,
+    ...(options.ask ? { ask: options.ask } : {}) };
   const run = (name: string, execute: (input: Record<string, unknown>) => Promise<Record<string, unknown>>) =>
     async (input: Record<string, unknown>) => {
       if (!await authorized()) return fail(`${name} unavailable`);

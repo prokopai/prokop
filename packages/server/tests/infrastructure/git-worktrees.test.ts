@@ -104,6 +104,24 @@ describe('worktree Git adapter', () => {
     expect(existsSync(destinationPath)).toBe(false);
   });
 
+  test('creates a new branch from a base for a launch and refuses a taken name', async () => {
+    const adapter = createWorktreeGitPort();
+    const destinationPath = join(root, 'managed', 'launch-1');
+
+    const status = await adapter.create({ repositoryPath, destinationPath, branch: 'refs/heads/task/launch', createBranchFrom: 'feature/available' });
+    expect(status.branch).toBe('task/launch');
+    expect(status.dirty).toBe(false);
+    expect(status.changedCount).toBe(0);
+    expect(git(repositoryPath, ['rev-parse', 'task/launch']).trim()).toBe(git(repositoryPath, ['rev-parse', 'feature/available']).trim());
+
+    await expect(adapter.create({ repositoryPath, destinationPath: join(root, 'managed', 'launch-2'), branch: 'refs/heads/task/launch', createBranchFrom: 'main' }))
+      .rejects.toMatchObject({ code: 'branch_exists' });
+    await expect(adapter.create({ repositoryPath, destinationPath: join(root, 'managed', 'launch-3'), branch: 'refs/heads/task/other', createBranchFrom: 'nope' }))
+      .rejects.toMatchObject({ code: 'branch_not_found' });
+    writeFileSync(join(destinationPath, 'new.txt'), 'x\n');
+    expect((await adapter.status(destinationPath)).changedCount).toBe(1);
+  });
+
   test('rejects remote and missing local branches', async () => {
     const adapter = createWorktreeGitPort();
 
