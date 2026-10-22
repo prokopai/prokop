@@ -93,7 +93,7 @@ import {
   sendToControllerEvent,
 } from '@/transport/websocket/broadcast';
 import { installShellCompletionDelivery } from './shell-completions';
-import { addWorkspaceFilesChangedObserver } from '@prokopai/core/application/workspaces/files-changed';
+import { addWorkspaceFilesChangedObserver, notifyWorkspaceFilesChanged } from '@prokopai/core/application/workspaces/files-changed';
 import { setMcpChangeListener } from '@/infrastructure/mcp';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { browserService } from '@/infrastructure/browser/service';
@@ -380,8 +380,15 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       commands: createWorktreeSetupCommandPort(),
       log: createWorktreeSetupLogPort(() => getDataDir()),
       // Every setup state change rebroadcasts the worktree (same path as
-      // attachment refreshes); the application is created just below.
-      onChanged: (worktreeId) => refreshWorktreeAttachments?.(worktreeId),
+      // attachment refreshes; the application is created just below) and
+      // tells the file tree and Git status feeds that the worktree's files
+      // moved: copies, env files, a finished install. The feeds refresh the
+      // roots clients watch, so the Explorer follows without a manual reload.
+      onChanged: (worktreeId) => {
+        refreshWorktreeAttachments?.(worktreeId);
+        const record = managedWorktrees.get(worktreeId);
+        if (record) notifyWorkspaceFilesChanged(record.workspaceId);
+      },
       worktreePath: (worktreeId) => managedWorktrees.get(worktreeId)?.path ?? null,
     }),
     workspaces: { get: getWorkspace },
