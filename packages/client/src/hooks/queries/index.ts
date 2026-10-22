@@ -10,7 +10,12 @@ export { useFileBrowseFsQuery, useFileDrivesQuery, useFileParentQuery, useFileGi
 export { useResponseFormatsQuery, useCreateResponseFormat, useUpdateResponseFormat, useDeleteResponseFormat } from './useResponseFormatsQueries';
 export { usePinnedMessagesQuery, usePinMessageMutation, useUnpinMessageMutation } from './usePinnedMessagesQueries';
 export { useWorkspaceTagsQuery, useInvalidateWorkspaceTags } from './useSessionTagsQueries';
-export { useWorktreeRefsQuery, useWorktreesQuery, useWorktreeMutations } from './useWorktreeQueries';
+export {
+  useWorktreeRefsQuery,
+  useWorktreesQuery,
+  useWorktreeMutations,
+  useWorktreeSetupLogQuery,
+} from './useWorktreeQueries';
 export {
   useScheduledJobs,
   useCreateScheduledJob,

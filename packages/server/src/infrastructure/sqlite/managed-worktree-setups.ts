@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import type { WorktreeSetupState } from '@prokopai/sdk';
+import type { WorktreeSetupCommands, WorktreeSetupState } from '@prokopai/sdk';
 import type {
   WorktreeSetupRecord,
   WorktreeSetupRepositoryPort,
@@ -14,7 +14,22 @@ interface WorktreeSetupRow {
   step: string | null;
   error: string | null;
   warning: string | null;
+  commands: string | null;
   updated_at: string;
+}
+
+function parseCommands(text: string | null): WorktreeSetupCommands {
+  const empty: WorktreeSetupCommands = { setup: [], teardown: [] };
+  if (!text) return empty;
+  try {
+    const parsed = JSON.parse(text) as Partial<WorktreeSetupCommands>;
+    return {
+      setup: Array.isArray(parsed.setup) ? parsed.setup.filter((entry) => typeof entry === 'string') : [],
+      teardown: Array.isArray(parsed.teardown) ? parsed.teardown.filter((entry) => typeof entry === 'string') : [],
+    };
+  } catch {
+    return empty;
+  }
 }
 
 function mapRow(row: WorktreeSetupRow): WorktreeSetupRecord {
@@ -27,6 +42,7 @@ function mapRow(row: WorktreeSetupRow): WorktreeSetupRecord {
     step: row.step,
     error: row.error,
     warning: row.warning,
+    commands: parseCommands(row.commands),
     updatedAt: row.updated_at,
   };
 }
@@ -45,8 +61,8 @@ export function createWorktreeSetupRepository(
     upsert(record) {
       getDatabase().run(
         `INSERT INTO managed_worktree_setups (
-          worktree_id, config_hash, port_base, port_count, state, step, error, warning, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          worktree_id, config_hash, port_base, port_count, state, step, error, warning, commands, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(worktree_id) DO UPDATE SET
           config_hash = excluded.config_hash,
           port_base = excluded.port_base,
@@ -55,6 +71,7 @@ export function createWorktreeSetupRepository(
           step = excluded.step,
           error = excluded.error,
           warning = excluded.warning,
+          commands = excluded.commands,
           updated_at = excluded.updated_at`,
         [
           record.worktreeId,
@@ -65,6 +82,7 @@ export function createWorktreeSetupRepository(
           record.step,
           record.error,
           record.warning,
+          JSON.stringify(record.commands),
           record.updatedAt,
         ],
       );

@@ -33,6 +33,30 @@ export function useWorktreesQuery(
   });
 }
 
+/**
+ * The setup log of one worktree. Fetched when a log view opens and again
+ * whenever the worktree's setup state or step changes (the event-driven
+ * `worktree.updated` refresh), never on a timer.
+ */
+export function useWorktreeSetupLogQuery(
+  client: ProkopaiClient | null,
+  workspaceId: string | undefined,
+  worktree: ManagedWorktree | null,
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.worktrees.setupLog(workspaceId ?? '', worktree?.id ?? ''),
+      worktree?.setup.state ?? '',
+      worktree?.setup.step ?? '',
+    ],
+    queryFn: async () => {
+      if (!client || !workspaceId || !worktree) return '';
+      return (await client.http.workspaces.getWorktreeSetupLog(workspaceId, worktree.id)).log;
+    },
+    enabled: Boolean(client && workspaceId && worktree),
+  });
+}
+
 function replaceSession(session: Session): void {
   const store = useSessionStore.getState();
   store.setSessions((current) => current.map((item) => (
@@ -84,6 +108,30 @@ export function useWorktreeMutations(
     },
   });
 
+  const replaceWorktree = (worktree: ManagedWorktree): void => {
+    queryClient.setQueryData<ManagedWorktree[]>(key, (current = []) => (
+      current.some((item) => item.id === worktree.id)
+        ? current.map((item) => (item.id === worktree.id ? worktree : item))
+        : [worktree, ...current]
+    ));
+  };
+
+  const approveSetup = useMutation({
+    mutationFn: async (worktreeId: string) => {
+      if (!client || !workspaceId) throw new Error('Workspace is not available');
+      return (await client.http.workspaces.approveWorktreeSetup(workspaceId, worktreeId)).worktree;
+    },
+    onSuccess: replaceWorktree,
+  });
+
+  const runSetup = useMutation({
+    mutationFn: async (worktreeId: string) => {
+      if (!client || !workspaceId) throw new Error('Workspace is not available');
+      return (await client.http.workspaces.runWorktreeSetup(workspaceId, worktreeId)).worktree;
+    },
+    onSuccess: replaceWorktree,
+  });
+
   const bind = useMutation({
     mutationFn: async ({ sessionId, worktreeId }: { sessionId: string; worktreeId: string }) => {
       if (!client) throw new Error('Server is not available');
@@ -100,5 +148,5 @@ export function useWorktreeMutations(
     onSuccess: replaceSession,
   });
 
-  return { create, remove, bind, unbind };
+  return { create, remove, bind, unbind, approveSetup, runSetup };
 }

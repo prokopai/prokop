@@ -4,6 +4,7 @@ import type {
   ManagedWorktreeState,
   Session,
   Workspace,
+  WorktreeSetupCommands,
   WorktreeSetupState,
 } from '@prokopai/sdk';
 
@@ -43,6 +44,8 @@ export interface WorktreeSetupRecord {
   step: string | null;
   error: string | null;
   warning: string | null;
+  /** The config's commands as of the last run, so approval can show them. */
+  commands: WorktreeSetupCommands;
   updatedAt: string;
 }
 

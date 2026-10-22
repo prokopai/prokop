@@ -153,6 +153,7 @@ export function initializeSchema(db: Database): void {
     step TEXT,
     error TEXT,
     warning TEXT,
+    commands TEXT,
     updated_at TEXT NOT NULL
   )`);
   db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
@@ -355,6 +356,7 @@ export function initializeSchema(db: Database): void {
     'ALTER TABLE terminal_sessions ADD COLUMN managed_worktree_id TEXT REFERENCES managed_worktrees(id)',
     'ALTER TABLE managed_worktrees ADD COLUMN name TEXT',
     'ALTER TABLE queued_messages ADD COLUMN steer INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE managed_worktree_setups ADD COLUMN commands TEXT',
   ]) {
     try { db.run(sql); } catch { /* existing column */ }
   }

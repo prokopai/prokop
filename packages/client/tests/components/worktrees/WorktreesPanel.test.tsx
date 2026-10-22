@@ -15,31 +15,129 @@ const baseWorktree: ManagedWorktree = {
   dirty: false,
   untrackedCount: 0,
   attachments: [],
-  setup: { state: 'none', ports: null, step: null, error: null, warning: null },
+  setup: { state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] } },
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
 let mockWorktrees: ManagedWorktree[] = [baseWorktree];
 const removeMutate = vi.fn();
+const approveMutate = vi.fn();
+const runMutate = vi.fn();
+let mockLog = '';
 
 vi.mock('@/hooks/queries', () => ({
   useWorktreeRefsQuery: () => ({ data: [], isLoading: false }),
   useWorktreesQuery: () => ({ data: mockWorktrees, isLoading: false }),
+  useWorktreeSetupLogQuery: () => ({ data: mockLog, isLoading: false }),
   useWorktreeMutations: () => ({
     create: { isPending: false, mutate: vi.fn() },
     remove: { isPending: false, mutate: removeMutate },
     bind: { isPending: false, mutate: vi.fn() },
     unbind: { isPending: false, mutate: vi.fn() },
+    approveSetup: { isPending: false, mutate: approveMutate },
+    runSetup: { isPending: false, mutate: runMutate },
   }),
 }));
+
+const commands = { setup: ['bun install', 'bun run db:create'], teardown: ['bun run db:drop'] };
 
 import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 
 describe('WorktreesPanel', () => {
   beforeEach(() => {
     mockWorktrees = [baseWorktree];
+    mockLog = '';
     removeMutate.mockClear();
+    approveMutate.mockClear();
+    runMutate.mockClear();
+  });
+
+  test('setup waiting for approval shows the commands and one Run setup action', async () => {
+    const user = userEvent.setup();
+    mockWorktrees = [{
+      ...baseWorktree,
+      setup: { state: 'needs_approval', ports: { base: 20010, count: 10 }, step: null, error: null, warning: null, commands },
+    }];
+    render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
+
+    expect(screen.getByText('bun install · bun run db:create')).toBeInTheDocument();
+    const run = screen.getByRole('button', { name: 'Run setup' });
+    expect(run).toHaveAttribute('title', expect.stringContaining('(teardown) bun run db:drop'));
+    await user.click(run);
+
+    expect(approveMutate).toHaveBeenCalledWith('wt-1', expect.anything());
+    expect(runMutate).not.toHaveBeenCalled();
+  });
+
+  test('a running setup shows its step and offers no action', () => {
+    mockWorktrees = [{
+      ...baseWorktree,
+      setup: { state: 'running', ports: null, step: 'setup 1/2: bun install', error: null, warning: null, commands },
+    }];
+    render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
+
+    expect(screen.getByText('setup 1/2: bun install')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Run setup' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
+  test('a failed setup shows the first error line, retries, and opens the log', async () => {
+    const user = userEvent.setup();
+    mockLog = '$ bun run db:create\nerror: database exists\n\n# exit code 1\n';
+    mockWorktrees = [{
+      ...baseWorktree,
+      setup: {
+        state: 'failed',
+        ports: { base: 20010, count: 10 },
+        step: 'setup 2/2: bun run db:create',
+        error: 'exit code 1\nerror: database exists',
+        warning: null,
+        commands,
+      },
+    }];
+    render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
+
+    expect(screen.getByText('setup 2/2: bun run db:create: exit code 1')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(runMutate).toHaveBeenCalledWith('wt-1', expect.anything());
+
+    await user.click(screen.getByRole('button', { name: 'Log' }));
+    expect(screen.getByRole('dialog', { name: 'Setup log' })).toBeInTheDocument();
+    expect(screen.getByText(/error: database exists/)).toBeInTheDocument();
+  });
+
+  test('a ready setup shows its port and a note; the menu offers the log and a re-run', async () => {
+    const user = userEvent.setup();
+    mockWorktrees = [{
+      ...baseWorktree,
+      setup: {
+        state: 'ready',
+        ports: { base: 20010, count: 10 },
+        step: null,
+        error: null,
+        warning: 'skipped clone node_modules: not in the primary checkout',
+        commands,
+      },
+    }];
+    render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
+
+    expect(screen.getByText(':20010')).toBeInTheDocument();
+    expect(screen.getByText('skipped clone node_modules: not in the primary checkout')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Actions for fix-auth' }));
+    expect(screen.getByRole('menuitem', { name: /Setup log/ })).toBeEnabled();
+    await user.click(screen.getByRole('menuitem', { name: /Run setup again/ }));
+    expect(runMutate).toHaveBeenCalledWith('wt-1', expect.anything());
+  });
+
+  test('a worktree without a setup file shows no setup line or menu items', async () => {
+    const user = userEvent.setup();
+    render(<WorktreesPanel sdkClient={null} workspaceId="ws-1" />);
+
+    await user.click(screen.getByRole('button', { name: 'Actions for fix-auth' }));
+    expect(screen.queryByRole('menuitem', { name: /Setup log/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Run setup' })).not.toBeInTheDocument();
   });
 
   test('lists worktrees with branch and state', () => {

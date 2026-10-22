@@ -209,6 +209,7 @@ describe('worktree setup from .prokop/worktree.json', () => {
       step: 'check',
       error: 'add notes.txt to .gitignore, otherwise the worktree turns dirty and cannot be removed',
       warning: null,
+      commands: { setup: [], teardown: [] },
     });
     expect(existsSync(join(worktree.path, '.env'))).toBe(false);
     expect(existsSync(join(worktree.path, '.env.local'))).toBe(false);
@@ -319,6 +320,9 @@ describe('worktree setup from .prokop/worktree.json', () => {
 
     const created = await create('First Run', 'feature/a');
     expect(created.setup.state).toBe('needs_approval');
+    // The commands travel with the state so approval can show them.
+    expect(created.setup.commands.setup).toHaveLength(2);
+    expect(created.setup.commands.teardown).toEqual([]);
     expect(existsSync(join(created.path, 'generated'))).toBe(false);
     // Nothing ran: no log, and re-running without approval asks again.
     const rerun = await application.runSetup('workspace-1', created.id);

@@ -101,7 +101,9 @@ export interface WorktreeSetupRunnerDeps {
   now?: () => string;
 }
 
-const NO_SETUP: WorktreeSetup = { state: 'none', ports: null, step: null, error: null, warning: null };
+const NO_SETUP: WorktreeSetup = {
+  state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] },
+};
 const DEFAULT_COMMAND_TIMEOUT_MS = 15 * 60_000;
 const DEFAULT_TEARDOWN_TIMEOUT_MS = 5 * 60_000;
 const ERROR_TAIL_LINES = 30;
@@ -187,6 +189,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
       configHash: parsed.hash,
       portBase: null,
       portCount: null,
+      commands: { setup: [...config.setup], teardown: [...config.teardown] },
     };
     const fail = (step: string, error: string): WorktreeSetupRecord => store({
       ...base,
@@ -546,6 +549,7 @@ export function createWorktreeSetupRunner(deps: WorktreeSetupRunnerDeps): Worktr
         step: record.step,
         error: record.error,
         warning: record.warning,
+        commands: record.commands,
       };
     },
 

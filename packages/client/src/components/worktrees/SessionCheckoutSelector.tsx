@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Check, Folder, GitBranch, Plus } from 'lucide-react';
+import { Check, Folder, GitBranch, Loader2, Plus } from 'lucide-react';
 import type { ManagedWorktree, ProkopaiClient, Session } from '@prokopai/sdk';
 import { Chip, ChipLabel } from '@/components/ui/chip';
 import {
@@ -93,8 +93,21 @@ function useSessionCheckout({ session, sdkClient }: CheckoutProps) {
 
 function RowMeta({ worktree }: { worktree: ManagedWorktree }) {
   const running = worktree.attachments.filter((attachment) => attachment.running).length;
+  const { setup } = worktree;
   return (
     <span className="ml-auto flex shrink-0 items-center gap-2 text-2xs text-muted-foreground">
+      {setup.state === 'running' && (
+        <Loader2 className="size-3 animate-spin" aria-label="Setting up" />
+      )}
+      {(setup.state === 'failed' || setup.state === 'interrupted') && (
+        <span className="size-1.5 rounded-full bg-error" title={`Setup ${setup.state}`} />
+      )}
+      {setup.state === 'needs_approval' && (
+        <span className="whitespace-nowrap" title="Setup commands wait for approval">setup pending</span>
+      )}
+      {setup.ports && setup.state === 'ready' && (
+        <span className="font-mono">:{setup.ports.base}</span>
+      )}
       {worktree.dirty && (
         <span className="size-1.5 rounded-full bg-warning" title="Has uncommitted changes" />
       )}
@@ -271,6 +284,17 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
   if (!session.workspaceRootId) return null;
 
   const label = bound ? getWorktreeDisplayName(bound) : 'Managed checkout';
+  // The session projection carries no setup; only the fetched record does.
+  const setup: ManagedWorktree['setup'] | null = bound && 'setup' in bound ? (bound as ManagedWorktree).setup : null;
+  // The setup state matters most here: an agent working in a worktree
+  // whose install is still running misreads missing dependencies.
+  const setupNote = setup?.state === 'running'
+    ? <Loader2 className="size-3 shrink-0 animate-spin" aria-label={setup.step ?? 'Setting up'} />
+    : setup?.state === 'failed' || setup?.state === 'interrupted'
+      ? <span className="shrink-0 text-error" title={setup.error ?? undefined}>setup {setup.state}</span>
+      : setup?.state === 'needs_approval'
+        ? <span className="shrink-0">setup pending</span>
+        : null;
 
   const content = (
     <>
@@ -284,6 +308,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
       {!boundAvailable && (
         <span className="shrink-0">unavailable ({bound?.state ?? 'unknown'})</span>
       )}
+      {setupNote}
     </>
   );
 
@@ -321,16 +346,7 @@ export function SessionCheckoutStrip({ session, sdkClient, locked }: StripProps)
               open && boundAvailable && 'border-ring/30',
             )}
           >
-            <GitBranch className="size-3 shrink-0" />
-            <span className="min-w-0 truncate font-medium">{label}</span>
-            {bound?.branch && bound.branch !== label && (
-              <span className="hidden min-w-0 truncate text-muted-foreground/70 @lg/chips:inline">
-                (<span className="font-mono">{bound.branch}</span>)
-              </span>
-            )}
-            {!boundAvailable && (
-              <span className="shrink-0">unavailable ({bound?.state ?? 'unknown'})</span>
-            )}
+            {content}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="center" side="top" sideOffset={8}>

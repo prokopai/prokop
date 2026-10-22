@@ -75,7 +75,7 @@ describe('session worktree presentation', () => {
       dirty: false,
       untrackedCount: 0,
       attachments: [],
-      setup: { state: 'none', ports: null, step: null, error: null, warning: null },
+      setup: { state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] } },
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -93,7 +93,7 @@ describe('session worktree presentation', () => {
       dirty: false,
       untrackedCount: 0,
       attachments: [],
-      setup: { state: 'none', ports: null, step: null, error: null, warning: null },
+      setup: { state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] } },
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };

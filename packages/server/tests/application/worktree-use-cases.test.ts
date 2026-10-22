@@ -182,7 +182,9 @@ describe('managed worktree application', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(created.value.path).toBe(`/data/worktrees/repository-1/${created.value.id}`);
-    expect(created.value.setup).toEqual({ state: 'none', ports: null, step: null, error: null, warning: null });
+    expect(created.value.setup).toEqual({
+      state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] },
+    });
 
     const bound = await state.application.bind('session-1', created.value.id);
     expect(bound.ok).toBe(true);

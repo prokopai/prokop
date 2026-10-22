@@ -116,6 +116,33 @@ function createDefaultHttp(workspace: ReturnType<typeof createWorkspace>): Handl
       get: async () => ({ workspace }),
       listWorktrees: async () => ({ worktrees }),
       listWorktreeRefs: async () => ({ refs: createRefList() }),
+      approveWorktreeSetup: async (_workspaceId: string, worktreeId: string) => ({
+        worktree: {
+          ...(worktrees.find((item) => item.id === worktreeId) ?? worktrees[0]!),
+          setup: {
+            state: 'running' as const,
+            ports: { base: 20000, count: 10 },
+            step: 'setup 1/1: bun install',
+            error: null,
+            warning: null,
+            commands: { setup: ['bun install'], teardown: [] },
+          },
+        },
+      }),
+      runWorktreeSetup: async (_workspaceId: string, worktreeId: string) => ({
+        worktree: {
+          ...(worktrees.find((item) => item.id === worktreeId) ?? worktrees[0]!),
+          setup: {
+            state: 'running' as const,
+            ports: { base: 20000, count: 10 },
+            step: 'setup 1/1: bun install',
+            error: null,
+            warning: null,
+            commands: { setup: ['bun install'], teardown: [] },
+          },
+        },
+      }),
+      getWorktreeSetupLog: async () => ({ log: '$ bun install\nbun install v1.4.0\n + 412 packages installed [1.20s]\n' }),
       listPinnedMessages: async () => ({ pinnedMessages: [] }),
       learningRuns: async () => ({ runs: createLearningRuns(), blocked: false }),
       learningRun: async (_id: string, runId: string) => createLearningRunDetail({ run: { ...createLearningRunDetail().run, id: runId } }),

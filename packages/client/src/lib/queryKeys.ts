@@ -23,6 +23,7 @@ export const queryKeys = {
   worktrees: {
     byWorkspace: (workspaceId: string) => ['worktrees', 'workspace', workspaceId] as const,
     refsByWorkspace: (workspaceId: string) => ['worktrees', 'refs', workspaceId] as const,
+    setupLog: (workspaceId: string, worktreeId: string) => ['worktrees', 'setup-log', workspaceId, worktreeId] as const,
   },
   tools: {
     all: ['tools'] as const,

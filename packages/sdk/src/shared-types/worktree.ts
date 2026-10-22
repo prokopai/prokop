@@ -26,6 +26,11 @@ export interface WorktreeSetupPorts {
   count: number;
 }
 
+export interface WorktreeSetupCommands {
+  setup: string[];
+  teardown: string[];
+}
+
 export interface WorktreeSetup {
   state: WorktreeSetupState;
   ports: WorktreeSetupPorts | null;
@@ -34,6 +39,8 @@ export interface WorktreeSetup {
   error: string | null;
   /** Non-fatal notes, for example a skipped clone. */
   warning: string | null;
+  /** The commands the config declares, shown before they are approved. */
+  commands: WorktreeSetupCommands;
 }
 
 export interface ManagedWorktree {

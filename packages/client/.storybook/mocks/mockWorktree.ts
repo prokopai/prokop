@@ -22,7 +22,7 @@ export function createWorktree(overrides: MockWorktreeOverrides = {}): ManagedWo
       dirty: false,
       untrackedCount: 0,
       attachments: [],
-      setup: { state: 'none', ports: null, step: null, error: null, warning: null },
+      setup: { state: 'none', ports: null, step: null, error: null, warning: null, commands: { setup: [], teardown: [] } },
       createdAt: mockIsoNow(),
       updatedAt: mockIsoNow(),
     },
@@ -47,6 +47,54 @@ export const worktreePresets = {
     state: 'missing',
   }),
   detached: createWorktree({ name: 'detached-ref', branch: null }),
+  settingUp: createWorktree({
+    name: 'api-rate-limit',
+    branch: 'feature/api-rate-limit',
+    setup: {
+      state: 'running',
+      ports: { base: 20010, count: 10 },
+      step: 'setup 1/2: bun install',
+      error: null,
+      warning: null,
+      commands: { setup: ['bun install', 'bun run db:create'], teardown: ['bun run db:drop'] },
+    },
+  }),
+  needsApproval: createWorktree({
+    name: 'search-index',
+    branch: 'feature/search-index',
+    setup: {
+      state: 'needs_approval',
+      ports: { base: 20020, count: 10 },
+      step: null,
+      error: null,
+      warning: null,
+      commands: { setup: ['bun install', 'bun run db:create'], teardown: ['bun run db:drop'] },
+    },
+  }),
+  setupFailed: createWorktree({
+    name: 'fix-auth',
+    branch: 'fix/auth',
+    setup: {
+      state: 'failed',
+      ports: { base: 20030, count: 10 },
+      step: 'setup 2/2: bun run db:create',
+      error: 'exit code 1\nerror: database "app_fix_auth_1a2b3c" already exists',
+      warning: null,
+      commands: { setup: ['bun install', 'bun run db:create'], teardown: ['bun run db:drop'] },
+    },
+  }),
+  ready: createWorktree({
+    name: 'docs-refresh',
+    branch: 'docs/refresh',
+    setup: {
+      state: 'ready',
+      ports: { base: 20040, count: 10 },
+      step: null,
+      error: null,
+      warning: 'skipped clone node_modules: not in the primary checkout',
+      commands: { setup: ['bun install'], teardown: [] },
+    },
+  }),
 } as const;
 
 // =============================================================================

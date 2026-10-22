@@ -7,9 +7,11 @@ import {
   CircleDot,
   Copy,
   ExternalLink,
+  FileText,
   GitBranch,
   Loader2,
   MoreHorizontal,
+  Play,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -28,6 +30,7 @@ import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useSessionFilesStore } from '@/stores/sessionFilesStore';
 import { cn } from '@/lib/utils';
 import { WorktreeCreateForm } from '@/components/worktrees/WorktreeCreateForm';
+import { WorktreeSetupLogDialog } from '@/components/worktrees/WorktreeSetupLogDialog';
 
 interface WorktreesPanelProps {
   sdkClient: ProkopaiClient | null;
@@ -54,17 +57,100 @@ function describeBlocked(worktree: ManagedWorktree): string | null {
   return null;
 }
 
+function firstLine(text: string): string {
+  return text.split('\n')[0] ?? text;
+}
+
+interface SetupActions {
+  onApprove: () => void;
+  onRerun: () => void;
+  onViewLog: () => void;
+  pending: boolean;
+}
+
+function SetupAction({ onClick, disabled, children, title }: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="shrink-0 text-2xs font-medium text-foreground underline-offset-2 hover:underline disabled:opacity-60"
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * One quiet line under the worktree name: the setup step while it runs,
+ * the commands with one "Run setup" action while they wait for approval,
+ * the first error line with Retry and Log after a failure, the port when
+ * ready. Actions stay visible, no hover, so they work on touch screens.
+ */
+function SetupLine({ worktree, actions }: { worktree: ManagedWorktree; actions: SetupActions }) {
+  const { setup } = worktree;
+  const commands = [...setup.commands.setup, ...setup.commands.teardown.map((command) => `(teardown) ${command}`)];
+  const commandList = commands.join('\n');
+
+  if (setup.state === 'running') {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-2xs text-muted-foreground">
+        <Loader2 className="size-3 shrink-0 animate-spin" />
+        <span className="truncate" title={setup.step ?? undefined}>{setup.step ?? 'Setting up'}</span>
+      </span>
+    );
+  }
+  if (setup.state === 'needs_approval') {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-2xs text-muted-foreground">
+        <SetupAction onClick={actions.onApprove} disabled={actions.pending} title={`Run in this worktree:\n${commandList}`}>
+          Run setup
+        </SetupAction>
+        <span className="truncate font-mono" title={commandList}>{setup.commands.setup.join(' · ')}</span>
+      </span>
+    );
+  }
+  if (setup.state === 'failed' || setup.state === 'interrupted') {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-2xs">
+        <span className="truncate text-error" title={setup.error ?? undefined}>
+          {setup.step ? `${setup.step}: ` : ''}{firstLine(setup.error ?? `Setup ${setup.state}`)}
+        </span>
+        <SetupAction onClick={actions.onRerun} disabled={actions.pending}>Retry</SetupAction>
+        <SetupAction onClick={actions.onViewLog}>Log</SetupAction>
+      </span>
+    );
+  }
+  if (setup.state === 'ready' && (setup.ports || setup.warning)) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-2xs text-muted-foreground">
+        {setup.ports && <span className="shrink-0 font-mono" title={`Ports ${setup.ports.base} to ${setup.ports.base + setup.ports.count - 1}`}>:{setup.ports.base}</span>}
+        {setup.warning && <span className="truncate" title={setup.warning}>{firstLine(setup.warning)}</span>}
+      </span>
+    );
+  }
+  return null;
+}
+
 interface RowProps {
   worktree: ManagedWorktree;
   removing: boolean;
   onRemove: () => void;
   onOpenInExplorer: (worktree: ManagedWorktree) => void;
+  setup: SetupActions;
 }
 
-function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProps) {
+function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer, setup }: RowProps) {
   const blocked = describeBlocked(worktree);
   const unavailable = worktree.state !== 'available' && worktree.state !== 'removed';
   const removed = worktree.state === 'removed';
+  const hasSetup = worktree.setup.state !== 'none';
 
   return (
     <div
@@ -101,6 +187,12 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
             {worktree.attachments.length} session{worktree.attachments.length > 1 ? 's' : ''} attached
           </span>
         )}
+        {!removed && <SetupLine worktree={worktree} actions={setup} />}
+        {removed && worktree.setup.warning && (
+          <span className="truncate text-2xs text-muted-foreground" title={worktree.setup.warning}>
+            {firstLine(worktree.setup.warning)}
+          </span>
+        )}
       </div>
       {removing ? (
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
@@ -128,6 +220,21 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
               <Copy className="size-4" />
               Copy path
             </DropdownMenuItem>
+            {hasSetup && (
+              <>
+                <DropdownMenuSeparator />
+                {worktree.setup.state === 'ready' && (
+                  <DropdownMenuItem disabled={setup.pending || worktree.state !== 'available'} onClick={setup.onRerun}>
+                    <Play className="size-4" />
+                    Run setup again
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={setup.onViewLog}>
+                  <FileText className="size-4" />
+                  Setup log
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={Boolean(blocked) && !removed}
@@ -152,10 +259,24 @@ function WorktreeRow({ worktree, removing, onRemove, onOpenInExplorer }: RowProp
  */
 export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) {
   const [creating, setCreating] = useState(false);
+  const [logWorktreeId, setLogWorktreeId] = useState<string | null>(null);
   const worktrees = useWorktreesQuery(sdkClient, workspaceId);
   const refs = useWorktreeRefsQuery(sdkClient, workspaceId);
   const mutations = useWorktreeMutations(sdkClient, workspaceId);
   const all = worktrees.data ?? [];
+  // Read from the live list so the dialog follows state and step changes.
+  const logWorktree = all.find((worktree) => worktree.id === logWorktreeId) ?? null;
+
+  const setupActionsFor = (worktree: ManagedWorktree): SetupActions => ({
+    pending: mutations.approveSetup.isPending || mutations.runSetup.isPending,
+    onApprove: () => mutations.approveSetup.mutate(worktree.id, {
+      onError: (error) => toast.error(errorMessage(error)),
+    }),
+    onRerun: () => mutations.runSetup.mutate(worktree.id, {
+      onError: (error) => toast.error(errorMessage(error)),
+    }),
+    onViewLog: () => setLogWorktreeId(worktree.id),
+  });
 
   const openInExplorer = (worktree: ManagedWorktree) => {
     // Pinning the worktree path reuses the existing root switcher so the
@@ -170,7 +291,10 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
     mutations.remove.mutate(worktree.id, {
       onSuccess: (updated) => {
         if (updated.state === 'removed') {
-          toast.success(`Removed ${worktree.name}`);
+          // A failed teardown does not keep the worktree; it is worth one line.
+          const warning = updated.setup.warning;
+          if (warning && warning !== worktree.setup.warning) toast(`Removed ${worktree.name}`, { description: firstLine(warning) });
+          else toast.success(`Removed ${worktree.name}`);
         } else {
           toast.error(`Could not remove ${worktree.name}`);
         }
@@ -240,10 +364,17 @@ export function WorktreesPanel({ sdkClient, workspaceId }: WorktreesPanelProps) 
               removing={worktree.state === 'removing'}
               onRemove={() => remove(worktree)}
               onOpenInExplorer={openInExplorer}
+              setup={setupActionsFor(worktree)}
             />
           ))
         )}
       </div>
+      <WorktreeSetupLogDialog
+        sdkClient={sdkClient}
+        workspaceId={workspaceId}
+        worktree={logWorktree}
+        onClose={() => setLogWorktreeId(null)}
+      />
     </div>
   );
 }
