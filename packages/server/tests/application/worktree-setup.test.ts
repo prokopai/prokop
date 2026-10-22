@@ -16,9 +16,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Session } from '@prokopai/sdk';
 import { createWorktreeApplication, type WorktreeApplication } from '@/application/worktrees';
-import { createWorktreeSetupRunner } from '@/application/worktree-setup';
+import { createWorktreeSetupRunner, type WorktreeSetupRunner } from '@/application/worktree-setup';
 import { createWorktreeGitPort } from '@/infrastructure/git-worktrees';
-import { createWorktreePortProbe, createWorktreeSetupFilesPort } from '@/infrastructure/worktree-setup';
+import {
+  createWorktreePortProbe,
+  createWorktreeSetupCommandPort,
+  createWorktreeSetupFilesPort,
+  createWorktreeSetupLogPort,
+} from '@/infrastructure/worktree-setup';
 import { initializeSchema } from '@/infrastructure/sqlite/database';
 import { createManagedWorktreeRepository } from '@/infrastructure/sqlite/managed-worktrees';
 import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
@@ -47,8 +52,10 @@ describe('worktree setup from .prokop/worktree.json', () => {
   let repositoryPath: string;
   let db: Database;
   let application: WorktreeApplication;
+  let runner: WorktreeSetupRunner;
   let setupEvents: string[];
   const gitPort = createWorktreeGitPort();
+  const COMMAND_TIMEOUT_MS = 1_500;
 
   function writeConfig(config: unknown): void {
     mkdirSync(join(repositoryPath, '.prokop'), { recursive: true });
@@ -86,15 +93,24 @@ describe('worktree setup from .prokop/worktree.json', () => {
 
     const sessions = new Map<string, Session>();
     setupEvents = [];
+    runner = createWorktreeSetupRunner({
+      files: createWorktreeSetupFilesPort(),
+      ports: createWorktreePortProbe(),
+      repository: createWorktreeSetupRepository(() => db),
+      commands: createWorktreeSetupCommandPort(),
+      log: createWorktreeSetupLogPort(() => join(root, 'data')),
+      onChanged: (worktreeId) => {
+        const record = runner.get(worktreeId);
+        setupEvents.push(`setup:${record?.state}:${record?.step ?? ''}`);
+      },
+      environment: () => ({ PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', PROKOPAI_LLM_FAKE_KEY: 'leak' }),
+      commandTimeoutMs: COMMAND_TIMEOUT_MS,
+    });
     application = createWorktreeApplication({
       dataDir: () => join(root, 'data'),
       repository: createManagedWorktreeRepository(() => db),
       git: gitPort,
-      setup: createWorktreeSetupRunner({
-        files: createWorktreeSetupFilesPort(),
-        ports: createWorktreePortProbe(),
-        repository: createWorktreeSetupRepository(() => db),
-      }),
+      setup: runner,
       workspaces: {
         get: (id) => id === 'workspace-1'
           ? {
@@ -125,10 +141,22 @@ describe('worktree setup from .prokop/worktree.json', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await runner.stopAll();
     db.close();
     rmSync(root, { recursive: true, force: true });
   });
+
+  async function settled(worktreeId: string) {
+    await runner.settled(worktreeId);
+    return runner.publicSetup(runner.get(worktreeId));
+  }
+
+  async function approve(worktreeId: string) {
+    const approved = await application.approveSetup('workspace-1', worktreeId);
+    if (!approved.ok) throw new Error(`${approved.code}: ${approved.message}`);
+    return approved.value;
+  }
 
   test('copies ignored files, renders env and template files with the port, and keeps the worktree clean', async () => {
     writeConfig({
@@ -160,7 +188,8 @@ describe('worktree setup from .prokop/worktree.json', () => {
 
     // Everything written is ignored, so the worktree is as clean as Git made it.
     expect(await gitPort.status(worktree.path)).toMatchObject({ dirty: false, untrackedCount: 0 });
-    expect(setupEvents).toEqual(['available:ready']);
+    // The runner reports the port reservation and the result; create reports the worktree.
+    expect(setupEvents).toEqual(['setup:running:files', 'setup:ready:', 'available:ready']);
 
     const removed = await application.remove('workspace-1', worktree.id);
     expect(removed.ok).toBe(true);
@@ -277,6 +306,127 @@ describe('worktree setup from .prokop/worktree.json', () => {
     expect(lstatSync(join(worktree.path, 'node_modules', '.bin', 'pkg')).isSymbolicLink()).toBe(true);
     expect(readlinkSync(join(worktree.path, 'node_modules', '.bin', 'pkg'))).toBe('../pkg/index.js');
     expect(await gitPort.status(worktree.path)).toMatchObject({ dirty: false });
+  });
+
+  test('setup commands wait for approval, run with the worktree environment, and ask again when the config changes', async () => {
+    writeConfig({
+      env: { DATABASE_NAME: 'app_{{key}}', PORT: '{{port}}' },
+      setup: [
+        'printf "%s %s %s\\n" "$DATABASE_NAME" "$PROKOP_WORKTREE_PORT" "$PROKOP_WORKTREE_NAME" > generated/installed',
+        'test -z "$PROKOPAI_LLM_FAKE_KEY" && test "$PROKOP_ROOT_PATH" = "$(pwd -P | sed s#/managed/.*##)"; echo "root ok"',
+      ],
+    });
+
+    const created = await create('First Run', 'feature/a');
+    expect(created.setup.state).toBe('needs_approval');
+    expect(existsSync(join(created.path, 'generated'))).toBe(false);
+    // Nothing ran: no log, and re-running without approval asks again.
+    const rerun = await application.runSetup('workspace-1', created.id);
+    expect(rerun.ok && rerun.value.setup.state).toBe('needs_approval');
+
+    const approved = await approve(created.id);
+    expect(approved.setup.state).toBe('running');
+    expect(approved.setup.step).toBe('setup 1/2: printf "%s %s %s\\n" "$DATABASE_NAME" "$PROKOP_WORKTREE_PORT" "$PROKOP_WORKTREE_NAME" > generated/installed');
+    expect(created.setup.ports).not.toBeNull();
+
+    // Hold on: generated/ must be ignored, so the first command needs the directory.
+    const final = await settled(created.id);
+    expect(final.state).toBe('failed');
+    expect(final.step).toStartWith('setup 1/2');
+    expect(final.error).toMatch(/^exit code [1-9]/);
+    expect(final.error).toContain('generated/installed');
+
+    // Fix the config: create the directory first. The new hash asks again.
+    writeConfig({
+      env: { DATABASE_NAME: 'app_{{key}}', PORT: '{{port}}' },
+      setup: [
+        'mkdir -p generated && printf "%s %s %s\\n" "$DATABASE_NAME" "$PROKOP_WORKTREE_PORT" "$PROKOP_WORKTREE_NAME" > generated/installed',
+        'test -z "$PROKOPAI_LLM_FAKE_KEY" && echo "root ok"',
+      ],
+    });
+    const retried = await application.runSetup('workspace-1', created.id);
+    expect(retried.ok && retried.value.setup.state).toBe('needs_approval');
+
+    const reapproved = await approve(created.id);
+    expect(reapproved.setup.state).toBe('running');
+    const done = await settled(created.id);
+    expect(done).toMatchObject({ state: 'ready', step: null, error: null });
+    const key = `first_run_${created.id.replace(/-/g, '').slice(0, 6)}`;
+    expect(readFileSync(join(created.path, 'generated', 'installed'), 'utf8'))
+      .toBe(`app_${key} ${created.setup.ports!.base} First Run\n`);
+    // The block survived both re-runs.
+    expect(done.ports).toEqual(created.setup.ports);
+
+    const log = await application.setupLog('workspace-1', created.id);
+    expect(log.ok && log.value.log).toContain('root ok');
+    expect(log.ok && log.value.log).toContain('$ mkdir -p generated');
+    // The same approved hash runs again without asking.
+    const again = await application.runSetup('workspace-1', created.id);
+    expect(again.ok && again.value.setup.state).toBe('running');
+    expect((await settled(created.id)).state).toBe('ready');
+
+    expect(setupEvents.filter((event) => event.startsWith('setup:running'))).not.toHaveLength(0);
+    expect(setupEvents.at(-1)).toBe('setup:ready:');
+    expect(await gitPort.status(created.path)).toMatchObject({ dirty: false });
+  });
+
+  test('a command that runs past the timeout fails with the elapsed time and a tail', async () => {
+    writeConfig({ setup: ['echo starting; sleep 30'] });
+    const created = await create('slow', 'feature/a');
+    await approve(created.id);
+
+    const startedAt = Date.now();
+    const final = await settled(created.id);
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(final.state).toBe('failed');
+    expect(final.error).toStartWith('timed out after');
+    expect(final.error).toContain('starting');
+  });
+
+  test('removal waits while setup runs; stopping the server leaves the setup interrupted', async () => {
+    writeConfig({ setup: ['sleep 30'] });
+    const created = await create('long', 'feature/a');
+    await approve(created.id);
+    expect(runner.isRunning(created.id)).toBe(true);
+
+    const removed = await application.remove('workspace-1', created.id);
+    expect(removed).toMatchObject({ ok: false, code: 'setup_running' });
+    expect((await application.runSetup('workspace-1', created.id))).toMatchObject({ ok: false, code: 'setup_running' });
+
+    await application.stopSetups();
+    const final = await settled(created.id);
+    expect(final.state).toBe('interrupted');
+    expect(runner.isRunning(created.id)).toBe(false);
+    expect((await application.remove('workspace-1', created.id)).ok).toBe(true);
+  });
+
+  test('a record left running by a previous process becomes interrupted on startup and nothing reruns', async () => {
+    writeConfig({ setup: ['echo hi'] });
+    const created = await create('stale', 'feature/a');
+    db.run("UPDATE managed_worktree_setups SET state = 'running', step = 'setup 1/1: echo hi' WHERE worktree_id = ?", [created.id]);
+
+    application.recoverSetups();
+
+    expect(runner.publicSetup(runner.get(created.id))).toMatchObject({
+      state: 'interrupted',
+      error: 'The server restarted while setup was running',
+    });
+    expect(runner.isRunning(created.id)).toBe(false);
+    expect(await runner.log(created.id)).toBe('');
+  });
+
+  test('re-running with no config or a broken config leaves the record alone', async () => {
+    writeConfig({ setup: ['echo hi'] });
+    const created = await create('lonely', 'feature/a');
+
+    writeFileSync(join(repositoryPath, '.prokop', 'worktree.json'), '{"nope": 1}');
+    expect(await application.runSetup('workspace-1', created.id))
+      .toMatchObject({ ok: false, code: 'worktree_config_invalid' });
+
+    rmSync(join(repositoryPath, '.prokop'), { recursive: true });
+    expect(await application.runSetup('workspace-1', created.id))
+      .toMatchObject({ ok: false, code: 'no_setup_config' });
+    expect(runner.get(created.id)?.state).toBe('needs_approval');
   });
 
   test('refuses a destination that a symlink would carry outside the worktree', async () => {

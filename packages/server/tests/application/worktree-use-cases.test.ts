@@ -26,8 +26,13 @@ function setupRunnerWithoutConfig() {
     repository: {
       get: () => null,
       upsert: (record) => record,
+      listByState: () => [],
       listPortBlocks: () => [],
+      isApproved: () => false,
+      approve: () => {},
     },
+    commands: { run: () => { throw new Error('not reached without a config'); } },
+    log: { append: never, read: async () => '', remove: async () => {} },
   });
 }
 

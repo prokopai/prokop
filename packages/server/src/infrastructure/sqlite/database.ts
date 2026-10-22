@@ -155,6 +155,12 @@ export function initializeSchema(db: Database): void {
     warning TEXT,
     updated_at TEXT NOT NULL
   )`);
+  db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
+    repository_id TEXT NOT NULL,
+    config_hash TEXT NOT NULL,
+    approved_at TEXT NOT NULL,
+    PRIMARY KEY (repository_id, config_hash)
+  )`);
 
   initializeSessionMessageSchema(db, {
     perfDiagnosticsEnabled: PERF_DIAGNOSTICS_ENABLED,

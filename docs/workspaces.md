@@ -35,6 +35,83 @@ The file `~/.prokopai/AGENTS.md` contains instructions that apply to **all** wor
 
 Each workspace has its own permission state. When you approve a tool "always" in one workspace, it doesn't affect others.
 
+### Worktrees
+
+A Git workspace can have managed worktrees, each on an existing local branch, kept under `~/.prokopai/worktrees/`. Bind a session to a worktree to keep its changes apart from the main checkout and from other sessions. A worktree can be removed only when it is clean: no uncommitted changes and no untracked files. Ignored files do not count.
+
+#### Setting up a new worktree
+
+A fresh worktree has none of the ignored files the project needs to run (`.env`, `node_modules`, local config). Describe them once in `.prokop/worktree.json` at the repository root and every new worktree gets them on creation:
+
+```json
+{
+  "ports": 10,
+  "copy": [".env", "config/master.key"],
+  "clone": ["node_modules"],
+  "env": {
+    "PORT": "{{port}}",
+    "API_PORT": "{{port+1}}",
+    "DATABASE_NAME": "app_{{key}}"
+  },
+  "envFile": ".env.worktree",
+  "files": {
+    ".env.local": "NEXT_PUBLIC_API=http://localhost:{{port+1}}\n"
+  },
+  "setup": ["bun install", "bun run db:create"],
+  "teardown": ["bun run db:drop"]
+}
+```
+
+Every key is optional. A missing file means nothing happens.
+
+| Key | What it does |
+|---|---|
+| `copy` | Files copied from the main checkout. A file that does not exist there is skipped with a note. |
+| `clone` | Directories cloned copy-on-write from the main checkout (APFS on macOS, Btrfs or XFS on Linux). Instant and no extra disk space. When the filesystem cannot clone, the entry is skipped with a note, never copied in full. |
+| `env` | Variables written to `envFile`, one `KEY=value` per line. Values are templates. |
+| `envFile` | Where `env` goes. Default `.env.worktree`. Only written when `env` has entries. |
+| `files` | Files written from templates, keyed by path inside the worktree. |
+| `ports` | Size of the port block reserved for the worktree, 1 to 20. Default 10 when any template uses `{{port}}`; no block is reserved otherwise. |
+| `setup` | Commands run in order inside the worktree after creation, in the background. See below. |
+| `teardown` | Commands to run before removal. Accepted today, not run yet. |
+
+Templates in `env` and `files` can use:
+
+| Variable | Value |
+|---|---|
+| `{{port}}` | First port of the worktree's block. Blocks come from 20000 to 29999; each port is checked to be free when reserved, and the block stays with the worktree until it is purged. |
+| `{{port+N}}` | A later port in the block. `N` must be below `ports`. |
+| `{{name}}` | The worktree name as typed. |
+| `{{slug}}` | The name as lowercase letters, digits and underscores. |
+| `{{key}}` | The slug plus six characters of the worktree id. Unique, safe for database, schema and topic names. |
+| `{{id}}` | The worktree id. |
+| `{{path}}` | Absolute path of the worktree. |
+| `{{rootPath}}` | Absolute path of the main checkout. |
+
+Rules:
+
+- **Every target must be ignored by Git** (`copy`, `clone`, `envFile`, `files`), otherwise the worktree would turn dirty and could not be removed. A target that is not ignored is refused with the path to add to `.gitignore`, and nothing is written for that worktree. The check runs inside the new worktree, so the rule has to be committed on the branch being checked out; an uncommitted `.gitignore` edit in the main checkout does not count.
+- Paths are relative to the repository and cannot leave it.
+- The file is read from the main checkout, not from the branch being checked out, and is validated before the worktree is created. A typo refuses creation with the line that is wrong.
+- Checks run before writes. A refused worktree still exists, as Git created it, and can be removed.
+
+#### Setup commands
+
+`setup` commands run after the files are in place, through your login shell (so `bun`, `nvm` or `asdf` resolve as in a terminal), with `cwd` set to the worktree and stdin closed, so a command that prompts fails instead of hanging. Their environment is the server's minus its own variables (`PROKOPAI_*`), plus:
+
+| Variable | Value |
+|---|---|
+| every `env` entry | rendered, the same values as in `envFile` |
+| `PROKOP_WORKTREE_PORT` | first port of the block, only when one is reserved |
+| `PROKOP_WORKTREE_NAME`, `PROKOP_WORKTREE_KEY` | as `{{name}}` and `{{key}}` |
+| `PROKOP_WORKTREE_PATH`, `PROKOP_ROOT_PATH` | the worktree and the main checkout |
+
+Commands come from the repository, so they run only once you approve the file's current contents for that repository. The first worktree reports `needs_approval`; approving runs the commands and remembers the file. A changed file asks again. The worktree is usable while commands run. Each command has 15 minutes; output goes to `worktree-setup/<worktree id>.log` in the server data directory, keeping the last 1 MB. A failing command reports its step and the last lines of output, and nothing after it runs.
+
+Nothing reruns on its own. "Run setup" again repeats the file steps, keeping the port block, and the commands. A server restart during setup leaves the state `interrupted` until you run it again. Removing a worktree waits for a running setup to finish.
+
+Each worktree reports a setup state (`none`, `needs_approval`, `running` with the current step, `ready`, `failed` with the reason, or `interrupted`) and its port block through the API (`POST .../worktrees/:id/setup/approve`, `POST .../setup/run`, `GET .../setup/log`) and the `worktree.updated` event.
+
 ## Workspace Capabilities
 
 Capabilities are optional features you enable per workspace. All are off by default. Enable them through the client: **Settings > Workspace > Agent Tools**. Use the workspace selector to configure another workspace without changing your active conversation.

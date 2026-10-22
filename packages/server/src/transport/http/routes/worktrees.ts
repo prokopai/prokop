@@ -28,6 +28,7 @@ function throwFailure(code: WorktreeFailureCode, message: string): never {
     || code === 'invalid_branch_name'
     || code === 'invalid_worktree_name'
     || code === 'worktree_config_invalid'
+    || code === 'no_setup_config'
     || code === 'branch_not_found'
     || code === 'repository_outside_workspace'
     || code === 'operation_timed_out'
@@ -68,6 +69,24 @@ export function registerWorktreeRoutes(app: Hono, application: WorktreeApplicati
     );
     if (!result.ok) throwFailure(result.code, result.message);
     return c.json({ worktree: result.value });
+  });
+
+  app.post('/api/workspaces/:id/worktrees/:worktreeId/setup/approve', async (c) => {
+    const result = await application.approveSetup(c.req.param('id'), c.req.param('worktreeId'));
+    if (!result.ok) throwFailure(result.code, result.message);
+    return c.json({ worktree: result.value });
+  });
+
+  app.post('/api/workspaces/:id/worktrees/:worktreeId/setup/run', async (c) => {
+    const result = await application.runSetup(c.req.param('id'), c.req.param('worktreeId'));
+    if (!result.ok) throwFailure(result.code, result.message);
+    return c.json({ worktree: result.value });
+  });
+
+  app.get('/api/workspaces/:id/worktrees/:worktreeId/setup/log', async (c) => {
+    const result = await application.setupLog(c.req.param('id'), c.req.param('worktreeId'));
+    if (!result.ok) throwFailure(result.code, result.message);
+    return c.json(result.value);
   });
 
   app.put(

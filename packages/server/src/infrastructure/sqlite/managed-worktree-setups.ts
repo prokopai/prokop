@@ -71,11 +71,31 @@ export function createWorktreeSetupRepository(
       return record;
     },
 
+    listByState(state) {
+      return (getDatabase().query(
+        'SELECT * FROM managed_worktree_setups WHERE state = ?',
+      ).all(state) as WorktreeSetupRow[]).map(mapRow);
+    },
+
     listPortBlocks() {
       return (getDatabase().query(
         'SELECT port_base, port_count FROM managed_worktree_setups WHERE port_base IS NOT NULL AND port_count IS NOT NULL',
       ).all() as Array<{ port_base: number; port_count: number }>)
         .map((row) => ({ base: row.port_base, count: row.port_count }));
+    },
+
+    isApproved(repositoryId, configHash) {
+      return Boolean(getDatabase().query(
+        'SELECT 1 FROM worktree_setup_approvals WHERE repository_id = ? AND config_hash = ?',
+      ).get(repositoryId, configHash));
+    },
+
+    approve(repositoryId, configHash, approvedAt) {
+      getDatabase().run(
+        `INSERT INTO worktree_setup_approvals (repository_id, config_hash, approved_at)
+         VALUES (?, ?, ?) ON CONFLICT(repository_id, config_hash) DO NOTHING`,
+        [repositoryId, configHash, approvedAt],
+      );
     },
   };
 }

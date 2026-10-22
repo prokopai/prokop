@@ -13,6 +13,7 @@ import type {
   ListManagedWorktreesResponse,
   ListGitWorktreeRefsResponse,
   ManagedWorktreeResponse,
+  WorktreeSetupLogResponse,
 } from '../types/rest-responses';
 
 interface ListOptions {
@@ -129,6 +130,43 @@ export class WorkspacesRestNamespace {
   ): Promise<ManagedWorktreeResponse> {
     return this.http.delete(
       `/workspaces/${encodeURIComponent(workspaceId)}/worktrees/${encodeURIComponent(worktreeId)}`,
+      { signal: options?.signal },
+    );
+  }
+
+  /** Approves the repository's setup commands for this worktree and runs them. */
+  async approveWorktreeSetup(
+    workspaceId: string,
+    worktreeId: string,
+    options?: GetOptions,
+  ): Promise<ManagedWorktreeResponse> {
+    return this.http.post(
+      `/workspaces/${encodeURIComponent(workspaceId)}/worktrees/${encodeURIComponent(worktreeId)}/setup/approve`,
+      {},
+      { signal: options?.signal },
+    );
+  }
+
+  /** Re-runs the worktree setup: retry after a failure or after the config changed. */
+  async runWorktreeSetup(
+    workspaceId: string,
+    worktreeId: string,
+    options?: GetOptions,
+  ): Promise<ManagedWorktreeResponse> {
+    return this.http.post(
+      `/workspaces/${encodeURIComponent(workspaceId)}/worktrees/${encodeURIComponent(worktreeId)}/setup/run`,
+      {},
+      { signal: options?.signal },
+    );
+  }
+
+  async getWorktreeSetupLog(
+    workspaceId: string,
+    worktreeId: string,
+    options?: GetOptions,
+  ): Promise<WorktreeSetupLogResponse> {
+    return this.http.get(
+      `/workspaces/${encodeURIComponent(workspaceId)}/worktrees/${encodeURIComponent(worktreeId)}/setup/log`,
       { signal: options?.signal },
     );
   }

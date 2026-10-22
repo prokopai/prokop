@@ -50,7 +50,12 @@ import { countMessagesInSession } from '@/infrastructure/sqlite/message-store';
 import { createWorktreeGitPort } from '@/infrastructure/git-worktrees';
 import { createWorktreeSetupRunner } from '@/application/worktree-setup';
 import { createWorktreeSetupRepository } from '@/infrastructure/sqlite/managed-worktree-setups';
-import { createWorktreePortProbe, createWorktreeSetupFilesPort } from '@/infrastructure/worktree-setup';
+import {
+  createWorktreePortProbe,
+  createWorktreeSetupCommandPort,
+  createWorktreeSetupFilesPort,
+  createWorktreeSetupLogPort,
+} from '@/infrastructure/worktree-setup';
 import {
   createProkopAgentPreconfigPort,
   createProkopAgentWorkspacePort,
@@ -372,6 +377,11 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       files: createWorktreeSetupFilesPort(),
       ports: createWorktreePortProbe(),
       repository: createWorktreeSetupRepository(getDatabase),
+      commands: createWorktreeSetupCommandPort(),
+      log: createWorktreeSetupLogPort(() => getDataDir()),
+      // Every setup state change rebroadcasts the worktree (same path as
+      // attachment refreshes); the application is created just below.
+      onChanged: (worktreeId) => refreshWorktreeAttachments?.(worktreeId),
     }),
     workspaces: { get: getWorkspace },
     sessions: {

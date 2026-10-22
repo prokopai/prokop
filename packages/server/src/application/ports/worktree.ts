@@ -50,8 +50,42 @@ export interface WorktreeSetupRecord {
 export interface WorktreeSetupRepositoryPort {
   get(worktreeId: string): WorktreeSetupRecord | null;
   upsert(record: WorktreeSetupRecord): WorktreeSetupRecord;
+  listByState(state: WorktreeSetupState): WorktreeSetupRecord[];
   /** Every stored port block, held until its worktree row is purged. */
   listPortBlocks(): Array<{ base: number; count: number }>;
+  /** Commands from a repository are code: a config hash runs only once approved. */
+  isApproved(repositoryId: string, configHash: string): boolean;
+  approve(repositoryId: string, configHash: string, approvedAt: string): void;
+}
+
+export interface WorktreeSetupCommandResult {
+  exitCode: number | null;
+  signal: string | null;
+  timedOut: boolean;
+}
+
+export interface WorktreeSetupRunningCommand {
+  done: Promise<WorktreeSetupCommandResult>;
+  /** Kills the whole process group. `done` still settles. */
+  kill(): void;
+}
+
+/** Runs one setup command through a login shell in its own process group. */
+export interface WorktreeSetupCommandPort {
+  run(input: {
+    cwd: string;
+    command: string;
+    env: Record<string, string>;
+    timeoutMs: number;
+    onOutput: (chunk: string) => void;
+  }): WorktreeSetupRunningCommand;
+}
+
+/** Per-worktree setup output, capped at a fixed size (the tail is kept). */
+export interface WorktreeSetupLogPort {
+  append(worktreeId: string, text: string): Promise<void>;
+  read(worktreeId: string): Promise<string>;
+  remove(worktreeId: string): Promise<void>;
 }
 
 /**

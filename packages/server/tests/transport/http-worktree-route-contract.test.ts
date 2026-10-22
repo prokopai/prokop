@@ -82,6 +82,11 @@ function application(
       ok: true,
       value: { ...session, workspaceRootId: null, worktree: null },
     }),
+    approveSetup: async () => ({ ok: true, value: worktree }),
+    runSetup: async () => ({ ok: true, value: worktree }),
+    setupLog: async () => ({ ok: true, value: { log: '' } }),
+    recoverSetups: () => {},
+    stopSetups: async () => {},
     ...overrides,
   };
 }
@@ -207,5 +212,35 @@ describe('HTTP worktree route contract', () => {
       message: 'Git failed',
       details: { code: 'git_error' },
     });
+  });
+
+  test('exposes setup approve, run and log, and maps a running setup to a conflict', async () => {
+    const calls: string[] = [];
+    const running = { ...worktree, setup: { ...worktree.setup, state: 'running' as const, step: 'setup 1/1: bun install' } };
+    const app = createTestApp(application({
+      approveSetup: async (workspaceId, worktreeId) => {
+        calls.push(`approve:${workspaceId}:${worktreeId}`);
+        return { ok: true, value: running };
+      },
+      runSetup: async () => ({ ok: false, code: 'setup_running', message: 'Setup is already running for this worktree' }),
+      setupLog: async () => ({ ok: true, value: { log: '$ bun install\ndone\n' } }),
+    }));
+
+    const approved = await app.request('/api/workspaces/workspace-1/worktrees/worktree-1/setup/approve', { method: 'POST' });
+    expect(approved.status).toBe(200);
+    expect(await body(approved)).toEqual({ worktree: running });
+    expect(calls).toEqual(['approve:workspace-1:worktree-1']);
+
+    const rerun = await app.request('/api/workspaces/workspace-1/worktrees/worktree-1/setup/run', { method: 'POST' });
+    expect(rerun.status).toBe(409);
+    expect(await body(rerun)).toEqual({
+      error: 'conflict',
+      message: 'Setup is already running for this worktree',
+      details: { code: 'setup_running' },
+    });
+
+    const log = await app.request('/api/workspaces/workspace-1/worktrees/worktree-1/setup/log');
+    expect(log.status).toBe(200);
+    expect(await body(log)).toEqual({ log: '$ bun install\ndone\n' });
   });
 });

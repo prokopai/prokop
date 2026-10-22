@@ -107,6 +107,9 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
 
   const agents = createRuntime();
   const application = createWiredApplication(agents);
+  // A worktree setup that was running when the previous process stopped
+  // never resumes on its own; its record says so and Retry is manual.
+  application.worktrees.recoverSetups();
   installWireApplication({ session: application.session, control: application.control, providers: application.providers, notifications: application.notifications, permissions: application.permissions, gitStatus: application.files.gitStatusFeed, fileTree: application.files.fileTreeFeed });
   // Every primary/both preconfig becomes an agent on boot: fresh installs
   // ship prokop-code as a real agent and existing installs gain agents for
@@ -297,6 +300,10 @@ async function startServer(options?: ServerOptions): Promise<ServerInstance> {
       };
 
       try { await application.learning.stop(); }
+      catch (error: unknown) { failures.push(error); }
+      // Setup commands live in their own process groups and would outlive
+      // the server; kill them so the records end as `interrupted`.
+      try { await application.worktrees.stopSetups(); }
       catch (error: unknown) { failures.push(error); }
       attempt(() => transport.shutdown());
       attempt(() => stopStallMonitor());

@@ -137,6 +137,10 @@ export interface ManagedWorktreeResponse {
   worktree: ManagedWorktree;
 }
 
+export interface WorktreeSetupLogResponse {
+  log: string;
+}
+
 export interface SessionWorktreeResponse {
   session: Session;
 }

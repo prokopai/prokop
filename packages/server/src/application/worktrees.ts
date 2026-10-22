@@ -24,6 +24,8 @@ export type WorktreeFailureCode =
   | 'worktree_name_exists'
   | 'invalid_worktree_name'
   | 'worktree_config_invalid'
+  | 'no_setup_config'
+  | 'setup_running'
   | 'branch_not_found'
   | 'branch_already_checked_out'
   | 'worktree_dirty'
@@ -52,6 +54,15 @@ export interface WorktreeApplication {
   remove(workspaceId: string, worktreeId: string): Promise<WorktreeResult<ManagedWorktree>>;
   bind(sessionId: string, worktreeId: string): Promise<WorktreeResult<Session>>;
   unbind(sessionId: string): Promise<WorktreeResult<Session>>;
+  /** Approves the repository's current setup commands and runs the setup. */
+  approveSetup(workspaceId: string, worktreeId: string): Promise<WorktreeResult<ManagedWorktree>>;
+  /** Re-runs the setup (retry after a failure, or after the config changed). */
+  runSetup(workspaceId: string, worktreeId: string): Promise<WorktreeResult<ManagedWorktree>>;
+  setupLog(workspaceId: string, worktreeId: string): Promise<WorktreeResult<{ log: string }>>;
+  /** Startup: setups left running by a previous process become `interrupted`. */
+  recoverSetups(): void;
+  /** Shutdown: kills running setups and waits for their records to settle. */
+  stopSetups(): Promise<void>;
 }
 
 export interface WorktreeApplicationDeps {
@@ -216,6 +227,51 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         ? deps.repository.update(record.id, { state: 'available' }) ?? record
         : record;
       return publicWorktree(recovered, EMPTY_STATUS, deps);
+    }
+  }
+
+  /**
+   * Approve or re-run setup on an available worktree. The instant steps
+   * run inside the repository queue like create; the commands continue in
+   * the background after the result is returned.
+   */
+  async function runSetupFor(
+    workspaceId: string,
+    worktreeId: string,
+    mode: 'approve' | 'rerun',
+  ): Promise<WorktreeResult<ManagedWorktree>> {
+    const workspace = deps.workspaces.get(workspaceId);
+    if (!workspace) {
+      return { ok: false, code: 'workspace_not_found', message: 'Workspace not found' };
+    }
+    const record = deps.repository.get(worktreeId);
+    if (!record || record.workspaceId !== workspaceId) {
+      return { ok: false, code: 'worktree_not_found', message: 'Worktree not found' };
+    }
+    if (record.state !== 'available') {
+      return { ok: false, code: 'worktree_unavailable', message: 'Worktree is not available' };
+    }
+    try {
+      return await serialized(record.repositoryId, async () => {
+        const identity = await deps.git.inspectRepository(workspace.path);
+        if (identity.repositoryId !== record.repositoryId || !containsRepository(identity)) {
+          return { ok: false, code: 'repository_changed', message: 'Repository identity changed' } as const;
+        }
+        const status = await deps.git.status(record.path);
+        const result = mode === 'approve'
+          ? await deps.setup.approve({ record, repositoryTopLevel: identity.repositoryTopLevel })
+          : await deps.setup.rerun({ record, repositoryTopLevel: identity.repositoryTopLevel });
+        if (!result.ok) return { ok: false, code: result.code, message: result.message } as const;
+        const worktree = publicWorktree(record, status, deps);
+        deps.events.worktreeChanged(worktree);
+        return { ok: true, value: worktree } as const;
+      });
+    } catch (error: unknown) {
+      if (isMissingFailure(error)) {
+        deps.repository.update(record.id, { state: 'missing' });
+        return { ok: false, code: 'worktree_unavailable', message: 'Worktree directory is missing' };
+      }
+      return { ok: false, code: failureCode(error), message: messageFor(error, 'Worktree setup failed') };
     }
   }
 
@@ -423,6 +479,11 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
               'A session attached to this worktree is running',
             );
           }
+          // Setup commands write into the worktree; removal waits for them
+          // (phase 3 of docs/plans/worktree-setup.md cancels instead).
+          if (deps.setup.isRunning(current.id)) {
+            throw new WorktreeOperationError('setup_running', 'Setup is still running for this worktree');
+          }
           if (deps.terminals.listForWorktree(current.id, current.path).length > 0) {
             throw new WorktreeOperationError(
               'terminal_attached',
@@ -538,6 +599,25 @@ export function createWorktreeApplication(deps: WorktreeApplicationDeps): Worktr
         deps.events.worktreeChanged(publicWorktree(currentRecord, status, deps));
         return { ok: true, value: updated } as const;
       });
+    },
+
+    approveSetup: (workspaceId, worktreeId) => runSetupFor(workspaceId, worktreeId, 'approve'),
+    runSetup: (workspaceId, worktreeId) => runSetupFor(workspaceId, worktreeId, 'rerun'),
+
+    async setupLog(workspaceId, worktreeId) {
+      const record = deps.repository.get(worktreeId);
+      if (!record || record.workspaceId !== workspaceId) {
+        return { ok: false, code: 'worktree_not_found', message: 'Worktree not found' };
+      }
+      return { ok: true, value: { log: await deps.setup.log(worktreeId) } };
+    },
+
+    recoverSetups() {
+      deps.setup.recoverInterrupted();
+    },
+
+    stopSetups() {
+      return deps.setup.stopAll();
     },
 
     async unbind(sessionId) {
