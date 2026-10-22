@@ -1,16 +1,18 @@
 import type { ToolDefinition } from '@prokopai/sdk/tool'
-import type { TextPart, Session, ResponseFormat, Preconfig } from '@prokopai/sdk/types';
+import type { TextPart, Session, ResponseFormat, Preconfig, MessageWithParts, Part, SessionHarness, StructuredOutputData } from '@prokopai/sdk/types';
 import {
   emitRuntimeEvent,
   emitSessionCreated,
   emitSessionUpdated,
   emitToSession,
 } from '@prokopai/core/infrastructure/runtime/host-dependencies';
+import { getHeadlessExecutionPort, type HeadlessSessionRunPort } from '@prokopai/core/application/ports/headless-execution';
 import { getPreconfigOrAgent, listSubagentPreconfigs } from '#agent/harnesses/prokop/context/sources';
 import {
   createSession,
   getSession,
   getWorkspaceAutoApproveSeverity,
+  listMessagesWithParts,
   updateSession,
 } from '@prokopai/core/infrastructure/storage/runtime';
 import type { BroadcastFn, BroadcastSessionFn } from '@prokopai/core/infrastructure/runtime/host';
@@ -90,6 +92,49 @@ export interface SubagentServiceDeps {
   preconfigs: SubagentServicePreconfigs;
   broadcasts: SubagentServiceBroadcasts;
   executeChild: typeof executeChildSession;
+  /**
+   * A child on another harness (a role pinned to Claude CLI or Codex CLI)
+   * runs through the host's harness dispatch, visibly, and its result is
+   * read back from its transcript. Absent: such roles are refused.
+   */
+  runOnHarness?: HeadlessSessionRunPort['run'];
+  readTranscript?: (sessionId: string) => Promise<MessageWithParts[]>;
+}
+
+/** The harness a subagent role runs on; a Prokop role (or no pin) stays in-process. */
+export function subagentHarness(preconfig: Pick<Preconfig, 'modelHarness'>): SessionHarness {
+  return preconfig.modelHarness ?? 'prokop';
+}
+
+/** The last assistant text of a transcript, the same way the in-process child reports its answer. */
+export function lastAssistantText(messages: MessageWithParts[]): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const entry = messages[index]!;
+    if (entry.message.role !== 'assistant') continue;
+    const text = entry.parts.filter((part): part is TextPart => part.type === 'text').map((part) => part.text || '').pop();
+    if (text !== undefined) return text;
+  }
+  return '';
+}
+
+/**
+ * A CLI harness has no response-schema channel, so a structured result is
+ * the final text parsed as JSON: the whole text, or its last fenced block.
+ */
+export function parseStructuredText(text: string): Record<string, unknown> | null {
+  const candidates = [text.trim()];
+  const fenced = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]?.trim() ?? '');
+  candidates.push(...fenced.reverse());
+  for (const candidate of candidates) {
+    if (!candidate.startsWith('{')) continue;
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch {
+      // Not this one.
+    }
+  }
+  return null;
 }
 
 /** Pure assembly of the task tool definition from a resolved target list.
@@ -247,7 +292,64 @@ function moduleServiceDeps(): SubagentServiceDeps {
       toSession: (sessionId, event) => emitToSession(sessionId, event),
     },
     executeChild: executeChildSession,
+    runOnHarness: (input, options) => {
+      const port = getHeadlessExecutionPort();
+      return port ? port.run(input, options) : Promise.resolve({ error: 'Harness dispatch is unavailable' });
+    },
+    readTranscript: (sessionId) => listMessagesWithParts(sessionId),
   };
+}
+
+/**
+ * Runs the child on its own harness and reads the answer back, producing the
+ * same shape as the in-process child so the result formatting is shared.
+ */
+async function runChildOnHarness(
+  deps: SubagentServiceDeps,
+  input: {
+    harness: SessionHarness;
+    parentSessionId: string;
+    child: Session;
+    preconfig: Preconfig;
+    prompt: string;
+    workspacePath?: string;
+    workspaceId?: string;
+    resumeFromHistory: boolean;
+    outputSchema?: Record<string, unknown>;
+    abortSignal?: AbortSignal;
+  },
+): Promise<{ parts: Part[]; error?: string; structuredOutput?: StructuredOutputData }> {
+  if (!deps.runOnHarness || !deps.readTranscript) {
+    return { parts: [], error: `Subagent roles on ${input.harness} are not available here` };
+  }
+  const before = (await deps.readTranscript(input.child.id)).length;
+  const run = await deps.runOnHarness({
+    harness: input.harness,
+    parentSessionId: input.parentSessionId,
+    childSessionId: input.child.id,
+    preconfig: input.preconfig,
+    prompt: input.outputSchema
+      ? `${input.prompt}\n\nReply with only a JSON object matching this schema, no prose:\n${JSON.stringify(input.outputSchema)}`
+      : input.prompt,
+    workspacePath: input.workspacePath,
+    workspaceId: input.workspaceId ?? input.child.workspaceId,
+    modelId: input.preconfig.model ?? '',
+    providerId: input.preconfig.provider ?? '',
+    resumeFromHistory: input.resumeFromHistory,
+  }, { visible: true, signal: input.abortSignal });
+  const messages = (await deps.readTranscript(input.child.id)).slice(before);
+  const text = lastAssistantText(messages);
+  const parts: Part[] = text
+    ? [{ id: randomUUID(), messageId: '', createdAt: Date.now(), type: 'text', text } as TextPart]
+    : [];
+  let structuredOutput: StructuredOutputData | undefined;
+  let error = run.error;
+  if (input.outputSchema && text) {
+    const data = parseStructuredText(text);
+    if (data) structuredOutput = { data } as StructuredOutputData;
+    else error ??= 'The subagent did not return JSON matching the requested schema';
+  }
+  return { parts, error, ...(structuredOutput ? { structuredOutput } : {}) };
 }
 
 /** Unscoped execution: keeps the pre-C5 module-accessor behavior and the
@@ -425,6 +527,19 @@ async function runSubagent(
       }
     }
 
+    // A role pinned to Claude CLI or Codex CLI runs there; its session is
+    // owned by that harness from creation, with the harness's own model
+    // choice (the CLI default unless the role pins one).
+    const harness = subagentHarness(subagentPreconfig);
+    const crossHarness = harness !== 'prokop';
+    if (crossHarness && childSession && childSession.harness !== harness) {
+      return {
+        task_id: '',
+        result: '',
+        error: `Invalid task_id: the subagent runs on ${childSession.harness ?? 'prokop'}, not ${harness}`,
+      };
+    }
+
     if (!childSession) {
       childSession = await createSessionFn({
         id: randomUUID(),
@@ -437,12 +552,17 @@ async function runSubagent(
         parentId: sessionId,
         agentName: subagent_type,
         subagentStatus: 'running',
-        selectedModel: subagentPreconfig.model !== null
+        ...(crossHarness ? { harness } : {}),
+        selectedModel: crossHarness
           ? subagentPreconfig.model
-          : parentModelId,
-        selectedProvider: subagentPreconfig.provider !== null
-          ? subagentPreconfig.provider
-          : parentProviderId,
+          : subagentPreconfig.model !== null
+            ? subagentPreconfig.model
+            : parentModelId,
+        selectedProvider: crossHarness
+          ? null
+          : subagentPreconfig.provider !== null
+            ? subagentPreconfig.provider
+            : parentProviderId,
         selectedVariant: subagentPreconfig.variant ?? null,
         autoApproveSeverity: await getWorkspaceAutoApproveSeverityFn(workspaceId || ''),
       });
@@ -472,29 +592,42 @@ async function runSubagent(
         }
       : undefined;
 
-    const result = await executeChild({
-      parentSessionId: sessionId,
-      childSessionId: childSession.id,
-      preconfig: subagentPreconfig,
-      prompt,
-      workspacePath,
-      workspaceId,
-      resumeFromHistory,
-      // Inherit model from parent if preconfig doesn't specify one
-      modelId: subagentPreconfig.model !== null
-        ? subagentPreconfig.model
-        : parentModelId,
-      providerId: subagentPreconfig.provider !== null
-        ? subagentPreconfig.provider
-        : parentProviderId,
-      variant: subagentPreconfig.variant ?? undefined,
-      broadcast: broadcastFn,
-      abortSignal,
-      broadcastToSession: broadcastToSessionFn ?? ((event: Parameters<BroadcastFn>[0]) => {
-        deps.broadcasts.toSession(sessionId, event);
-      }),
-      ...(responseFormat ? { responseFormat } : {}),
-    });
+    const result = crossHarness
+      ? await runChildOnHarness(deps, {
+          harness,
+          parentSessionId: sessionId,
+          child: childSession,
+          preconfig: subagentPreconfig,
+          prompt,
+          workspacePath,
+          workspaceId,
+          resumeFromHistory,
+          outputSchema,
+          abortSignal,
+        })
+      : await executeChild({
+          parentSessionId: sessionId,
+          childSessionId: childSession.id,
+          preconfig: subagentPreconfig,
+          prompt,
+          workspacePath,
+          workspaceId,
+          resumeFromHistory,
+          // Inherit model from parent if preconfig doesn't specify one
+          modelId: subagentPreconfig.model !== null
+            ? subagentPreconfig.model
+            : parentModelId,
+          providerId: subagentPreconfig.provider !== null
+            ? subagentPreconfig.provider
+            : parentProviderId,
+          variant: subagentPreconfig.variant ?? undefined,
+          broadcast: broadcastFn,
+          abortSignal,
+          broadcastToSession: broadcastToSessionFn ?? ((event: Parameters<BroadcastFn>[0]) => {
+            deps.broadcasts.toSession(sessionId, event);
+          }),
+          ...(responseFormat ? { responseFormat } : {}),
+        });
 
     // Check if was aborted during execution
     if (wasAborted) {

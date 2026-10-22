@@ -106,6 +106,7 @@ import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { createTransportControllerPorts } from '@/transport/websocket/control-port';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
+import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
 import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
 import { codexAccounts } from '@/infrastructure/providers/codex-accounts';
@@ -123,7 +124,7 @@ import {
 } from '@/infrastructure/sqlite/harness-model-selection';
 import { createHarnessExecution } from '@prokopai/core/application/sessions/harness-execution';
 import { onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
-import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
+import { installHeadlessExecutionPort, type HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
@@ -250,12 +251,54 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   // Prokop registration owns the composed-scope child run; harnesses
   // without headless support fail closed per run and are rejected at job
   // creation through supportedHarnesses().
+  /**
+   * A delegated child on a CLI harness takes the role's pinned model the
+   * same way a new session does: validated against the live CLI catalog,
+   * with the role's variant as effort when the model supports it. An
+   * unknown model or an unavailable catalog leaves the CLI default.
+   */
+  const pinDelegatedChildModel = async (input: HeadlessSessionRunInput): Promise<void> => {
+    if (input.harness === 'prokop' || !input.modelId) return;
+    try {
+      const models = await harnessProbes().models(input.harness);
+      const entry = models.find(model => model.model === input.modelId);
+      if (!entry) return;
+      const variant = input.preconfig.variant ?? '';
+      const effort = entry.supportedEfforts.includes(variant) ? variant : entry.defaultEffort;
+      if (input.harness === 'codex-cli') saveCodexModelSelection(input.childSessionId, { model: entry.model, effort });
+      else saveClaudeModelSelection(input.childSessionId, { model: entry.model, effort });
+    } catch {
+      // CLI catalog unavailable on this host: the CLI default applies.
+    }
+  };
+  // A delegated child runs visibly: its session's clients follow the turn,
+  // and a parent that stops interrupts it through the normal path.
+  const visibleWire: SessionWirePorts<unknown> = {
+    delivery: {
+      send: () => {},
+      broadcast: (message) => broadcastEvent(message),
+      broadcastToSession: (sessionId, message) => broadcastToSessionEvent(sessionId, message),
+      sendToController: (sessionId, message) => sendToControllerEvent(sessionId, message),
+      sendToAskTargets: (sessionId, authority, message) => sendToAskTargetsEvent(sessionId, authority, message),
+    },
+    actor: { attachOriginToSession: () => {} },
+  };
   installHeadlessExecutionPort({
-    run(input, options) {
+    async run(input, options) {
       const headless = harnessRegistrations[input.harness]?.headless;
-      return headless
-        ? headless(input, options)
-        : Promise.resolve({ error: `Scheduled jobs are not supported for ${input.harness} sessions` });
+      if (!headless) return { error: `Scheduled jobs are not supported for ${input.harness} sessions` };
+      const signal = options?.signal;
+      const interrupt = (): void => {
+        void execution.interruptSession(input.childSessionId, 'Parent session stopped').catch(() => undefined);
+      };
+      if (signal?.aborted) interrupt();
+      else signal?.addEventListener('abort', interrupt, { once: true });
+      try {
+        if (options?.visible) await pinDelegatedChildModel(input);
+        return await headless(input, options?.visible ? { ...options, wire: visibleWire } : options);
+      } finally {
+        signal?.removeEventListener('abort', interrupt);
+      }
     },
     supportedHarnesses() {
       return (Object.keys(harnessRegistrations) as Array<import('@prokopai/sdk').SessionHarness>)

@@ -306,6 +306,7 @@ The agent can spawn subagents for complex, multi-step tasks. Subagents:
 - Can be **resumed** later with full context (pass a `task_id`)
 - Have **independent permissions** (a subagent can have different tool access than its parent)
 - Can run **concurrently** (the agent can launch multiple at once)
+- Can run **on another harness**: a subagent preconfig whose model is pinned to Claude Code or Codex runs there, in a child session owned by that harness, and returns its final answer the same way. The role's pinned model applies when the CLI knows it; otherwise the CLI default. Stopping the parent stops the child.
 
 Subagents are automatic. The agent decides when to spawn them based on the complexity of the task.
 

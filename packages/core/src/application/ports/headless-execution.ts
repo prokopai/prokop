@@ -32,8 +32,15 @@ export interface LearningReviewSpec {
 }
 
 export interface HeadlessRunOptions {
-  /** Aborts the run (learning review budget and shutdown). */
+  /** Aborts the run (learning review budget and shutdown); a delegated child is interrupted. */
   signal?: AbortSignal;
+  /**
+   * Keep the child's deliveries: clients see the session live, as they do a
+   * Prokop subagent. The installed dispatcher turns this into `wire`.
+   */
+  visible?: boolean;
+  /** The wire a visible run broadcasts through; supplied by the dispatcher. */
+  wire?: SessionWirePorts<unknown>;
 }
 
 export interface HeadlessSessionRunResult {
@@ -68,27 +75,34 @@ type HeadlessSendMessage = <Origin>(
 ) => Promise<void>;
 
 /**
- * Run one headless agent turn over a harness sendMessage entry: every delivery
- * sink is discarded (there is no client), and the returned promise settles
- * when the turn completes. Wire-sent validation errors are silent by contract;
- * callers that need them should pre-validate the session before dispatch.
+ * Run one headless agent turn over a harness sendMessage entry. Without a
+ * wire every delivery sink is discarded (there is no client); a visible run
+ * passes the dispatcher's wire so the session's clients follow the turn.
+ * The returned promise settles when the turn completes. An error the harness
+ * reports on the wire (a session that cannot start) becomes the result's
+ * error; a thrown one too.
  */
 export function runHeadlessTurn(
   sendMessage: HeadlessSendMessage,
   input: HeadlessSessionRunInput,
+  options?: Pick<HeadlessRunOptions, 'wire'>,
 ): Promise<HeadlessSessionRunResult> {
-  const wire: SessionWirePorts<string> = {
+  let reported: string | undefined;
+  const base = options?.wire;
+  const wire: SessionWirePorts<unknown> = {
     delivery: {
-      send: () => {},
-      broadcast: () => {},
-      broadcastToSession: () => {},
-      sendToController: () => {},
-      sendToAskTargets: () => {},
+      send: (_origin, message) => {
+        if (message.type === 'error') reported ??= message.message;
+      },
+      broadcast: (message, excludeOrigin) => base?.delivery.broadcast(message, excludeOrigin),
+      broadcastToSession: (sessionId, message, excludeOrigin) => base?.delivery.broadcastToSession(sessionId, message, excludeOrigin),
+      sendToController: (sessionId, message) => base?.delivery.sendToController(sessionId, message),
+      sendToAskTargets: (sessionId, authority, message) => base?.delivery.sendToAskTargets(sessionId, authority, message),
     },
     actor: { attachOriginToSession: () => {} },
   };
   return sendMessage(wire, `headless:${input.childSessionId}`, input.childSessionId, input.prompt)
-    .then(() => ({}) as HeadlessSessionRunResult)
+    .then((): HeadlessSessionRunResult => (reported ? { error: reported } : {}))
     .catch((error: unknown): HeadlessSessionRunResult => ({
       error: error instanceof Error ? error.message : 'Headless run failed',
     }));
