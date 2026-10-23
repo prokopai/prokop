@@ -54,6 +54,8 @@ interface Preconfig {
   mode?: 'primary' | 'subagent' | 'both';
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  acceptsMessages?: boolean;
+  canMessage?: boolean | string[] | null;
   delegationTargets?: 'any' | 'ask' | 'none' | Array<'prokop' | 'codex-cli' | 'claude-cli'> | null;
   launches?: 'ask' | 'allow' | 'never' | null;
   skills?: string[] | null;
@@ -99,6 +101,9 @@ export interface PreconfigForm {
   canSpawnSubagentsMode: 'all' | 'none' | 'specific';
   canSpawnSubagentsList: string[];
   allowSelfAsSubagent: boolean;
+  acceptsMessages: boolean;
+  canMessageMode: 'all' | 'none' | 'specific';
+  canMessageList: string[];
   delegationTargetsMode: 'any' | 'ask' | 'none' | 'specific';
   delegationTargetsList: Array<'prokop' | 'codex-cli' | 'claude-cli'>;
   launches: 'ask' | 'allow' | 'never';
@@ -128,6 +133,10 @@ const emptyForm: PreconfigForm = {
   canSpawnSubagentsMode: 'none',
   canSpawnSubagentsList: [],
   allowSelfAsSubagent: false,
+  // Messages from other agents are off until the person opens the agent to them; sending is open.
+  acceptsMessages: false,
+  canMessageMode: 'all',
+  canMessageList: [],
   // New agents ask before picking a harness or model, or starting worktree sessions.
   delegationTargetsMode: 'ask',
   delegationTargetsList: [],
@@ -221,6 +230,8 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
     const isNotSelf = !editingPreconfig || p.id !== editingPreconfig.id;
     return isSubagent && isNotSelf;
   });
+  // Agents this one could write to: every other agent that runs on its own (a subagent-mode role has no home).
+  const messageableAgents = preconfigs.filter(p => (p.mode ?? 'primary') !== 'subagent' && (!editingPreconfig || p.id !== editingPreconfig.id));
 
   useEffect(() => {
     if (toolsData?.tools) {
@@ -284,6 +295,10 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
           : 'specific',
       canSpawnSubagentsList: Array.isArray(preconfig.canSpawnSubagents) ? preconfig.canSpawnSubagents : [],
       allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
+      acceptsMessages: preconfig.acceptsMessages === true,
+      canMessageMode: preconfig.canMessage === false || preconfig.canMessage === null ? 'none'
+        : Array.isArray(preconfig.canMessage) ? (preconfig.canMessage.length === 0 ? 'none' : 'specific') : 'all',
+      canMessageList: Array.isArray(preconfig.canMessage) ? preconfig.canMessage : [],
       delegationTargetsMode: preconfig.delegationTargets === 'none' ? 'none'
         : preconfig.delegationTargets === 'ask' ? 'ask'
           : Array.isArray(preconfig.delegationTargets) ? 'specific' : 'any',
@@ -374,6 +389,8 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         settings: Object.keys(settings).length > 0 ? settings : null,
         canSpawnSubagents,
         allowSelfAsSubagent: form.allowSelfAsSubagent,
+        acceptsMessages: form.acceptsMessages,
+        canMessage: form.canMessageMode === 'all' ? true : form.canMessageMode === 'none' ? false : form.canMessageList,
         delegationTargets: form.delegationTargetsMode === 'any' ? 'any'
           : form.delegationTargetsMode === 'ask' ? 'ask'
             : form.delegationTargetsMode === 'none' ? 'none'
@@ -420,6 +437,8 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
         settings: preconfig.settings,
         canSpawnSubagents: preconfig.canSpawnSubagents ?? false,
         allowSelfAsSubagent: preconfig.allowSelfAsSubagent ?? false,
+        acceptsMessages: preconfig.acceptsMessages === true,
+        canMessage: preconfig.canMessage ?? true,
         delegationTargets: preconfig.delegationTargets ?? null,
         launches: preconfig.launches ?? null,
         skills: null,
@@ -719,6 +738,85 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                         );
                       })}
                     </div>
+                  </SettingsRow>
+                )}
+              </div>
+            </DisclosureRow>
+            <DisclosureRow
+              label="Messaging"
+              summary={[
+                form.acceptsMessages ? 'accepts messages' : 'no incoming',
+                form.canMessageMode === 'all' ? 'can message any agent'
+                  : form.canMessageMode === 'specific'
+                    ? `can message ${form.canMessageList.length} agent${form.canMessageList.length === 1 ? '' : 's'}` : 'sends nothing',
+              ].join(' · ')}
+              defaultOpen={false}
+            >
+              <div className="contents">
+                <SettingsRow
+                  className={nested}
+                  label="Messages from other agents"
+                  htmlFor="accepts-messages"
+                  description={form.mode === 'subagent'
+                    ? 'A subagent-mode role has no home to answer from.'
+                    : 'Other agents may write to this agent. It answers as itself, in a conversation session in its home, with its own memory and skills.'}
+                >
+                  <Switch
+                    id="accepts-messages"
+                    checked={form.acceptsMessages}
+                    disabled={form.mode === 'subagent'}
+                    onCheckedChange={(checked) => setForm({ ...form, acceptsMessages: checked })}
+                  />
+                </SettingsRow>
+                <SettingsRow className={nested} label="Can message" description="Which agents this agent may write to. Off hides the messaging tool.">
+                  <Select
+                    value={form.canMessageMode}
+                    onValueChange={(mode) => setForm({ ...form, canMessageMode: mode as PreconfigForm['canMessageMode'] })}
+                  >
+                    <SelectTrigger className="w-64" aria-label="Can message">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="all">Any agent that accepts messages</SelectItem>
+                        <SelectItem value="specific">Specific agents</SelectItem>
+                        <SelectItem value="none">Off: no messaging</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                {form.canMessageMode === 'specific' && (
+                  <SettingsRow className={nested} label="Allowed agents" description={messageableAgents.length === 0 ? 'No other agents yet.' : undefined} stacked>
+                    {messageableAgents.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {messageableAgents.map(agent => {
+                          const selected = form.canMessageList.includes(agent.id);
+                          return (
+                            <button
+                              key={agent.id}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => setForm(prev => ({
+                                ...prev,
+                                canMessageList: selected
+                                  ? prev.canMessageList.filter(id => id !== agent.id)
+                                  : [...prev.canMessageList, agent.id],
+                              }))}
+                              className={cn(
+                                'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
+                                selected
+                                  ? 'border-highlight bg-highlight/10 text-foreground'
+                                  : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                              )}
+                              title={agent.description || agent.id}
+                            >
+                              {selected && <Check className="size-2.5" />}
+                              {agent.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </SettingsRow>
                 )}
               </div>

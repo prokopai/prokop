@@ -24,6 +24,14 @@ export function isDelegationToolName(name: unknown): name is DelegationToolName 
   return typeof name === 'string' && DELEGATION_TOOLS.has(name);
 }
 
+/** The messaging tool, one name on every harness. */
+export const MESSAGING_TOOL_NAMES = ['message_agent'] as const;
+export type MessagingToolName = typeof MESSAGING_TOOL_NAMES[number];
+
+export function isMessagingToolName(name: unknown): name is MessagingToolName {
+  return name === 'message_agent';
+}
+
 /** Canonical names for native tools that have a prokop-builtin equivalent. */
 const CLAUDE_CANONICAL_NAMES: Record<string, string> = {
   Bash: 'shell',
@@ -122,6 +130,7 @@ export function claudeToolSummary(name: string, input: Record<string, unknown>):
       case 'subagent': return firstString(input, ['description', 'subagent_type']);
       case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
         return delegationToolSummary(name, input);
+      case 'message_agent': return messagingToolSummary(input);
       case 'memory': case 'agent_memory':
         return [input.action, input.target].filter(value => typeof value === 'string').join(' ');
       case 'session_search': return [input.action, input.query].filter(value => typeof value === 'string').join(' ');
@@ -288,6 +297,27 @@ export function delegationResultFrom(output: unknown): Record<string, unknown> |
   return output as Record<string, unknown>;
 }
 
+/** The row summary of a message: who it went to and what it said. */
+export function messagingToolSummary(input: Record<string, unknown>): string | null {
+  const agent = firstString(input, ['agent_id']);
+  const message = firstString(input, ['message'])?.replace(/\s+/g, ' ').trim() ?? null;
+  if (!agent) return message;
+  return message ? `${agent}: ${message}` : agent;
+}
+
+/** A completed message row: the intent as the badge, or why it was not sent. */
+export function messagingResultVisualization(
+  input: Record<string, unknown>, result: Record<string, unknown> | null,
+): AnyVisualization {
+  if (!result) return { type: 'none', message: 'Result unavailable' };
+  const agent = firstString(input, ['agent_id']) ?? 'agent';
+  const message = firstString(input, ['message'])?.replace(/\s+/g, ' ').trim() ?? '';
+  if (result.delivered === true) {
+    return { type: 'none', badge: typeof result.intent === 'string' ? result.intent : 'sent', message: preview(`To ${agent}: ${message}`) };
+  }
+  return { type: 'none', badge: 'not sent', message: preview(typeof result.error === 'string' ? result.error : `To ${agent}: ${message}`) };
+}
+
 /** A completed delegation row: the task and where it stands, from the result fields. */
 export function delegationResultVisualization(
   tool: DelegationToolName, input: Record<string, unknown>, result: Record<string, unknown> | null,
@@ -383,6 +413,7 @@ export function claudeToolVisualization(
     case 'subagent': return { type: 'none', message: 'Subagent task completed' };
     case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
       return delegationResultVisualization(name, input, delegationResultFrom(output));
+    case 'message_agent': return messagingResultVisualization(input, delegationResultFrom(output));
     case 'memory': case 'agent_memory': case 'session_search': case 'agent_skill_manage': {
       const result = parseJsonOutput(output);
       if (!result) return { type: 'none', message: preview(output || 'Tool completed') };

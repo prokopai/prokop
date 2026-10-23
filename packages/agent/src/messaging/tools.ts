@@ -10,6 +10,7 @@ import { agentMessagingHost } from '@prokopai/core/application/ports/agent-messa
 import { emitSessionCreated } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { createSession, getSession, listMessagesWithParts } from '@prokopai/core/infrastructure/storage/runtime';
 import { getPreconfigOrAgent, listPreconfigs } from '#agent/harnesses/prokop/context/sources';
+import { isMessagingToolName, MESSAGING_TOOL_NAMES, type MessagingToolName } from '#agent/harnesses/shared/tool-viz';
 import {
   AGENT_MESSAGE_MAX_LENGTH,
   autoReturnAfterTurn,
@@ -20,12 +21,8 @@ import {
 } from '#agent/messaging/service';
 import { AGENT_MESSAGE_INTENTS } from '#agent/messaging/wake';
 
-export const MESSAGING_TOOL_NAMES = ['message_agent'] as const;
-export type MessagingToolName = typeof MESSAGING_TOOL_NAMES[number];
-
-export function isMessagingTool(name: unknown): name is MessagingToolName {
-  return name === 'message_agent';
-}
+export { MESSAGING_TOOL_NAMES, type MessagingToolName };
+export const isMessagingTool = isMessagingToolName;
 
 type Definition = { type: 'function'; name: string; description: string; inputSchema: Record<string, unknown> };
 

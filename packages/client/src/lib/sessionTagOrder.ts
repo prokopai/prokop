@@ -16,6 +16,9 @@ export function getSessionTagOrder(value: unknown): SessionTagOrder {
 }
 
 /** Preserve tag recency and session ordering, moving only the untagged bucket. */
+/** The sidebar group of sessions other agents started by messaging this one; collapsed, listed last. */
+export const AGENT_CONVERSATIONS_GROUP = '__agent_conversations__';
+
 export function orderedSessionGroupNames(
   tagNames: readonly string[],
   hasUntagged: boolean,

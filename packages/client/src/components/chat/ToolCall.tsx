@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { VisualizationRenderer } from '@/components/visualizations';
 import { RENDER_BUDGETS } from '@/lib/renderBudgets';
-import { getToolPartVisualization, getToolRowInfo, isAnswerVisualization, showToolRawData, toolChipToneClass } from '@/lib/toolSummaries';
+import { getToolPartVisualization, getToolRowInfo, isAnswerVisualization, showToolRawData, toolChipToneClass, type ToolRowChip } from '@/lib/toolSummaries';
+import { useAskStore } from '@/stores/askStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { firstLine, formatDuration, formatElapsed, getInterruptReasonLabel, getToolDurationMs } from '@/lib/turnStats';
 import { useSdkClient, useServerUrl } from '@/contexts/ServerClientContext';
 import { useToolDebugQuery, useToolDisplayCatalog } from '@/hooks/queries';
@@ -56,8 +58,8 @@ interface ToolCallProps {
 }
 
 
-/** Rows that may link to a child session: delegation on every harness, plus the old Prokop `task` and native subagents. */
-const CHILD_LINK_TOOLS = new Set(['delegate_task', 'task', 'subagent']);
+/** Rows that may link to another session: delegation and messaging on every harness, plus the old Prokop `task` and native subagents. */
+const CHILD_LINK_TOOLS = new Set(['delegate_task', 'task', 'subagent', 'message_agent']);
 
 /** The server projects the child id onto the state; the result text is the fallback for raw parts. */
 function extractTaskSessionId(part: ToolPart): string | null {
@@ -72,8 +74,9 @@ function extractTaskSessionId(part: ToolPart): string | null {
       ? state.partialOutput
       : null;
   const text = typeof output === 'string' ? output : output && typeof output === 'object' ? JSON.stringify(output) : '';
-  // A JSON "task_id" (delegation, also escaped inside an MCP text block) or the task_id: line of an old task row.
-  return text.match(/task_id\\*"?\s*:\s*\\*"?\s*([a-f0-9-]{36})/i)?.[1] ?? null;
+  // A JSON "task_id" (delegation) or "conversation_session_id" (messaging), also escaped inside an MCP text block,
+  // or the task_id: line of an old task row.
+  return text.match(/(?:task_id|conversation_session_id)\\*"?\s*:\s*\\*"?\s*([a-f0-9-]{36})/i)?.[1] ?? null;
 }
 
 /** Ticks once per second; mounted only while a tool runs. */
@@ -162,6 +165,15 @@ export const ToolCall = memo(function ToolCall({
 
   const { summary, chips } = useMemo(() => getToolRowInfo(part, catalog), [part, catalog]);
 
+  // A message to another agent: the conversation's live state, from its session and ask events.
+  const conversationId = part.name === 'message_agent' ? taskSessionId : null;
+  const conversationRunning = useSessionStore((s) => conversationId
+    ? !!s.sessions.find((session) => session.id === conversationId)?.runningAt : false);
+  const conversationWaiting = useAskStore((s) => conversationId
+    ? s.pendingRequests.some((request) => request.sessionId === conversationId || request.originSessionId === conversationId) : false);
+  const rowChips: ToolRowChip[] = conversationWaiting ? [...chips, { label: 'needs you', tone: 'neutral' }]
+    : conversationRunning ? [...chips, { label: 'working', tone: 'neutral' }] : chips;
+
   const handleCopyOutput = async () => {
     if (rawOutput !== undefined) {
       const output = typeof rawOutput === 'string'
@@ -202,7 +214,7 @@ export const ToolCall = memo(function ToolCall({
               )}
             </span>
 
-            {chips.map((chip) => (
+            {rowChips.map((chip) => (
               <span
                 key={chip.label}
                 className={`text-2xs font-mono tabular-nums shrink-0 hidden sm:inline ${toolChipToneClass[chip.tone]}`}

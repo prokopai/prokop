@@ -81,6 +81,25 @@ const delegateCompletedPart = createToolPart(
   },
 );
 
+// A message to another agent: the intent as the badge, the recipient and the text, a link to the conversation.
+const CONVERSATION_ID = '66666666-7777-4888-9999-aaaaaaaaaaaa';
+const messageAgentPart = createToolPart(
+  {
+    name: 'message_agent',
+    callId: 'call-message',
+    presentation: {
+      summary: 'marketing: What are our brand colors and tone rules?',
+      visualization: { type: 'none', badge: 'question', message: 'To marketing: What are our brand colors and tone rules?' },
+      debugAvailable: true,
+    },
+  },
+  createToolStateCompleted({
+    input: { agent_id: 'marketing', message: 'What are our brand colors and tone rules?', intent: 'question' },
+    output: JSON.stringify({ delivered: true, conversation_session_id: CONVERSATION_ID, intent: 'question', hop: 1,
+      note: 'Sent to Marketing. Delivery is async and does not end your turn.' }),
+  }),
+);
+
 // A transcript from before the rename: the Prokop `task` row with its task_id line keeps its link.
 const legacyTaskPart = createToolPart(
   { name: 'task', callId: 'call-task-legacy' },
@@ -145,6 +164,12 @@ export const ErrorExpanded: Story = {
 export const Interrupted: Story = {
   args: {
     part: interruptedPart,
+  },
+};
+
+export const MessageAgent: Story = {
+  args: {
+    part: messageAgentPart,
   },
 };
 

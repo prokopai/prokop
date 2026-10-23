@@ -1,6 +1,6 @@
 import { EmptyState } from '@/components/shared/States';
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
-import { ChevronRight, CheckSquare, X, Archive, MoreHorizontal, Trash2, Tag } from 'lucide-react';
+import { ChevronRight, CheckSquare, X, Archive, MoreHorizontal, Trash2, Tag, MessageSquare } from 'lucide-react';
 import type { Session, ScheduledJob } from '@prokopai/sdk';
 import {
   SidebarGroup,
@@ -30,7 +30,7 @@ import { ScheduledJobsSection } from './ScheduledJobsSection';
 import { SessionCategoryStatus } from './SessionCategoryStatus';
 import type { SessionCategories } from '@/hooks/useSessionCategories';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { SESSION_TAG_ORDERS, isSessionTagOrder, orderedSessionGroupNames, type SessionTagOrder } from '@/lib/sessionTagOrder';
+import { AGENT_CONVERSATIONS_GROUP, SESSION_TAG_ORDERS, isSessionTagOrder, orderedSessionGroupNames, type SessionTagOrder } from '@/lib/sessionTagOrder';
 import { useTagCollapseState } from '@/hooks/useTagCollapseState';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { useSessionGrouping } from '@/hooks/useSessionGrouping';
@@ -121,6 +121,8 @@ export function WorkspaceSessionContent({
   onLoadMore,
 }: WorkspaceSessionContentProps) {
   const { isTagOpen, toggleTag } = useTagCollapseState();
+  // Conversations other agents started here are background work: folded until asked for.
+  const [conversationsOpen, setConversationsOpen] = useState(false);
   const [grouping, setGrouping] = useSessionGrouping(workspaceId);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -356,14 +358,20 @@ export function WorkspaceSessionContent({
                   if (tagName === '__ungrouped__') {
                     return <SidebarMenu key={tagName}>{sessions.map(renderSessionButton)}</SidebarMenu>;
                   }
+                  const conversations = tagName === AGENT_CONVERSATIONS_GROUP;
                   return (
-                    <Collapsible key={tagName} open={isTagOpen(tagName)} onOpenChange={(open) => toggleTag(tagName, open)} className="group/tag-collapsible">
+                    <Collapsible
+                      key={tagName}
+                      open={conversations ? conversationsOpen : isTagOpen(tagName)}
+                      onOpenChange={conversations ? setConversationsOpen : (open) => toggleTag(tagName, open)}
+                      className="group/tag-collapsible"
+                    >
                       <div className="group/head flex items-center gap-1.5 px-2 py-1 text-2xs font-medium text-muted-foreground">
                         <CollapsibleTrigger asChild>
                           <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
                             <ChevronRight className="size-3 transition-transform group-data-[state=open]/tag-collapsible:rotate-90" />
-                            <Tag className="size-3" />
-                            <span className="normal-case tracking-normal">{tagName}</span>
+                            {conversations ? <MessageSquare className="size-3" /> : <Tag className="size-3" />}
+                            <span className="normal-case tracking-normal">{conversations ? 'From other agents' : tagName}</span>
                             {renderCount(sessions.length)}
                           </button>
                         </CollapsibleTrigger>

@@ -16,7 +16,7 @@ import { delegationDecision } from '#agent/harnesses/prokop/subagent/task-tool';
 import { delegationToolDefinitions, executeDelegationTool, isDelegationTool, type HarnessEfforts } from '#agent/harnesses/prokop/subagent/tools';
 import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
-import { delegationResultFrom, delegationResultVisualization } from '#agent/harnesses/shared/tool-viz';
+import { delegationResultFrom, delegationResultVisualization, messagingResultVisualization } from '#agent/harnesses/shared/tool-viz';
 import { canMessageAnyone, executeMessagingTool, isMessagingTool, messagingToolDefinitions } from '#agent/messaging/tools';
 
 export const DELEGATION_TOOLS_NAME = 'Prokop Delegation';
@@ -96,18 +96,9 @@ export const messagingRuntimeTools: AgentRuntimeTools = {
     if (!await allowed()) return fail(`${name} unavailable`);
     return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: result.delivered !== true };
   },
+  // The same row on every harness: the intent as the badge, the recipient and the message.
   visualize(name, input, result) {
-    if (!isMessagingTool(name)) return null;
-    const entry = result.content.find((candidate) => candidate.type === 'text') as { text?: unknown } | undefined;
-    const text = typeof entry?.text === 'string' ? entry.text : '';
-    let parsed: Record<string, unknown> | null = null;
-    try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* a refusal text */ }
-    const agent = typeof input.agent_id === 'string' ? input.agent_id : 'agent';
-    const message = typeof input.message === 'string' ? input.message.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
-    if (parsed?.delivered === true) {
-      return { type: 'none', badge: typeof parsed.intent === 'string' ? parsed.intent : 'sent', message: `To ${agent}: ${message}` };
-    }
-    return { type: 'none', badge: 'not sent', message: typeof parsed?.error === 'string' ? parsed.error : `To ${agent}: ${message}` };
+    return isMessagingTool(name) ? messagingResultVisualization(input, delegationResultFrom(result)) : null;
   },
 };
 
