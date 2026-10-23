@@ -34,3 +34,13 @@ test('a locked chip keeps the agent visible and explains instead of listing', as
   expect(await screen.findByText(/belongs to/)).toBeInTheDocument();
   expect(screen.queryByText('Agent A')).not.toBeInTheDocument();
 });
+
+test('a delegated child shows its subagent role as the agent, listed as the current choice', async () => {
+  const role = { id: 'explore', name: 'Explore', description: 'Only delegated to', model: null, provider: null, mode: 'subagent' } as Preconfig;
+  render(<AgentChip preconfigs={preconfigs} selectedId="explore" selected={role} onSelect={vi.fn()} />);
+  const trigger = screen.getByRole('combobox', { name: /Agent: Explore/ });
+  expect(trigger).toHaveTextContent('Explore');
+  fireEvent.click(trigger);
+  expect(await screen.findByText('Only delegated to')).toBeInTheDocument();
+  expect(screen.getByText('role')).toBeInTheDocument();
+});

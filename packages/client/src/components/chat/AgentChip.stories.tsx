@@ -54,3 +54,8 @@ export const Phone: Story = {
   render: (args) => <Demo onSelect={args.onSelect} />,
   globals: { viewport: { value: 'phone' } },
 };
+
+/** A delegated child's session: its subagent role is the agent, shown first in the list with a role tag. */
+export const SubagentRole: Story = {
+  render: (args) => <Demo {...args} selectedId="subagent" selected={preconfigs.find((p) => p.id === 'subagent') ?? null} />,
+};

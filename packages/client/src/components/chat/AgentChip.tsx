@@ -11,6 +11,8 @@ export interface AgentChipProps {
   /** Ids of promoted agents; they get the highlight tint. */
   agentIds?: string[];
   selectedId: string | null | undefined;
+  /** The session's agent when it is not in the list: a subagent role a delegation gave the session. */
+  selected?: Preconfig | null;
   /** The workspace belongs to one agent: the chip shows it but nothing can change. */
   locked?: boolean;
   disabled?: boolean;
@@ -29,13 +31,16 @@ export function AgentChip({
   preconfigs,
   agentIds = [],
   selectedId,
+  selected: selectedPreconfig,
   locked,
   disabled,
   pinnedModelName,
   onSelect,
 }: AgentChipProps) {
   const [open, setOpen] = useState(false);
-  const selected = preconfigs.find((p) => p.id === selectedId);
+  const selected = preconfigs.find((p) => p.id === selectedId) ?? (selectedPreconfig?.id === selectedId ? selectedPreconfig : undefined);
+  // A role outside the list (a delegated child's) is shown as the current choice.
+  const items = selected && !preconfigs.some((p) => p.id === selected.id) ? [selected, ...preconfigs] : preconfigs;
   const isAgent = (id: string) => agentIds.includes(id);
   const name = selected?.name ?? 'No agent';
   const title = locked ? `Agent: ${name} (this workspace belongs to it)` : `Agent: ${name}`;
@@ -71,7 +76,7 @@ export function AgentChip({
           <CommandInput placeholder="Search agents…" autoFocus={typeof window !== 'undefined' && !window.matchMedia('(pointer: coarse)').matches} />
           <CommandList className="max-h-[50vh] p-1">
             <CommandEmpty>No agent found.</CommandEmpty>
-            {preconfigs.map((preconfig) => {
+            {items.map((preconfig) => {
               const pinned = pinnedModelName?.(preconfig) ?? preconfig.model;
               const active = preconfig.id === selectedId;
               return (
@@ -87,6 +92,7 @@ export function AgentChip({
                     <span className="flex items-center gap-1.5">
                       <span className="truncate">{preconfig.name}</span>
                       {preconfig.isDefault && <span className="shrink-0 text-xs text-muted-foreground">default</span>}
+                      {preconfig.mode === 'subagent' && <span className="shrink-0 text-xs text-muted-foreground">role</span>}
                     </span>
                     {(preconfig.description || pinned) && (
                       <span className="truncate text-xs text-muted-foreground">

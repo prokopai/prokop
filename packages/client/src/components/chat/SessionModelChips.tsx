@@ -52,6 +52,7 @@ export function SessionModelChips({ session, sdkClient, disabled }: SessionModel
           preconfigs={preconfigs}
           agentIds={agents.map((a) => a.id)}
           selectedId={session.preconfigId}
+          selected={allPreconfigs.find((p) => p.id === session.preconfigId) ?? null}
           locked={lockAgent}
           disabled={disabled || model.disabled}
           pinnedModelName={pinnedModelName}
