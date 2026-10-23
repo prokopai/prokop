@@ -1,5 +1,7 @@
 ### Fixed
 
+- **Claude Code compaction no longer locks the conversation**: Compacting a long Claude Code session could take longer than the two minutes Prokop waited, so it was cut off and the conversation refused every message after it. Compaction now gets ten minutes. A compaction that still ends without a clear outcome (cut off, or the server restarted) is checked against Claude Code's own history the next time you send or compact: if nothing changed, the conversation carries on; if it did compact, that is recorded. It stays locked only when that history cannot be read.
+
 - **Claude Code turns no longer fail with "Unknown Claude content block"**: Replies that used a server-side tool (such as the advisor or web search) ended in that error and left the conversation stuck. Prokop now skips those parts and keeps the rest of the reply.
 
 - **Stopping a parent now stops its delegated Prokop subagents**: Once a delegated task ran on after its parent stopped waiting, Stop on the parent, Stop on the child and `task_cancel` only marked the child as interrupted while it kept calling tools, with no control left to stop it. The child's run is now registered with the interrupt manager for its whole life, so all three end it; the parent gets a note that the task was interrupted instead of whatever text the child had produced so far.

@@ -1,8 +1,51 @@
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { query, type Options, type SDKMessage, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import { claudeTranscriptPath } from './transcript';
 
 export interface ClaudeCompactBoundary {
   preTokens: number;
   postTokens: number | null;
+}
+
+/**
+ * Summarizing a near-full 1M context takes the CLI over two minutes (131s seen
+ * for an auto compaction), so the wait is bounded generously.
+ */
+export const CLAUDE_COMPACT_TIMEOUT_MS = 10 * 60_000;
+
+/**
+ * Settles a compaction whose stream ended without an outcome, once its process
+ * is gone. The CLI writes a manual compact_boundary to its transcript when the
+ * native history changes; none after `after` means the history is untouched.
+ * Returns null when the transcript cannot be read, so the session stays locked.
+ */
+export async function readClaudeCompactOutcome(input: { root: string; nativeId: string; after: number }): Promise<
+  { compacted: true; boundary: ClaudeCompactBoundary } | { compacted: false } | null> {
+  const path = claudeTranscriptPath(input.root, input.nativeId);
+  if (!path) return null;
+  let boundary: ClaudeCompactBoundary | null = null;
+  const stream = createReadStream(path, { encoding: 'utf8' });
+  const lines = createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of lines) {
+      if (!line.includes('"compact_boundary"')) continue;
+      let entry: { type?: unknown; subtype?: unknown; sessionId?: unknown; isSidechain?: unknown;
+        timestamp?: unknown; compactMetadata?: { trigger?: unknown; preTokens?: unknown; postTokens?: unknown } };
+      try { entry = JSON.parse(line); } catch { return null; }
+      if (entry.type !== 'system' || entry.subtype !== 'compact_boundary' || entry.isSidechain === true
+        || entry.sessionId !== input.nativeId) continue;
+      const meta = entry.compactMetadata;
+      const timestamp = typeof entry.timestamp === 'string' ? Date.parse(entry.timestamp) : NaN;
+      if (!Number.isFinite(timestamp)) return null;
+      if (meta?.trigger !== 'manual' || timestamp <= input.after) continue;
+      if (!Number.isSafeInteger(meta.preTokens) || (meta.preTokens as number) < 0) return null;
+      boundary = { preTokens: meta.preTokens as number,
+        postTokens: Number.isSafeInteger(meta.postTokens) && (meta.postTokens as number) >= 0 ? meta.postTokens as number : null };
+    }
+  } catch { return null; }
+  finally { lines.close(); stream.destroy(); }
+  return boundary ? { compacted: true, boundary } : { compacted: false };
 }
 
 interface CompactInput {

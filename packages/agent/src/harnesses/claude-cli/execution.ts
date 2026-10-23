@@ -22,7 +22,7 @@ import { readFile } from 'node:fs/promises';
 import { formatHostEvent, joinContextEnvelope, type HostEvent, type TerminalContextReference } from '@prokopai/sdk';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '#agent/harnesses/shared/steering';
 import { readClaudeGoalVerdict } from './goal-transcript';
-import { runClaudeCompact } from './compact';
+import { CLAUDE_COMPACT_TIMEOUT_MS, readClaudeCompactOutcome, runClaudeCompact } from './compact';
 import { claudeApprovals, type ClaudeApprovals } from './approvals';
 import { ClaudeChildTimelines } from './child-timelines';
 import { loadClaudeImages, resolveClaudeImages, type ClaudeImage } from './images';
@@ -54,6 +54,7 @@ export interface ClaudeExecutionDependencies extends ClaudeRollbackDependencies 
   approvals?: ClaudeApprovals;
   version?: () => string;
   readGoalVerdict?: typeof readClaudeGoalVerdict;
+  readCompactOutcome?: typeof readClaudeCompactOutcome;
   instructions?: ClaudeInstructionSources;
   memoryTools?: MemoryDomainBridge;
   sessionSearch?: SessionSearchDomainBridge;
@@ -107,6 +108,34 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
   const recoveryHint = (pending: { phase: string }): string => pending.phase === 'ready'
     ? 'Claude edit was not sent; edit that message again to resend it'
     : 'Claude edit outcome is uncertain; edit the first message to start over';
+
+  /**
+   * A compaction left uncertain (timeout, lost result, server restart) is settled
+   * from the native transcript once its process is gone. Returns the session with
+   * the lock cleared, or null while the outcome still cannot be read.
+   */
+  async function settleUncertainCompact(session: Session,
+    delivery?: Pick<SessionWirePorts<unknown>['delivery'], 'broadcastToSession'>): Promise<Session | null> {
+    if (active.has(session.id)) return null;
+    const binding = await getClaudeBinding(session.id);
+    if (!binding || binding.pending) return null;
+    const after = typeof session.metadata?.claudeCompactedAt === 'number' ? session.metadata.claudeCompactedAt : 0;
+    const outcome = await (deps.readCompactOutcome ?? readClaudeCompactOutcome)({
+      root: binding.workspace_root, nativeId: binding.native_session_id, after });
+    logHarness('claude-cli', 'uncertain compaction settled', { sessionId: session.id,
+      outcome: outcome === null ? 'unreadable' : outcome.compacted ? 'compacted' : 'unchanged' }, 'info');
+    if (!outcome) return null;
+    const { claudeCompactPending: _pending, ...metadata } = session.metadata ?? {};
+    if (outcome.compacted) {
+      delete metadata.claudeContext;
+      Object.assign(metadata, { claudeCompactedAt: Date.now(),
+        claudeCompactedAfterMessageId: (await listMessagesWithParts(session.id)).at(-1)?.message.id ?? null,
+        claudeCompaction: { trigger: 'manual', ...outcome.boundary } });
+    }
+    const updated = await updateSession(session.id, { metadata });
+    if (updated) delivery?.broadcastToSession(session.id, { type: 'session.updated', session: updated });
+    return updated ?? null;
+  }
 
   /** An applied edit whose resend never reached Claude is resent as is; its text may still change. */
   async function resumeEdit(sessionId: string, messageId: string, content: string): Promise<boolean> {
@@ -243,7 +272,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         || attachments?.length)) return reject('Invalid Claude goal condition');
       const images = await resolveClaudeImages(session, attachments ?? []);
       if (!images) return reject('Claude image attachment is unavailable or unsupported');
-      if (session.metadata?.claudeCompactPending) return reject('Claude compaction outcome is uncertain; do not send in this session');
+      if (session.metadata?.claudeCompactPending && !await settleUncertainCompact(session, wire.delivery)) {
+        return reject('Claude compaction outcome is uncertain; do not send in this session');
+      }
       const priorGoal = session.metadata?.claudeGoal as { status?: string } | undefined;
       if (priorGoal?.status === 'active' || priorGoal?.status === 'uncertain') {
         return reject('Claude goal requires reconciliation; do not send in this session');
@@ -844,13 +875,21 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       } finally { resubmitting.delete(input.sessionId); }
     },
     async compact(sessionId, _reason, delivery) {
-      const session = await getSession(sessionId);
+      let session = await getSession(sessionId);
       if (!session || session.harness !== 'claude-cli' || session.status !== 'active'
         || session.parentId || active.has(sessionId) || rollingBack.has(sessionId) || await intent(sessionId)) {
         return { ok: false, skipped: true, error: 'Claude session is unavailable or busy' };
       }
       if (session.metadata?.claudeCompactPending) {
-        return { ok: false, skipped: true, error: 'Claude compaction outcome is uncertain; do not retry in this session' };
+        const settled = await settleUncertainCompact(session, delivery);
+        if (!settled) {
+          return { ok: false, skipped: true, error: 'Claude compaction outcome is uncertain; do not retry in this session' };
+        }
+        // The earlier attempt did compact; another run right away is not what was asked.
+        if (settled.metadata?.claudeCompactedAt !== session.metadata.claudeCompactedAt) {
+          return { ok: true, result: { tokensUsed: { prompt: 0, completion: 0 } } };
+        }
+        session = settled;
       }
       const goalStatus = (session.metadata?.claudeGoal as { status?: string } | undefined)?.status;
       if (goalStatus === 'active' || goalStatus === 'uncertain') {
@@ -876,7 +915,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
         if (!pending) throw new Error('Claude compaction state could not be saved');
         delivery?.broadcastToSession(sessionId, { type: 'session.updated', session: pending });
         submitted = true;
-        const timeout = setTimeout(() => controller.abort(), 120_000);
+        const timeout = setTimeout(() => controller.abort(), CLAUDE_COMPACT_TIMEOUT_MS);
         let outcome: Awaited<ReturnType<typeof runClaudeCompact>>;
         try {
           outcome = await runClaudeCompact({ cwd: root, nativeId: binding.native_session_id,

@@ -27,7 +27,10 @@ beforeEach(() => {
     preconfigId: null, metadata: null, parentId: null, agentName: null, harness: 'claude-cli' });
   saveClaudeModelSelection('session', { model: 'claude-sonnet-5', effort: 'medium' });
 });
+const initialClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
 afterEach(() => {
+  if (initialClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+  else process.env.CLAUDE_CONFIG_DIR = initialClaudeConfig;
   resetTestDatabase();
   Paths.reset();
   rmSync(dataDir, { recursive: true, force: true });
@@ -1190,6 +1193,70 @@ test('lost compact result blocks retry and subsequent Claude messages', async ()
   await exec.sendMessage(wire, 'origin', 'session', 'retry');
   expect(listMessagesWithParts('session')).toHaveLength(before);
   expect(events.at(-1)).toMatchObject({ type: 'error', code: 'invalid_session' });
+});
+
+/** A lost /compact result, then optionally a native transcript as the CLI writes it. */
+async function uncertainCompaction(boundaryAt: 'none' | 'after' | 'missing-file') {
+  const configDir = mkdtempSync(join(dataDir, 'claude-config-'));
+  // Restored by afterEach; the transcript is read on the next send or compact.
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  const { wire, events } = wireFixture();
+  let native: { id: string; cwd: string } | null = null;
+  const exec = createClaudeExecution({ version: () => '2.1.285', start: (prompt, options) => {
+    const id = (options.sessionId ?? options.resume)!;
+    native = { id, cwd: options.cwd! };
+    async function* stream(): AsyncGenerator<SDKMessage> {
+      if (typeof prompt === 'string') {
+        // The CLI reports progress, then the process ends before any outcome.
+        yield { type: 'system', subtype: 'status', status: 'compacting', session_id: id } as SDKMessage;
+        throw new Error('Claude compaction interrupted');
+      }
+      yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+      yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'hello' } as SDKMessage;
+    }
+    return stream();
+  } });
+  await exec.sendMessage(wire, 'origin', 'session', 'hello');
+  expect(await exec.compact('session', 'manual', wire.delivery)).toMatchObject({ ok: false });
+  expect(getSession('session')?.metadata?.claudeCompactPending).toBe(true);
+  const { id, cwd } = native!;
+  if (boundaryAt !== 'missing-file') {
+    const dir = join(configDir, 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+    mkdirSync(dir, { recursive: true });
+    const lines: unknown[] = [{ type: 'user', sessionId: id, isSidechain: false,
+      timestamp: new Date(Date.now() - 60_000).toISOString(), message: { role: 'user', content: 'hello' } }];
+    if (boundaryAt === 'after') lines.push({ parentUuid: null, isSidechain: false, type: 'system', subtype: 'compact_boundary',
+      compactMetadata: { trigger: 'manual', preTokens: 970000, postTokens: 12000, durationMs: 131000 },
+      timestamp: new Date().toISOString(), sessionId: id });
+    writeFileSync(join(dir, `${id}.jsonl`), lines.map(line => JSON.stringify(line)).join('\n') + '\n');
+  }
+  return { exec, wire, events };
+}
+
+test('a compaction that ended without an outcome and left no boundary unlocks the next send', async () => {
+  const { exec, wire } = await uncertainCompaction('none');
+  const before = listMessagesWithParts('session').length;
+  await exec.sendMessage(wire, 'origin', 'session', 'still here?');
+  expect(listMessagesWithParts('session').length).toBe(before + 2);
+  expect(getSession('session')?.metadata?.claudeCompactPending).toBeUndefined();
+  expect(getSession('session')?.metadata?.claudeCompaction).toBeUndefined();
+});
+
+test('a compaction whose boundary reached the native transcript is recorded, not run again', async () => {
+  const { exec, wire } = await uncertainCompaction('after');
+  expect(await exec.compact('session', 'manual', wire.delivery)).toMatchObject({ ok: true });
+  expect(getSession('session')?.metadata).toMatchObject({
+    claudeCompaction: { trigger: 'manual', preTokens: 970000, postTokens: 12000 } });
+  expect(getSession('session')?.metadata?.claudeCompactPending).toBeUndefined();
+});
+
+test('a compaction stays locked while its native transcript cannot be read', async () => {
+  const { exec, wire, events } = await uncertainCompaction('missing-file');
+  const before = listMessagesWithParts('session').length;
+  await exec.sendMessage(wire, 'origin', 'session', 'retry');
+  expect(listMessagesWithParts('session')).toHaveLength(before);
+  expect(events.at(-1)).toMatchObject({ type: 'error', code: 'invalid_session' });
+  expect(getSession('session')?.metadata?.claudeCompactPending).toBe(true);
 });
 
 test('server-run content blocks (advisor, web search) do not fail the turn', async () => {
