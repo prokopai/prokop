@@ -15,6 +15,7 @@ import { storeTransaction } from '@prokopai/core/infrastructure/storage/transact
 import { getClaudeModelSelection } from './models';
 import { claudeCliVersion } from './version';
 import { StreamingTextWriter } from '#agent/harnesses/shared/streaming-text';
+import { isDelegatedChild } from '#agent/harnesses/shared/delegated-child';
 import { describeError, logHarness, StderrTail } from '#agent/harnesses/shared/diagnostics';
 import { runClaudeTurn, type ClaudeSteerInput, type ClaudeTurnEvent } from './sdk-turn';
 import { readFile } from 'node:fs/promises';
@@ -228,7 +229,9 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
       const reject = (message: string): void => wire.delivery.send(origin,
         { type: 'error', code: 'invalid_session', message, sessionId });
       const session = await getSession(sessionId);
-      if (!session || session.harness !== 'claude-cli' || session.parentId || session.status !== 'active') {
+      // A native Claude agent thread is driven by the CLI process; a delegated child is driven here.
+      if (!session || session.harness !== 'claude-cli' || (session.parentId && !isDelegatedChild(sessionId))
+        || session.status !== 'active') {
         return reject('Not an active Claude CLI session');
       }
       if ((!content.trim() && !attachments?.length) || responseFormatId

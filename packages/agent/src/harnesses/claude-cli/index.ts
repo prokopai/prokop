@@ -20,8 +20,9 @@ export function createClaudeCliHarness(
       ...execution,
       regenerateTitle,
     },
-    // Headless child runs (scheduled jobs, learning reviews) drive a normal
-    // turn with no client attached; sendMessage resolves at turn completion.
-    headless: input => runHeadlessTurn(execution.sendMessage, input),
+    // Headless child runs (scheduled jobs, learning reviews, delegated
+    // children) drive a normal turn; sendMessage resolves at turn completion.
+    // A visible run passes the dispatcher's wire so clients follow the child.
+    headless: (input, options) => runHeadlessTurn(execution.sendMessage, input, options),
   };
 }

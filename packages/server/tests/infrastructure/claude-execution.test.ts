@@ -1514,3 +1514,32 @@ test('Stop during a continuation keeps the completed reply and frees the session
   expect(legacyRows('claude_session_bindings')[0]?.pending).toBe(0);
   expect(getSession('session')?.runningAt).toBeNull();
 });
+
+test('a delegated child session is driven like a top-level one; a native agent thread child is still refused', async () => {
+  const { delegationHost } = await import('@prokopai/core/application/ports/delegation-host');
+  const child = (id: string) => {
+    createSession({ id, workspaceId: 'ws', title: 'Child', status: 'active', preconfigId: null, metadata: null,
+      parentId: 'session', agentName: 'reviewer', harness: 'claude-cli' });
+    saveClaudeModelSelection(id, { model: 'claude-sonnet-5', effort: 'medium' });
+  };
+  const delegated = crypto.randomUUID();
+  const native = crypto.randomUUID();
+  child(delegated);
+  child(native);
+  // The delegation wrote the task row before dispatching the child; a native thread has none.
+  delegationHost().tasks.upsert({ taskId: delegated, parentSessionId: 'session', kind: 'child', worktreeId: null, branch: null,
+    requestKey: null, description: 'Review', harness: 'claude-cli', model: null, serial: 1, watched: false, settled: false,
+    deliveredSerial: 0, createdAt: '', updatedAt: '' });
+  let launched = 0;
+  const exec = createClaudeExecution({ version: () => '2.1.274', start: () => { launched += 1; throw new Error('stopped by the test'); } });
+
+  const refused = wireFixture();
+  await exec.sendMessage(refused.wire, 'origin', native, 'go');
+  expect(refused.events).toEqual([{ type: 'error', code: 'invalid_session', sessionId: native, message: 'Not an active Claude CLI session' }]);
+  expect(launched).toBe(0);
+
+  const driven = wireFixture();
+  await exec.sendMessage(driven.wire, 'origin', delegated, 'go');
+  expect(launched).toBe(1);
+  expect(driven.events.some(event => (event as { message?: string }).message === 'Not an active Claude CLI session')).toBe(false);
+});

@@ -90,10 +90,13 @@ function cappedEntries(value: unknown[]): Record<string, unknown>[] {
 }
 
 /** Length-caps a Claude tool input for the transcript; viz-critical string
- * fields and arrays keep enough content so diffs, code views and todo lists survive. */
+ * fields and arrays keep enough content so diffs, code views and todo lists
+ * survive, and a flat object (a delegation target) keeps its scalar fields. */
 export function claudeToolInput(input: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input).slice(0, 16).map(([key, value]) => [key.slice(0, 80),
-    VIZ_ARRAY_KEYS.has(key) && Array.isArray(value) ? cappedEntries(value) : cappedScalar(key, value)]));
+    VIZ_ARRAY_KEYS.has(key) && Array.isArray(value) ? cappedEntries(value)
+      : value && typeof value === 'object' && !Array.isArray(value) ? cappedEntries([value])[0] ?? '[omitted]'
+        : cappedScalar(key, value)]));
 }
 
 function firstString(input: Record<string, unknown>, keys: string[]): string | null {
@@ -273,14 +276,16 @@ export function delegationResultFrom(output: unknown): Record<string, unknown> |
   if (typeof output === 'string') {
     try { return delegationResultFrom(JSON.parse(output)); } catch { return null; }
   }
-  if (!output || typeof output !== 'object' || Array.isArray(output)) return null;
-  const record = output as Record<string, unknown>;
-  if (Array.isArray(record.content)) {
-    const block = record.content.find(entry => entry && typeof entry === 'object'
+  if (!output || typeof output !== 'object') return null;
+  // Claude stores the tool result as its content blocks; an MCP result wraps them in `content`.
+  const blocks = Array.isArray(output) ? output : Array.isArray((output as Record<string, unknown>).content)
+    ? (output as Record<string, unknown>).content as unknown[] : null;
+  if (blocks) {
+    const block = blocks.find(entry => entry && typeof entry === 'object'
       && (entry as Record<string, unknown>).type === 'text') as Record<string, unknown> | undefined;
     return typeof block?.text === 'string' ? delegationResultFrom(block.text) : null;
   }
-  return record;
+  return output as Record<string, unknown>;
 }
 
 /** A completed delegation row: the task and where it stands, from the result fields. */

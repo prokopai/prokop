@@ -2760,3 +2760,31 @@ test('Codex after a harness switch starts a new thread with the handoff brief an
     .rejects.toThrow(HARNESS_SWITCH_FORK_REASON);
   expect(listMessagesWithParts('s')).toHaveLength(4);
 });
+
+test('a delegated child session is driven like a top-level one; a native collab thread child is still refused', async () => {
+  const { delegationHost } = await import('@prokopai/core/application/ports/delegation-host');
+  create();
+  const child = (id: string) => createSession({ id, workspaceId: 'ws', title: 'Child', status: 'active', preconfigId: 'test',
+    metadata: null, parentId: 's', agentName: 'reviewer', harness: 'codex-cli' });
+  const delegated = crypto.randomUUID();
+  const native = crypto.randomUUID();
+  child(delegated);
+  child(native);
+  // The delegation wrote the task row before dispatching the child; a native thread has none.
+  delegationHost().tasks.upsert({ taskId: delegated, parentSessionId: 's', kind: 'child', worktreeId: null, branch: null,
+    requestKey: null, description: 'Review', harness: 'codex-cli', model: null, serial: 1, watched: false, settled: false,
+    deliveredSerial: 0, createdAt: '', updatedAt: '' });
+  let started = 0;
+  const execution = createCodexExecution({ version: () => { started += 1; throw new Error('stopped by the test'); },
+    connect: () => { throw new Error('must not connect'); } });
+
+  const refused: ServerMessage[] = [];
+  await execution.sendMessage(wire(refused), 'origin', native, 'go');
+  expect(refused).toEqual([{ type: 'error', code: 'invalid_session', message: 'Not a Codex CLI session', sessionId: native }]);
+  expect(started).toBe(0);
+
+  const driven: ServerMessage[] = [];
+  await execution.sendMessage(wire(driven), 'origin', delegated, 'go');
+  expect(started).toBe(1);
+  expect(driven.some(message => message.type === 'error' && message.message === 'Not a Codex CLI session')).toBe(false);
+});

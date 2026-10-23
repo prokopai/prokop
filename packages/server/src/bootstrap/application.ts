@@ -94,6 +94,7 @@ import {
   broadcastEvent,
   broadcastSessionUpdated,
   broadcastToSessionEvent,
+  broadcastToSessionsEvent,
   sendToAskTargetsEvent,
   sendToConnectionEvent,
   sendToControllerEvent,
@@ -284,18 +285,19 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       // CLI catalog unavailable on this host: the CLI default applies.
     }
   };
-  // A delegated child runs visibly: its session's clients follow the turn,
+  // A delegated child runs visibly: its session's clients and the parent's
+  // follow the turn (clients watch a child from the session that started it),
   // and a parent that stops interrupts it through the normal path.
-  const visibleWire: SessionWirePorts<unknown> = {
+  const visibleWireFor = (parentSessionId: string): SessionWirePorts<unknown> => ({
     delivery: {
       send: () => {},
       broadcast: (message) => broadcastEvent(message),
-      broadcastToSession: (sessionId, message) => broadcastToSessionEvent(sessionId, message),
+      broadcastToSession: (sessionId, message) => broadcastToSessionsEvent([sessionId, parentSessionId], message),
       sendToController: (sessionId, message) => sendToControllerEvent(sessionId, message),
       sendToAskTargets: (sessionId, authority, message) => sendToAskTargetsEvent(sessionId, authority, message),
     },
     actor: { attachOriginToSession: () => {} },
-  };
+  });
   installHeadlessExecutionPort({
     async run(input, options) {
       const headless = harnessRegistrations[input.harness]?.headless;
@@ -308,7 +310,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       else signal?.addEventListener('abort', interrupt, { once: true });
       try {
         if (options?.visible) await pinDelegatedChildModel(input);
-        return await headless(input, options?.visible ? { ...options, wire: visibleWire } : options);
+        return await headless(input, options?.visible ? { ...options, wire: visibleWireFor(input.parentSessionId) } : options);
       } finally {
         signal?.removeEventListener('abort', interrupt);
       }

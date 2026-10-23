@@ -80,3 +80,34 @@ test('maps a non-error rejection to a generic message', async () => {
 
   expect(result).toEqual({ error: 'Headless run failed' });
 });
+
+test('the Claude and Codex registrations pass a visible run\'s wire through to the turn', async () => {
+  const { createClaudeCliHarness } = await import('@prokopai/agent/internal/harnesses/claude-cli/index');
+  const { createCodexCliHarness } = await import('@prokopai/agent/internal/harnesses/codex-cli/index');
+  for (const create of [createClaudeCliHarness, createCodexCliHarness]) {
+    const seen: string[] = [];
+    const wire: SessionWirePorts<unknown> = {
+      delivery: {
+        send: () => seen.push('send'),
+        broadcast: (message) => seen.push(`broadcast:${message.type}`),
+        broadcastToSession: (sessionId, message) => seen.push(`session:${sessionId}:${message.type}`),
+        sendToController: () => {},
+        sendToAskTargets: () => {},
+      },
+      actor: { attachOriginToSession: () => {} },
+    };
+    const execution = {
+      sendMessage: async <Origin,>(w: SessionWirePorts<Origin>, _origin: Origin, sessionId: string): Promise<void> => {
+        w.delivery.broadcastToSession(sessionId, { type: 'message.created', message: { id: 'm', sessionId } as never });
+        w.delivery.broadcast({ type: 'session.updated', session: { id: sessionId } as never });
+      },
+    } as unknown as Parameters<typeof createClaudeCliHarness>[0];
+    const registration = create(execution, async () => ({ ok: true }) as never);
+
+    expect(await registration.headless!(input, { visible: true, wire })).toEqual({});
+    // A delegated child's events reach the clients; a wire-less run still discards them.
+    expect(seen).toEqual(['session:child-1:message.created', 'broadcast:session.updated']);
+    expect(await registration.headless!(input)).toEqual({});
+    expect(seen).toHaveLength(2);
+  }
+});

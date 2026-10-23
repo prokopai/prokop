@@ -5,6 +5,7 @@ import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery
 import type { InterruptExecutionResult } from '@prokopai/core/application/ports/execution';
 import { persistCliSessionRunning, withCliMessageQueue, type CliTurnExecution, type QueuedCliExecution, type QueuedTurnInput } from '#agent/harnesses/shared/message-queue';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '#agent/harnesses/shared/steering';
+import { isDelegatedChild } from '#agent/harnesses/shared/delegated-child';
 import {
   createMessage, createPart, deleteMessage, getHandoffBrief, getMessageWithParts, getSession, getWorkspace,
   listMessagesWithParts, updateMessage, updatePart, updateSession,
@@ -522,7 +523,8 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
       goalCondition?: string, goalMaxTurns?: number, goalTokenBudget?: number,
       queued?: QueuedTurnInput, onTurnStarted?: () => Promise<void>): Promise<'drainable' | void> {
       const session = await getSession(sessionId);
-      if (!session || session.harness !== 'codex-cli' || session.parentId) {
+      // A native Codex subagent thread is driven by the CLI process; a delegated child is driven here.
+      if (!session || session.harness !== 'codex-cli' || (session.parentId && !isDelegatedChild(sessionId))) {
         wire.delivery.send(origin, { type: 'error', code: 'invalid_session', message: 'Not a Codex CLI session', sessionId });
         return;
       }

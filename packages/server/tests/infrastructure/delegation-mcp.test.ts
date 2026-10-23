@@ -16,6 +16,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { AskRequestMessage, ServerMessage, Session, SessionHarness } from '@prokopai/sdk';
 import { installAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
+import { installDelegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
 import { installAgentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
 import { clearModelsCache } from '@prokopai/core/config';
 import { createPreconfig, getPreconfig } from '@prokopai/core/infrastructure/config/preconfig';
@@ -98,6 +100,10 @@ beforeEach(async () => {
   session('claude', 'claude-cli');
   session('codex', 'codex-cli');
   session('prokop', 'prokop');
+  // No host dispatch and the permissive memory host: an approved delegation is refused at dispatch, never run.
+  // (A test that wired the full application earlier in the process leaves its ports installed.)
+  installHeadlessExecutionPort(null);
+  installDelegationHost(null);
   // The ask path: rows and control state from the server, answers through the agent ask port.
   sockets = []; claimed = []; requests = [];
   configureHarnessAsks(localHarnessAsks);

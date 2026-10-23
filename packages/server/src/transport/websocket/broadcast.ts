@@ -1,6 +1,7 @@
 import type { ServerMessage, Session, AskAuthority } from '@prokopai/sdk';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import { installWorkspaceActivityListener } from '@/application/workspaces/activity';
+import { participantConnectionIdsFor } from './delivery';
 import { installWorkspaceFilesChangedListener } from '@prokopai/core/application/workspaces/files-changed';
 
 export type BroadcastFn = (message: ServerMessage) => void;
@@ -92,6 +93,26 @@ export function broadcastToSessionEvent(sessionId: string, message: ServerMessag
     return;
   }
   broadcastEvent(message);
+}
+
+/**
+ * One delivery per connection that participates in any of the sessions. A
+ * delegated child's events go to the child's participants and the parent's:
+ * clients follow a child from the session that started it.
+ */
+export function broadcastToSessionsEvent(sessionIds: readonly string[], message: ServerMessage): void {
+  if (!installedPort) {
+    broadcastEvent(message);
+    return;
+  }
+  const seen = new Set<ConnectionId>();
+  for (const sessionId of sessionIds) {
+    for (const connectionId of participantConnectionIdsFor(sessionId)) {
+      if (seen.has(connectionId)) continue;
+      seen.add(connectionId);
+      installedPort.sendToConnection(connectionId, message);
+    }
+  }
 }
 
 /**

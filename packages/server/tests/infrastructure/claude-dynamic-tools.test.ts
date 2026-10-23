@@ -444,7 +444,9 @@ test('stored Claude inputs keep todo and multi-edit arrays for visualizations', 
   expect(claudeToolVisualization('edit', editInput, 'done', false))
     .toMatchObject({ type: 'diff', path: 'src/a.ts', additions: 3, deletions: 2 });
 
-  expect(claudeToolInput({ nested: { deep: true }, list: [1, 2] })).toEqual({ nested: '[omitted]', list: '[omitted]' });
+  // A flat object keeps its scalar fields (a delegation target); deeper levels and other arrays are omitted.
+  expect(claudeToolInput({ nested: { deep: true, deeper: { x: 1 } }, list: [1, 2] }))
+    .toEqual({ nested: { deep: true, deeper: '[omitted]' }, list: '[omitted]' });
 });
 
 test('Claude delegation calls read by the shared tool name with the task and its state', () => {
@@ -476,4 +478,16 @@ test('Claude delegation calls read by the shared tool name with the task and its
     .toEqual({ type: 'none', message: 'Task cancelled' });
   expect(claudeToolVisualization('delegation_capabilities', {}, JSON.stringify({ roles: [{ id: 'a' }, { id: 'b' }], harnesses: [] }), false))
     .toEqual({ type: 'none', badge: '2 roles', message: 'Roles, harnesses and models' });
+});
+
+test('a delegation result stored as Claude content blocks still renders, and a target object survives input capping', () => {
+  const input = { description: 'Explore repo', prompt: 'x'.repeat(3000), subagent_type: 'explore', target: { harness: 'codex-cli', model: 'gpt-6-luna', nested: { deep: true } } };
+  const stored = claudeToolInput(input);
+  expect(stored.target).toEqual({ harness: 'codex-cli', model: 'gpt-6-luna', nested: '[omitted]' });
+  expect(String(stored.prompt).length).toBe(1000);
+
+  // The SDK hands Claude's tool result over as a JSON array of content blocks.
+  const blocks = JSON.stringify([{ type: 'text', text: JSON.stringify({ task_id: 'child-1', result: 'A file map.\nMore.' }) }]);
+  expect(claudeToolVisualization('delegate_task', input, blocks, false))
+    .toEqual({ type: 'none', badge: 'completed', message: 'A file map.' });
 });
