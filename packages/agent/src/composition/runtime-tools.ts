@@ -13,7 +13,9 @@ import { askUserForBuiltin } from '@prokopai/core/infrastructure/runtime/builtin
 import { getSession } from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getPreconfigOrAgent } from '#agent/harnesses/prokop/context/sources';
 import { delegationDecision } from '#agent/harnesses/prokop/subagent/task-tool';
-import { delegationToolDefinitions, executeDelegationTool, isDelegationTool } from '#agent/harnesses/prokop/subagent/tools';
+import { delegationToolDefinitions, executeDelegationTool, isDelegationTool, type HarnessEfforts } from '#agent/harnesses/prokop/subagent/tools';
+import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
+import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { delegationResultFrom, delegationResultVisualization } from '#agent/harnesses/shared/tool-viz';
 
 export const DELEGATION_TOOLS_NAME = 'Prokop Delegation';
@@ -21,10 +23,32 @@ export const DELEGATION_TOOLS_NAME = 'Prokop Delegation';
 const MAX_ARGUMENTS = 64_000;
 const MAX_RESULT = 64_000;
 
+/** The union of efforts each enabled, installed CLI harness's models support, in catalog order. */
+async function harnessEfforts(): Promise<HarnessEfforts[]> {
+  const host = delegationHost();
+  const result: HarnessEfforts[] = [];
+  for (const harness of ['codex-cli', 'claude-cli'] as const) {
+    if (!host.harnessEnabled(harness) || !host.harnessAvailable(harness)) continue;
+    try {
+      const efforts: string[] = [];
+      for (const model of await harnessProbes().models(harness)) {
+        for (const effort of model.supportedEfforts) if (!efforts.includes(effort)) efforts.push(effort);
+      }
+      result.push({ harness, efforts });
+    } catch {
+      // The catalog is unavailable here; the description falls back to pointing at delegation_capabilities.
+    }
+  }
+  return result;
+}
+
 export const delegationRuntimeTools: AgentRuntimeTools = {
   name: DELEGATION_TOOLS_NAME,
-  definitions: delegationToolDefinitions().map(({ name, description, inputSchema }) =>
-    ({ name, description, inputSchema: inputSchema as Record<string, unknown> })),
+  // The delegate_task schema names the efforts each enabled CLI harness offers, from the cached catalogs.
+  async definitions() {
+    return delegationToolDefinitions(await harnessEfforts()).map(({ name, description, inputSchema }) =>
+      ({ name, description, inputSchema: inputSchema as Record<string, unknown> }));
+  },
   // Any active session whose agent may spawn subagents, whatever its harness or mode.
   async visibleTo(sessionId) {
     const session = await getSession(sessionId);

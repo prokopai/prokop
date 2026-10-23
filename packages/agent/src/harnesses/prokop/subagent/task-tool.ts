@@ -450,7 +450,10 @@ Note: Subagent depth is limited to 2 levels. You cannot spawn further subagents 
             harness: { type: 'string', enum: ['prokop', 'codex-cli', 'claude-cli'] },
             model: { type: 'string' },
             provider: { type: 'string' },
-            variant: { type: 'string' },
+            variant: {
+              type: 'string',
+              description: 'Reasoning effort for a CLI model (one of the efforts delegation_capabilities lists, e.g. low, medium, high) or a Prokop model variant. Omitted: the role\'s effort, the parent\'s when the child runs on the parent\'s model, else the model\'s default.',
+            },
           },
           additionalProperties: false,
         },

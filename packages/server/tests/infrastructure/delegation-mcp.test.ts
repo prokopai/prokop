@@ -16,6 +16,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { AskRequestMessage, ServerMessage, Session, SessionHarness } from '@prokopai/sdk';
 import { installAgentAskPort } from '@prokopai/core/application/ports/agent-asks';
+import { configureHarnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { installDelegationHost } from '@prokopai/core/application/ports/delegation-host';
 import { installHeadlessExecutionPort } from '@prokopai/core/application/ports/headless-execution';
 import { installAgentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
@@ -142,8 +143,26 @@ test('every harness gets the four tools; only the agent setting hides them', asy
   expect(await delegationTools('prokop')).toEqual([]);
 });
 
-test('the shared definitions require a role and default to async', () => {
-  const [delegate] = delegationRuntimeTools.definitions;
+test('the shared definitions require a role, default to async, and spell out the efforts each CLI offers', async () => {
+  // No catalog at hand: the schema points at delegation_capabilities for efforts.
+  configureHarnessProbes({ models: async () => { throw new Error('no CLI here'); }, usageLimits: async harness => ({ harness, checkedAt: '', plan: null, windows: [] }), nativeTitle: async () => null });
+  const [plain] = await delegationRuntimeTools.definitions('prokop');
+  const plainTarget = (plain!.inputSchema as { properties: { target: { properties: { variant: { description: string } } } } }).properties.target.properties;
+  expect(plainTarget.variant.description).toContain('one of the efforts delegation_capabilities lists');
+
+  // With the CLI catalogs at hand, the ladder is in the schema itself.
+  configureHarnessProbes({
+    models: async harness => harness === 'codex-cli'
+      ? [{ model: 'gpt-5.5', name: 'GPT-5.5', supportedEfforts: ['low', 'medium', 'high'], defaultEffort: 'medium', isDefault: true },
+        { model: 'gpt-5.5-pro', name: 'GPT-5.5 Pro', supportedEfforts: ['medium', 'high', 'max'], defaultEffort: 'high', isDefault: false }]
+      : [{ model: 'claude-sonnet-5', name: 'Sonnet 5', supportedEfforts: ['low', 'medium', 'high'], defaultEffort: 'medium', isDefault: true }],
+    usageLimits: async harness => ({ harness, checkedAt: '', plan: null, windows: [] }),
+    nativeTitle: async () => null,
+  });
+  const [delegate] = await delegationRuntimeTools.definitions('prokop');
+  const target = (delegate!.inputSchema as { properties: { target: { properties: { variant: { description: string }; model: { description: string } } } } }).properties.target.properties;
+  expect(target.variant.description).toContain('codex-cli: low, medium, high, max; claude-cli: low, medium, high');
+  expect(target.model.description).toContain('delegation_capabilities');
   const schema = delegate!.inputSchema as { properties: Record<string, { description?: string }>; required: string[] };
   expect(schema.required).toEqual(['description', 'prompt', 'subagent_type']);
   expect(schema.properties.mode!.description).toStartWith('async (default)');

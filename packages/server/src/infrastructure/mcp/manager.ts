@@ -330,7 +330,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
     // it deems visible, with no configuration entry to consult.
     const runtime = sessionId ? agentRuntimeTools() : null;
     const runtimeTools: WorkspaceMcpTool[] = runtime && sessionId && await runtime.visibleTo(sessionId)
-      ? runtime.definitions.map(definition => ({
+      ? (await runtime.definitions(sessionId)).map(definition => ({
         name: definition.name, serverName: runtime.name, toolName: definition.name,
         description: definition.description, inputSchema: definition.inputSchema,
         execute: (input, signal, authorized) => runtime.execute(definition.name, input, sessionId, path, signal,

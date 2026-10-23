@@ -37,7 +37,7 @@ const CLI_MODELS: CodexModel[] = [
 ];
 const host = { harnessEnabled: () => true, harnessAvailable: () => true };
 const catalog = {
-  prokopModels: () => [{ id: 'parent-model', name: 'Parent', providerId: 'parent-provider' }, { id: 'minimax-m3', name: 'MiniMax', providerId: 'minimax' }],
+  prokopModels: () => [{ id: 'parent-model', name: 'Parent', providerId: 'parent-provider' }, { id: 'minimax-m3', name: 'MiniMax', providerId: 'minimax', variants: ['low', 'high'] }],
   harnessModels: async () => CLI_MODELS,
 };
 
@@ -57,9 +57,9 @@ describe('resolving where a delegated child runs', () => {
     expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'claude-cli', model: 'opus' }, inherited, parentPreconfig: base })).toEqual({
       ok: true, source: 'target', needsApproval: false, target: { harness: 'claude-cli', modelId: 'opus', providerId: null, variant: null },
     });
-    // Moved onto the parent's harness without a model: the parent's model, not the role's Codex one.
+    // Moved onto the parent's harness without a model: the parent's model and effort, not the role's Codex ones.
     expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'prokop' }, inherited, parentPreconfig: base })).toMatchObject({
-      source: 'target', target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: null },
+      source: 'target', target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: 'low' },
     });
     expect(resolveDelegationTarget({ role: REVIEWER, target: { model: 'gpt-5.5-mini' }, inherited, parentPreconfig: base })).toMatchObject({
       source: 'target', target: { harness: 'codex-cli', modelId: 'gpt-5.5-mini', variant: null },
@@ -70,8 +70,9 @@ describe('resolving where a delegated child runs', () => {
   });
 
   test('a role with no defaults runs where the parent runs, or where the target says', () => {
+    // The parent's model comes with the parent's effort.
     expect(resolveDelegationTarget({ role: EXPLORE, inherited, parentPreconfig: base })).toEqual({
-      ok: true, source: 'role', needsApproval: false, target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: null },
+      ok: true, source: 'role', needsApproval: false, target: { harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider', variant: 'low' },
     });
     expect(resolveDelegationTarget({ role: EXPLORE, target: { harness: 'claude-cli', model: 'opus', variant: 'max' }, inherited, parentPreconfig: base })).toEqual({
       ok: true, source: 'target', needsApproval: false, target: { harness: 'claude-cli', modelId: 'opus', providerId: null, variant: 'max' },
@@ -114,6 +115,12 @@ describe('resolving where a delegated child runs', () => {
     expect(await validateDelegationTarget({ harness: 'prokop', modelId: 'nope', providerId: null, variant: null }, host, catalog))
       .toMatchObject({ ok: false, code: 'model_unavailable' });
     expect(await validateDelegationTarget({ harness: 'prokop', modelId: 'minimax-m3', providerId: 'minimax', variant: null }, host, catalog)).toEqual({ ok: true });
+    // A Prokop variant is one of the model's keys; a model without variants takes none.
+    expect(await validateDelegationTarget({ harness: 'prokop', modelId: 'minimax-m3', providerId: 'minimax', variant: 'high' }, host, catalog)).toEqual({ ok: true });
+    expect(await validateDelegationTarget({ harness: 'prokop', modelId: 'minimax-m3', providerId: 'minimax', variant: 'ultra' }, host, catalog))
+      .toMatchObject({ ok: false, code: 'model_unavailable', error: 'Model "minimax-m3" has variants low, high, not "ultra".' });
+    expect(await validateDelegationTarget({ harness: 'prokop', modelId: 'parent-model', providerId: null, variant: 'high' }, host, catalog))
+      .toMatchObject({ ok: false, code: 'model_unavailable', error: 'Model "parent-model" has no variants.' });
     expect(await validateDelegationTarget({ harness: 'codex-cli', modelId: 'gpt-5.5', providerId: null, variant: 'xhigh' }, host, catalog))
       .toMatchObject({ ok: false, code: 'model_unavailable' });
     expect(await validateDelegationTarget({ harness: 'codex-cli', modelId: 'gpt-5.5', providerId: null, variant: 'high' }, host, catalog)).toEqual({ ok: true });
@@ -129,7 +136,7 @@ describe('resolving where a delegated child runs', () => {
       caller: { harness: 'prokop', model: 'm-11', provider: 'p' },
       parentPreconfig: { ...base, delegationTargets: ['prokop', 'codex-cli'] },
       host: { harnessEnabled: (harness) => harness !== 'claude-cli', harnessAvailable: () => true },
-      catalog: { prokopModels: () => [...many, { id: 'minimax-m3', name: 'MiniMax', providerId: 'minimax' }], harnessModels: async () => CLI_MODELS },
+      catalog: { prokopModels: () => [...many, { id: 'minimax-m3', name: 'MiniMax', providerId: 'minimax', variants: ['low', 'high'] }], harnessModels: async () => CLI_MODELS },
       limits: { depth: 2, maxChildren: 4, maxLaunches: 3 },
     });
 
@@ -145,11 +152,14 @@ describe('resolving where a delegated child runs', () => {
     const prokop = capabilities.harnesses.find((harness) => harness.id === 'prokop')!;
     // The caller's model and the roles' models come first, then the catalog order, capped.
     expect(prokop.models.slice(0, 2).map((model) => model.id)).toEqual(['m-11', 'minimax-m3']);
+    // A Prokop model lists its variants, lowest first; one without them lists none.
+    expect(prokop.models[1]).toEqual({ id: 'minimax-m3', name: 'MiniMax', provider: 'minimax', variants: ['low', 'high'] });
+    expect(prokop.models[0]).toEqual({ id: 'm-11', name: 'Model 11', provider: 'p' });
     expect(prokop.models).toHaveLength(8);
     expect(prokop.omittedModels).toBe(5);
     expect(prokop.current).toBe(true);
     expect(capabilities.harnesses.find((harness) => harness.id === 'claude-cli')).toMatchObject({ enabled: false, available: false, models: [] });
-    expect(capabilities.harnesses.find((harness) => harness.id === 'codex-cli')!.models).toEqual([{ id: 'gpt-5.5', name: 'GPT-5.5', efforts: ['low', 'medium', 'high'] }]);
+    expect(capabilities.harnesses.find((harness) => harness.id === 'codex-cli')!.models).toEqual([{ id: 'gpt-5.5', name: 'GPT-5.5', efforts: ['low', 'medium', 'high'], defaultEffort: 'medium' }]);
     expect(capabilities.overrides).toEqual(['prokop', 'codex-cli']);
     expect(capabilities.note).toContain('subagent_type');
 
@@ -165,7 +175,7 @@ function session(overrides: Partial<Session>): Session {
   return {
     id: 'root', workspaceId: 'ws-1', preconfigId: 'dev', title: 'Root', status: 'active', metadata: null,
     createdAt: '', updatedAt: '', parentId: null, agentName: null, harness: 'prokop', selectedModel: 'parent-model',
-    selectedProvider: 'parent-provider', permissionMode: 'extended', ...overrides,
+    selectedProvider: 'parent-provider', selectedVariant: 'low', permissionMode: 'extended', ...overrides,
   } as Session;
 }
 
@@ -276,7 +286,7 @@ describe('the task tool with targets', () => {
 
     const plain = await executeSubagentWithDeps(ask({ subagent_type: 'explore' }), deps);
     expect(runs[1]).toMatchObject({ harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider' });
-    expect(sessions.get(plain.task_id)).toMatchObject({ selectedModel: 'parent-model', selectedVariant: null });
+    expect(sessions.get(plain.task_id)).toMatchObject({ selectedModel: 'parent-model', selectedVariant: 'low' });
     expect(sessions.get(plain.task_id)?.harness).toBeUndefined();
     expect(plain.code).toBeUndefined();
   });

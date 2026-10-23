@@ -11,7 +11,8 @@ import type { WorkspaceMcpResult } from './mcp-tools';
 export interface AgentRuntimeTools {
   /** Shown as the tools' server name (display and the Claude tool prefix). */
   name: string;
-  definitions: readonly { name: string; description: string; inputSchema: Record<string, unknown> }[];
+  /** The tools as this session sees them; descriptions may read live catalogs (effort ladders). */
+  definitions(sessionId: string): Promise<readonly { name: string; description: string; inputSchema: Record<string, unknown> }[]>;
   /** Whether a session sees these tools at all (agent settings). */
   visibleTo(sessionId: string): Promise<boolean>;
   execute(name: string, input: Record<string, unknown>, sessionId: string, workspacePath: string,

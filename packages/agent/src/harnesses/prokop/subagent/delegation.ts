@@ -79,12 +79,11 @@ export function overridePolicy(targets: Preconfig['delegationTargets'], harness:
 }
 
 /**
- * The role's own harness and model, with the parent's model filling in on
- * the parent's harness; then the target over it. A role's model, provider
- * and variant belong to the role's harness, so a target that moves the
- * child to another harness drops them, and a target model drops the role's
- * variant. The parent's variant is never inherited: the in-process child
- * always behaved that way.
+ * The role's own harness and model, with the parent's model and effort
+ * filling in on the parent's harness; then the target over it. A variant
+ * (effort) belongs to a model: a role that pins a model without one, or a
+ * target model, starts from the model's default, and a target that moves the
+ * child to another harness drops the role's model, provider and variant.
  */
 export function resolveDelegationTarget(input: {
   role: Preconfig;
@@ -103,11 +102,13 @@ export function resolveDelegationTarget(input: {
     if (harness === inherited.harness) {
       modelId = inherited.modelId;
       providerId = inherited.providerId;
+      variant = inherited.variant;
     }
     if (harness === defaultHarness) {
       if (defaults.model) {
         modelId = defaults.model;
         providerId = defaults.provider;
+        variant = null;
       }
       if (defaults.variant) variant = defaults.variant;
     }
@@ -153,8 +154,8 @@ export function launchBranchName(description: string): string {
 }
 
 export interface DelegationCatalog {
-  /** The Prokop catalog, flattened. */
-  prokopModels(): Array<{ id: string; name: string; providerId: string }>;
+  /** The Prokop catalog, flattened; `variants` are the model's variant keys, lowest first, the first being its default. */
+  prokopModels(): Array<{ id: string; name: string; providerId: string; variants?: string[] }>;
   /** A CLI harness's catalog; rejects or returns [] when the CLI is not there. */
   harnessModels(harness: 'codex-cli' | 'claude-cli'): Promise<CodexModel[]>;
 }
@@ -182,6 +183,11 @@ export async function validateDelegationTarget(
     const match = models.find((model) => model.id === target.modelId && (!target.providerId || model.providerId === target.providerId));
     if (!match) {
       return { ok: false, code: 'model_unavailable', error: `Model "${target.modelId}" is not configured${target.providerId ? ` for provider ${target.providerId}` : ''}.` };
+    }
+    if (target.variant && !(match.variants ?? []).includes(target.variant)) {
+      return { ok: false, code: 'model_unavailable', error: match.variants?.length
+        ? `Model "${target.modelId}" has variants ${match.variants.join(', ')}, not "${target.variant}".`
+        : `Model "${target.modelId}" has no variants.` };
     }
     return { ok: true };
   }
@@ -211,7 +217,8 @@ export interface DelegationCapabilities {
     enabled: boolean;
     available: boolean;
     current: boolean;
-    models: Array<{ id: string; name: string; provider?: string; efforts?: string[] }>;
+    /** CLI models list their efforts and the one used when a target names none; Prokop models their variants, the first being the default. */
+    models: Array<{ id: string; name: string; provider?: string; efforts?: string[]; defaultEffort?: string; variants?: string[] }>;
     omittedModels: number;
   }>;
   caller: { harness: SessionHarness; model: string | null; provider: string | null };
@@ -255,13 +262,14 @@ export async function buildDelegationCapabilities(input: {
   for (const id of HARNESSES) {
     const enabled = input.host.harnessEnabled(id);
     const available = enabled && input.host.harnessAvailable(id);
-    let models: Array<{ id: string; name: string; provider?: string; efforts?: string[] }> = [];
+    let models: Array<{ id: string; name: string; provider?: string; efforts?: string[]; defaultEffort?: string; variants?: string[] }> = [];
     if (available) {
       if (id === 'prokop') {
-        models = input.catalog.prokopModels().map((model) => ({ id: model.id, name: model.name, provider: model.providerId }));
+        models = input.catalog.prokopModels().map((model) => ({ id: model.id, name: model.name, provider: model.providerId,
+          ...(model.variants?.length ? { variants: model.variants } : {}) }));
       } else {
         try {
-          models = (await input.catalog.harnessModels(id)).map((model) => ({ id: model.model, name: model.name, efforts: model.supportedEfforts }));
+          models = (await input.catalog.harnessModels(id)).map((model) => ({ id: model.model, name: model.name, efforts: model.supportedEfforts, defaultEffort: model.defaultEffort }));
         } catch {
           models = [];
         }
@@ -289,6 +297,8 @@ export async function buildDelegationCapabilities(input: {
     note: 'Every delegation names a role (subagent_type); it runs on its defaults, or where you run when it has none. '
       + 'A target changes that harness, model, provider or variant for one task, within overrides '
       + '("ask" means the user is asked, "none" means roles run only as configured). '
+      + 'variant is the reasoning effort for a CLI model (one of its efforts; omitted means the role\'s, the parent\'s when the child runs on the parent\'s model, else defaultEffort) '
+      + 'or one of a Prokop model\'s variants (the first is its default; a model without variants takes none). '
       + 'isolation "worktree" starts a top-level session on its own branch and worktree instead of a subagent, "checkout" one in the current checkout; '
       + 'launches says whether either needs the user\'s approval. Pass search to see models beyond the short lists.',
   };
