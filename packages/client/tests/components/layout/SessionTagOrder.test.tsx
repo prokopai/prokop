@@ -35,7 +35,7 @@ function visibleSessions() {
 describe('session panel ordering', () => {
   test('archived shows the server count while collapsed and requests expansion', async () => {
     const category = { open: false, onOpenChange: vi.fn(), isLoading: false, error: null, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), loadedCount: 0, retry: vi.fn() };
-    const categories = { counts: { active: 2, archived: 42, scheduled: 3 }, countsError: undefined, retryCounts: vi.fn(), archived: category, scheduled: category };
+    const categories = { counts: { active: 2, archived: 42, scheduled: 3, conversations: 0 }, countsError: undefined, retryCounts: vi.fn(), archived: category, scheduled: category, conversations: category };
     const props = { ...panelProps, archivedSessions: [{ id: 'old-session' } as Session], categories };
     const { rerender } = render(<WorkspaceSessionContent {...props} />);
     expect(screen.getByText('42')).toBeVisible();

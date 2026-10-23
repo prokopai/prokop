@@ -116,7 +116,7 @@ function makeFakes(state: FakeState) {
   };
 
   const sessions: WorkspaceSessionListingPort = {
-    countByWorkspace: () => ({ active: 1, archived: 2, scheduled: 3 }),
+    countByWorkspace: () => ({ active: 1, archived: 2, scheduled: 3, conversations: 0 }),
     listByWorkspace: (workspaceId) => {
       state.log.push(`listSessions:${workspaceId}`);
       return state.sessions.filter(s => s.workspaceId === workspaceId);

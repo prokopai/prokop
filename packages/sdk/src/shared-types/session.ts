@@ -80,7 +80,8 @@ export interface SessionHarnessSwitch {
  */
 export type PermissionMode = 'standard' | 'extended' | 'full';
 
-export type SessionCategory = 'active' | 'archived' | 'scheduled';
+/** `conversations`: sessions other agents started here by messaging this workspace's agent. */
+export type SessionCategory = 'active' | 'archived' | 'scheduled' | 'conversations';
 
 export type SessionCategoryCounts = Record<SessionCategory, number>;
 

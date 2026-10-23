@@ -77,6 +77,18 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** An agent's home: conversations other agents started here sit in their own folded section. */
+export const WithAgentConversations: Story = {
+  args: {
+    agentConversationSessions: [
+      createSession({ workspaceId: workspace.id, title: 'From Coding: Refactor auth', updatedAt: mockIsoHoursAgo(1),
+        metadata: { agentConversation: { senderSessionId: 'coding-session', senderAgentId: 'coding' } } }),
+      createSession({ workspaceId: workspace.id, title: 'From Researcher: Pricing page', updatedAt: mockIsoHoursAgo(5),
+        metadata: { agentConversation: { senderSessionId: 'research-session', senderAgentId: 'researcher' } } }),
+    ],
+  },
+};
+
 export const UntaggedFirst: Story = {
   args: { sessionTagOrder: 'untagged-first' },
 };

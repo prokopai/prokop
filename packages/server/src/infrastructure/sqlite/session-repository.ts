@@ -34,10 +34,13 @@ function categoryPredicate(category: SessionCategory): string {
   const truthy = (field: string) => `COALESCE(json_extract(${metadata}, '$.${field}'), '') NOT IN ('', 0)`;
   const root = `parent_id IS NULL AND NOT (${truthy('learningRunId')})`;
   const scheduled = truthy('scheduledJobId');
+  // json_type is NULL without the key; COALESCE keeps NOT (...) true for ordinary sessions.
+  const conversation = `COALESCE(json_type(${metadata}, '$.agentConversation'), '') = 'object'`;
   switch (category) {
-    case 'active': return `${root} AND NOT (${scheduled}) AND status = 'active'`;
+    case 'active': return `${root} AND NOT (${scheduled}) AND NOT (${conversation}) AND status = 'active'`;
     case 'archived': return `${root} AND status = 'closed'`;
     case 'scheduled': return `${root} AND (${scheduled})`;
+    case 'conversations': return `${root} AND (${conversation}) AND status = 'active'`;
   }
 }
 
@@ -474,7 +477,8 @@ export function createSessionRepository(
     return getDb().query(`SELECT
       COUNT(CASE WHEN ${categoryPredicate('active')} THEN 1 END) AS active,
       COUNT(CASE WHEN ${categoryPredicate('archived')} THEN 1 END) AS archived,
-      COUNT(CASE WHEN ${categoryPredicate('scheduled')} THEN 1 END) AS scheduled
+      COUNT(CASE WHEN ${categoryPredicate('scheduled')} THEN 1 END) AS scheduled,
+      COUNT(CASE WHEN ${categoryPredicate('conversations')} THEN 1 END) AS conversations
       FROM sessions WHERE workspace_id = ?`).get(workspaceId) as SessionCategoryCounts;
   }
 

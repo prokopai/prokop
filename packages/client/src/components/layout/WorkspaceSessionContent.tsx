@@ -30,7 +30,7 @@ import { ScheduledJobsSection } from './ScheduledJobsSection';
 import { SessionCategoryStatus } from './SessionCategoryStatus';
 import type { SessionCategories } from '@/hooks/useSessionCategories';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { AGENT_CONVERSATIONS_GROUP, SESSION_TAG_ORDERS, isSessionTagOrder, orderedSessionGroupNames, type SessionTagOrder } from '@/lib/sessionTagOrder';
+import { SESSION_TAG_ORDERS, isSessionTagOrder, orderedSessionGroupNames, type SessionTagOrder } from '@/lib/sessionTagOrder';
 import { useTagCollapseState } from '@/hooks/useTagCollapseState';
 import { usePendingOperationsStore } from '@/stores/pendingOperationsStore';
 import { useSessionGrouping } from '@/hooks/useSessionGrouping';
@@ -53,6 +53,8 @@ interface WorkspaceSessionContentProps {
   scheduledJobsLoaded?: boolean;
   scheduledSessionsByJob: Map<string, Session[]>;
   pendingScheduledJobIds?: ReadonlySet<string>;
+  /** Conversations other agents started here by messaging this workspace's agent. */
+  agentConversationSessions?: Session[];
   childrenMap: ChildrenMap;
   sessionDerivedValues: SessionDerivedValuesMap;
   currentSessionId: string | null;
@@ -93,6 +95,7 @@ export function WorkspaceSessionContent({
   scheduledJobsLoaded,
   scheduledSessionsByJob,
   pendingScheduledJobIds,
+  agentConversationSessions = [],
   childrenMap,
   sessionDerivedValues,
   currentSessionId,
@@ -121,8 +124,6 @@ export function WorkspaceSessionContent({
   onLoadMore,
 }: WorkspaceSessionContentProps) {
   const { isTagOpen, toggleTag } = useTagCollapseState();
-  // Conversations other agents started here are background work: folded until asked for.
-  const [conversationsOpen, setConversationsOpen] = useState(false);
   const [grouping, setGrouping] = useSessionGrouping(workspaceId);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -358,20 +359,14 @@ export function WorkspaceSessionContent({
                   if (tagName === '__ungrouped__') {
                     return <SidebarMenu key={tagName}>{sessions.map(renderSessionButton)}</SidebarMenu>;
                   }
-                  const conversations = tagName === AGENT_CONVERSATIONS_GROUP;
                   return (
-                    <Collapsible
-                      key={tagName}
-                      open={conversations ? conversationsOpen : isTagOpen(tagName)}
-                      onOpenChange={conversations ? setConversationsOpen : (open) => toggleTag(tagName, open)}
-                      className="group/tag-collapsible"
-                    >
+                    <Collapsible key={tagName} open={isTagOpen(tagName)} onOpenChange={(open) => toggleTag(tagName, open)} className="group/tag-collapsible">
                       <div className="group/head flex items-center gap-1.5 px-2 py-1 text-2xs font-medium text-muted-foreground">
                         <CollapsibleTrigger asChild>
                           <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
                             <ChevronRight className="size-3 transition-transform group-data-[state=open]/tag-collapsible:rotate-90" />
-                            {conversations ? <MessageSquare className="size-3" /> : <Tag className="size-3" />}
-                            <span className="normal-case tracking-normal">{conversations ? 'From other agents' : tagName}</span>
+                            <Tag className="size-3" />
+                            <span className="normal-case tracking-normal">{tagName}</span>
                             {renderCount(sessions.length)}
                           </button>
                         </CollapsibleTrigger>
@@ -452,6 +447,32 @@ export function WorkspaceSessionContent({
         onOpenSession={onResumeSession}
       />
 
+      {/* Conversations other agents started here by messaging this workspace's agent: loaded when opened. */}
+      {(categories || agentConversationSessions.length > 0) && (
+        <Collapsible open={categories?.conversations.open} onOpenChange={categories?.conversations.onOpenChange} className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger asChild>
+                <div className="group/head flex w-full items-center gap-1.5 py-0.5">
+                  <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <MessageSquare className="size-3" />
+                  <span>From other agents</span>
+                  {categories && !categories.counts ? <span className="text-xs">…</span> : renderCount(categories?.counts?.conversations ?? agentConversationSessions.length)}
+                </div>
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {agentConversationSessions.map(renderSessionButton)}
+                </SidebarMenu>
+                <SessionCategoryStatus category={categories?.conversations} />
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+      )}
+
       {/* Archived Sessions */}
       {(categories || archivedSessions.length > 0) && (
         <Collapsible open={categories?.archived.open} onOpenChange={categories?.archived.onOpenChange} className="group/collapsible">
@@ -529,7 +550,7 @@ export function WorkspaceSessionContent({
         </p>
       )}
       {/* Empty State */}
-      {activeSessions.length === 0 && (categories ? categories.counts?.active === 0 && categories.counts.archived === 0 && categories.counts.scheduled === 0 : archivedSessions.length === 0) && (
+      {activeSessions.length === 0 && (categories ? categories.counts?.active === 0 && categories.counts.archived === 0 && categories.counts.scheduled === 0 && categories.counts.conversations === 0 : archivedSessions.length === 0 && agentConversationSessions.length === 0) && (
         <EmptyState variant="plain">No sessions yet. Start a new chat to begin.</EmptyState>
       )}
 

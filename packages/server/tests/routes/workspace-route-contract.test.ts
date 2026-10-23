@@ -50,7 +50,7 @@ function makeFakeApplication(overrides: Partial<WorkspaceApplication> = {}): Wor
       sessionId === 't-1' ? { kind: 'ok', session: { id: 't-1', title } } : { kind: 'not_found' }
     ),
     destroyTerminal: () => {},
-    countSessions: (id) => id === 'ws-1' ? { kind: 'ok', counts: { active: 4, archived: 12, scheduled: 6 } } : { kind: 'missing' },
+    countSessions: (id) => id === 'ws-1' ? { kind: 'ok', counts: { active: 4, archived: 12, scheduled: 6, conversations: 1 } } : { kind: 'missing' },
     listSessions: () => ({ kind: 'ok', sessions: [makeSession()] }),
     listSessionPage: () => ({
       kind: 'ok',
@@ -95,7 +95,7 @@ describe('workspace route contract', () => {
     const app = makeApp(makeFakeApplication({
       listSessions: (_id, options) => { calls.push(options); return { kind: 'ok', sessions: [] }; },
     }));
-    expect(await json(await app.request('/api/workspaces/ws-1/sessions/counts'))).toEqual({ counts: { active: 4, archived: 12, scheduled: 6 } });
+    expect(await json(await app.request('/api/workspaces/ws-1/sessions/counts'))).toEqual({ counts: { active: 4, archived: 12, scheduled: 6, conversations: 1 } });
     expect((await app.request('/api/workspaces/missing/sessions/counts')).status).toBe(404);
     expect(calls).toHaveLength(0);
     for (const category of ['bad', '', 'null']) {

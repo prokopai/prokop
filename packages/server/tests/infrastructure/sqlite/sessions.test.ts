@@ -73,10 +73,13 @@ describe('sessions store', () => {
       { id: 'learning', status: 'active' as const, metadata: { learningRunId: 'run' } },
       { id: 'learning-closed', status: 'closed' as const, metadata: { learningRunId: 'run' } },
       { id: 'child', status: 'active' as const, parentId: 'normal' },
+      { id: 'conversation', status: 'active' as const, metadata: { agentConversation: { senderSessionId: 's', senderAgentId: 'coding' } } },
+      { id: 'conversation-closed', status: 'closed' as const, metadata: { agentConversation: { senderSessionId: 's', senderAgentId: 'coding' } } },
     ];
     for (const record of records) createSession(makeSession({ workspaceId: 'ws1', title: record.id, ...record }));
-    expect(countSessionsByWorkspace('ws1')).toEqual({ active: 2, archived: 2, scheduled: 2 });
-    expect(countSessionsByWorkspace('ws2')).toEqual({ active: 0, archived: 0, scheduled: 0 });
+    expect(countSessionsByWorkspace('ws1')).toEqual({ active: 2, archived: 3, scheduled: 2, conversations: 1 });
+    expect(countSessionsByWorkspace('ws2')).toEqual({ active: 0, archived: 0, scheduled: 0, conversations: 0 });
+    expect(listSessionsByWorkspace('ws1', { category: 'conversations' }).map(s => s.id)).toEqual(['conversation']);
     const page = listSessionPageByWorkspace('ws1', { category: 'active', limit: 1 });
     expect(page.sessions).toHaveLength(1);
     expect(page.hasMore).toBe(true);
@@ -84,7 +87,7 @@ describe('sessions store', () => {
     expect(new Set([...page.sessions, ...next.sessions].map(s => s.id))).toEqual(new Set(['normal', 'normal2']));
     expect(next.hasMore).toBe(false);
     expect(listSessionPageGrouped(['ws1'], { category: 'active', limitPerWorkspace: 1 }).sessions.ws1).toHaveLength(1);
-    expect(listSessionsByWorkspace('ws1', { category: 'archived' }).map(s => s.id).sort()).toEqual(['archived', 'scheduled-closed']);
+    expect(listSessionsByWorkspace('ws1', { category: 'archived' }).map(s => s.id).sort()).toEqual(['archived', 'conversation-closed', 'scheduled-closed']);
     expect(listSessionsGrouped(['ws1'], { category: 'scheduled' }).ws1.map(s => s.id).sort()).toEqual(['scheduled', 'scheduled-closed']);
     expect(listSessionsByWorkspace('ws1')).toHaveLength(records.length);
     getDatabase().run("UPDATE sessions SET metadata = 'broken json' WHERE id = 'normal'");

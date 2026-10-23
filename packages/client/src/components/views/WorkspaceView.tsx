@@ -265,6 +265,7 @@ function WorkspaceSidebar() {
       scheduledJobs={scheduledJobs ?? []}
       scheduledJobsLoaded={scheduledJobs !== undefined}
       scheduledSessionsByJob={sidebarData.scheduledSessionsByJob}
+      agentConversationSessions={sidebarData.agentConversationSessions}
       pendingScheduledJobIds={pendingScheduledJobIds}
       childrenMap={sidebarData.childrenMap}
       sessionDerivedValues={sidebarData.sessionDerivedValues}

@@ -2,7 +2,6 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Session, Workspace } from '@prokopai/sdk';
 import { useSidebarData } from '@/hooks/useSidebarData';
-import { AGENT_CONVERSATIONS_GROUP } from '@/lib/sessionTagOrder';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useServerDataStore } from '@/stores/serverDataStore';
 
@@ -20,23 +19,16 @@ function session(id: string, overrides: Partial<Session> = {}): Session {
 
 afterEach(() => act(() => useSessionStore.getState().clearSessions()));
 
-test('conversations other agents started form their own group after the tags, whatever their tags say', () => {
+test('conversations other agents started leave the active list for their own section, like scheduled runs', () => {
   act(() => useSessionStore.getState().setSessions([
     session('own-work', { tags: ['launch'] }),
-    session('untagged'),
     session('from-coding', { tags: ['launch'], metadata: { agentConversation: { senderSessionId: 's1', senderAgentId: 'coding' } } }),
     session('from-sales', { metadata: { agentConversation: { senderSessionId: 's2', senderAgentId: 'sales' } } }),
+    session('closed-conversation', { status: 'closed', metadata: { agentConversation: { senderSessionId: 's3', senderAgentId: 'sales' } } }),
   ]));
   const { result } = renderHook(() => useSidebarData());
-  expect(result.current.orderedTagNames).toEqual(['launch', AGENT_CONVERSATIONS_GROUP]);
-  expect(result.current.tagGroups.get(AGENT_CONVERSATIONS_GROUP)?.map((s) => s.id)).toEqual(['from-coding', 'from-sales']);
+  expect(result.current.activeSessions.map((s) => s.id)).toEqual(['own-work']);
+  expect(result.current.agentConversationSessions.map((s) => s.id)).toEqual(['from-coding', 'from-sales']);
+  expect(result.current.archivedSessions.map((s) => s.id)).toEqual(['closed-conversation']);
   expect(result.current.tagGroups.get('launch')?.map((s) => s.id)).toEqual(['own-work']);
-  expect(result.current.tagGroups.get('__ungrouped__')?.map((s) => s.id)).toEqual(['untagged']);
-});
-
-test('without conversations the group is absent', () => {
-  act(() => useSessionStore.getState().setSessions([session('own-work')]));
-  const { result } = renderHook(() => useSidebarData());
-  expect(result.current.orderedTagNames).toEqual([]);
-  expect(result.current.tagGroups.has(AGENT_CONVERSATIONS_GROUP)).toBe(false);
 });

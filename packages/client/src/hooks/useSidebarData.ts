@@ -7,7 +7,6 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useAskStore, type PendingAskRequest } from '@/stores/askStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useServerContext } from '@/contexts/ServerContext';
-import { AGENT_CONVERSATIONS_GROUP } from '@/lib/sessionTagOrder';
 import type { ChildrenMap, SessionDerivedValuesMap } from '@/components/layout/SessionMenuButton';
 
 export interface UseSidebarDataReturn {
@@ -35,6 +34,8 @@ export interface UseSidebarDataReturn {
   activeSessions: Session[];
   archivedSessions: Session[];
   scheduledSessionsByJob: Map<string, Session[]>;
+  /** Conversations other agents started in this workspace by messaging its agent. */
+  agentConversationSessions: Session[];
   tagGroups: Map<string, Session[]>;
   orderedTagNames: string[];
 }
@@ -143,10 +144,12 @@ export const useSidebarData = (): UseSidebarDataReturn => {
     return derived;
   }, [allSessions, streamingSessionIds, stoppingSessionIds, pendingAskRequests]);
 
-  // Separate active, archived, and scheduled sessions (only root sessions, no parent)
-  const { activeSessions, archivedSessions, scheduledSessionsByJob } = useMemo(() => {
+  // Separate active, archived, scheduled and conversation sessions (only root sessions, no parent)
+  const { activeSessions, archivedSessions, scheduledSessionsByJob, agentConversationSessions } = useMemo(() => {
     const rootSessions = sessions.filter((s) => !s.parentId && !s.metadata?.learningRunId);
     const scheduled = rootSessions.filter((s) => s.metadata?.scheduledJobId);
+    // Conversations other agents started here: their own folded section, like scheduled runs.
+    const isConversation = (s: Session) => !!s.metadata?.agentConversation;
     const scheduledJobIds = new Set(scheduled.map((s) => s.metadata?.scheduledJobId as string));
 
     // Group scheduled sessions by job ID
@@ -160,10 +163,11 @@ export const useSidebarData = (): UseSidebarDataReturn => {
 
     return {
       activeSessions: rootSessions.filter(
-        (s) => s.status === 'active' && !scheduledJobIds.has(s.metadata?.scheduledJobId as string),
+        (s) => s.status === 'active' && !scheduledJobIds.has(s.metadata?.scheduledJobId as string) && !isConversation(s),
       ),
       archivedSessions: rootSessions.filter((s) => s.status === 'closed'),
       scheduledSessionsByJob: byJob,
+      agentConversationSessions: rootSessions.filter((s) => s.status === 'active' && isConversation(s)),
     };
   }, [sessions]);
 
@@ -173,13 +177,6 @@ export const useSidebarData = (): UseSidebarDataReturn => {
     const ungrouped: Session[] = [];
 
     for (const session of activeSessions) {
-      // A conversation another agent started lands in its own group, whatever its tags.
-      if (session.metadata?.agentConversation) {
-        const existing = groups.get(AGENT_CONVERSATIONS_GROUP) ?? [];
-        existing.push(session);
-        groups.set(AGENT_CONVERSATIONS_GROUP, existing);
-        continue;
-      }
       const primaryTag = session.tags?.[0];
       if (primaryTag) {
         const existing = groups.get(primaryTag) ?? [];
@@ -201,7 +198,7 @@ export const useSidebarData = (): UseSidebarDataReturn => {
   const orderedTagNames = useMemo((): string[] => {
     const entries: { tag: string; lastUpdated: number }[] = [];
     for (const [tag, sessions] of tagGroups) {
-      if (tag === '__ungrouped__' || tag === AGENT_CONVERSATIONS_GROUP) continue;
+      if (tag === '__ungrouped__') continue;
       let latest = 0;
       for (const s of sessions) {
         const ts = new Date(s.updatedAt).getTime();
@@ -210,9 +207,7 @@ export const useSidebarData = (): UseSidebarDataReturn => {
       entries.push({ tag, lastUpdated: latest });
     }
     entries.sort((a, b) => b.lastUpdated - a.lastUpdated);
-    const names = entries.map(e => e.tag);
-    if (tagGroups.has(AGENT_CONVERSATIONS_GROUP)) names.push(AGENT_CONVERSATIONS_GROUP);
-    return names;
+    return entries.map(e => e.tag);
   }, [tagGroups]);
 
   return {
@@ -235,6 +230,7 @@ export const useSidebarData = (): UseSidebarDataReturn => {
     activeSessions,
     archivedSessions,
     scheduledSessionsByJob,
+    agentConversationSessions,
     tagGroups,
     orderedTagNames,
   };

@@ -9,7 +9,7 @@ import { useWorkspaceSessions } from '@/hooks/useWorkspaceSessions';
 function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const listByWorkspace = vi.fn().mockResolvedValue({ sessions: [], pagination: { hasMore: false, nextCursor: null, limit: 100 } });
-  const countsByWorkspace = vi.fn().mockResolvedValue({ counts: { active: 1, archived: 30, scheduled: 20 } });
+  const countsByWorkspace = vi.fn().mockResolvedValue({ counts: { active: 1, archived: 30, scheduled: 20, conversations: 2 } });
   const sdk = { http: { sessions: { listByWorkspace, countsByWorkspace } } } as unknown as ProkopaiClient;
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   return { client, listByWorkspace, countsByWorkspace, sdk, wrapper };
@@ -33,10 +33,16 @@ describe('lazy session categories', () => {
     act(() => result.current.scheduled.onOpenChange(true));
     await waitFor(() => expect(listByWorkspace).toHaveBeenCalledTimes(3));
     expect(listByWorkspace.mock.calls[2][0]).toMatchObject({ category: 'scheduled' });
+    expect(result.current.counts?.conversations).toBe(2);
+    expect(result.current.conversations.open).toBe(false);
+    act(() => result.current.conversations.onOpenChange(true));
+    await waitFor(() => expect(listByWorkspace).toHaveBeenCalledTimes(4));
+    expect(listByWorkspace.mock.calls[3][0]).toMatchObject({ category: 'conversations' });
     rerender({ workspaceId: 'two' });
     await waitFor(() => expect(countsByWorkspace).toHaveBeenCalledTimes(2));
     expect(result.current.archived.open).toBe(false);
     expect(result.current.scheduled.open).toBe(false);
+    expect(result.current.conversations.open).toBe(false);
     expect(listByWorkspace.mock.calls.filter(([o]) => o.workspaceId === 'two').map(([o]) => o.category)).toEqual(['active']);
     rerender({ workspaceId: 'one' });
     expect(result.current.archived.open).toBe(false);
