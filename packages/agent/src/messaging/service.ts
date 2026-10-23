@@ -147,6 +147,7 @@ export async function executeMessageAgent(input: MessageAgentInput, deps: Messag
     deps.host.conversations.delete(conversation.id);
     conversation = null;
   }
+  const harness = recipient.modelHarness ?? 'prokop';
   if (!conversation) {
     const created = await deps.createSession({
       id: randomUUID(),
@@ -160,7 +161,7 @@ export async function executeMessageAgent(input: MessageAgentInput, deps: Messag
       // The link the learning policy and the delete cascade read.
       metadata: { agentConversation: { senderSessionId: input.sessionId, senderAgentId } },
       parentId: null,
-      harness: recipient.modelHarness ?? 'prokop',
+      harness,
       selectedModel: recipient.model,
       selectedProvider: recipient.provider,
       selectedVariant: recipient.variant ?? null,
@@ -177,6 +178,9 @@ export async function executeMessageAgent(input: MessageAgentInput, deps: Messag
     };
     deps.host.conversations.upsert(conversation);
   }
+  // A CLI turn refuses to start without a pinned model; pinning again on a
+  // reused conversation is cheap and heals one created before the pin existed.
+  await deps.host.pinModel({ sessionId: conversation.recipientSessionId, harness, model: recipient.model, variant: recipient.variant ?? null });
 
   const wake = formatAgentMessageWake({
     fromAgentId: senderAgentId, fromName: senderName, fromSessionId: input.sessionId, intent, hop, message,

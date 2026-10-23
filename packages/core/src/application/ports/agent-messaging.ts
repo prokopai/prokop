@@ -1,3 +1,5 @@
+import type { SessionHarness } from '@prokopai/sdk';
+
 /**
  * What agent messaging needs from the host: a way to put a message in front
  * of a session's model (the delivery primitive), a recipient's home
@@ -55,6 +57,13 @@ export interface AgentMessagingHostPort {
   deliver(input: { sessionId: string; content: string; key: string }): Promise<void>;
   /** The agent's home workspace, created if the agent has a home; null for an agent without one. */
   homeWorkspace(agentId: string): Promise<{ id: string; path: string } | null>;
+  /**
+   * Pins a CLI session's model and effort the way a new session or a
+   * delegated child gets them: validated against the live CLI catalog, the
+   * variant as effort when the model supports it. A CLI turn refuses to
+   * start without this. No-op for Prokop, whose session fields suffice.
+   */
+  pinModel(input: { sessionId: string; harness: SessionHarness; model: string | null; variant: string | null }): Promise<void>;
   /** Messages may travel this many hops from a person's turn before a send is refused. */
   maxHops(): number;
   conversations: AgentConversationStore;
@@ -66,6 +75,7 @@ export const DEFAULT_AGENT_MESSAGE_MAX_HOPS = 6;
 const permissive: AgentMessagingHostPort = {
   deliver: async () => {},
   homeWorkspace: async () => null,
+  pinModel: async () => {},
   maxHops: () => DEFAULT_AGENT_MESSAGE_MAX_HOPS,
   conversations: createMemoryAgentConversationStore(),
 };

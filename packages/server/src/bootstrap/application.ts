@@ -274,20 +274,21 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
    * with the role's variant as effort when the model supports it. An
    * unknown model or an unavailable catalog leaves the CLI default.
    */
-  const pinDelegatedChildModel = async (input: HeadlessSessionRunInput): Promise<void> => {
-    if (input.harness === 'prokop' || !input.modelId) return;
+  const pinCliSessionModel = async (sessionId: string, harness: import('@prokopai/sdk').SessionHarness, modelId: string | null, variant: string | null): Promise<void> => {
+    if (harness === 'prokop' || !modelId) return;
     try {
-      const models = await harnessProbes().models(input.harness);
-      const entry = models.find(model => model.model === input.modelId);
+      const models = await harnessProbes().models(harness);
+      const entry = models.find(model => model.model === modelId);
       if (!entry) return;
-      const variant = input.preconfig.variant ?? '';
-      const effort = entry.supportedEfforts.includes(variant) ? variant : entry.defaultEffort;
-      if (input.harness === 'codex-cli') saveCodexModelSelection(input.childSessionId, { model: entry.model, effort });
-      else saveClaudeModelSelection(input.childSessionId, { model: entry.model, effort });
+      const effort = entry.supportedEfforts.includes(variant ?? '') ? variant! : entry.defaultEffort;
+      if (harness === 'codex-cli') saveCodexModelSelection(sessionId, { model: entry.model, effort });
+      else saveClaudeModelSelection(sessionId, { model: entry.model, effort });
     } catch {
       // CLI catalog unavailable on this host: the CLI default applies.
     }
   };
+  const pinDelegatedChildModel = (input: HeadlessSessionRunInput): Promise<void> =>
+    pinCliSessionModel(input.childSessionId, input.harness, input.modelId || null, input.preconfig.variant ?? null);
   // A delegated child runs visibly: its session's clients and the parent's
   // follow the turn (clients watch a child from the session that started it),
   // and a parent that stops interrupts it through the normal path.
@@ -347,6 +348,8 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       const workspace = getWorkspace(agentHomeWorkspaceId(agentId));
       return workspace ? { id: workspace.id, path: workspace.path } : null;
     },
+    // A conversation on a CLI harness needs the recipient's model pinned, like a delegated child.
+    pinModel: ({ sessionId, harness, model, variant }) => pinCliSessionModel(sessionId, harness, model, variant),
     maxHops: getAgentMessageMaxHops,
     conversations: agentConversations,
   });

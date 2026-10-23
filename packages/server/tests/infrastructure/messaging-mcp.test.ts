@@ -52,6 +52,7 @@ beforeEach(async () => {
   installAgentMessagingHost({
     deliver: async (input) => { deliveries.push(input); },
     homeWorkspace: async (agentId) => agentId === 'marketing' ? { id: 'marketing-home', path: join(root, 'marketing-home') } : null,
+    pinModel: async () => {},
     maxHops: () => 6,
     conversations: createMemoryAgentConversationStore(),
   });

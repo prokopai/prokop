@@ -24,6 +24,7 @@ const CODING: Preconfig = { ...base };
 const MARKETING: Preconfig = { ...base, id: 'marketing', name: 'Marketing', description: 'Owns the brand', acceptsMessages: true, model: 'gpt-5.5', provider: 'openai' };
 const PRIVATE: Preconfig = { ...base, id: 'private', name: 'Private', acceptsMessages: false };
 const HOMELESS: Preconfig = { ...base, id: 'homeless', name: 'Homeless', acceptsMessages: true };
+const ARCHITECT: Preconfig = { ...base, id: 'architect', name: 'Architect', acceptsMessages: true, modelHarness: 'claude-cli', model: 'claude-sonnet-5-5', variant: 'high' };
 
 function session(overrides: Partial<Session>): Session {
   return {
@@ -47,8 +48,9 @@ function harness(options: { maxHops?: number; preconfigs?: Preconfig[] } = {}) {
   const sessions = new Map<string, Session>([['coding-session', session({})], ['plain-session', session({ id: 'plain-session', preconfigId: null, agentId: null, agentName: null, title: 'Plain chat' })]]);
   const transcripts = new Map<string, MessageWithParts[]>();
   const deliveries: Array<{ sessionId: string; content: string; key: string }> = [];
+  const pins: Array<{ sessionId: string; harness: string; model: string | null; variant: string | null }> = [];
   const created: Session[] = [];
-  const preconfigs = options.preconfigs ?? [CODING, MARKETING, PRIVATE, HOMELESS];
+  const preconfigs = options.preconfigs ?? [CODING, MARKETING, PRIVATE, HOMELESS, ARCHITECT];
   const conversations = createMemoryAgentConversationStore();
   const deps: MessagingServiceDeps = {
     getSession: (id) => sessions.get(id) ?? null,
@@ -64,13 +66,14 @@ function harness(options: { maxHops?: number; preconfigs?: Preconfig[] } = {}) {
     host: {
       deliver: async (input) => { deliveries.push(input); },
       homeWorkspace: async (agentId) => agentId === 'homeless' ? null : { id: `${agentId}-home`, path: `/agents/${agentId}/home` },
+      pinModel: async (input) => { pins.push(input); },
       maxHops: () => options.maxHops ?? 6,
       conversations,
     },
     broadcasts: { sessionCreated: () => {} },
     now: () => '2026-10-23T00:00:00.000Z',
   };
-  return { deps, sessions, transcripts, deliveries, created, conversations };
+  return { deps, sessions, transcripts, deliveries, pins, created, conversations };
 }
 
 const send = (deps: MessagingServiceDeps, input: Partial<Parameters<typeof executeMessageAgent>[0]>) =>
@@ -119,6 +122,22 @@ describe('message_agent', () => {
     expect(h.created).toHaveLength(2);
     expect(h.created[1]!.title).toBe('From Plain chat: Plain chat');
     expect(parseAgentMessageWake(h.deliveries[2]!.content)).toMatchObject({ fromAgentId: null, fromName: 'Plain chat' });
+  });
+
+  test('a recipient on a CLI harness gets its session on that harness with the model pinned, on every message', async () => {
+    const h = harness();
+    expect(await send(h.deps, { agent_id: 'architect' })).toMatchObject({ delivered: true });
+    const conversation = h.created[0]!;
+    expect(conversation).toMatchObject({ harness: 'claude-cli', selectedModel: 'claude-sonnet-5-5', selectedVariant: 'high' });
+    expect(h.pins).toEqual([{ sessionId: conversation.id, harness: 'claude-cli', model: 'claude-sonnet-5-5', variant: 'high' }]);
+    // The reused conversation is pinned again: cheap, and it heals one created before the pin existed.
+    await send(h.deps, { agent_id: 'architect', message: 'Again', clientRequestId: 'r2' });
+    expect(h.pins).toHaveLength(2);
+    expect(h.created).toHaveLength(1);
+    // A Prokop recipient needs no pin beyond its session fields.
+    await send(h.deps, {});
+    expect(h.pins).toHaveLength(3);
+    expect(h.pins[2]).toMatchObject({ harness: 'prokop', model: 'gpt-5.5' });
   });
 
   test('refusals happen before anything is written', async () => {
