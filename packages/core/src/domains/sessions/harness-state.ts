@@ -227,7 +227,9 @@ function deriveOwnerHarnessState(
       capabilities: {
         canRemoveQueuedMessages: true,
         canSteerQueuedMessages: true,
-        canInterruptSubagent: false,
+        // A delegated child is a CLI process the host drives and can stop; a
+        // native agent thread lives inside its parent's process.
+        canInterruptSubagent: meta.delegatedChild === true,
         subagentActivityPropagates: false,
       },
     };
@@ -242,7 +244,8 @@ function deriveOwnerHarnessState(
     capabilities: {
       canRemoveQueuedMessages: true,
       canSteerQueuedMessages: true,
-      canInterruptSubagent: false,
+      // Every Prokop child runs in this process under the interrupt manager.
+      canInterruptSubagent: true,
       subagentActivityPropagates: false,
     },
   };

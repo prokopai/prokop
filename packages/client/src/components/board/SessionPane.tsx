@@ -209,6 +209,7 @@ export function SessionPane({
           onNavigateToSubagent={commands.resumeSession}
           isStreaming={isStreaming}
           onInterrupt={handleInterrupt}
+          isStopping={isStopping}
           onRevert={commands.revertSession}
           onFork={commands.forkSession}
           onEditMessage={commands.editMessage}

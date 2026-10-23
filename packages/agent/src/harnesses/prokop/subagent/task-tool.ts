@@ -966,7 +966,8 @@ async function runSubagent(
         preconfigId: roleId,
         title: `${description} (@${roleId} subagent)`,
         status: 'active',
-        metadata: null,
+        // Driven by the host, unlike a CLI's native agent thread: it can be stopped on its own.
+        metadata: { delegatedChild: true },
         parentId: sessionId,
         agentName: roleId,
         subagentStatus: 'running',

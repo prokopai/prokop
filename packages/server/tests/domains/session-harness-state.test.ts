@@ -13,10 +13,15 @@ describe('session harness state derivation', () => {
       expect(state.capabilities).toEqual({
         canRemoveQueuedMessages: true,
         canSteerQueuedMessages: true,
-        canInterruptSubagent: false,
+        canInterruptSubagent: true,
         subagentActivityPropagates: false,
       });
     }
+  });
+
+  test('a delegated Claude child can be stopped on its own, a native agent thread cannot', () => {
+    expect(deriveSessionHarnessState('claude-cli', null).capabilities.canInterruptSubagent).toBe(false);
+    expect(deriveSessionHarnessState('claude-cli', { delegatedChild: true }).capabilities.canInterruptSubagent).toBe(true);
   });
 
   test('codex maps its compact-pending flag, boundary, and restrictions', () => {

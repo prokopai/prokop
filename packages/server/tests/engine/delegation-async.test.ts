@@ -132,6 +132,8 @@ describe('async delegation', () => {
     });
     expect(h.deliveries[0]!.content).toContain('<task_result>\nthe map\n</task_result>');
     expect(h.sessions.get(result.task_id)?.subagentStatus).toBe('completed');
+    // The flag tells the harness state that this child can be stopped on its own.
+    expect(h.sessions.get(result.task_id)?.metadata).toEqual({ delegatedChild: true });
     expect(h.registry.isWatched(result.task_id)).toBe(false);
   });
 

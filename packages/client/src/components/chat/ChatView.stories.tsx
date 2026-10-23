@@ -228,6 +228,13 @@ export const ArchivedSession: Story = {
   },
 };
 
+const subagentHarnessState = {
+  compaction: { pending: false, uncertain: false, boundaryMessageId: null },
+  fork: { mode: 'any' as const }, goal: null, usage: null, goalUncertain: false,
+  capabilities: { canRemoveQueuedMessages: true, canSteerQueuedMessages: true, canInterruptSubagent: true, subagentActivityPropagates: false },
+};
+
+/** A running subagent: no composer, one Stop control. */
 export const SubagentSession: Story = {
   args: {
     session: createSession({
@@ -235,6 +242,7 @@ export const SubagentSession: Story = {
       parentId: 'parent-session-1',
       agentName: 'explore',
       subagentStatus: 'running',
+      harnessState: subagentHarnessState,
     }),
     messagesWithParts: [
       {
@@ -249,6 +257,25 @@ export const SubagentSession: Story = {
         ],
       },
     ],
+  },
+};
+
+/** Stop pressed on a running subagent; the server has not confirmed yet. */
+export const SubagentStopping: Story = {
+  args: { ...SubagentSession.args, isStopping: true },
+};
+
+/** A subagent that finished: nothing to stop, the transcript is read-only. */
+export const SubagentFinished: Story = {
+  args: {
+    ...SubagentSession.args,
+    session: createSession({
+      title: 'Subagent: Explore codebase',
+      parentId: 'parent-session-1',
+      agentName: 'explore',
+      subagentStatus: 'completed',
+      harnessState: subagentHarnessState,
+    }),
   },
 };
 

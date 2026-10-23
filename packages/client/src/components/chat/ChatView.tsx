@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { Lock, Eye, ArrowDown, ShieldOff, Shield } from 'lucide-react';
+import { Lock, Eye, ArrowDown, ShieldOff, Shield, Loader2, Square } from 'lucide-react';
 import type { ProkopaiClient, Message } from '@prokopai/sdk';
 import type { Session, MessageWithParts, QueuedMessage, AttachmentKind, AskResponse, Part } from '@prokopai/sdk';
 import { MessageInput } from './MessageInput';
@@ -85,6 +85,8 @@ interface ChatViewProps {
   onNavigateToSubagent?: (sessionId: string) => void;
   isStreaming?: boolean;
   onInterrupt?: () => void;
+  /** Stop was pressed; the server has not confirmed the end of the turn yet. */
+  isStopping?: boolean;
   onRevert?: (sessionId: string, stepPartId: string) => void;
   onFork?: (sessionId: string, messageId: string) => void;
   onEditMessage?: (sessionId: string, messageId: string, content: string) => void;
@@ -196,6 +198,7 @@ function ChatViewContent({
   onNavigateToSubagent,
   isStreaming,
   onInterrupt,
+  isStopping = false,
   onRevert: _onRevert,
   onFork: _onFork,
   onEditMessage: _onEditMessage,
@@ -239,6 +242,9 @@ function ChatViewContent({
   // Observers see a read-only transcript: mutation callbacks are withheld so
   // revert/fork/edit/compact/queue-remove affordances never render.
   const readOnlyTranscript = isObserver;
+  // A running subagent the host can stop on its own (not a CLI's native agent thread).
+  const canStopSubagent = !!session.parentId && session.subagentStatus === 'running'
+    && session.harnessState?.capabilities.canInterruptSubagent === true && !isObserver && !!onInterrupt;
   const onRevertForMode = readOnlyTranscript ? undefined : _onRevert;
   const onForkForMode = readOnlyTranscript ? undefined : _onFork;
   const onEditMessageForMode = readOnlyTranscript ? undefined : _onEditMessage;
@@ -528,14 +534,28 @@ function ChatViewContent({
       )}
 
       {session.parentId && (
-        <div className="p-4 bg-muted/50 text-center flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Lock className="size-4" />
-          This is a subagent session (read-only)
-          {harnessState?.capabilities.canInterruptSubagent && session.subagentStatus === 'running'
-            && !isObserver && onInterrupt && (
-            <Button variant="outline" onClick={onInterrupt}>Stop agent</Button>
-          )}
-        </div>
+        // A subagent takes no prompts here; while it runs, Stop is the one control.
+        canStopSubagent ? (
+          <div className="px-4 py-3 bg-muted/50 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            <span>{isStopping ? 'Stopping the subagent…' : 'Subagent is working'}</span>
+            <Button
+              variant="outline"
+              onClick={onInterrupt}
+              disabled={isStopping}
+              className="shrink-0 text-destructive hover:text-destructive"
+              aria-label="Stop subagent"
+            >
+              <Square className="size-3" fill="currentColor" data-icon="inline-start" />
+              Stop
+            </Button>
+          </div>
+        ) : (
+          <div className="p-4 bg-muted/50 text-center flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Lock className="size-4" />
+            This is a subagent session (read-only)
+          </div>
+        )
       )}
 
       {rejectionNotice && (
