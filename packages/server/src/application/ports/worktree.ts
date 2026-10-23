@@ -4,9 +4,9 @@ import type {
   ManagedWorktreeState,
   Session,
   Workspace,
-  WorktreeSetupCommands,
   WorktreeSetupState,
 } from '@prokopai/sdk';
+import type { WorktreeSetupRecord } from '@/domains/worktrees/setup-record';
 
 export interface ManagedWorktreeRecord {
   id: string;
@@ -35,19 +35,7 @@ export interface ManagedWorktreeRepositoryPort {
   delete(id: string): boolean;
 }
 
-export interface WorktreeSetupRecord {
-  worktreeId: string;
-  configHash: string;
-  portBase: number | null;
-  portCount: number | null;
-  state: WorktreeSetupState;
-  step: string | null;
-  error: string | null;
-  warning: string | null;
-  /** The config's commands as of the last run, so approval can show them. */
-  commands: WorktreeSetupCommands;
-  updatedAt: string;
-}
+export type { WorktreeSetupRecord };
 
 /** One row per worktree that has a config; purged with the worktree. */
 export interface WorktreeSetupRepositoryPort {

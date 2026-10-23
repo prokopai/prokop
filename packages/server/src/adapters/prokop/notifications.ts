@@ -5,12 +5,11 @@ import { getPermissionRequestByRequestId } from '@/infrastructure/sqlite/pending
 import { createNotificationRepository } from '@/infrastructure/sqlite/notification-repository';
 import { createWebPushSender } from '@/infrastructure/web-push/sender';
 import { canNotifyForSession as scheduledSessionCanNotify } from '@/domains/scheduling/notifications';
-import { isAnyConnectionAttending } from '@/transport/websocket/connection-registry';
-import { getControlState } from '@/transport/websocket/control-registry';
 import {
   createNotificationsApplication,
   type NotificationsApplication,
 } from '@/application/notifications';
+import type { NotificationsApplicationDeps } from '@/application/ports/notifications';
 
 /**
  * Prokop notification adapter (S4/S5). Wires the notification application to
@@ -19,7 +18,23 @@ import {
  * not duplicated). A module-level singleton keeps the pending-terminal
  * dispatch map shared between the wired application, the compat dispatch
  * module, and the transport ack handler.
+ *
+ * Who is looking and who controls a session is transport state. The
+ * bootstrap supplies it through `configureNotificationPresence`; until then
+ * nobody is attending and no session is controlled, which is what an empty
+ * transport reports.
  */
+
+export type NotificationPresence = Pick<NotificationsApplicationDeps, 'isAnyClientAttending' | 'controllerClientId'>;
+
+let presence: NotificationPresence = {
+  isAnyClientAttending: () => false,
+  controllerClientId: () => null,
+};
+
+export function configureNotificationPresence(source: NotificationPresence): void {
+  presence = source;
+}
 
 let singleton: NotificationsApplication | null = null;
 
@@ -38,8 +53,9 @@ export function getProkopNotificationsApplication(): NotificationsApplication {
     canNotifyForSession: (session) => scheduledSessionCanNotify(session, (id) => getScheduledJobRepository().get(id)),
     getPendingAsk: getPermissionRequestByRequestId,
     permissionTimeoutMs: getPermissionTimeoutMs,
-    isAnyClientAttending: () => isAnyConnectionAttending(),
-    controllerClientId: (sessionId) => getControlState(sessionId).controllerClientId,
+    // Read at call time: the bootstrap configures presence after the singleton may exist.
+    isAnyClientAttending: () => presence.isAnyClientAttending(),
+    controllerClientId: (sessionId) => presence.controllerClientId(sessionId),
   });
 
   return singleton;

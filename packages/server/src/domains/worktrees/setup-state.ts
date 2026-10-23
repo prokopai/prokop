@@ -9,7 +9,7 @@
  */
 
 import type { WorktreeSetup } from '@prokopai/sdk';
-import type { WorktreeSetupRecord } from '@/application/ports/worktree';
+import type { WorktreeSetupRecord } from './setup-record';
 
 export const SETUP_MARKER_DIRECTORY = '.prokop/setup';
 export const SETUP_MARKER_PATH = `${SETUP_MARKER_DIRECTORY}/state`;

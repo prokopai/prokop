@@ -76,8 +76,8 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   ],
   'packages/server/src/adapters/prokop/runtime-host/workspace.ts': [
     '@/infrastructure/sqlite/workspaces', '@/infrastructure/sqlite/session-store',
-    // Managed worktree resolution reads the worktree repository over the host database.
-    '@/infrastructure/sqlite/database', '@/infrastructure/sqlite/managed-worktrees',
+    // Managed worktree resolution reads the worktree and setup repositories over the host database.
+    '@/infrastructure/sqlite/database', '@/infrastructure/sqlite/managed-worktrees', '@/infrastructure/sqlite/managed-worktree-setups',
   ],
   'packages/server/src/adapters/prokop/session-repository.ts': [
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/message-store', '@/infrastructure/sqlite/queued-messages', '@/infrastructure/sqlite/tool-output-artifacts', '@/infrastructure/sqlite/attachments', '@/infrastructure/sqlite/pending-asks', '@/infrastructure/sqlite/workspaces', '@/adapters/prokop/runtime-host/compaction-recovery', '@prokopai/core/infrastructure/session-title',
@@ -127,7 +127,6 @@ const layerAdaptersLegacyExceptions: Record<string, string[]> = {
   'packages/server/src/adapters/prokop/notifications.ts': [
     '@/infrastructure/sqlite/notification-repository', '@/infrastructure/web-push/sender',
     '@/infrastructure/sqlite/session-store', '@/infrastructure/sqlite/scheduled-job-store', '@/infrastructure/sqlite/pending-asks', '@prokopai/core/infrastructure/runtime/environment',
-    '@/transport/websocket/connection-registry',
   ],
   'packages/server/src/adapters/prokop/permissions.ts': ['@/infrastructure/sqlite/permissions'],
   'packages/server/src/adapters/prokop/configuration.ts': [
@@ -2327,6 +2326,7 @@ describe('server layer boundaries', () => {
     const imports = parseImports(file!.sourceText, file!.path);
     expect(imports.map((imp) => imp.specifier).sort()).toEqual([
       '@/application/notifications',
+      '@/application/ports/notifications',
       '@/domains/scheduling/notifications',
       '@prokopai/core/infrastructure/runtime/environment',
       '@/infrastructure/sqlite/notification-repository',
@@ -2334,7 +2334,6 @@ describe('server layer boundaries', () => {
       '@/infrastructure/sqlite/scheduled-job-store',
       '@/infrastructure/sqlite/session-store',
       '@/infrastructure/web-push/sender',
-      '@/transport/websocket/connection-registry',
     ].sort());
   });
 

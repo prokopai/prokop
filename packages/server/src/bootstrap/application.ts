@@ -108,6 +108,9 @@ import { createBrowserClientsPort } from '@/transport/websocket/browser-clients'
 import { listWorkspaces } from '@/infrastructure/sqlite/workspaces';
 import { createProkopTerminalSessionPort } from '@/adapters/prokop/terminal';
 import { createTransportControllerPorts } from '@/transport/websocket/control-port';
+import { isAnyConnectionAttending } from '@/transport/websocket/connection-registry';
+import { getControlState } from '@/transport/websocket/control-registry';
+import { configureNotificationPresence } from '@/adapters/prokop/notifications';
 import type { ConnectionId } from '@/transport/websocket/connection-id';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { createAgentDirectoryPort } from '@prokopai/core/infrastructure/agents/agent-directory-filesystem';
@@ -202,6 +205,11 @@ export function createWiredAgentsApplication(): AgentsApplication {
 }
 
 export function createWiredApplication(existingAgents?: AgentsApplication): WiredApplication {
+  // Notifications read who is looking and who controls a session from the WebSocket registries.
+  configureNotificationPresence({
+    isAnyClientAttending: () => isAnyConnectionAttending(),
+    controllerClientId: (sessionId) => getControlState(sessionId).controllerClientId,
+  });
   installBrowserRequestsPort(browserService);
   installBrowserClientsPort(createBrowserClientsPort((requestId, sessionId) =>
     getProkopNotificationsApplication().notifyAnswerRequired(requestId, sessionId)));
