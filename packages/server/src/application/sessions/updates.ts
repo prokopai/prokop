@@ -14,6 +14,15 @@ export function addSessionUpdatedObserver(observer: SessionUpdatedObserver): () 
   return () => observers.delete(observer);
 }
 
+/**
+ * Drops every observer. For test teardown: a wired application registers
+ * its delivery observer for the life of the process, and a later test file
+ * in the same process must not inherit it.
+ */
+export function resetSessionUpdatedObserversForTests(): void {
+  observers.clear();
+}
+
 export function notifySessionUpdated(session: Session): void {
   for (const observer of observers) {
     try {

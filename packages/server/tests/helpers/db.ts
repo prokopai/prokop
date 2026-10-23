@@ -1,6 +1,7 @@
 import { Database } from 'bun:sqlite';
 import { createRuntime } from '@/bootstrap/create-runtime';
 import { initializeSchema, DB } from '@/infrastructure/sqlite/database';
+import { resetSessionUpdatedObserversForTests } from '@/application/sessions/updates';
 
 /**
  * Create a fresh in-memory SQLite database with full schema initialized.
@@ -36,8 +37,12 @@ export function setupTestDatabase(): Database {
 
 /**
  * Tear down the test database override.
- * Call this in afterEach() to prevent leaks.
+ * Call this in afterEach() to prevent leaks. Session-updated observers go
+ * with it: a wired application built by one test file (the HTTP app, the
+ * transport application) would otherwise keep reacting to session rows in
+ * every later file's database and claim their pending deliveries.
  */
 export function resetTestDatabase(): void {
   DB.reset();
+  resetSessionUpdatedObserversForTests();
 }

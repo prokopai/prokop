@@ -417,7 +417,8 @@ describe('C5 subagent execution with injected deps', () => {
     expect(child.title).toBe('Probe the repo (@explore subagent)');
     expect(child.agentName).toBe('explore');
     expect(child.subagentStatus).toBe('completed');
-    expect(child.metadata).toBeNull();
+    // The flag marks a child the host drives, which the harness state turns into Stop on its own session.
+    expect(child.metadata).toEqual({ delegatedChild: true });
     expect(child.workspaceId).toBe('ws-1');
     expect(child.workspaceRootId).toBe('managed-root-1');
     expect(child.autoApproveSeverity).toBe('low');
