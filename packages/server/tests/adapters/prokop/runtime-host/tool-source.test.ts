@@ -39,8 +39,9 @@ describe('Čapek workspace tool discovery adapter', () => {
     resetDomainToolFallbacksForTests();
     configureProkopRuntimeDefaults();
     const tools = await adapter.prokopToolCatalog.listTools();
+    // Delegation is a runtime tool on the workspace tool list, not a domain tool.
     expect(tools.filter((tool) => tool.source === 'domain').map((tool) => tool.name)).toEqual([
-      'agent_memory', 'agent_skill_manage', 'memory', 'session_search', 'skill', 'skill_manage', 'task',
+      'agent_memory', 'agent_skill_manage', 'memory', 'session_search', 'skill', 'skill_manage',
     ]);
   });
 

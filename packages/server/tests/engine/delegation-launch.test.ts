@@ -83,7 +83,6 @@ function harness(options: { preconfigs?: Preconfig[]; answer?: (ask: PermissionA
       allowDelegationTarget: async (id, h) => { remembered.push([id, h]); },
     },
     broadcasts: { event: () => {}, sessionCreated: () => {}, sessionUpdated: () => {}, toSession: () => {} },
-    executeChild: async () => ({ parts: [{ id: 'p', messageId: 'm', createdAt: 0, type: 'text', text: 'in-process' } as TextPart] }),
     runOnHarness: async (input) => {
       runs.push(input);
       const text = await done;
@@ -171,6 +170,41 @@ describe('launches into worktrees', () => {
     expect(await executeTaskCancel({ task_id: first.task_id, sessionId: 'root' }, allowed.deps)).toMatchObject({ status: 'cancelled' });
   });
 
+  test('a checkout launch starts a top-level session in the parent\'s checkout: no branch, no worktree, same root', async () => {
+    const h = harness({ noWorktrees: true });
+    h.sessions.set('root', session({ id: 'root', workspaceRootId: 'wt-parent' }));
+    const result = await executeSubagentWithDeps(call({ isolation: 'checkout', mode: 'wait', ask: h.ask }), h.deps);
+
+    // Asked like a worktree launch, without a branch; no worktree host is needed.
+    expect(h.asks).toHaveLength(1);
+    expect(h.asks[0]!.question).toBe('Start a new session in this checkout for "Add rate limiting"?');
+    expect(h.asks[0]!.description).not.toContain('Branch:');
+    expect(h.created).toEqual([]);
+
+    expect(result).toMatchObject({ status: 'running', waitTimedOut: false });
+    expect(result.result).toContain('as a top-level session in this checkout');
+    const launched = h.sessions.get(result.task_id)!;
+    expect(launched).toMatchObject({ parentId: null, workspaceRootId: 'wt-parent', workspaceId: 'ws-1', title: 'Add rate limiting', preconfigId: 'dev', subagentStatus: 'running' });
+    expect(h.tasks.get(result.task_id)).toMatchObject({ kind: 'launch', worktreeId: null, branch: null, watched: true });
+    expect(h.runs[0]).toMatchObject({ harness: 'prokop', workspacePath: '/repo', childSessionId: result.task_id });
+    expect(h.runs[0]!.prompt).toStartWith('You run as your own top-level session in the current checkout');
+
+    h.finish('Done: middleware added.');
+    await settle();
+    const note = h.deliveries[0]!.content;
+    expect(note).toStartWith(`[launched session ${result.task_id} "Add rate limiting" on prokop/m finished]`);
+    expect(note).toContain('It worked in this checkout. Open that session to review.');
+    expect(note).not.toContain('Worktree:');
+
+    // The launch policy and cap cover both kinds.
+    const never = harness({ preconfigs: [{ ...DEV, launches: 'never' }, EXPLORE] });
+    expect(await executeSubagentWithDeps(call({ isolation: 'checkout', ask: never.ask }), never.deps)).toMatchObject({ code: 'launch_not_allowed' });
+    const allowed = harness({ preconfigs: [{ ...DEV, launches: 'allow' }, EXPLORE] });
+    expect((await executeSubagentWithDeps(call({ isolation: 'checkout' }), allowed.deps)).status).toBe('running');
+    expect((await executeSubagentWithDeps(call({ isolation: 'worktree', description: 'Second' }), allowed.deps)).status).toBe('running');
+    expect(await executeSubagentWithDeps(call({ isolation: 'checkout', description: 'Third' }), allowed.deps)).toMatchObject({ code: 'concurrency_limit' });
+  });
+
   test('a launch needs a role too, and another role launches with its own defaults', async () => {
     const h = harness({ preconfigs: [{ ...DEV, launches: 'allow' }, EXPLORE] });
     expect(await executeSubagentWithDeps(call({ isolation: 'worktree', subagent_type: undefined }), h.deps)).toMatchObject({ code: 'invalid_request' });
@@ -218,6 +252,8 @@ describe('asking the user for an override', () => {
     expect(delegationDecision(true)).toEqual({ approved: true, remember: false });
     expect(delegationDecision({ type: 'permission', grant: 'once' })).toEqual({ approved: true, remember: false });
     expect(delegationDecision({ type: 'permission', grant: 'workspace' })).toEqual({ approved: true, remember: true });
+    // The client's decline is a 'deny' grant.
+    expect(delegationDecision({ type: 'permission', grant: 'deny' })).toEqual({ approved: false, remember: false });
     expect(delegationDecision({ approved: false })).toEqual({ approved: false, remember: false });
     expect(delegationDecision({ decision: 'decline' })).toEqual({ approved: false, remember: false });
   });

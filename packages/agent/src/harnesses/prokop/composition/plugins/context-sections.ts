@@ -22,6 +22,7 @@ import { getHostGuidance } from '#agent/harnesses/prokop/context/host-guidance';
 import { getHostLayout } from '@prokopai/core/infrastructure/runtime/host-layout';
 import { getWorkspace } from '@prokopai/core/infrastructure/storage/runtime';
 import {
+  legacyDelegationGuidanceSection,
   legacySelfDelegationGuidanceSection,
   legacySessionSearchGuidanceSection,
 } from '#agent/harnesses/prokop/composition/plugins/legacy-system-message';
@@ -59,6 +60,7 @@ export const CURRENT_CONTEXT_SECTION_IDS = [
   'agent-user-preferences',
   'system-prompt',
   'memory-skills-guidance',
+  'delegation',
   'self-delegation',
   'instructions',
   'workspace',
@@ -214,7 +216,7 @@ export function createContextSectionsPlugin(
   const sections: readonly SectionContribution[] = [
     ...CONTEXT_SECTIONS,
     ...(options.includeMemorySkillsSections === false ? [] : LEGACY_MEMORY_SKILLS_SECTIONS),
-    ...(options.includeSelfDelegationGuidance === false ? [] : [legacySelfDelegationGuidanceSection]),
+    ...(options.includeSelfDelegationGuidance === false ? [] : [legacyDelegationGuidanceSection, legacySelfDelegationGuidanceSection]),
     ...(options.includeSessionSearchGuidance === false ? [] : [legacySessionSearchGuidanceSection]),
   ];
   return {

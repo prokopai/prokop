@@ -6,10 +6,15 @@ import type { WorkspaceMcpResult, WorkspaceMcpTool } from '../../application/por
 /** The identity of an MCP tool, without its host-side `execute`. */
 export type McpToolIdentity = Omit<WorkspaceMcpTool, 'execute'>;
 
-/** A built-in render carries its inline page as the transcript visualization. */
-function withRenderVisualization(tool: McpToolIdentity, result: WorkspaceMcpResult, output: unknown): unknown {
-  if (tool.serverName !== BUILTIN_VISUALS_MCP_NAME || tool.toolName !== HTML_RENDER_TOOL_NAME
-    || !output || typeof output !== 'object' || Array.isArray(output)) return output;
+/**
+ * A tool that knows its row (the delegation tools) or a built-in render
+ * (its inline page) carries that as the transcript visualization.
+ */
+function withVisualization(tool: McpToolIdentity, input: Record<string, unknown>, result: WorkspaceMcpResult, output: unknown): unknown {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return output;
+  const own = tool.visualize?.(input, result);
+  if (own) return { ...output, _visualization: own };
+  if (tool.serverName !== BUILTIN_VISUALS_MCP_NAME || tool.toolName !== HTML_RENDER_TOOL_NAME) return output;
   const render = parseHtmlRenderMarker(JSON.stringify(result));
   return render ? { ...output, _visualization: { type: 'html-render', title: render.title, render } } : output;
 }
@@ -28,7 +33,7 @@ export function capabilityToolFromMcp(tool: McpToolIdentity, options: {
     if (options.authorized && !await options.authorized()) throw new Error('MCP access is not allowed for this agent');
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid MCP arguments');
     const result = await options.call(input as Record<string, unknown>, executeOptions?.abortSignal);
-    return withRenderVisualization(tool, result, mcpOutputForCapek(result));
+    return withVisualization(tool, input as Record<string, unknown>, result, mcpOutputForCapek(result));
   };
   converted.toModelOutput = mcpModelOutput;
   return converted;

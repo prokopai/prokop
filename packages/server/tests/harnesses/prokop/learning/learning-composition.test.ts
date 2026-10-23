@@ -32,7 +32,7 @@ test.each(['workspace', 'agent'] as const)('full %s composition suppresses domai
     expect(options.preconfig.canSpawnSubagents).toBe(false);
     const tools = await buildAiSdkTools({
       toolNames: options.preconfig.tools!, sessionId: 'review', workspaceId: 'ws', workspacePath: '/test',
-      modelId: 'test', providerId: 'test', canSpawnSubagents: false,
+      modelId: 'test', providerId: 'test',
     });
     expect(Object.keys(tools).sort()).toEqual(scope === 'agent' ? ['agent_memory', 'home_files', 'session_search'] : ['memory', 'session_search']);
     return { parts: [] };

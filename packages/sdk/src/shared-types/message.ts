@@ -18,7 +18,7 @@ export interface ToolStatePending extends ToolStateBase {
 export interface ToolStateRunning extends ToolStateBase {
   status: 'running';
   startedAt: number; // Unix timestamp in ms
-  childSessionId?: string; // For 'task' tool: ID of the child/subagent session
+  childSessionId?: string; // delegate_task (and the old task tool): the child session
 }
 
 export interface ToolStateCompleted extends ToolStateBase {
@@ -28,7 +28,7 @@ export interface ToolStateCompleted extends ToolStateBase {
   startedAt: number;
   completedAt: number;
   compactedAt?: number; // When this tool's results were compacted into a summary
-  childSessionId?: string; // For 'task' tool: ID of the child/subagent session
+  childSessionId?: string; // delegate_task (and the old task tool): the child session
 }
 
 export interface ToolStateError extends ToolStateBase {
@@ -45,7 +45,7 @@ export interface ToolStateInterrupted extends ToolStateBase {
   interruptedAt: number;
   reason: 'user_request' | 'timeout' | 'error' | 'cascade';
   partialOutput?: unknown; // Save partial results for potential resumption
-  childSessionId?: string; // For 'task' tool: ID of the child/subagent session
+  childSessionId?: string; // delegate_task (and the old task tool): the child session
 }
 
 export type ToolState =

@@ -38,6 +38,8 @@ export function configureAgentPorts(): void {
   configureHarnessMcpTools({ tools: getWorkspaceTools });
   const runtime = agentRuntime();
   installAgentAskPort(runtime.directAgentAsks);
+  // Delegation: runtime tools the manager appends to every session's workspace tool list.
+  runtime.installRuntimeTools();
   installLearningReviewToolPort(learningReviewTools);
   installHarnessNotificationPort(localHarnessNotifications);
   configureHarnessProbes(runtime.localHarnessProbes);

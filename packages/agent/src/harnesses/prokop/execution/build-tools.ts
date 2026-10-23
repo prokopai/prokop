@@ -1,7 +1,3 @@
-import {
-  emitRuntimeEvent,
-  type BroadcastFn,
-} from '@prokopai/core/infrastructure/runtime/host-dependencies';
 import { getAgentDirectory } from '#agent/harnesses/prokop/context/sources';
 import { discoverWorkspaceTools } from '@prokopai/core/infrastructure/tools/tool-source';
 import {
@@ -28,8 +24,6 @@ export interface BuildToolsOptions {
   rootSessionId?: string;
   modelId?: string;
   providerId?: string;
-  canSpawnSubagents?: boolean | string[] | null;
-  allowSelfAsSubagent?: boolean;
   allowedSkills?: string[] | null;
   capabilities?: PreconfigCapabilities | null;
   broadcastFn?: AskBroadcastFn;
@@ -40,7 +34,6 @@ export interface BuildToolsOptions {
 
 export async function buildAiSdkTools(
   options: BuildToolsOptions,
-  broadcast: BroadcastFn = emitRuntimeEvent,
 ): Promise<Record<string, import('ai').Tool>> {
   const {
     toolNames,
@@ -50,8 +43,6 @@ export async function buildAiSdkTools(
     rootSessionId: explicitRootSessionId,
     modelId,
     providerId,
-    canSpawnSubagents,
-    allowSelfAsSubagent,
     allowedSkills,
     capabilities,
     broadcastFn,
@@ -78,13 +69,10 @@ export async function buildAiSdkTools(
   const agentDir = agentId ? await getAgentDirectory(agentId) : undefined;
   const agentSkillsDir = agentDir ? join(agentDir, 'skills') : undefined;
 
-  // Phase 1: External tools (task subagent + registry tools)
+  // Phase 1: registry tools
   const externalTools = await buildExternalTools({
     toolNames,
-    canSpawnSubagents,
-    allowSelfAsSubagent,
     broadcastFn,
-    broadcast,
     sessionId,
     workspaceId,
     workspacePath,

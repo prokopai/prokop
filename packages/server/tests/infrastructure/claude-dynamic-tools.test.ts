@@ -446,3 +446,34 @@ test('stored Claude inputs keep todo and multi-edit arrays for visualizations', 
 
   expect(claudeToolInput({ nested: { deep: true }, list: [1, 2] })).toEqual({ nested: '[omitted]', list: '[omitted]' });
 });
+
+test('Claude delegation calls read by the shared tool name with the task and its state', () => {
+  // The delegation tools arrive on the workspace MCP server and keep their bare names in every harness.
+  for (const tool of ['delegate_task', 'delegation_capabilities', 'task_status', 'task_cancel']) {
+    expect(claudeToolName(`mcp__workspace__${tool}`)).toBe(tool);
+  }
+  expect(claudeToolName('mcp__workspace__other')).toBe('workspace: other');
+
+  const input = { description: 'Review the auth change', prompt: 'Review it', subagent_type: 'reviewer' };
+  expect(claudeToolSummary('delegate_task', input)).toBe('Review the auth change');
+  expect(claudeToolSummary('task_status', { task_id: 'abc' })).toBe('abc');
+  expect(claudeToolSummary('delegation_capabilities', {})).toBe('roles, harnesses and models');
+
+  const running = JSON.stringify({ task_id: 'child-1', result: '', status: 'running', harness: 'codex-cli' });
+  expect(claudeToolVisualization('delegate_task', input, running, false))
+    .toEqual({ type: 'none', badge: 'running', message: 'Review the auth change' });
+  const asking = JSON.stringify({ task_id: 'child-1', result: '', status: 'running', pendingAsk: true });
+  expect(claudeToolVisualization('delegate_task', input, asking, false))
+    .toEqual({ type: 'none', badge: 'needs an answer', message: 'Review the auth change' });
+  const finished = JSON.stringify({ task_id: 'child-1', result: 'Two findings.\nDetails follow.' });
+  expect(claudeToolVisualization('delegate_task', input, finished, false))
+    .toEqual({ type: 'none', badge: 'completed', message: 'Two findings.' });
+  const refused = JSON.stringify({ task_id: '', result: '', error: 'The user declined.', code: 'target_not_allowed' });
+  expect(claudeToolVisualization('delegate_task', input, refused, true)).toEqual({ type: 'none', message: 'The user declined.' });
+  expect(claudeToolVisualization('task_status', { task_id: 'child-1' }, JSON.stringify({ task_id: 'child-1', status: 'completed', result: 'Done' }), false))
+    .toEqual({ type: 'none', badge: 'completed', message: 'Done' });
+  expect(claudeToolVisualization('task_cancel', { task_id: 'child-1' }, JSON.stringify({ task_id: 'child-1', status: 'cancelled' }), false))
+    .toEqual({ type: 'none', message: 'Task cancelled' });
+  expect(claudeToolVisualization('delegation_capabilities', {}, JSON.stringify({ roles: [{ id: 'a' }, { id: 'b' }], harnesses: [] }), false))
+    .toEqual({ type: 'none', badge: '2 roles', message: 'Roles, harnesses and models' });
+});

@@ -10,10 +10,16 @@ import { attachmentContentUrl, MAX_ATTACHMENT_SIZE } from '@prokopai/core/domain
 import { fileChangeVisualization } from './file-change-visualization';
 import {
   agentSkillResultVisualization,
+  claudeToolInput,
+  delegationResultFrom,
+  delegationResultVisualization,
+  delegationToolSummary,
   htmlRenderVisualization,
+  isDelegationToolName,
   memoryResultVisualization,
   preview,
   sessionSearchResultVisualization,
+  type DelegationToolName,
 } from '#agent/harnesses/shared/tool-viz';
 
 const MAX_CHANGES = 50;
@@ -76,6 +82,20 @@ async function imageGenerationVisualization(item: Record<string, unknown>, sessi
   }
 }
 
+/** A delegation call through the generic MCP bridge: the inner tool and its arguments. */
+function delegationCall(item: Record<string, unknown>): { tool: DelegationToolName; input: Record<string, unknown> } | null {
+  if (item.type !== 'dynamicToolCall' || item.namespace !== null || item.tool !== 'mcp_call_tool') return null;
+  const call = codexObject(item.arguments);
+  if (!isDelegationToolName(call?.tool)) return null;
+  return { tool: call!.tool, input: codexObject(call!.arguments) ?? {} };
+}
+
+/** The delegation row reads the same as on Claude Code and Prokop. */
+function delegationVisualization(item: Record<string, unknown>): AnyVisualization | null {
+  const call = delegationCall(item);
+  return call ? delegationResultVisualization(call.tool, call.input, delegationResultFrom(dynamicContent(item))) : null;
+}
+
 /** Built-in visuals arrive through the generic MCP bridge, keyed by the inner tool. */
 function renderVisualization(item: Record<string, unknown>): AnyVisualization | null {
   if (item.type !== 'dynamicToolCall' || item.namespace !== null || item.tool !== 'mcp_call_tool'
@@ -128,6 +148,14 @@ function itemIdentity(item: Record<string, unknown>): { name: string; summary: s
         const title = codexObject(codexObject(item.arguments)?.arguments)?.title;
         return { name: HTML_RENDER_TOOL_NAME, summary: typeof title === 'string' ? preview(title).slice(0, 500) : HTML_RENDER_TOOL_NAME,
           input: { title: typeof title === 'string' ? preview(title) : undefined } };
+      }
+      {
+        // Delegation reads by its own tool name in every harness; the prompt is capped like Claude input.
+        const call = delegationCall(item);
+        if (call) {
+          return { name: call.tool, summary: (delegationToolSummary(call.tool, call.input) ?? call.tool).slice(0, 500),
+            input: claudeToolInput(call.input) };
+        }
       }
       if (item.namespace === null && DOMAIN_TOOLS.has(item.tool)) {
         const args = codexObject(item.arguments) ?? {};
@@ -238,7 +266,7 @@ export class CodexToolItems {
         ? { type: 'shell-output', command: preview(item.command), stdout: content,
           exitCode: typeof item.exitCode === 'number' ? item.exitCode : -1 }
         : item.type === 'fileChange' ? fileChangeVisualization(item.changes)
-          : renderVisualization(item) ?? domainVisualization(item)
+          : renderVisualization(item) ?? delegationVisualization(item) ?? domainVisualization(item)
             ?? ((item.type === 'collabAgentToolCall' || item.type === 'subAgentActivity')
               ? { type: 'none' as const,
                 message: `Subagent ${typeof item.tool === 'string' && item.tool ? item.tool : 'task'} completed` }
@@ -247,7 +275,8 @@ export class CodexToolItems {
       updated = await transitionToolToCompleted(part.id, { status: typeof status === 'string' ? status : 'completed',
         ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}),
         // Unclassified output is inspectable through raw data, never an automatic preview.
-        ...(visualization === fallback ? { result: content } : {}),
+        // A delegation keeps its result too: the child link is read from its task_id.
+        ...(visualization === fallback || delegationCall(item) ? { result: content } : {}),
         _visualization: visualization });
     }
     this.open.delete(part.id);

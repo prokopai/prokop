@@ -342,3 +342,37 @@ test('Codex image generation shows the image from a session attachment and store
   expect(viz('odd')).toEqual({ type: 'none', message: 'Image saved: /Users/me/.codex/generated_images/t/odd.png' });
   expect(viz('limit')).toEqual({ type: 'none', message: 'Image limit reached' });
 });
+
+test('Codex delegation calls through the MCP bridge read by the shared tool name and link to the child', async () => {
+  const assistant = createMessage(createTestAssistantMessage('s'));
+  const sent: ServerMessage[] = [];
+  const items = new CodexToolItems('s', assistant.id, 'turn', {
+    send: (_origin, message) => { sent.push(message); },
+    broadcast: message => { sent.push(message); },
+    broadcastToSession: (_id, message) => { sent.push(message); },
+    sendToController: (_id, message) => { sent.push(message); },
+    sendToAskTargets: (_id, _authority, message) => { sent.push(message); },
+  });
+  const childId = '11111111-2222-4333-8444-555555555555';
+  const result = { task_id: childId, result: 'Two findings.\nDetails.', harness: 'claude-cli' };
+  const item = { id: 'delegate', type: 'dynamicToolCall', namespace: null, tool: 'mcp_call_tool',
+    arguments: { tool: 'delegate_task', arguments: { description: 'Review the auth change', prompt: 'x'.repeat(5000), subagent_type: 'reviewer' } },
+    contentItems: [{ type: 'inputText', text: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(result) }] }) }] };
+  await items.started({ ...item, status: 'inProgress' });
+  await items.completed({ ...item, status: 'completed' });
+
+  const projected = await projectMessagesForClient(listMessagesWithParts('s'));
+  const part = projected[0]!.parts.find((entry): entry is ToolPart => entry.type === 'tool')!;
+  expect(part.name).toBe('delegate_task');
+  expect(part.presentation).toMatchObject({ summary: 'Review the auth change',
+    visualization: { type: 'none', badge: 'completed', message: 'Two findings.' } });
+  // The child link comes from the stored result, not from a text line.
+  expect(part.state).toMatchObject({ status: 'completed', childSessionId: childId });
+  const live = sent.find(event => event.type === 'part.updated' && event.part.id === part.id);
+  if (live?.type !== 'part.updated') throw new Error('Expected live part');
+  expect(live.part).toEqual(part);
+  // The prompt is capped in the stored input; the raw result stays inspectable.
+  const stored = listMessagesWithParts('s')[0]!.parts.find((entry): entry is ToolPart => entry.type === 'tool')!;
+  expect(String(stored.state.input.prompt).length).toBeLessThanOrEqual(1000);
+  expect(JSON.stringify(getToolDebugData(stored))).toContain('Two findings.');
+});

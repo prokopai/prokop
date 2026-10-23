@@ -82,9 +82,14 @@ function harness() {
       listSubagentPreconfigs: async () => [EXPLORE],
     },
     broadcasts: { event: () => {}, sessionCreated: () => {}, sessionUpdated: () => {}, toSession: () => {} },
-    executeChild: async () => {
+    // The child runs through host dispatch and leaves its answer in its transcript.
+    runOnHarness: async (input) => {
       const text = await childDone;
-      return { parts: [{ id: 'p', messageId: 'm', createdAt: 0, type: 'text', text } as TextPart] };
+      transcripts.set(input.childSessionId, [...(transcripts.get(input.childSessionId) ?? []), {
+        message: { id: 'a', sessionId: input.childSessionId, role: 'assistant', createdAt: 1 } as MessageWithParts['message'],
+        parts: [{ id: 'pa', messageId: 'a', createdAt: 1, type: 'text', text } as TextPart],
+      }]);
+      return {};
     },
     registry,
     host,

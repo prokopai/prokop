@@ -49,7 +49,7 @@ describe('prokop learning runtime', () => {
         }
         const tools = await buildAiSdkTools({
           toolNames: options.preconfig.tools, sessionId: 'review', workspaceId: 'ws', workspacePath: '/test',
-          modelId: 'test', providerId: 'test', canSpawnSubagents: false,
+          modelId: 'test', providerId: 'test',
         });
         toolNames = Object.keys(tools).sort();
         await tools.memory!.execute!({ action: 'list', target: 'memory' },

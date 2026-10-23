@@ -133,8 +133,6 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     sessionId: _sessionId,
     modelId: resolvedModelId,
     providerId: resolvedProviderId,
-    canSpawnSubagents: preconfig.canSpawnSubagents,
-    allowSelfAsSubagent: preconfig.allowSelfAsSubagent,
     allowedSkills: preconfig.skills,
     capabilities: preconfig.capabilities,
     broadcastFn: options.broadcastFn,
@@ -143,7 +141,8 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     workspaceRootId: session?.workspaceRootId ?? undefined,
   });
 
-  const selfDelegationAvailable = Boolean(aiTools.task)
+  // delegate_task reaches the tool map with the workspace MCP tools when the agent may spawn subagents.
+  const selfDelegationAvailable = Boolean(aiTools.delegate_task)
     && preconfig.allowSelfAsSubagent === true
     && (await resolveEffectiveSubagentTargets({
       sessionId: _sessionId,
@@ -157,6 +156,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     workspacePath,
     workspaceId,
     additionalPaths: effectiveAdditionalPaths,
+    delegationAvailable: Boolean(aiTools.delegate_task),
     selfDelegationAvailable,
   });
   const systemMessage = options.handoffBrief

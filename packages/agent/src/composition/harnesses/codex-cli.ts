@@ -3,7 +3,7 @@ import type { HarnessRegistration } from '@prokopai/core/application/sessions/ha
 import { codexCliVersion, createCodexCliHarness, createCodexExecution } from '#agent/harnesses/codex-cli/index';
 import { spawnCodexAppServer } from '#agent/harnesses/codex-cli/app-server';
 import { createPretoolChannel } from '#agent/harnesses/codex-cli/pretool-hook';
-import { agentSkillsDomainTools, delegationDomainTools, memoryDomainTools, sessionSearchDomainTools } from '#agent/harnesses/shared/domain-tools';
+import { agentSkillsDomainTools, memoryDomainTools, sessionSearchDomainTools } from '#agent/harnesses/shared/domain-tools';
 import { harnessInstructions, type HarnessRegistrationDeps } from './deps';
 
 /** The Codex app-server driver. */
@@ -16,7 +16,6 @@ export function createCodexRegistration(deps: HarnessRegistrationDeps): HarnessR
     memoryTools: memoryDomainTools,
     sessionSearch: sessionSearchDomainTools,
     agentSkills: agentSkillsDomainTools,
-    delegation: delegationDomainTools,
     instructions: harnessInstructions(deps.agents),
   });
   return createCodexCliHarness(execution, deps.titles['codex-cli']);

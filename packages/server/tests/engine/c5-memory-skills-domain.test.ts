@@ -175,7 +175,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath,
         workspaceId: 'ws-ms',
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: null,
         agentId: null,
       }));
@@ -221,7 +220,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath,
         workspaceId: 'ws-ms',
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: null,
         agentId: null,
       }));
@@ -236,7 +234,6 @@ describe('C5 memory and skills composed scope ownership', () => {
           workspacePath,
           workspaceId: 'ws-ms',
           sessionId: 'root',
-          canSpawnSubagents: true,
           allowedSkills: null,
           agentId: null,
         }));
@@ -268,7 +265,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath,
         workspaceId: 'ws-ms',
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: ['demo'],
         agentId: null,
       }));
@@ -281,7 +277,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath,
         workspaceId: 'ws-ms',
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: ['other'],
         agentId: null,
       }));
@@ -308,7 +303,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath: undefined,
         workspaceId: undefined,
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: null,
         agentId: 'agent-x',
       }));
@@ -346,7 +340,6 @@ describe('C5 memory and skills composed scope ownership', () => {
           workspacePath: undefined,
           workspaceId: undefined,
           sessionId: 'root',
-          canSpawnSubagents: true,
           allowedSkills: null,
           agentId: 'agent-x',
           capabilities,
@@ -377,7 +370,6 @@ describe('C5 memory and skills composed scope ownership', () => {
         workspacePath,
         workspaceId: 'ws-ms',
         sessionId: 'root',
-        canSpawnSubagents: true,
         allowedSkills: null,
         agentId: null,
         broadcastFn: () => {},

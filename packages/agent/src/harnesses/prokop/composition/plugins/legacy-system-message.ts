@@ -1,6 +1,7 @@
 import type { Preconfig } from '@prokopai/sdk/types';
 import { loadMemoryInstructions } from '#agent/harnesses/shared/memory/registry';
 import { selfDelegationGuidance } from '#agent/harnesses/prokop/subagent/guidance';
+import { delegationGuidance, PROKOP_DELEGATION_CALL } from '#agent/harnesses/shared/delegation-guidance';
 import { buildWorkspaceSystemPrompt } from '#agent/harnesses/prokop/context/workspace';
 import {
   formatInstructions,
@@ -33,6 +34,7 @@ export interface SystemMessageOptions {
   workspacePath?: string;
   workspaceId?: string;
   additionalPaths?: string[];
+  delegationAvailable?: boolean;
   selfDelegationAvailable?: boolean;
 }
 
@@ -81,6 +83,18 @@ Before saving, use list to check existing entries and avoid duplicates.`;
  * C5 subagent domain plugin owns this section in the current Jean2 and
  * facade compositions; `createContextSectionsPlugin` includes it only when
  * its `includeSelfDelegationGuidance` option stays at the legacy default. */
+/** The legacy delegation guidance contribution, the C5 subagent domain
+ * plugin's twin for facade and legacy compositions. */
+export const legacyDelegationGuidanceSection: ContextSectionContribution<ContextAssemblyData> = {
+  id: 'delegation',
+  phase: 'identity',
+  order: 45,
+  provide: (context) => {
+    const data = validateContextAssemblyData(context.data);
+    return data.delegationAvailable ? delegationGuidance(PROKOP_DELEGATION_CALL, false) : null;
+  },
+};
+
 export const legacySelfDelegationGuidanceSection: ContextSectionContribution<ContextAssemblyData> = {
   id: 'self-delegation',
   phase: 'identity',
@@ -111,6 +125,9 @@ export async function buildSystemMessage(options: SystemMessageOptions): Promise
     systemMessage = systemMessage + '\n\n' + getHostGuidance().agentMemorySkills;
   }
 
+  if (options.delegationAvailable) {
+    systemMessage = systemMessage + '\n\n' + delegationGuidance(PROKOP_DELEGATION_CALL, false);
+  }
   if (options.selfDelegationAvailable) {
     systemMessage = systemMessage + '\n\n' + selfDelegationGuidance(preconfig.id);
   }

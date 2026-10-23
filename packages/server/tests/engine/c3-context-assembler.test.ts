@@ -191,7 +191,7 @@ SKILLS:
 
 Before saving, use list to check existing entries and avoid duplicates.`;
 const SELF_DELEGATION_SECTION = `SELF-DELEGATION:
-- You may use the task tool with subagent_type "agent" to delegate work to a fresh instance of yourself.
+- You may call delegate_task with subagent_type "agent" to delegate work to a fresh instance of yourself.
 - This permission applies only to the immediate child. Reusing "agent" later in the same ancestry chain is blocked.`;
 const INSTRUCTIONS_SECTION = '<instructions source="global">\nGLOBAL\n</instructions>\n\n<instructions source="project">\nPROJECT\n</instructions>';
 const WORKSPACE_MEMORY_SECTION = '<user_memory path="USER.md" usage="16/1500">\n- WORKSPACE_USER\n</user_memory>\n\n<workspace_memory path="MEMORY.md" usage="18/2500">\n- WORKSPACE_MEMORY\n</workspace_memory>';
@@ -553,12 +553,12 @@ describe('C3 ordered context assembler', () => {
         ...CURRENT_CONTEXT_SECTION_IDS,
       ]);
       expect(agentScope.listContextSections().map((section) => section.phase)).toEqual([
-        'identity', 'identity', 'identity', 'identity', 'identity',
+        'identity', 'identity', 'identity', 'identity', 'identity', 'identity',
         'instructions',
         'workspace', 'workspace', 'workspace', 'workspace', 'workspace',
       ]);
       expect(agentScope.listContextSections().map((section) => section.order)).toEqual([
-        10, 20, 30, 40, 50, 10, 10, 20, 30, 40, 50,
+        10, 20, 30, 40, 45, 50, 10, 10, 20, 30, 40, 50,
       ]);
       expect(agentScope.snapshot().contextSections.map((section) => section.id)).toEqual([
         ...CURRENT_CONTEXT_SECTION_IDS,
@@ -800,6 +800,6 @@ describe('C3 fixed legacy adapter', () => {
       workspacePath: '/workspace',
       selfDelegationAvailable: true,
     });
-    expect(fixed).toBe('PROMPT\n\nSELF-DELEGATION:\n- You may use the task tool with subagent_type "agent" to delegate work to a fresh instance of yourself.\n- This permission applies only to the immediate child. Reusing "agent" later in the same ancestry chain is blocked.\n\n<workspace>\n## Working Directory\n\nYou are operating in: /workspace\n\n### Path Resolution\n\nAll file operations support three path types:\n\n1. **Relative Paths** (RECOMMENDED for workspace files)\n   - Input: "src/app.ts"\n   - Resolves to: "/workspace/src/app.ts"\n\n2. **Absolute Paths**\n   - Input: "/workspace/src/app.ts"\n   - Used as-is\n\n3. **Home Paths**\n   - Input: "~/Documents/file.txt"\n   - Expands relative to the current user\'s home directory\n\n### Default Behaviors\n\n- **File Operations**: Relative paths resolve from workspace root\n- **Shell Commands**: Execute from workspace root by default\n- **Search Operations**: Scoped to workspace by default\n### Security\n\nOperations outside the workspace directory require explicit approval:\n- Writing outside workspace: Requires approval\n- Reading outside workspace: Requires approval (configurable)\n- System directories: Blocked\n\n### Best Practices\n\n1. Use relative paths for files within the workspace\n2. Use the `cwd` parameter in shell commands instead of `cd`\n3. When in doubt, use absolute paths\n\nCurrent workspace: /workspace\n</workspace>');
+    expect(fixed).toBe('PROMPT\n\nSELF-DELEGATION:\n- You may call delegate_task with subagent_type "agent" to delegate work to a fresh instance of yourself.\n- This permission applies only to the immediate child. Reusing "agent" later in the same ancestry chain is blocked.\n\n<workspace>\n## Working Directory\n\nYou are operating in: /workspace\n\n### Path Resolution\n\nAll file operations support three path types:\n\n1. **Relative Paths** (RECOMMENDED for workspace files)\n   - Input: "src/app.ts"\n   - Resolves to: "/workspace/src/app.ts"\n\n2. **Absolute Paths**\n   - Input: "/workspace/src/app.ts"\n   - Used as-is\n\n3. **Home Paths**\n   - Input: "~/Documents/file.txt"\n   - Expands relative to the current user\'s home directory\n\n### Default Behaviors\n\n- **File Operations**: Relative paths resolve from workspace root\n- **Shell Commands**: Execute from workspace root by default\n- **Search Operations**: Scoped to workspace by default\n### Security\n\nOperations outside the workspace directory require explicit approval:\n- Writing outside workspace: Requires approval\n- Reading outside workspace: Requires approval (configurable)\n- System directories: Blocked\n\n### Best Practices\n\n1. Use relative paths for files within the workspace\n2. Use the `cwd` parameter in shell commands instead of `cd`\n3. When in doubt, use absolute paths\n\nCurrent workspace: /workspace\n</workspace>');
   });
 });

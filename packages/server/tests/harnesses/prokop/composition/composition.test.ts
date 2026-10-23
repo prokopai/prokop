@@ -409,10 +409,6 @@ describe('C4 coding bundle in the Jean2 composition', () => {
     const tools = agentScope.listTools();
     expect(tools.map((tool) => tool.definition.name)).toEqual([
       'retrieve-tool-output',
-      'task',
-      'delegation_capabilities',
-      'task_status',
-      'task_cancel',
     'skill',
     'memory',
     'skill_manage',
@@ -541,6 +537,7 @@ describe('C3 ordered context in the Jean2 composition', () => {
       ['agent-user-preferences', 'identity', 20],
       ['system-prompt', 'identity', 30],
       ['memory-skills-guidance', 'identity', 40],
+      ['delegation', 'identity', 45],
       ['self-delegation', 'identity', 50],
       ['instructions', 'instructions', 10],
       ['workspace', 'workspace', 10],

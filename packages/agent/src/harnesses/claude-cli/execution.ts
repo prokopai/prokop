@@ -34,13 +34,12 @@ import { forkClaudeSession } from './fork';
 import { claudeDeveloperInstructions, type ClaudeInstructionSources } from './instructions';
 import { pinDefaultPreconfig, resolveTurnPreconfig } from '#agent/harnesses/shared/cli-instructions';
 import { createClaudeMemoryTools, createClaudeSessionSearchTools, createClaudeSkillManageTools } from './dynamic-tools';
-import { createClaudeDelegationTools } from './delegation-tools';
 import { resolveCliRootNotice, resolveCliWorkspaceRoot } from '#agent/harnesses/shared/cli-workspace';
 import { notifyHarnessTurnFinished } from '#agent/harnesses/shared/notifications';
 import { notifySessionFilesChanged } from '#agent/harnesses/shared/files-changed';
 import { claudeToolInput, claudeToolName, claudeToolSummary, claudeToolVisualization } from '#agent/harnesses/shared/tool-viz';
 import { claudeToolFailure } from './tool-failure';
-import type { AgentSkillsDomainBridge, DelegationDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
+import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
 import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
 import { HARNESS_SWITCH_EDIT_REASON, HARNESS_SWITCH_FORK_REASON } from '@prokopai/core/domains/sessions/harness-state';
 import type { WorkspaceMcpToolsPort } from '@prokopai/core/application/ports/mcp-tools';
@@ -58,7 +57,6 @@ export interface ClaudeExecutionDependencies extends ClaudeRollbackDependencies 
   memoryTools?: MemoryDomainBridge;
   sessionSearch?: SessionSearchDomainBridge;
   agentSkills?: AgentSkillsDomainBridge;
-  delegation?: DelegationDomainBridge;
   mcp?: WorkspaceMcpToolsPort;
 }
 
@@ -356,13 +354,7 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
               bridge: deps.agentSkills, sessionId, workspaceId: session.workspaceId,
               preconfigId, agentDir, signal: controller.signal })];
           }
-          if (deps.delegation && (preconfig.canSpawnSubagents ?? true) !== false) {
-            // Delegation to roles and other harnesses; the CLI keeps its own subagents for the rest.
-            dynamicTools = [...dynamicTools, ...createClaudeDelegationTools({
-              bridge: deps.delegation, sessionId, workspaceId: session.workspaceId, root,
-              preconfigId, signal: controller.signal,
-              ask: (ask) => approvals.askUser(sessionId, session.workspaceId, 'delegate_task', wire.delivery, controller.signal, ask) })];
-          }
+          // Delegation comes with the workspace MCP tools (the Prokop Delegation built-in).
           developerInstructions = await claudeDeveloperInstructions(workspace, root, preconfig, {
             ...sources, getAgentDirectory: async () => agentDir,
           }, [...dynamicTools.map(item => item.name), ...workspaceMcpTools.map(tool => tool.name)]);

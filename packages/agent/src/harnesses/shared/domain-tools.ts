@@ -4,7 +4,6 @@ import type { PermissionAsk, PermissionRiskLevel } from '@prokopai/sdk';
 import { executeMemoryTool } from '#agent/harnesses/shared/memory/memory-tool';
 import { executeSessionSearchTool } from '#agent/harnesses/shared/session-search/session-search-tool';
 import { executeSkillManageTool } from '#agent/harnesses/shared/skills/skill-manage-tool';
-import { cliDelegationDefinitions, executeCliDelegation } from '#agent/harnesses/shared/delegation/cli-delegation';
 import { listDomainToolFallbackDefinitions } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 
 export {
@@ -86,38 +85,6 @@ export const sessionSearchDomainTools: SessionSearchDomainBridge = {
     .map(({ name, description, inputSchema }) => ({ type: 'function' as const, name, description, inputSchema })),
   execute: (input, workspaceId, sessionId, includeToolResults, risk, ask, agentId) =>
     executeSessionSearchTool(input, workspaceId, sessionId, includeToolResults, risk, ask, agentId),
-};
-
-export interface DelegationToolContext {
-  sessionId: string;
-  workspaceId: string;
-  workspacePath: string;
-  /** Asks the user through the harness's approval path (a free target, a launch). */
-  ask?: (ask: PermissionAsk) => Promise<boolean>;
-}
-
-/**
- * Delegation for CLI parents: the same four tools a Prokop session has,
- * over the Prokop subagent service. `delegate_task` is `task` under the
- * name the plan gives it, so it never collides with the CLI's own Task
- * tool; children always run through the host's harness dispatch.
- */
-export interface DelegationDomainBridge {
-  definitions(): Array<{ type: 'function'; name: string; description: string; inputSchema: unknown }>;
-  delegate(input: Record<string, unknown>, context: DelegationToolContext): Promise<Record<string, unknown>>;
-  capabilities(input: Record<string, unknown>, context: DelegationToolContext): Promise<Record<string, unknown>>;
-  status(input: Record<string, unknown>, context: DelegationToolContext): Promise<Record<string, unknown>>;
-  cancel(input: Record<string, unknown>, context: DelegationToolContext): Promise<Record<string, unknown>>;
-}
-
-export const DELEGATION_TOOL_NAMES = ['delegate_task', 'delegation_capabilities', 'task_status', 'task_cancel'] as const;
-
-export const delegationDomainTools: DelegationDomainBridge = {
-  definitions: () => cliDelegationDefinitions(),
-  delegate: (input, context) => executeCliDelegation('delegate_task', input, context),
-  capabilities: (input, context) => executeCliDelegation('delegation_capabilities', input, context),
-  status: (input, context) => executeCliDelegation('task_status', input, context),
-  cancel: (input, context) => executeCliDelegation('task_cancel', input, context),
 };
 
 /** Agent skill management over the published Capek executor; risk-free by contract. */

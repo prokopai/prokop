@@ -7,6 +7,7 @@ import { getAllServerStatus, getWorkspaceTools, getServerTools, saveServer, setT
   removeServer, shutdownWorkspace, initializeWorkspace } from '@/infrastructure/mcp/manager';
 import { getTools } from '@/infrastructure/mcp/converter';
 import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
+import { installAgentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
 import { createProkopMcpDiscovery } from '@/adapters/prokop/runtime-host/mcp-discovery';
 import type { Preconfig } from '@prokopai/sdk/types';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -16,11 +17,13 @@ import { createCodexMcpTools } from '@prokopai/agent/internal/harnesses/codex-cl
 import type { McpServerConfig } from '@prokopai/sdk';
 
 let root: string;
-// Built-in visuals are on by default; these tests cover external servers only.
+// Built-in visuals are on by default and the delegation runtime tools look
+// sessions up; these tests cover external servers only.
 const visualsOff: McpServerConfig = { type: 'builtin', id: 'visuals', enabled: false };
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'mcp-management-')); Paths.configure({ dataDir: join(root, 'global') });
   await updateMcpConfig(null, 'Prokop Visuals', visualsOff);
+  installAgentRuntimeTools(null);
 });
 afterEach(async () => { await shutdownWorkspace(root); await shutdownWorkspace(null); Paths.reset(); await rm(root, { recursive: true, force: true }); });
 const config: McpServerConfig = { type: 'local', command: [process.execPath, resolve(import.meta.dir, 'fixtures/mcp-server.ts')], timeout: 2000 };
@@ -83,31 +86,33 @@ describe('workspace MCP management', () => {
     expect((await getWorkspaceTools(root)).map(tool => tool.serverName)).toEqual(['crm', 'crm']);
   });
 
-  test.each([undefined, 'primary', 'both', 'subagent'] as const)('Prokop mode %s gates global and workspace MCP at discovery and execution', async initialMode => {
+  test('Prokop MCP access follows the session identity, not the agent mode, at discovery and execution', async () => {
     await saveServer(null, 'search', config);
     await saveServer(root, 'crm', config);
-    let mode = initialMode;
+    const preconfigs: Record<string, Preconfig> = { agent: { id: 'agent', mode: 'subagent' } as Preconfig, other: { id: 'other' } as Preconfig };
+    let preconfigId = 'agent';
     let exists = true;
     const discovery = createProkopMcpDiscovery({
-      session: () => exists ? { workspaceId: 'ws', preconfigId: 'agent' } : null,
+      session: () => exists ? { workspaceId: 'ws', preconfigId } : null,
       workspacePath: () => root,
-      preconfig: async () => ({ id: 'agent', mode }) as Preconfig,
+      preconfig: async id => (id ? preconfigs[id] : null) ?? null,
       tools: getTools,
     });
     expect(await discovery.discoverTools!('/unused')).toEqual({});
+    // A subagent-mode role gets the same MCP tools as a primary agent.
     const tools = await discovery.discoverTools!('/unused', 'session');
-    if (mode === 'subagent') {
-      expect(tools).toEqual({});
-      return;
-    }
     expect(Object.keys(tools)).toHaveLength(4);
     const execute = Object.values(tools)[0]!.execute as (input: unknown) => Promise<unknown>;
     await expect(execute({})).resolves.toBeDefined();
-    mode = 'subagent';
+    // Another agent took over the session: handles built for the old one go dark.
+    preconfigId = 'other';
     await expect(execute({})).rejects.toThrow('not allowed');
-    expect(await discovery.discoverTools!('/unused', 'session')).toEqual({});
-    mode = 'both';
+    expect(Object.keys(await discovery.discoverTools!('/unused', 'session'))).toHaveLength(4);
+    preconfigId = 'agent';
     await expect(execute({})).resolves.toBeDefined();
+    delete preconfigs.agent;
+    await expect(execute({})).rejects.toThrow('not allowed');
+    preconfigs.agent = { id: 'agent' } as Preconfig;
     exists = false;
     await expect(execute({})).rejects.toThrow('not allowed');
   });

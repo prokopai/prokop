@@ -22,13 +22,24 @@ function extractVisualization(output: unknown): AnyVisualization | undefined {
     : undefined;
 }
 
+/** Rows that may link to a child session: delegation on every harness, plus the old Prokop `task` and native subagents. */
+const CHILD_LINK_TOOLS = new Set(['delegate_task', 'task', 'subagent']);
+
+/**
+ * The child id in a stored result: the JSON `"task_id"` of a delegation (also
+ * when it sits escaped inside an MCP text block, as Codex and Prokop store it)
+ * or the `task_id:` line of an old `task` transcript.
+ */
+export const CHILD_TASK_ID_PATTERN = /task_id\\*"?\s*:\s*\\*"?\s*([a-f0-9-]{36})/i;
+
 function extractChildSessionId(part: ToolPart): string | undefined {
   if ('childSessionId' in part.state && part.state.childSessionId) {
     return part.state.childSessionId;
   }
-  if ((part.name !== 'task' && part.name !== 'subagent') || part.state.status !== 'completed') return undefined;
-  if (typeof part.state.output !== 'string') return undefined;
-  return part.state.output.match(/task_id:\s*([a-f0-9-]{36})/i)?.[1];
+  if (!CHILD_LINK_TOOLS.has(part.name) || part.state.status !== 'completed') return undefined;
+  const output = part.state.output;
+  const text = typeof output === 'string' ? output : output && typeof output === 'object' ? JSON.stringify(output) : '';
+  return text.match(CHILD_TASK_ID_PATTERN)?.[1];
 }
 
 function projectState(part: ToolPart, visualization?: AnyVisualization): ToolState {

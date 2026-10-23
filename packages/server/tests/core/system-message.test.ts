@@ -32,5 +32,16 @@ describe('buildSystemMessage self-delegation guidance', () => {
     const message = await buildSystemMessage({ preconfig });
 
     expect(message).not.toContain('SELF-DELEGATION:');
+    expect(message).not.toContain('delegate_task');
+  });
+
+  test('explains delegate_task when the tool is in the session, above the self-delegation note', async () => {
+    const message = await buildSystemMessage({ preconfig, delegationAvailable: true, selfDelegationAvailable: true });
+
+    expect(message).toContain('delegate_task hands a task to a Prokop child session');
+    // Prokop has no native subagents; the shared paragraph says how to call the tools here.
+    expect(message).not.toContain('Your native subagents');
+    expect(message).toContain('in your tool list');
+    expect(message.indexOf('delegate_task hands')).toBeLessThan(message.indexOf('SELF-DELEGATION:'));
   });
 });

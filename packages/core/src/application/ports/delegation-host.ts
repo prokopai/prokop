@@ -103,7 +103,8 @@ export interface DelegationHostPort {
   worktrees?: DelegationWorktreeHost;
 }
 
-export const DEFAULT_MAX_DELEGATION_CHILDREN = 4;
+/** Running children per root session, all depths counted. */
+export const DEFAULT_MAX_DELEGATION_CHILDREN = 8;
 
 const permissive: DelegationHostPort = {
   harnessEnabled: () => true,

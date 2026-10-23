@@ -89,9 +89,6 @@ function makeDeps(answer: (input: HeadlessSessionRunInput) => string[] | { error
       sessionUpdated: (updated) => events.push({ updated: updated.id, status: updated.subagentStatus }),
       toSession: () => {},
     },
-    executeChild: async () => {
-      throw new Error('the in-process child must not run for a cross-harness role');
-    },
     runOnHarness: async (input, options) => {
       runs.push({ input, options });
       const result = answer(input);
@@ -157,11 +154,8 @@ describe('cross-harness subagents', () => {
     expect(events).toContainEqual({ updated: child.id, status: 'completed' });
   });
 
-  test('a Prokop role (no pin) still runs in-process', async () => {
-    const { deps, runs } = makeDeps(() => ['never']);
-    deps.executeChild = async () => ({
-      parts: [{ id: 'p', messageId: 'm', createdAt: 0, type: 'text', text: 'in-process answer' } as TextPart],
-    });
+  test('a Prokop role (no pin) runs through host dispatch on Prokop, like every other child', async () => {
+    const { deps, runs, sessions } = makeDeps(() => ['prokop answer']);
 
     const result = await executeSubagentWithDeps({
       description: 'Explore',
@@ -171,8 +165,12 @@ describe('cross-harness subagents', () => {
       workspaceId: 'ws-1',
     }, deps);
 
-    expect(runs).toEqual([]);
-    expect(result.result).toContain('in-process answer');
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.input).toMatchObject({ harness: 'prokop', childSessionId: result.task_id, prompt: 'Map the repo' });
+    expect(runs[0]!.options).toMatchObject({ visible: true });
+    // A Prokop child carries no harness column: Prokop is the default.
+    expect(sessions.get(result.task_id)?.harness).toBeUndefined();
+    expect(result.result).toContain('prokop answer');
     expect(subagentHarness(EXPLORER)).toBe('prokop');
   });
 

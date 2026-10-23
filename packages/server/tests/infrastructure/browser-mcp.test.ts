@@ -11,6 +11,7 @@ import { Paths } from '@prokopai/core/infrastructure/runtime/paths';
 import { browserService } from '@/infrastructure/browser/service';
 import { browserTools, validateBrowserInput } from '@prokopai/core/infrastructure/browser/catalog';
 import { createMcpManager } from '@/infrastructure/mcp/manager';
+import { installAgentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
 import { getTools } from '@/infrastructure/mcp/converter';
 import { createCodexMcpTools } from '@prokopai/agent/internal/harnesses/codex-cli/mcp-tools';
 import { createClaudeWorkspaceMcp } from '@prokopai/agent/internal/harnesses/claude-cli/mcp-tools';
@@ -47,7 +48,9 @@ beforeEach(async () => {
   seedWorkspace({ id: 'ws', path: root });
   sockets = []; requests = []; onRequest = undefined; abort = new AbortController();
   manager = createMcpManager();
-  // Built-in visuals are on by default; these tests count browser tools only.
+  // Built-in visuals are on by default and the delegation runtime tools may be
+  // installed by the process; these tests count browser tools only.
+  installAgentRuntimeTools(null);
   await manager.saveServer(null, BUILTIN_VISUALS_MCP_NAME, { type: 'builtin', id: 'visuals', enabled: false });
   installBrowserRequestsPort(browserService);
   installBrowserClientsPort(createBrowserClientsPort(() => {}));

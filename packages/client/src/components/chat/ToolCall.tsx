@@ -56,8 +56,12 @@ interface ToolCallProps {
 }
 
 
+/** Rows that may link to a child session: delegation on every harness, plus the old Prokop `task` and native subagents. */
+const CHILD_LINK_TOOLS = new Set(['delegate_task', 'task', 'subagent']);
+
+/** The server projects the child id onto the state; the result text is the fallback for raw parts. */
 function extractTaskSessionId(part: ToolPart): string | null {
-  if (part.name !== 'task' && part.name !== 'subagent') return null;
+  if (!CHILD_LINK_TOOLS.has(part.name)) return null;
   const state = part.state;
   if ('childSessionId' in state && state.childSessionId) {
     return state.childSessionId as string;
@@ -67,11 +71,9 @@ function extractTaskSessionId(part: ToolPart): string | null {
     : 'partialOutput' in state
       ? state.partialOutput
       : null;
-  if (output && typeof output === 'string') {
-    const match = output.match(/task_id:\s*([a-f0-9-]{36})/i);
-    if (match) return match[1];
-  }
-  return null;
+  const text = typeof output === 'string' ? output : output && typeof output === 'object' ? JSON.stringify(output) : '';
+  // A JSON "task_id" (delegation, also escaped inside an MCP text block) or the task_id: line of an old task row.
+  return text.match(/task_id\\*"?\s*:\s*\\*"?\s*([a-f0-9-]{36})/i)?.[1] ?? null;
 }
 
 /** Ticks once per second; mounted only while a tool runs. */

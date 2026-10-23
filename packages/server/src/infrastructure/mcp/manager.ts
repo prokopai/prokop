@@ -4,6 +4,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServerConfig, McpRemoteServerConfig, McpStatus, McpToolInfo } from '@prokopai/sdk';
 import type { WorkspaceMcpTool } from '@prokopai/core/application/ports/mcp-tools';
+import { agentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
 import type { McpLifecyclePort } from '@/application/ports/mcp';
 import { BadRequestError, NotFoundError } from '@/application/http-errors';
 import { getDataDir } from '@prokopai/core/infrastructure/runtime/paths';
@@ -325,6 +326,18 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
           } });
       }
     }
+    // Runtime tools (delegation): served by the agent runtime to any session
+    // it deems visible, with no configuration entry to consult.
+    const runtime = sessionId ? agentRuntimeTools() : null;
+    const runtimeTools: WorkspaceMcpTool[] = runtime && sessionId && await runtime.visibleTo(sessionId)
+      ? runtime.definitions.map(definition => ({
+        name: definition.name, serverName: runtime.name, toolName: definition.name,
+        description: definition.description, inputSchema: definition.inputSchema,
+        execute: (input, signal, authorized) => runtime.execute(definition.name, input, sessionId, path, signal,
+          async () => !authorized || await authorized()),
+        ...(runtime.visualize ? { visualize: (input, result) => runtime.visualize!(definition.name, input, result) } : {}),
+      }))
+      : [];
     const inherited = globalTools.filter(tool => !Object.hasOwn(workspaceServers, tool.serverName));
     return [...inherited.map(tool => ({
       ...tool,
@@ -335,7 +348,7 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
         }
         return tool.execute(input, signal, authorized);
       },
-    })), ...workspaceTools, ...builtins];
+    })), ...workspaceTools, ...builtins, ...runtimeTools];
   }
   async function startAuth(path: string | null, name: string, redirectUrl: string): Promise<{ authorizationUrl: string }> {
     return serialized(path, async () => {

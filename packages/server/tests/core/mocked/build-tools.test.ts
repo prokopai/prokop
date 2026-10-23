@@ -104,7 +104,6 @@ function defaultOptions(overrides: Partial<BuildToolsOptions> = {}): BuildToolsO
     sessionId: 'sess-1',
     modelId: 'gpt-4o',
     providerId: 'openai',
-    canSpawnSubagents: false,
     allowedSkills: null,
     broadcastFn: undefined,
     ...overrides,
@@ -189,27 +188,6 @@ describe('build-tools binding integration', () => {
     const result = await tools['write-file']!.execute!({}, { toolCallId: 'call-2', messages: [] });
 
     expect(result).toEqual({ error: 'Tool crashed' });
-  });
-
-  test('discovers subagents through the package-owned policy', async () => {
-    configureBindings({
-      subagentPreconfigs: [{
-        id: 'research',
-        name: 'Research',
-        description: 'Research tasks',
-        mode: 'subagent',
-        model: null,
-        provider: null,
-        systemPrompt: '',
-        tools: [],
-        settings: null,
-        isDefault: false,
-      }],
-    });
-
-    const tools = await buildAiSdkTools(defaultOptions({ canSpawnSubagents: true }));
-
-    expect(tools).toHaveProperty('task');
   });
 
   test('filters interactive tools using binding-provided session ancestry', async () => {

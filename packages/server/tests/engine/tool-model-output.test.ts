@@ -55,7 +55,6 @@ describe('tool model output', () => {
       list: () => [loadedTool],
     }, () => buildExternalTools({
       toolNames: ['screenshot'],
-      broadcast: () => {},
       sessionId: 'session-1',
       workspaceId: 'workspace-1',
       workspacePath: '/tmp',

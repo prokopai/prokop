@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
+import { DEFAULT_MAX_DELEGATION_CHILDREN } from '../../application/ports/delegation-host';
 import { getEnvFilePath } from './paths';
 import { readEnv, readEnvFloat, readEnvInt, JEAN2_ENV_PREFIX, PROKOPAI_ENV_PREFIX } from './env-compat';
 
@@ -133,10 +134,14 @@ export function getLLMSubagentMaxSteps(): number {
   return parsed > 0 ? parsed : 50;
 }
 
-/** Running delegated children allowed per root session (default 4). */
+/**
+ * Running delegated children allowed per root session, all depths counted
+ * (default 8). A brake against runaway fan-out, not a planning constraint:
+ * the fifth or ninth child is refused with `concurrency_limit`.
+ */
 export function getDelegationMaxChildren(): number {
-  const parsed = readEnvInt('DELEGATION_MAX_CHILDREN', 4);
-  return parsed > 0 ? parsed : 4;
+  const parsed = readEnvInt('DELEGATION_MAX_CHILDREN', DEFAULT_MAX_DELEGATION_CHILDREN);
+  return parsed > 0 ? parsed : DEFAULT_MAX_DELEGATION_CHILDREN;
 }
 
 /** Running top-level worktree launches allowed per orchestrating session (default 3). */

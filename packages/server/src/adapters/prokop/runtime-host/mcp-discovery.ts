@@ -16,7 +16,12 @@ export interface McpAccessContext {
   path: string;
 }
 
-/** MCP access is based on the selected agent mode, including for child sessions. */
+/**
+ * MCP access is granted to the session as it was when the tools were built:
+ * the same workspace, agent and path, and an agent that still exists. The
+ * agent's mode does not matter; a subagent-mode role gets the same servers
+ * and built-ins as a primary agent, and its own settings decide what it may do.
+ */
 export function createMcpAccess(deps: Omit<McpDiscoveryDeps, 'tools'>): {
   grant(sessionId: string): Promise<McpAccessContext | null>;
   check(sessionId: string, context: McpAccessContext): Promise<boolean>;
@@ -26,8 +31,7 @@ export function createMcpAccess(deps: Omit<McpDiscoveryDeps, 'tools'>): {
     if (!current || current.workspaceId !== context.workspaceId
       || (current.preconfigId ?? null) !== context.preconfigId
       || deps.workspacePath(current.workspaceId) !== context.path) return false;
-    const preconfig = await deps.preconfig(context.preconfigId);
-    return !!preconfig && (preconfig.mode === undefined || preconfig.mode === 'primary' || preconfig.mode === 'both');
+    return !!(await deps.preconfig(context.preconfigId));
   };
   return {
     async grant(sessionId) {

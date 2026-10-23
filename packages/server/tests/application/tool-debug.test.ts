@@ -134,3 +134,33 @@ describe('tool debug transcript projection', () => {
     expect(part.presentation?.summary).toBe('{"command":"echo secret-input"}');
   });
 });
+
+describe('child session links on delegation rows', () => {
+  const childId = '11111111-2222-4333-8444-555555555555';
+  const row = (name: string, output: unknown): MessageWithParts[] => {
+    const transcript = makeTranscript();
+    const part = transcript[0]!.parts[0]!;
+    if (part.type !== 'tool' || part.state.status !== 'completed') throw new Error('Expected a completed tool part');
+    transcript[0]!.parts[0] = { ...part, name, state: { ...part.state, input: {}, output } };
+    return transcript;
+  };
+  const childOf = async (name: string, output: unknown) => {
+    const projected = await projectMessagesForClient(row(name, output));
+    const part = projected[0]!.parts[0]!;
+    return part.type === 'tool' && 'childSessionId' in part.state ? part.state.childSessionId : undefined;
+  };
+
+  test('reads the task id from the JSON result in every harness\'s stored shape', async () => {
+    const result = JSON.stringify({ task_id: childId, result: 'Done' });
+    // Claude stores the result text; Prokop stores the MCP result object; Codex stores the MCP result as text.
+    expect(await childOf('delegate_task', result)).toBe(childId);
+    expect(await childOf('delegate_task', { content: [{ type: 'text', text: result }], isError: false })).toBe(childId);
+    expect(await childOf('delegate_task', { status: 'completed', result: JSON.stringify({ content: [{ type: 'text', text: result }] }) })).toBe(childId);
+  });
+
+  test('keeps the link of old task rows and links nothing on other tools', async () => {
+    expect(await childOf('task', `Result text\ntask_id: ${childId} (for resuming to continue this task if needed)`)).toBe(childId);
+    expect(await childOf('shell', JSON.stringify({ task_id: childId }))).toBeUndefined();
+    expect(await childOf('delegate_task', JSON.stringify({ task_id: '', error: 'refused' }))).toBeUndefined();
+  });
+});

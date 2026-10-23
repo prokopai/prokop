@@ -15,6 +15,15 @@ export const PROKOP_MCP_SERVER = 'prokop';
 
 const PROKOP_MCP_TOOLS = new Set(['memory', 'agent_memory', 'session_search', 'agent_skill_manage']);
 
+/** The delegation tools, one name set on every harness. */
+export const DELEGATION_TOOL_NAMES = ['delegate_task', 'delegation_capabilities', 'task_status', 'task_cancel'] as const;
+export type DelegationToolName = typeof DELEGATION_TOOL_NAMES[number];
+const DELEGATION_TOOLS: ReadonlySet<string> = new Set(DELEGATION_TOOL_NAMES);
+
+export function isDelegationToolName(name: unknown): name is DelegationToolName {
+  return typeof name === 'string' && DELEGATION_TOOLS.has(name);
+}
+
 /** Canonical names for native tools that have a prokop-builtin equivalent. */
 const CLAUDE_CANONICAL_NAMES: Record<string, string> = {
   Bash: 'shell',
@@ -34,8 +43,11 @@ const CLAUDE_CANONICAL_NAMES: Record<string, string> = {
 export function claudeToolName(native: string): string {
   const canonical = CLAUDE_CANONICAL_NAMES[native];
   if (canonical) return canonical;
-  // Built-in visuals read the same in every harness.
+  // Built-in visuals and the delegation tools read the same in every harness.
   if (native === `mcp__workspace__${HTML_RENDER_TOOL_NAME}`) return HTML_RENDER_TOOL_NAME;
+  if (native.startsWith('mcp__workspace__') && isDelegationToolName(native.slice('mcp__workspace__'.length))) {
+    return native.slice('mcp__workspace__'.length);
+  }
   if (native.startsWith(`mcp__${PROKOP_MCP_SERVER}__`)) {
     const tool = native.slice(`mcp__${PROKOP_MCP_SERVER}__`.length);
     return PROKOP_MCP_TOOLS.has(tool) ? tool : `${PROKOP_MCP_SERVER}: ${tool}`;
@@ -105,6 +117,8 @@ export function claudeToolSummary(name: string, input: Record<string, unknown>):
       case HTML_RENDER_TOOL_NAME: return firstString(input, ['title']);
       case 'todo': return Array.isArray(input.todos) ? `${input.todos.length} todos` : 'todos';
       case 'subagent': return firstString(input, ['description', 'subagent_type']);
+      case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
+        return delegationToolSummary(name, input);
       case 'memory': case 'agent_memory':
         return [input.action, input.target].filter(value => typeof value === 'string').join(' ');
       case 'session_search': return [input.action, input.query].filter(value => typeof value === 'string').join(' ');
@@ -238,6 +252,65 @@ export function agentSkillResultVisualization(result: Record<string, unknown>): 
   return { type: 'none', message: typeof result.title === 'string' ? preview(result.title) : 'Agent skill updated' };
 }
 
+// ── Delegation results (the same JSON on every harness) ───────────────────
+
+/** The row summary of a delegation call: the task, the task id, or what was looked up. */
+export function delegationToolSummary(tool: DelegationToolName, input: Record<string, unknown>): string | null {
+  switch (tool) {
+    case 'delegate_task': return firstString(input, ['description', 'subagent_type']);
+    case 'task_status': case 'task_cancel': return firstString(input, ['task_id']);
+    case 'delegation_capabilities':
+      return typeof input.search === 'string' && input.search.trim() ? `models matching ${input.search}` : 'roles, harnesses and models';
+  }
+}
+
+/**
+ * The delegation service's JSON result out of whatever a harness stored: the
+ * JSON itself (Claude), an MCP result wrapping it in a text block (Codex,
+ * Prokop), or either as a string.
+ */
+export function delegationResultFrom(output: unknown): Record<string, unknown> | null {
+  if (typeof output === 'string') {
+    try { return delegationResultFrom(JSON.parse(output)); } catch { return null; }
+  }
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return null;
+  const record = output as Record<string, unknown>;
+  if (Array.isArray(record.content)) {
+    const block = record.content.find(entry => entry && typeof entry === 'object'
+      && (entry as Record<string, unknown>).type === 'text') as Record<string, unknown> | undefined;
+    return typeof block?.text === 'string' ? delegationResultFrom(block.text) : null;
+  }
+  return record;
+}
+
+/** A completed delegation row: the task and where it stands, from the result fields. */
+export function delegationResultVisualization(
+  tool: DelegationToolName, input: Record<string, unknown>, result: Record<string, unknown> | null,
+): AnyVisualization {
+  if (!result) return { type: 'none', message: 'Result unavailable' };
+  const text = typeof result.result === 'string' ? result.result.trim() : '';
+  if (typeof result.error === 'string' && !text) return { type: 'none', message: preview(result.error) };
+  const status = typeof result.status === 'string' ? result.status : null;
+  switch (tool) {
+    case 'delegate_task': {
+      const description = firstString(input, ['description']) ?? 'Delegated task';
+      if (status === 'running') {
+        return { type: 'none', badge: result.pendingAsk === true ? 'needs an answer' : 'running', message: description };
+      }
+      return { type: 'none', badge: 'completed', message: preview(text.split('\n')[0] || description).slice(0, 200) };
+    }
+    case 'task_status':
+      return { type: 'none', ...(status ? { badge: status } : {}),
+        message: result.pendingAsk === true ? 'Waiting on your answer' : preview(text.split('\n')[0] || 'Task status').slice(0, 200) };
+    case 'task_cancel':
+      return { type: 'none', message: status === 'cancelled' ? 'Task cancelled' : `Task ${status ?? 'not cancelled'}` };
+    case 'delegation_capabilities': {
+      const roles = Array.isArray(result.roles) ? result.roles.length : 0;
+      return { type: 'none', badge: `${roles} role${roles === 1 ? '' : 's'}`, message: 'Roles, harnesses and models' };
+    }
+  }
+}
+
 // ── Claude per-tool visualization at tool-end ──────────────────────────────
 
 function parseJsonOutput(output: string): Record<string, unknown> | null {
@@ -303,6 +376,8 @@ export function claudeToolVisualization(
       }) };
     }
     case 'subagent': return { type: 'none', message: 'Subagent task completed' };
+    case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
+      return delegationResultVisualization(name, input, delegationResultFrom(output));
     case 'memory': case 'agent_memory': case 'session_search': case 'agent_skill_manage': {
       const result = parseJsonOutput(output);
       if (!result) return { type: 'none', message: preview(output || 'Tool completed') };

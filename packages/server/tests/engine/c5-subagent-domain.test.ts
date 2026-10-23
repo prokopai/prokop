@@ -1,36 +1,30 @@
 /**
  * C5 subagent domain slice characterization.
  *
- * Pins the domain plugin ownership after the subagent move: the composed
- * task tool contribution (id, order, plugin, depth gate, per-build dynamic
- * definition from scope-captured storage and preconfig sources with no
- * global fallback), the self-delegation context section ownership, the
- * unscoped fallback path with the exact pre-C5 build order, the ancestry
- * policy matrix, and the WithDeps execution lifecycle (child creation,
- * resume validation, status transitions, ordered result formatting,
- * structured output, abort handling) against injected fakes.
+ * Pins the domain plugin ownership: the policy service (depth gate over the
+ * scope-captured storage) and the self-delegation context section, with no
+ * tool contribution (delegation is a runtime tool on the workspace tool
+ * list), the ancestry policy matrix, and the WithDeps execution lifecycle
+ * (child creation, resume validation, status transitions, ordered result
+ * formatting, structured output, abort handling) against injected fakes.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { Preconfig, Session, TextPart } from '@prokopai/sdk/types';
-import { buildAiSdkTools } from '@prokopai/agent/internal/harnesses/prokop/execution/build-tools';
+import type { MessageWithParts, Preconfig, Session, TextPart } from '@prokopai/sdk/types';
+import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import {
   configureAgentSource,
   configureInstructionSource,
   configurePreconfigSource,
 } from '@prokopai/agent/internal/harnesses/prokop/context/sources';
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
-import { enterAgentScope } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/compose';
 import { createCurrentAgentScope, createCurrentProcessScope } from '#tests/engine/helpers/composition';
 import { resetDomainToolFallbacksForTests } from '@prokopai/core/infrastructure/tools/domain-tool-source';
 import { configureRuntimeHost, type RuntimeHost } from '@prokopai/core/infrastructure/runtime/host';
 import {
   CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID,
   SELF_DELEGATION_SECTION_ID,
-  SUBAGENT_TOOL_CONTRIBUTION_ID,
-  SUBAGENT_TOOL_CONTRIBUTION_ORDER,
   capekSubagentDomainKey,
-  installTaskToolFallback,
 } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
 import {
   evaluateSubagentTarget,
@@ -140,7 +134,6 @@ function configureEnvironment(): void {
   configureAgentSource();
   configureInstructionSource();
   configureWorkspaceToolDiscovery();
-  installTaskToolFallback();
 }
 
 afterEach(async () => {
@@ -168,20 +161,17 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 describe('C5 subagent composed scope ownership', () => {
   beforeEach(() => configureEnvironment());
 
-  test('the composed current agent scope contributes the task tool with the pinned id, order, plugin, and payload', async () => {
+  test('the composed current agent scope provides the subagent policy and contributes no tool', async () => {
     const processScope = await createCurrentProcessScope();
     const agentScope = await createCurrentAgentScope(processScope);
     try {
-      const tools = agentScope.listTools();
-      const taskEntry = tools.find((entry) => entry.definition.name === 'task');
-      expect(taskEntry).toBeDefined();
-      expect(taskEntry!.id).toBe(SUBAGENT_TOOL_CONTRIBUTION_ID);
-      expect(taskEntry!.order).toBe(SUBAGENT_TOOL_CONTRIBUTION_ORDER);
-      expect(taskEntry!.pluginId).toBe(CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID);
-      expect(taskEntry!.visible).toBe(true);
-      expect(taskEntry!.definition.timeout).toBeNull();
-      expect(agentScope.require(capekSubagentDomainKey).tools.map((tool) => tool.name))
-        .toEqual(['task', 'delegation_capabilities', 'task_status', 'task_cancel']);
+      // Delegation reaches a Prokop session as a runtime tool on the workspace tool list.
+      expect(agentScope.listTools().filter((entry) => entry.pluginId === CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID)).toEqual([]);
+      expect(agentScope.listTools().map((entry) => entry.definition.name)).not.toContain('task');
+      const service = agentScope.require(capekSubagentDomainKey);
+      expect(await service.canSpawnSubagent('sess-root')).toBe(true);
+      expect((await service.resolveTargets({ sessionId: 'sess-root', canSpawnSubagents: true })).map((role) => role.id))
+        .toEqual(['explore', 'research']);
     } finally {
       await agentScope.dispose();
       await processScope.dispose();
@@ -209,6 +199,15 @@ describe('C5 subagent composed scope ownership', () => {
       });
       const selfDelegation = sections.find((entry) => entry.id === SELF_DELEGATION_SECTION_ID);
       expect(selfDelegation?.content).toBe(selfDelegationGuidance('agent-x'));
+      // The shared delegation paragraph only when the tool is in the session's list.
+      expect(sections.find((entry) => entry.id === 'delegation')).toBeUndefined();
+      const withTool = await agentScope.buildContext({
+        preconfig: SELF_PRECONFIG, workspacePath: undefined, workspaceId: undefined, additionalPaths: [],
+        delegationAvailable: true, selfDelegationAvailable: true,
+      });
+      const delegation = withTool.find((entry) => entry.id === 'delegation');
+      expect(delegation?.content).toContain('delegate_task hands a task');
+      expect(withTool.findIndex((entry) => entry.id === 'delegation')).toBeLessThan(withTool.findIndex((entry) => entry.id === SELF_DELEGATION_SECTION_ID));
 
       const hidden = await agentScope.buildContext({
         preconfig: SELF_PRECONFIG,
@@ -224,55 +223,7 @@ describe('C5 subagent composed scope ownership', () => {
     }
   });
 
-  test('the composed task payload resolves the dynamic definition from the scope-captured sources and never falls back to globals', async () => {
-    const scopePreconfigs = [EXPLORE_PRECONFIG, RESEARCH_PRECONFIG];
-
-    // Configure the scope values first so the composition binds them at
-    // creation, exactly like a real agent scope.
-    configureStorage(createInMemoryStorageBundle());
-    createSession(makeSession({ preconfigId: 'agent-x' }));
-    configurePreconfigSource({
-      get: async (id) => scopePreconfigs.find((p) => p.id === id) ?? null,
-      getDefault: async () => null,
-      getForAgent: async (id) => scopePreconfigs.find((p) => p.id === id) ?? null,
-      list: async () => scopePreconfigs,
-      listSubagents: async () => scopePreconfigs,
-    });
-
-    const processScope = await createCurrentProcessScope();
-    const agentScope = await createCurrentAgentScope(processScope);
-    try {
-      // Reconfigure the module-level globals AFTER composition with a
-      // decoy subagent set; the composed build must reflect the scope's
-      // captured sources and never read these globals.
-      const decoyPreconfigs = [{ ...EXPLORE_PRECONFIG, id: 'global-only' }];
-      configurePreconfigSource({
-        get: async () => null,
-        getDefault: async () => null,
-        getForAgent: async () => null,
-        list: async () => decoyPreconfigs,
-        listSubagents: async () => decoyPreconfigs,
-      });
-
-      const built = await enterAgentScope(agentScope, () => buildAiSdkTools({
-        toolNames: [],
-        workspacePath: undefined,
-        workspaceId: undefined,
-        sessionId: 'sess-root',
-        canSpawnSubagents: true,
-      }));
-      expect(Object.keys(built)).toEqual(['task']);
-      const description = String((built.task as { description?: string })?.description ?? '');
-      expect(description).toContain('- explore: Research tasks');
-      expect(description).toContain('- research: Deep research');
-      expect(description).not.toContain('global-only');
-    } finally {
-      await agentScope.dispose();
-      await processScope.dispose();
-    }
-  });
-
-  test('the composed payload depth gate blocks the task tool at maximum depth', async () => {
+  test('the composed depth gate reads the scope-captured storage', async () => {
     configureStorage(createInMemoryStorageBundle());
     createSession(makeSession({ id: 'root', preconfigId: 'agent-x' }));
     createSession(makeSession({ id: 'child-1', parentId: 'root', preconfigId: 'explore' }));
@@ -281,16 +232,6 @@ describe('C5 subagent composed scope ownership', () => {
     const processScope = await createCurrentProcessScope();
     const agentScope = await createCurrentAgentScope(processScope);
     try {
-      await enterAgentScope(agentScope, async () => {
-        const tools = await buildAiSdkTools({
-          toolNames: [],
-          workspacePath: undefined,
-          workspaceId: undefined,
-          sessionId: 'child-2',
-          canSpawnSubagents: true,
-        });
-        expect(Object.keys(tools)).toEqual([]);
-      });
       expect(await agentScope.require(capekSubagentDomainKey).canSpawnSubagent('child-2')).toBe(false);
       expect(await agentScope.require(capekSubagentDomainKey).canSpawnSubagent('root')).toBe(true);
     } finally {
@@ -394,7 +335,15 @@ describe('C5 subagent execution with injected deps', () => {
       sessions: new Map<string, Session>(),
       updates: [] as Array<{ id: string; updates: Record<string, unknown> }>,
       events: [] as unknown[],
-      children: [] as Array<Parameters<NonNullable<SubagentServiceDeps['executeChild']>>[0]>,
+      children: [] as HeadlessSessionRunInput[],
+      transcripts: new Map<string, MessageWithParts[]>(),
+    };
+    // The child's answer, as the host dispatch leaves it in the child's transcript.
+    const answer = (childSessionId: string, text: string): void => {
+      state.transcripts.set(childSessionId, [...(state.transcripts.get(childSessionId) ?? []), {
+        message: { id: `a-${state.transcripts.size}`, sessionId: childSessionId, role: 'assistant', createdAt: 1 } as MessageWithParts['message'],
+        parts: [{ id: 'pa', messageId: 'a', createdAt: 1, type: 'text', text } as TextPart],
+      }]);
     };
 
     const sessionAccess: SubagentServiceDeps['sessionAccess'] = {
@@ -428,19 +377,17 @@ describe('C5 subagent execution with injected deps', () => {
         sessionUpdated: (session) => state.events.push({ updated: session.id }),
         toSession: (sessionId, event) => state.events.push({ to: sessionId, event }),
       },
-      executeChild: async (options) => {
-        state.children.push(options);
-        return {
-          parts: [
-            { id: 'p1', messageId: 'm1', createdAt: 0, type: 'text', text: 'final-answer' } as TextPart,
-          ],
-          error: options.childSessionId === 'failing-child' ? 'child exploded' : undefined,
-          ...(options.responseFormat ? { structuredOutput: { data: { verdict: 'ok' } } } : {}),
-        };
+      runOnHarness: async (input) => {
+        state.children.push(input);
+        if (input.childSessionId === 'failing-child') return { error: 'child exploded' };
+        // A schema request is answered with JSON, anything else with text.
+        answer(input.childSessionId, input.prompt.includes('Reply with only a JSON object') ? '{"verdict":"ok"}' : 'final-answer');
+        return {};
       },
+      readTranscript: async (id) => state.transcripts.get(id) ?? [],
     };
 
-    return { state, deps };
+    return { state, deps, answer };
   }
 
   function baseInput(overrides: Record<string, unknown> = {}): Parameters<typeof executeSubagentWithDeps>[0] {
@@ -494,7 +441,7 @@ describe('C5 subagent execution with injected deps', () => {
 
     const result = await executeSubagentWithDeps(baseInput({ subagent_type: 'explore' }), {
       ...deps,
-      executeChild: async () => ({ parts: [], error: 'child exploded' }),
+      runOnHarness: async () => ({ error: 'child exploded' }),
     });
 
     expect(result.result).toBe('');
@@ -598,7 +545,7 @@ describe('C5 subagent execution with injected deps', () => {
   });
 
   test('handles abort before start and the interrupted transition when aborted during execution', async () => {
-    const { state, deps } = makeState();
+    const { state, deps, answer } = makeState();
     state.sessions.set('sess-root', makeSession({ id: 'sess-root', preconfigId: 'agent-x' }));
 
     const preAborted = new AbortController();
@@ -607,19 +554,18 @@ describe('C5 subagent execution with injected deps', () => {
     expect(before.error).toBe('Subagent execution aborted before start');
 
     // Abort during execution: the abort handler is registered before the
-    // child run starts, so aborting inside executeChild marks the run
-    // interrupted exactly like the pre-C5 path.
+    // child run starts, so an abort while the child runs marks the run
+    // interrupted even when an answer arrives afterwards.
     const controller = new AbortController();
     const during = await executeSubagentWithDeps(
       baseInput({ abortSignal: controller.signal }),
       {
         ...deps,
-        executeChild: async (options) => {
-          state.children.push(options);
+        runOnHarness: async (input) => {
+          state.children.push(input);
           controller.abort();
-          return {
-            parts: [{ id: 'p1', messageId: 'm1', createdAt: 0, type: 'text', text: 'late-answer' } as TextPart],
-          };
+          answer(input.childSessionId, 'late-answer');
+          return {};
         },
       },
     );

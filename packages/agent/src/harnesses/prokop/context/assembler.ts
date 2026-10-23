@@ -18,6 +18,8 @@ export interface ContextAssemblyData {
   workspacePath?: string;
   workspaceId?: string;
   additionalPaths?: string[];
+  /** The delegation tools are in the session's tool list. */
+  delegationAvailable?: boolean;
   selfDelegationAvailable?: boolean;
 }
 
@@ -73,11 +75,11 @@ export function validateContextAssemblyData(data: unknown): ContextAssemblyData 
       'context assembly data additionalPaths must be an array of strings when present',
     );
   }
-  const selfDelegationAvailable = candidate.selfDelegationAvailable;
-  if (selfDelegationAvailable !== undefined && typeof selfDelegationAvailable !== 'boolean') {
-    throw new ContextAssemblyDataError(
-      'context assembly data selfDelegationAvailable must be a boolean when present',
-    );
+  for (const key of ['delegationAvailable', 'selfDelegationAvailable'] as const) {
+    const value = candidate[key];
+    if (value !== undefined && typeof value !== 'boolean') {
+      throw new ContextAssemblyDataError(`context assembly data ${key} must be a boolean when present`);
+    }
   }
   return candidate as ContextAssemblyData;
 }

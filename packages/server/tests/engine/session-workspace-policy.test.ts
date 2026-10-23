@@ -119,7 +119,6 @@ describe('session workspace host policy', () => {
       list: () => [loadedTool],
     }, () => buildExternalTools({
       toolNames: [definition.name],
-      broadcast: () => {},
       sessionId: 'session-1',
       workspaceId: 'workspace-1',
       workspacePath: '/managed/root-1',

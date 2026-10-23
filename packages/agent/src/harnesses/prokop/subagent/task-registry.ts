@@ -18,7 +18,9 @@ export interface TaskHandle {
   description: string;
   harness: SessionHarness;
   model: string | null;
-  /** A launch: the worktree the session works in. */
+  /** A launch is a top-level session; a child is a subagent. Absent: read from the worktree. */
+  kind?: 'child' | 'launch';
+  /** A worktree launch: the worktree the session works in. */
   worktreeId?: string;
   branch?: string | null;
   run: Promise<SubagentOutput>;
@@ -58,8 +60,12 @@ export interface TaskRegistry {
 
 export const DEFAULT_WAIT_TIMEOUT_MS = 10 * 60_000;
 
+function isLaunch(handle: TaskHandle): boolean {
+  return handle.kind ? handle.kind === 'launch' : !!handle.worktreeId;
+}
+
 function label(handle: TaskHandle): string {
-  const kind = handle.worktreeId ? 'launched session' : 'task';
+  const kind = isLaunch(handle) ? 'launched session' : 'task';
   return `${kind} ${handle.taskId} "${handle.description}" on ${handle.harness}/${handle.model ?? 'default'}`;
 }
 
@@ -72,7 +78,9 @@ export function finishedTaskMessage(handle: TaskHandle, output: SubagentOutput, 
         `Uncommitted changes: ${launch.changedFiles} file${launch.changedFiles === 1 ? '' : 's'}`,
         'Open that session to review and merge.',
       ]
-    : [];
+    : isLaunch(handle)
+      ? ['It worked in this checkout. Open that session to review.']
+      : [];
   if (output.error && !output.result) return [`[${label(handle)} failed]`, ...where, output.error].join('\n');
   const lines = [`[${label(handle)} finished]`, ...where, output.result];
   if (output.error) lines.push(`Note: ${output.error}`);
@@ -94,7 +102,7 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
     return deps.host.tasks.get(handle.taskId) ?? {
       taskId: handle.taskId,
       parentSessionId: handle.parentSessionId,
-      kind: handle.worktreeId ? 'launch' as const : 'child' as const,
+      kind: isLaunch(handle) ? 'launch' as const : 'child' as const,
       worktreeId: handle.worktreeId ?? null,
       branch: handle.branch ?? null,
       requestKey: null,
@@ -229,6 +237,7 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
           description: row.description,
           harness: row.harness,
           model: row.model,
+          kind: row.kind,
           ...(row.worktreeId ? { worktreeId: row.worktreeId, branch: row.branch } : {}),
           run: Promise.resolve(output),
         };

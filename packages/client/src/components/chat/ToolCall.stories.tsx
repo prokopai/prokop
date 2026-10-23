@@ -52,29 +52,41 @@ const largeOutputPart = createToolPart(
   }),
 );
 
-const taskPart = createToolPart(
-  { name: 'task', callId: 'call-task' },
-  createToolStateRunning({
-    input: { prompt: 'Explore the codebase structure' },
-  }),
+const CHILD_SESSION_ID = '11111111-2222-4333-8444-555555555555';
+const delegateInput = { description: 'Review the auth change', prompt: 'Review the diff on this branch.', subagent_type: 'reviewer' };
+
+// A delegation still running in wait mode: spinner and elapsed time, no link yet.
+const delegateRunningPart = createToolPart(
+  { name: 'delegate_task', callId: 'call-delegate' },
+  createToolStateRunning({ input: delegateInput }),
 );
 
-const taskCompletedPart = createToolPart(
-  { name: 'task', callId: 'call-task-done' },
+// A finished delegation on any harness: the server projects the child link and the row state onto the part.
+const delegateCompletedPart = createToolPart(
+  {
+    name: 'delegate_task',
+    callId: 'call-delegate-done',
+    presentation: {
+      summary: 'Review the auth change',
+      visualization: { type: 'none', badge: 'completed', message: 'Two findings, both in token refresh.' },
+      debugAvailable: true,
+    },
+  },
+  {
+    ...createToolStateCompleted({
+      input: delegateInput,
+      output: JSON.stringify({ task_id: CHILD_SESSION_ID, result: 'Two findings, both in token refresh.\n\n1. ...', harness: 'claude-cli' }),
+    }),
+    childSessionId: CHILD_SESSION_ID,
+  },
+);
+
+// A transcript from before the rename: the Prokop `task` row with its task_id line keeps its link.
+const legacyTaskPart = createToolPart(
+  { name: 'task', callId: 'call-task-legacy' },
   createToolStateCompleted({
     input: { prompt: 'Explore the codebase structure' },
-    output: {
-      success: true,
-      _visualization: {
-        type: 'todo_list',
-        title: 'Exploration tasks',
-        items: [
-          { id: '1', content: 'Map directory structure', status: 'completed', priority: 'high' },
-          { id: '2', content: 'Identify entry points', status: 'completed', priority: 'high' },
-          { id: '3', content: 'Find configuration files', status: 'in_progress', priority: 'medium' },
-        ],
-      },
-    },
+    output: `<task_result>\nThe entry point is src/index.ts.\n</task_result>\ntask_id: ${CHILD_SESSION_ID} (for resuming to continue this task if needed)`,
   }),
 );
 
@@ -142,15 +154,21 @@ export const LargeOutput: Story = {
   },
 };
 
-export const TaskRunning: Story = {
+export const DelegateTaskRunning: Story = {
   args: {
-    part: taskPart,
+    part: delegateRunningPart,
   },
 };
 
-export const TaskCompletedWithVisualization: Story = {
+export const DelegateTaskCompletedWithLink: Story = {
   args: {
-    part: taskCompletedPart,
+    part: delegateCompletedPart,
+  },
+};
+
+export const LegacyTaskRowKeepsLink: Story = {
+  args: {
+    part: legacyTaskPart,
   },
 };
 

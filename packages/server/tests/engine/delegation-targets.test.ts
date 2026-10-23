@@ -46,7 +46,7 @@ describe('resolving where a delegated child runs', () => {
     expect(roleDefaults(REVIEWER)).toEqual({ harness: 'codex-cli', model: 'gpt-5.5', provider: null, variant: 'high' });
     expect(roleDefaults(PROKOP_PIN).harness).toBe('prokop');
 
-    const asConfigured = { harness: 'codex-cli', modelId: 'gpt-5.5', providerId: null, variant: 'high' };
+    const asConfigured = { harness: 'codex-cli' as const, modelId: 'gpt-5.5', providerId: null, variant: 'high' };
     expect(resolveDelegationTarget({ role: REVIEWER, inherited, parentPreconfig: base }))
       .toEqual({ ok: true, source: 'role', needsApproval: false, target: asConfigured });
     expect(resolveDelegationTarget({ role: REVIEWER, target: { harness: 'codex-cli', model: 'gpt-5.5' }, inherited, parentPreconfig: { ...base, delegationTargets: 'none' } }))
@@ -173,7 +173,6 @@ function makeDeps(options: { preconfigs?: Preconfig[]; maxChildren?: number; ena
   const preconfigs = options.preconfigs ?? [base, REVIEWER, EXPLORE, PROKOP_PIN];
   const sessions = new Map<string, Session>([['root', session({ id: 'root' })]]);
   const runs: HeadlessSessionRunInput[] = [];
-  const children: Array<Parameters<SubagentServiceDeps['executeChild']>[0]> = [];
   const transcripts = new Map<string, MessageWithParts[]>();
   const deps: SubagentServiceDeps = {
     sessionAccess: {
@@ -198,10 +197,6 @@ function makeDeps(options: { preconfigs?: Preconfig[]; maxChildren?: number; ena
       listSubagentPreconfigs: async () => preconfigs.filter((preconfig) => preconfig.mode !== 'primary'),
     },
     broadcasts: { event: () => {}, sessionCreated: () => {}, sessionUpdated: () => {}, toSession: () => {} },
-    executeChild: async (input) => {
-      children.push(input);
-      return { parts: [{ id: 'p', messageId: 'm', createdAt: 0, type: 'text', text: 'in-process' } as TextPart] };
-    },
     runOnHarness: async (input) => {
       runs.push(input);
       transcripts.set(input.childSessionId, [{
@@ -215,7 +210,7 @@ function makeDeps(options: { preconfigs?: Preconfig[]; maxChildren?: number; ena
     catalog,
     maxChildren: () => options.maxChildren ?? 4,
   };
-  return { deps, sessions, runs, children };
+  return { deps, sessions, runs };
 }
 
 const ask = (overrides: Record<string, unknown>) => ({
@@ -224,12 +219,12 @@ const ask = (overrides: Record<string, unknown>) => ({
 
 describe('the task tool with targets', () => {
   test('a role with no defaults on a target harness runs there with the target model; the child keeps the parent\'s permission mode', async () => {
-    const { deps, sessions, runs, children } = makeDeps();
+    const { deps, sessions, runs } = makeDeps();
 
     const result = await executeSubagentWithDeps(ask({ subagent_type: 'explore', target: { harness: 'codex-cli', model: 'gpt-5.5', variant: 'low' } }), deps);
 
     expect(result.error).toBeUndefined();
-    expect(children).toEqual([]);
+    expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({ harness: 'codex-cli', modelId: 'gpt-5.5', preconfig: { id: 'explore', model: 'gpt-5.5', variant: 'low', modelHarness: 'codex-cli' } });
     expect(sessions.get(result.task_id)).toMatchObject({ harness: 'codex-cli', selectedModel: 'gpt-5.5', selectedVariant: 'low', permissionMode: 'extended' });
     expect(result.result).toContain('cli answer');
@@ -272,15 +267,15 @@ describe('the task tool with targets', () => {
     expect(sessions.size).toBe(1);
   });
 
-  test('a role with a Prokop model still runs in-process with it and the plain call stays as before', async () => {
-    const { deps, children, sessions } = makeDeps();
+  test('a role with a Prokop model runs on Prokop with it, and the plain call inherits the parent\'s model', async () => {
+    const { deps, runs, sessions } = makeDeps();
 
     const pinned = await executeSubagentWithDeps(ask({ subagent_type: 'writer' }), deps);
-    expect(children[0]).toMatchObject({ modelId: 'minimax-m3', providerId: 'minimax' });
+    expect(runs[0]).toMatchObject({ harness: 'prokop', modelId: 'minimax-m3', providerId: 'minimax' });
     expect(sessions.get(pinned.task_id)).toMatchObject({ selectedModel: 'minimax-m3', selectedProvider: 'minimax', selectedVariant: null });
 
     const plain = await executeSubagentWithDeps(ask({ subagent_type: 'explore' }), deps);
-    expect(children[1]).toMatchObject({ modelId: 'parent-model', providerId: 'parent-provider' });
+    expect(runs[1]).toMatchObject({ harness: 'prokop', modelId: 'parent-model', providerId: 'parent-provider' });
     expect(sessions.get(plain.task_id)).toMatchObject({ selectedModel: 'parent-model', selectedVariant: null });
     expect(sessions.get(plain.task_id)?.harness).toBeUndefined();
     expect(plain.code).toBeUndefined();

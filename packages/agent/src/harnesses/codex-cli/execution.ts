@@ -38,8 +38,7 @@ import { parseCodexContextUsage, publishCodexContextUsage } from './usage';
 import { createCodexMemoryTools } from './memory-tools';
 import { createCodexSessionSearchTools } from './session-search-tools';
 import { createCodexAgentSkillTools } from './agent-skill-tools';
-import { DELEGATION_TOOL_NAMES, type AgentSkillsDomainBridge, type DelegationDomainBridge, type MemoryDomainBridge, type SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
-import { createCodexDelegationTools } from './delegation-tools';
+import type { AgentSkillsDomainBridge, MemoryDomainBridge, SessionSearchDomainBridge } from '#agent/harnesses/shared/domain-tools';
 import { applyRollback, clearRollbackIntent, getRollbackIntent, readRollbackHistory, readTurnIds, retargetReadyEdit, sameTurns, saveRollbackIntent, setRollbackPhase } from './rollback';
 import { forkCodexSession } from './fork';
 import { ensureSessionTempDir, sessionTempInstructions } from '@prokopai/core/infrastructure/filesystem/session-temp';
@@ -97,7 +96,6 @@ export interface CodexExecutionDependencies {
   memoryTools?: MemoryDomainBridge;
   sessionSearch?: SessionSearchDomainBridge;
   agentSkills?: AgentSkillsDomainBridge;
-  delegation?: DelegationDomainBridge;
   mcp?: WorkspaceMcpToolsPort;
 }
 
@@ -619,10 +617,6 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         const skillDefinitions = agentDir ? deps.agentSkills?.definitions() ?? [] : [];
         const skillToolNames = skillDefinitions.filter(definition =>
           definition.type === 'function' && definition.name === 'agent_skill_manage').map(definition => definition.name);
-        // Delegation to roles and other harnesses, unless the agent may not spawn subagents at all.
-        const delegationDefinitions = deps.delegation && (preconfig.canSpawnSubagents ?? true) !== false
-          ? deps.delegation.definitions() : [];
-        const delegationToolNames = delegationDefinitions.map(definition => definition.name);
         const tempDirectory = ensureSessionTempDir(sessionId);
         const isTempCwd = (cwd: string): boolean => {
           try { return isWithinRoot(realpathSync(cwd), tempDirectory); }
@@ -630,11 +624,11 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
         };
         const handoffBrief = await getHandoffBrief(sessionId);
         const rootNotice = await resolveCliRootNotice(session, workspace);
-        // Codex reaches MCP tools only through its bridge, so the instructions name the ones that need guidance.
+        // Codex reaches MCP tools (delegation included) only through its bridge, so the instructions name the ones that need guidance.
         const mcpToolNames = deps.mcp ? (await deps.mcp.tools(workspace.path, sessionId)).map(tool => tool.name) : [];
         const instructions = await codexDeveloperInstructions(workspace, root, preconfig, {
           ...sources, getAgentDirectory: async () => agentDir,
-        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...delegationToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
+        }, [...memoryToolNames, ...searchToolNames, ...skillToolNames, ...mcpToolNames]) + '\n\n' + sessionTempInstructions(tempDirectory)
           + (handoffBrief ? `\n\n${handoffBrief}` : '')
           + (rootNotice ? `\n\n${rootNotice}` : '');
         await pinDefaultPreconfig(session, preconfigId, agentDir, wire.delivery);
@@ -917,14 +911,6 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
             && !completed && !run.stopRequested,
           authorizeRoot,
         });
-        const delegation = deps.delegation && delegationDefinitions.length > 0 ? createCodexDelegationTools({
-          bridge: deps.delegation, definitions: delegationDefinitions,
-          sessionId, workspaceId: session.workspaceId, root, preconfigId,
-          isActive: turnId => !!run && active.get(sessionId) === run && run.turnId === turnId
-            && !completed && !run.stopRequested,
-          authorizeRoot,
-          ask: ask => codexApprovals.askUser(ask, 'delegate_task', sessionId, session.workspaceId, wire.delivery),
-        }) : undefined;
         const mcpAbort = new AbortController();
         const mcp = deps.mcp && createCodexMcpTools({ bridge: deps.mcp, path: workspace.path,
           sessionId, signal: mcpAbort.signal,
@@ -937,7 +923,7 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           },
         });
         const dynamicTools = [...(memoryTools?.definitions ?? []), ...(sessionSearch?.definitions ?? []),
-          ...(agentSkills?.definitions ?? []), ...(delegation?.definitions ?? []), ...(mcp?.definitions ?? [])];
+          ...(agentSkills?.definitions ?? []), ...(mcp?.definitions ?? [])];
         phase = 'Codex permission hook';
         if (!connection) {
           connection = { client: undefined as unknown as CodexAppServer, children: null, parentTurnId: null,
@@ -1066,9 +1052,6 @@ export function createCodexExecution(deps: CodexExecutionDependencies): QueuedCl
           }
           if (request.tool === 'session_search' && sessionSearch) return sessionSearch.call(params);
           if (request.tool === 'agent_skill_manage' && agentSkills) return agentSkills.call(params);
-          if (typeof request.tool === 'string' && (DELEGATION_TOOL_NAMES as readonly string[]).includes(request.tool) && delegation) {
-            return delegation.call(params);
-          }
           if ((request.tool === 'mcp_list_tools' || request.tool === 'mcp_call_tool') && mcp) return mcp.call(params);
           if (memoryTools) return memoryTools.call(params);
           return { success: false, contentItems: [{ type: 'inputText', text: 'Dynamic tool unavailable' }] };

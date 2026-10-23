@@ -12,7 +12,7 @@ import {
 import { configureRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/runtime';
 import { registerProvider, resetProviders } from '@prokopai/core/infrastructure/providers/registry';
 import { executeChildSession } from '@prokopai/agent/internal/harnesses/prokop/subagent/child-session';
-import { canSpawnSubagent, executeSubagent } from '@prokopai/agent/internal/harnesses/prokop/subagent/task-tool';
+import { canSpawnSubagent } from '@prokopai/agent/internal/harnesses/prokop/subagent/task-tool';
 import { getSubagentResumeError } from '@prokopai/agent/internal/harnesses/prokop/subagent/policy';
 import { createLlmApi } from '@prokopai/core/infrastructure/tools/llm-api';
 import { evaluateGoal } from '@prokopai/agent/internal/harnesses/prokop/goals/evaluator';
@@ -28,7 +28,6 @@ import { fixedBuilderContextAssembler } from '@prokopai/agent/internal/harnesses
 import { installMemoryToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/memory-domain';
 import { installSessionSearchToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/session-search-domain';
 import { installSkillsToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/skills-domain';
-import { installTaskToolFallback } from '@prokopai/agent/internal/harnesses/prokop/composition/plugins/subagent-domain';
 import type { StreamChatEvent } from '@prokopai/agent/internal/harnesses/prokop/retry/stream-chat';
 import type { RuntimeDelivery, RuntimeEvent } from '@prokopai/core/infrastructure/runtime/events';
 import type { ChatOptions } from '@prokopai/agent/internal/harnesses/prokop/execution/agent';
@@ -198,7 +197,6 @@ function bindRuntime(
   // as the process default at module load; the test setup owns it now.
   setDefaultContextAssembler(fixedBuilderContextAssembler);
   installSessionSearchToolFallback();
-  installTaskToolFallback();
   installMemoryToolFallback();
   installSkillsToolFallback();
   configureRuntimeConfiguration({
@@ -331,22 +329,19 @@ describe.serial('Phase 2 orchestration contracts', () => {
       const state = createState();
       bindRuntime(state);
       const message = `${type} exhausted`;
-      const result = await executeSubagent({
-        description: 'research',
+      const result = await executeChildSession({
+        parentSessionId: 'root',
+        childSessionId: 'child',
+        preconfig,
         prompt: 'work',
-        subagent_type: 'research',
-        sessionId: 'root',
-        executeChild: (options) => executeChildSession({
-          ...options,
-          streamChat: (async function* () {
-            yield { type, message } as StreamChatEvent;
-          }) as typeof import('@prokopai/agent/internal/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
-        }),
+        broadcastToSession: () => {},
+        streamChat: (async function* () {
+          yield { type, message } as StreamChatEvent;
+        }) as typeof import('@prokopai/agent/internal/harnesses/prokop/retry/stream-chat').streamChatWithRetry,
       });
 
-      expect(result.result).toBe('');
+      expect(result.parts).toEqual([]);
       expect(result.error).toBe(message);
-      expect(state.sessions.get(result.task_id)?.subagentStatus).toBe('error');
     }
   });
 
@@ -442,80 +437,6 @@ describe.serial('Phase 2 orchestration contracts', () => {
     });
     expect((incompleteState.sessions.get('root')?.metadata?.goal as GoalState).status).toBe('failed');
     expect(evaluations).toBe(0);
-  });
-
-  test('records completed and error terminal subagent statuses', async () => {
-    const completedState = createState();
-    bindRuntime(completedState);
-    const completed = await executeSubagent({
-      description: 'research',
-      prompt: 'work',
-      subagent_type: 'research',
-      sessionId: 'root',
-      executeChild: async () => ({
-        parts: [{ id: 'result', messageId: 'assistant', type: 'text', text: 'finished', createdAt: 1 }],
-      }),
-    });
-    expect(completed.error).toBeUndefined();
-    expect(completedState.sessions.get(completed.task_id)?.subagentStatus).toBe('completed');
-
-    const errorState = createState();
-    bindRuntime(errorState);
-    const failed = await executeSubagent({
-      description: 'research',
-      prompt: 'work',
-      subagent_type: 'research',
-      sessionId: 'root',
-      executeChild: async () => ({ parts: [], error: 'child failed' }),
-    });
-    expect(failed.error).toBe('child failed');
-    expect(errorState.sessions.get(failed.task_id)?.subagentStatus).toBe('error');
-  });
-
-  test('notifies onSessionCreated exactly once when resuming', async () => {
-    const state = createState();
-    bindRuntime(state);
-    const created: string[] = [];
-
-    const result = await executeSubagent({
-      description: 'continue research',
-      prompt: 'continue',
-      subagent_type: 'research',
-      task_id: 'child',
-      sessionId: 'root',
-      onSessionCreated: (childSessionId) => { created.push(childSessionId); },
-      executeChild: async () => ({ parts: [] }),
-    });
-
-    expect(result.task_id).toBe('child');
-    expect(created).toEqual(['child']);
-  });
-
-  test('cancels an in-flight child execution and preserves interrupted status', async () => {
-    const state = createState();
-    bindRuntime(state);
-    const abortController = new AbortController();
-    let receivedSignal: AbortSignal | undefined;
-
-    const result = await executeSubagent({
-      description: 'research',
-      prompt: 'work',
-      subagent_type: 'research',
-      sessionId: 'root',
-      abortSignal: abortController.signal,
-      executeChild: async (options) => {
-        receivedSignal = options.abortSignal;
-        abortController.abort(new Error('cancelled'));
-        throw new Error('child aborted');
-      },
-    });
-
-    // The child gets a signal the parent's abort reaches while the parent
-    // waits (a forwarding signal, so a task that turns async can detach).
-    expect(receivedSignal?.aborted).toBe(true);
-    expect((receivedSignal?.reason as Error).message).toBe('cancelled');
-    expect(result.error).toContain('child aborted');
-    expect(state.sessions.get(result.task_id)?.subagentStatus).toBe('interrupted');
   });
 
   test('persists user content before delivery and terminal messages before notification', async () => {

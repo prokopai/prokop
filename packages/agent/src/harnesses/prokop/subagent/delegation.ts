@@ -217,7 +217,7 @@ export interface DelegationCapabilities {
   caller: { harness: SessionHarness; model: string | null; provider: string | null };
   /** Whether a target may change a role's harness or model: freely, after asking the user, never, or freely for the listed harnesses. */
   overrides: 'any' | 'ask' | 'none' | SessionHarness[];
-  /** Whether this agent may start top-level sessions in their own worktrees. */
+  /** Whether this agent may start top-level sessions (in a new worktree or the current checkout). */
   launches: 'ask' | 'allow' | 'never';
   limits: { depth: number; maxChildren: number; maxLaunches: number };
   note: string;
@@ -289,7 +289,7 @@ export async function buildDelegationCapabilities(input: {
     note: 'Every delegation names a role (subagent_type); it runs on its defaults, or where you run when it has none. '
       + 'A target changes that harness, model, provider or variant for one task, within overrides '
       + '("ask" means the user is asked, "none" means roles run only as configured). '
-      + 'isolation "worktree" starts a top-level session on its own branch and worktree instead of a subagent; '
-      + 'launches says whether that needs the user\'s approval. Pass search to see models beyond the short lists.',
+      + 'isolation "worktree" starts a top-level session on its own branch and worktree instead of a subagent, "checkout" one in the current checkout; '
+      + 'launches says whether either needs the user\'s approval. Pass search to see models beyond the short lists.',
   };
 }
