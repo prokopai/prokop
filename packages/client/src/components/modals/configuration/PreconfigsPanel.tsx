@@ -512,7 +512,7 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                 className="sm:w-80"
               />
             </SettingsRow>
-            <SettingsRow label="Mode" description="Subagents can be spawned by other agents; primary agents start sessions.">
+            <SettingsRow label="Mode" description="Subagent roles are delegated to by other agents; primary agents start sessions.">
               <Select value={form.mode} onValueChange={(mode) => setForm({ ...form, mode: mode as PreconfigForm['mode'] })}>
                 <SelectTrigger className="w-36" aria-label="Mode">
                   <SelectValue />
@@ -559,6 +559,169 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                   placeholder="System prompt content..."
                 />
               </SettingsRow>
+            </DisclosureRow>
+            <DisclosureRow
+              label="Delegation"
+              summary={[
+                form.canSpawnSubagentsMode === 'all' ? 'all roles'
+                  : form.canSpawnSubagentsMode === 'specific'
+                    ? `${form.canSpawnSubagentsList.length} role${form.canSpawnSubagentsList.length === 1 ? '' : 's'}` : 'off',
+                form.canSpawnSubagentsMode !== 'none' && form.delegationTargetsMode === 'ask' ? 'targets: ask' : null,
+                form.canSpawnSubagentsMode !== 'none' && form.delegationTargetsMode === 'none' ? 'roles only' : null,
+                form.canSpawnSubagentsMode !== 'none' && form.launches === 'never' ? 'no new sessions' : null,
+              ].filter(Boolean).join(' · ')}
+              defaultOpen={false}
+            >
+              <div className="contents">
+                <SettingsRow className={nested} label="Roles" description="The subagent roles this agent may delegate to. Off hides the delegation tools.">
+                  <Select
+                    value={form.canSpawnSubagentsMode}
+                    onValueChange={(mode) => setForm({ ...form, canSpawnSubagentsMode: mode as PreconfigForm['canSpawnSubagentsMode'] })}
+                  >
+                    <SelectTrigger className="w-64" aria-label="Roles">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">Off: no delegation</SelectItem>
+                        <SelectItem value="all">All roles</SelectItem>
+                        <SelectItem value="specific">Specific roles</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                {form.canSpawnSubagentsMode === 'specific' && (
+                  <SettingsRow className={nested} label="Allowed roles" description={availableSubagents.length === 0 ? 'No subagent-mode agents available yet.' : undefined} stacked>
+                    {availableSubagents.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableSubagents.map(subagent => {
+                          const selected = form.canSpawnSubagentsList.includes(subagent.id);
+                          return (
+                            <button
+                              key={subagent.id}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => {
+                                setForm(prev => ({
+                                  ...prev,
+                                  canSpawnSubagentsList: selected
+                                    ? prev.canSpawnSubagentsList.filter(s => s !== subagent.id)
+                                    : [...prev.canSpawnSubagentsList, subagent.id],
+                                }));
+                              }}
+                              className={cn(
+                                'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
+                                selected
+                                  ? 'border-highlight bg-highlight/10 text-foreground'
+                                  : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                              )}
+                              title={subagent.description || subagent.id}
+                            >
+                              {selected && <Check className="size-2.5" />}
+                              {subagent.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </SettingsRow>
+                )}
+                <SettingsRow
+                  className={nested}
+                  label="Allow self as subagent"
+                  htmlFor="allow-self-as-subagent"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Turn delegation on first.'
+                    : form.mode === 'primary' ? 'No effect while the mode is Primary.'
+                      : 'Delegates once to a new copy of itself; the copy cannot delegate again.'}
+                >
+                  <Switch
+                    id="allow-self-as-subagent"
+                    checked={form.allowSelfAsSubagent}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                    onCheckedChange={(checked) => setForm({ ...form, allowSelfAsSubagent: checked })}
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  className={nested}
+                  label="Delegation targets"
+                  htmlFor="delegation-targets"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Turn delegation on first.'
+                    : 'Whether this agent may change a role\'s harness and model for a task it delegates. Roles only runs every role exactly as configured.'}
+                >
+                  <Select
+                    value={form.delegationTargetsMode}
+                    onValueChange={(value) => setForm({ ...form, delegationTargetsMode: value as 'any' | 'ask' | 'none' | 'specific' })}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                  >
+                    <SelectTrigger id="delegation-targets" className="sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="ask">Ask me each time</SelectItem>
+                        <SelectItem value="any">Any enabled harness</SelectItem>
+                        <SelectItem value="none">Roles only</SelectItem>
+                        <SelectItem value="specific">Specific harnesses, ask for others</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                <SettingsRow
+                  className={nested}
+                  label="New sessions"
+                  htmlFor="delegation-launches"
+                  description={form.canSpawnSubagentsMode === 'none' ? 'Turn delegation on first.'
+                    : 'Whether this agent may start top-level sessions for work it hands off, in the current checkout or in a new worktree on its own branch.'}
+                >
+                  <Select
+                    value={form.launches}
+                    onValueChange={(value) => setForm({ ...form, launches: value as 'ask' | 'allow' | 'never' })}
+                    disabled={form.canSpawnSubagentsMode === 'none'}
+                  >
+                    <SelectTrigger id="delegation-launches" className="sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="ask">Ask me each time</SelectItem>
+                        <SelectItem value="allow">Start without asking</SelectItem>
+                        <SelectItem value="never">Never</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </SettingsRow>
+                {form.delegationTargetsMode === 'specific' && (
+                  <SettingsRow className={nested} label="Allowed harnesses" stacked>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['prokop', 'Prokop'], ['codex-cli', 'Codex CLI'], ['claude-cli', 'Claude CLI']] as const).map(([id, label]) => {
+                        const selected = form.delegationTargetsList.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setForm(prev => ({
+                              ...prev,
+                              delegationTargetsList: selected
+                                ? prev.delegationTargetsList.filter(entry => entry !== id)
+                                : [...prev.delegationTargetsList, id],
+                            }))}
+                            className={cn(
+                              'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
+                              selected
+                                ? 'border-highlight bg-highlight/10 text-foreground'
+                                : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
+                          >
+                            {selected && <Check className="size-2.5" />}
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </SettingsRow>
+                )}
+              </div>
             </DisclosureRow>
           </SettingsGroup>
 
@@ -715,15 +878,12 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
           )}
 
           <SettingsGroup description={externalHarness
-            ? `This agent runs on ${externalHarness}, which uses its own tools, subagents, and sampling. These settings apply only if you switch it to a Prokop model.`
-            : 'Applies only when this agent runs on the Prokop harness. Codex and Claude sessions use their own tools, agents, and sampling settings.'}>
+            ? `This agent runs on ${externalHarness}, which uses its own tools and sampling. These settings apply only if you switch it to a Prokop model.`
+            : 'Applies only when this agent runs on the Prokop harness. Codex and Claude sessions use their own tools and sampling settings.'}>
             <DisclosureRow
               label="Prokop Runtime"
               summary={externalHarness ? `Not used by ${externalHarness}` : [
                 `${form.tools.length} tool${form.tools.length === 1 ? '' : 's'}`,
-                form.canSpawnSubagentsMode === 'all' ? 'subagents: all'
-                  : form.canSpawnSubagentsMode === 'specific'
-                    ? `${form.canSpawnSubagentsList.length} subagent${form.canSpawnSubagentsList.length === 1 ? '' : 's'}` : null,
                 form.temperature.trim() ? `temp ${form.temperature.trim()}` : null,
               ].filter(Boolean).join(' · ')}
               defaultOpen={false}
@@ -783,154 +943,6 @@ export function PreconfigsPanel({ sdkClient, draft: draftProp, onDraftChange }: 
                   </div>
                 </SettingsRow>
 
-                <SettingsRow className={nested} label="Subagents">
-                  <Select
-                    value={form.canSpawnSubagentsMode}
-                    onValueChange={(mode) => setForm({ ...form, canSpawnSubagentsMode: mode as PreconfigForm['canSpawnSubagentsMode'] })}
-                  >
-                    <SelectTrigger className="w-64" aria-label="Subagents">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="none">None: cannot spawn subagents</SelectItem>
-                        <SelectItem value="all">All available subagents</SelectItem>
-                        <SelectItem value="specific">Specific subagents</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </SettingsRow>
-                {form.canSpawnSubagentsMode === 'specific' && (
-                  <SettingsRow className={nested} label="Allowed subagents" description={availableSubagents.length === 0 ? 'No subagent-mode agents available yet.' : undefined} stacked>
-                    {availableSubagents.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableSubagents.map(subagent => {
-                          const selected = form.canSpawnSubagentsList.includes(subagent.id);
-                          return (
-                            <button
-                              key={subagent.id}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => {
-                                setForm(prev => ({
-                                  ...prev,
-                                  canSpawnSubagentsList: selected
-                                    ? prev.canSpawnSubagentsList.filter(s => s !== subagent.id)
-                                    : [...prev.canSpawnSubagentsList, subagent.id],
-                                }));
-                              }}
-                              className={cn(
-                                'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
-                                selected
-                                  ? 'border-highlight bg-highlight/10 text-foreground'
-                                  : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-                              )}
-                              title={subagent.description || subagent.id}
-                            >
-                              {selected && <Check className="size-2.5" />}
-                              {subagent.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </SettingsRow>
-                )}
-                <SettingsRow
-                  className={nested}
-                  label="Allow self as subagent"
-                  htmlFor="allow-self-as-subagent"
-                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
-                    : form.mode === 'primary' ? 'No effect while the mode is Primary.'
-                      : 'Delegates once to a new copy of itself; the copy cannot delegate again.'}
-                >
-                  <Switch
-                    id="allow-self-as-subagent"
-                    checked={form.allowSelfAsSubagent}
-                    disabled={form.canSpawnSubagentsMode === 'none'}
-                    onCheckedChange={(checked) => setForm({ ...form, allowSelfAsSubagent: checked })}
-                  />
-                </SettingsRow>
-                <SettingsRow
-                  className={nested}
-                  label="Delegation targets"
-                  htmlFor="delegation-targets"
-                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
-                    : 'Whether this agent may change a role\'s harness and model for a task it delegates. Roles only runs every role exactly as configured.'}
-                >
-                  <Select
-                    value={form.delegationTargetsMode}
-                    onValueChange={(value) => setForm({ ...form, delegationTargetsMode: value as 'any' | 'ask' | 'none' | 'specific' })}
-                    disabled={form.canSpawnSubagentsMode === 'none'}
-                  >
-                    <SelectTrigger id="delegation-targets" className="sm:w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="ask">Ask me each time</SelectItem>
-                        <SelectItem value="any">Any enabled harness</SelectItem>
-                        <SelectItem value="none">Roles only</SelectItem>
-                        <SelectItem value="specific">Specific harnesses, ask for others</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </SettingsRow>
-                <SettingsRow
-                  className={nested}
-                  label="Worktree sessions"
-                  htmlFor="delegation-launches"
-                  description={form.canSpawnSubagentsMode === 'none' ? 'Enable subagent spawning first.'
-                    : 'Whether this agent may start top-level sessions in new worktrees, one branch each, for work it hands off.'}
-                >
-                  <Select
-                    value={form.launches}
-                    onValueChange={(value) => setForm({ ...form, launches: value as 'ask' | 'allow' | 'never' })}
-                    disabled={form.canSpawnSubagentsMode === 'none'}
-                  >
-                    <SelectTrigger id="delegation-launches" className="sm:w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="ask">Ask me each time</SelectItem>
-                        <SelectItem value="allow">Start without asking</SelectItem>
-                        <SelectItem value="never">Never</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </SettingsRow>
-                {form.delegationTargetsMode === 'specific' && (
-                  <SettingsRow className={nested} label="Allowed harnesses" stacked>
-                    <div className="flex flex-wrap gap-1.5">
-                      {([['prokop', 'Prokop'], ['codex-cli', 'Codex CLI'], ['claude-cli', 'Claude CLI']] as const).map(([id, label]) => {
-                        const selected = form.delegationTargetsList.includes(id);
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            aria-pressed={selected}
-                            onClick={() => setForm(prev => ({
-                              ...prev,
-                              delegationTargetsList: selected
-                                ? prev.delegationTargetsList.filter(entry => entry !== id)
-                                : [...prev.delegationTargetsList, id],
-                            }))}
-                            className={cn(
-                              'inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors',
-                              selected
-                                ? 'border-highlight bg-highlight/10 text-foreground'
-                                : 'border-border/50 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-                            )}
-                          >
-                            {selected && <Check className="size-2.5" />}
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </SettingsRow>
-                )}
                 <SettingsRow className={nested} label="Temperature" htmlFor="agent-temperature" description="0.1 to 0.9; empty uses the server default. Not applied to GPT models on the Codex provider.">
                   <Input
                     id="agent-temperature"
