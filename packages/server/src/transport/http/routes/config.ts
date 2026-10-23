@@ -49,6 +49,8 @@ export function registerConfigRoutes(
         mode: body.mode as 'primary' | 'subagent' | 'both' | undefined,
         canSpawnSubagents: body.canSpawnSubagents as boolean | string[] | undefined,
         allowSelfAsSubagent: body.allowSelfAsSubagent,
+        ...(body.acceptsMessages !== undefined ? { acceptsMessages: body.acceptsMessages } : {}),
+        ...(body.canMessage !== undefined ? { canMessage: body.canMessage } : {}),
         delegationTargets: body.delegationTargets ?? null,
         launches: body.launches ?? null,
         skills: body.skills ?? null,
@@ -90,6 +92,8 @@ export function registerConfigRoutes(
         ...(body.allowSelfAsSubagent !== undefined
           ? { allowSelfAsSubagent: body.allowSelfAsSubagent }
           : {}),
+        ...(body.acceptsMessages !== undefined ? { acceptsMessages: body.acceptsMessages } : {}),
+        ...(body.canMessage !== undefined ? { canMessage: body.canMessage } : {}),
         ...(body.delegationTargets !== undefined ? { delegationTargets: body.delegationTargets } : {}),
         ...(body.launches !== undefined ? { launches: body.launches } : {}),
         skills: body.skills,

@@ -30,6 +30,11 @@ describe('host event notes', () => {
     expect(splitHostEvent(text)).toMatchObject({ event: { summary: 'two lines  here' }, body: 'body' });
   });
 
+  test('a message from another agent is its own kind', () => {
+    const event: HostEvent = { kind: 'message', id: 'sender-session', label: 'Marketing', outcome: 'ok', meta: 'question', summary: '[message from Marketing (marketing): question]' };
+    expect(splitHostEvent(formatHostEvent(event, 'body')).event).toEqual(event);
+  });
+
   test('ordinary prompts and malformed headers are all body', () => {
     expect(splitHostEvent('Run the tests please')).toEqual({ event: null, body: 'Run the tests please' });
     const unknownKind = '<prokop_event kind="weather" id="x" label="y" outcome="ok">sunny</prokop_event>\nbody';

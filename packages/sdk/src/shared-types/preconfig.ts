@@ -43,6 +43,18 @@ export interface Preconfig {
    */
   allowSelfAsSubagent?: boolean;
   /**
+   * Other agents may message this agent (`message_agent`). Default false: its
+   * memory is personal. Only an agent with a home can accept messages, since
+   * the conversation runs as a session in that home.
+   */
+  acceptsMessages?: boolean;
+  /**
+   * Which agents this preconfig may message, like `canSpawnSubagents`:
+   * undefined or true: any agent that accepts messages; false, null or []:
+   * none; a list: only those ids.
+   */
+  canMessage?: boolean | string[] | null;
+  /**
    * Controls which skills this preconfig can access.
    * - undefined or null: All available skills (default for backward compatibility)
    * - []: No skills available

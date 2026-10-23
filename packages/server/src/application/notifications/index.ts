@@ -57,6 +57,8 @@ export interface NotificationsApplication {
   deleteSubscription(id: string): void;
   dispatch(input: { eventId: string; eventType: NotificationEventType; sessionId: string }): Promise<void>;
   notifyTerminalMessage(message: AssistantMessage, sessionId: string): void;
+  /** Hears every finished assistant message on every harness, before the push decision; returns the unsubscribe. */
+  onTerminalMessage(listener: (message: AssistantMessage, sessionId: string) => void): () => void;
   acknowledgePendingNotification(eventId: string, sessionId: string, clientId: string): boolean;
   dispatchPendingAnswerNotification(requestId: string, rootSessionId: string): Promise<void>;
   notifyAnswerRequired(requestId: string, rootSessionId: string): void;
@@ -68,6 +70,7 @@ export function createNotificationsApplication(
   deps: NotificationsApplicationDeps,
 ): NotificationsApplication {
   const pendingDispatches = new Map<string, PendingNotificationDispatch>();
+  const terminalObservers = new Set<(message: AssistantMessage, sessionId: string) => void>();
 
   function askEvent(requestId: string, isPermission: boolean, rootSessionId: string): {
     eventId: string;
@@ -318,7 +321,19 @@ export function createNotificationsApplication(
 
     dispatch,
 
+    onTerminalMessage(listener) {
+      terminalObservers.add(listener);
+      return () => { terminalObservers.delete(listener); };
+    },
+
     notifyTerminalMessage(message, sessionId) {
+      for (const listener of terminalObservers) {
+        try {
+          listener(message, sessionId);
+        } catch (error: unknown) {
+          console.warn('[notifications] terminal message observer failed', error instanceof Error ? error.message : error);
+        }
+      }
       const session = deps.getSession(sessionId);
       const result = decideTerminalNotification(message, session, deps.canNotifyForSession);
       if (!result) {

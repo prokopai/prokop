@@ -11,6 +11,7 @@ import {
   createSessionLifecycleApplication,
   type SessionCreateInput,
   type SessionLifecycleApplication,
+  type SessionLifecycleDeps,
 } from './lifecycle';
 import {
   createSessionTranscriptApplication,
@@ -37,6 +38,8 @@ export interface SessionApplicationDeps<Origin> {
   worktreeAttachments?: WorktreeAttachmentRefreshPort;
   /** Archive, delete, undo and edit stop the session's background work. */
   stopBackgroundWork?: (sessionId: string) => void;
+  /** Conversations a session started in other agents' homes, deleted with it. */
+  agentConversations?: SessionLifecycleDeps<Origin>['agentConversations'];
   codexAvailable?: () => boolean;
   codexWorkspaceAvailable?: (workspaceId: string) => boolean;
   codexModels?: () => Promise<import('@prokopai/sdk').CodexModel[]>;

@@ -51,6 +51,22 @@ test('a finished task names the task and opens its session', () => {
   expect(screen.getByText(/Looks sound/)).toBeInTheDocument();
 });
 
+test('a message from another agent names the sender and its intent, and opens the session it came from', () => {
+  const onNavigateToSubagent = vi.fn();
+  const note = formatHostEvent(
+    { kind: 'message', id: 'conversation-1', label: 'Marketing', outcome: 'ok', meta: 'result', summary: '[message from Marketing (marketing): result]' },
+    'Notice line.\n\n<agent_message from="marketing" name="Marketing" session="conversation-1" intent="result" hop="2">\nBlue and white.\n</agent_message>\n\nRelay it.',
+  );
+  render(<MessageRow item={userItem(note)} revertMessageId={null} sessionId="s1" onNavigateToSubagent={onNavigateToSubagent} />);
+  const row = screen.getByRole('status');
+  expect(row).toHaveAttribute('data-host-event', 'message');
+  expect(row).toHaveTextContent('result');
+  expect(row).not.toHaveTextContent('finished');
+  fireEvent.click(screen.getByRole('button', { name: 'Marketing' }));
+  expect(onNavigateToSubagent).toHaveBeenCalledWith('conversation-1');
+  expect(screen.getByText(/Blue and white/)).toBeInTheDocument();
+});
+
 test('a queued note says so and can be removed from the queue', () => {
   const onRemoveFromQueue = vi.fn();
   render(<MessageRow item={userItem(taskNote, { isQueued: true, queueId: 'q1' })} revertMessageId={null} sessionId="s1"

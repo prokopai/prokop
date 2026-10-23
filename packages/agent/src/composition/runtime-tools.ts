@@ -17,6 +17,7 @@ import { delegationToolDefinitions, executeDelegationTool, isDelegationTool, typ
 import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { delegationResultFrom, delegationResultVisualization } from '#agent/harnesses/shared/tool-viz';
+import { canMessageAnyone, executeMessagingTool, isMessagingTool, messagingToolDefinitions } from '#agent/messaging/tools';
 
 export const DELEGATION_TOOLS_NAME = 'Prokop Delegation';
 
@@ -79,7 +80,38 @@ export const delegationRuntimeTools: AgentRuntimeTools = {
   },
 };
 
+export const MESSAGING_TOOLS_NAME = 'Prokop Messaging';
+
+/** Messaging between the user's agents: one tool, visible to any session that has someone to write to. */
+export const messagingRuntimeTools: AgentRuntimeTools = {
+  name: MESSAGING_TOOLS_NAME,
+  definitions: (sessionId) => messagingToolDefinitions(sessionId),
+  visibleTo: (sessionId) => canMessageAnyone(sessionId),
+  async execute(name, input, sessionId, _workspacePath, _signal, allowed): Promise<WorkspaceMcpResult> {
+    const fail = (text: string): WorkspaceMcpResult => ({ content: [{ type: 'text', text }], isError: true });
+    if (!isMessagingTool(name)) return fail('Unknown Prokop Messaging tool');
+    if (JSON.stringify(input).length > MAX_ARGUMENTS) return fail(`Invalid ${name} arguments`);
+    if (!await this.visibleTo(sessionId) || !await allowed()) return fail(`${name} unavailable`);
+    const result = await executeMessagingTool(name, input, { sessionId });
+    if (!await allowed()) return fail(`${name} unavailable`);
+    return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: result.delivered !== true };
+  },
+  visualize(name, input, result) {
+    if (!isMessagingTool(name)) return null;
+    const entry = result.content.find((candidate) => candidate.type === 'text') as { text?: unknown } | undefined;
+    const text = typeof entry?.text === 'string' ? entry.text : '';
+    let parsed: Record<string, unknown> | null = null;
+    try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* a refusal text */ }
+    const agent = typeof input.agent_id === 'string' ? input.agent_id : 'agent';
+    const message = typeof input.message === 'string' ? input.message.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    if (parsed?.delivered === true) {
+      return { type: 'none', badge: typeof parsed.intent === 'string' ? parsed.intent : 'sent', message: `To ${agent}: ${message}` };
+    }
+    return { type: 'none', badge: 'not sent', message: typeof parsed?.error === 'string' ? parsed.error : `To ${agent}: ${message}` };
+  },
+};
+
 /** Makes the agent's runtime tools available to the host's MCP manager. */
 export function installRuntimeTools(): void {
-  installAgentRuntimeTools(delegationRuntimeTools);
+  installAgentRuntimeTools([delegationRuntimeTools, messagingRuntimeTools]);
 }

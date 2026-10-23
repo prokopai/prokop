@@ -43,7 +43,8 @@ export function createLearningEvidenceReader(db: Database, scope: LearningEviden
       const info = object(current.metadata);
       if (!info) return false;
       if (info.learningRunId !== undefined) return false;
-      if (info.scheduledJobId !== undefined) automated = true;
+      // Scheduled runs and conversations other agents started are the agent's own work, not the person's.
+      if (info.scheduledJobId !== undefined || info.agentConversation !== undefined) automated = true;
       const policy = info.learning;
       if (policy !== undefined) {
         if (policy === null || typeof policy !== 'object' || Array.isArray(policy)) return false;

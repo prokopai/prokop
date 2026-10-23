@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { DEFAULT_MAX_DELEGATION_CHILDREN } from '../../application/ports/delegation-host';
+import { DEFAULT_AGENT_MESSAGE_MAX_HOPS } from '../../application/ports/agent-messaging';
 import { getEnvFilePath } from './paths';
 import { readEnv, readEnvFloat, readEnvInt, JEAN2_ENV_PREFIX, PROKOPAI_ENV_PREFIX } from './env-compat';
 
@@ -142,6 +143,12 @@ export function getLLMSubagentMaxSteps(): number {
 export function getDelegationMaxChildren(): number {
   const parsed = readEnvInt('DELEGATION_MAX_CHILDREN', DEFAULT_MAX_DELEGATION_CHILDREN);
   return parsed > 0 ? parsed : DEFAULT_MAX_DELEGATION_CHILDREN;
+}
+
+/** Hops an agent message may travel from a person's turn (default 6). */
+export function getAgentMessageMaxHops(): number {
+  const parsed = readEnvInt('AGENT_MESSAGE_MAX_HOPS', DEFAULT_AGENT_MESSAGE_MAX_HOPS);
+  return parsed > 0 ? parsed : DEFAULT_AGENT_MESSAGE_MAX_HOPS;
 }
 
 /** Running top-level worktree launches allowed per orchestrating session (default 3). */

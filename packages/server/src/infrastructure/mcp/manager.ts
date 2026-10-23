@@ -326,18 +326,23 @@ export function createMcpManager(fetchMcp: FetchLike = fetch): McpManager {
           } });
       }
     }
-    // Runtime tools (delegation): served by the agent runtime to any session
-    // it deems visible, with no configuration entry to consult.
-    const runtime = sessionId ? agentRuntimeTools() : null;
-    const runtimeTools: WorkspaceMcpTool[] = runtime && sessionId && await runtime.visibleTo(sessionId)
-      ? (await runtime.definitions(sessionId)).map(definition => ({
-        name: definition.name, serverName: runtime.name, toolName: definition.name,
-        description: definition.description, inputSchema: definition.inputSchema,
-        execute: (input, signal, authorized) => runtime.execute(definition.name, input, sessionId, path, signal,
-          async () => !authorized || await authorized()),
-        ...(runtime.visualize ? { visualize: (input, result) => runtime.visualize!(definition.name, input, result) } : {}),
-      }))
-      : [];
+    // Runtime tools (delegation, messaging): served by the agent runtime to
+    // any session it deems visible, with no configuration entry to consult.
+    const runtimeTools: WorkspaceMcpTool[] = [];
+    if (sessionId) {
+      for (const runtime of agentRuntimeTools()) {
+        if (!await runtime.visibleTo(sessionId)) continue;
+        for (const definition of await runtime.definitions(sessionId)) {
+          runtimeTools.push({
+            name: definition.name, serverName: runtime.name, toolName: definition.name,
+            description: definition.description, inputSchema: definition.inputSchema,
+            execute: (input, signal, authorized) => runtime.execute(definition.name, input, sessionId, path, signal,
+              async () => !authorized || await authorized()),
+            ...(runtime.visualize ? { visualize: (input, result) => runtime.visualize!(definition.name, input, result) } : {}),
+          });
+        }
+      }
+    }
     const inherited = globalTools.filter(tool => !Object.hasOwn(workspaceServers, tool.serverName));
     return [...inherited.map(tool => ({
       ...tool,

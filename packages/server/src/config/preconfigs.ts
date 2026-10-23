@@ -200,6 +200,14 @@ export function validatePreconfigData(data: Record<string, unknown>): string[] {
     errors.push('allowSelfAsSubagent must be a boolean');
   }
 
+  if (data.acceptsMessages !== undefined && typeof data.acceptsMessages !== 'boolean') {
+    errors.push('acceptsMessages must be a boolean');
+  }
+  if (data.canMessage !== undefined && data.canMessage !== null && typeof data.canMessage !== 'boolean'
+    && !(Array.isArray(data.canMessage) && data.canMessage.every((entry: unknown) => typeof entry === 'string'))) {
+    errors.push('canMessage must be a boolean, null, or an array of agent ids');
+  }
+
   if (data.skills !== undefined && data.skills !== null && !Array.isArray(data.skills)) {
     errors.push('skills must be an array or null');
   }

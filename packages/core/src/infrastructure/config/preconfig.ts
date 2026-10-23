@@ -226,6 +226,8 @@ function parsePreconfigMd(content: string): Preconfig {
     mode: data.mode,
     canSpawnSubagents: data.canSpawnSubagents,
     allowSelfAsSubagent: data.allowSelfAsSubagent ?? false,
+    ...(data.acceptsMessages !== undefined ? { acceptsMessages: data.acceptsMessages === true } : {}),
+    ...(data.canMessage !== undefined ? { canMessage: data.canMessage } : {}),
     skills: data.skills ?? null,
     capabilities: data.capabilities ?? null,
   };

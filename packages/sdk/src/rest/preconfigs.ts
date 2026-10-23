@@ -27,6 +27,10 @@ interface CreateOptions {
   mode?: PreconfigMode;
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  /** Other agents may message this agent. Default false. */
+  acceptsMessages?: boolean;
+  /** Which agents this preconfig may message; omit for any that accepts messages. */
+  canMessage?: boolean | string[] | null;
   /** Explicit delegation targets allowed without a role; omit for any. */
   delegationTargets?: DelegationTargets | null;
   /** Top-level worktree launches: ask (default), allow, never. */
@@ -54,6 +58,10 @@ interface UpdateOptions {
   mode?: PreconfigMode;
   canSpawnSubagents?: boolean | string[] | null;
   allowSelfAsSubagent?: boolean;
+  /** Other agents may message this agent. Omit to keep the stored value. */
+  acceptsMessages?: boolean;
+  /** Which agents this preconfig may message. Omit to keep the stored value. */
+  canMessage?: boolean | string[] | null;
   /** Explicit delegation targets allowed without a role. Omit to keep the stored value. */
   delegationTargets?: DelegationTargets | null;
   /** Top-level worktree launches. Omit to keep the stored value. */

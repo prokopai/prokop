@@ -133,7 +133,10 @@ import { createHarnessExecution } from '@prokopai/core/application/sessions/harn
 import { onHarnessWorktreeChanged } from '@/bootstrap/agent-ports';
 import { installHeadlessExecutionPort, type HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import { installDelegationHost } from '@prokopai/core/application/ports/delegation-host';
-import { getDelegationMaxChildren, getDelegationMaxLaunches } from '@prokopai/core/infrastructure/runtime/environment';
+import { installAgentMessagingHost } from '@prokopai/core/application/ports/agent-messaging';
+import { agentHomeWorkspaceId } from '@prokopai/core/domains/agents/home';
+import { createAgentConversationStore } from '@/infrastructure/sqlite/agent-conversations';
+import { getAgentMessageMaxHops, getDelegationMaxChildren, getDelegationMaxLaunches } from '@prokopai/core/infrastructure/runtime/environment';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
 import { createServerSettingsRepository } from '@/infrastructure/sqlite/server-settings';
@@ -330,6 +333,24 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const harnessSettings = createHarnessSettingsApplication(createServerSettingsRepository(getDatabase));
   // What a delegation checks before creating a child: the harness is enabled
   // here and installed on this machine, and the root is under its child limit.
+  // Agent messaging: conversations in recipient homes, messages and answers
+  // through the delivery primitive, the recipient's home materialized on
+  // first contact.
+  const agentConversations = createAgentConversationStore(getDatabase);
+  installAgentMessagingHost({
+    deliver: async ({ sessionId, content, key }) => {
+      await sessionDelivery.deliver({ sessionId, content, key, origin: 'agent' });
+    },
+    homeWorkspace: async (agentId) => {
+      const agent = await agents.ensureAgentMaterialized(agentId);
+      if (!agent?.hasHome) return null;
+      const workspace = getWorkspace(agentHomeWorkspaceId(agentId));
+      return workspace ? { id: workspace.id, path: workspace.path } : null;
+    },
+    maxHops: getAgentMessageMaxHops,
+    conversations: agentConversations,
+  });
+
   installDelegationHost({
     harnessEnabled: harness => harness === 'prokop' || !harnessSettings.isDisabled(harness),
     harnessAvailable: harness => harness === 'prokop' ? true : harness === 'codex-cli' ? codexCliAvailable() : claudeCliAvailable(),
@@ -410,6 +431,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     workspaceRoots,
     worktreeAttachments,
     stopBackgroundWork: shellCommands.stopBackgroundWork,
+    agentConversations,
     codexAvailable: codexCliAvailable,
     codexWorkspaceAvailable,
     claudeAvailable: claudeCliAvailable,
@@ -567,6 +589,8 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   });
 
   const notifications = getProkopNotificationsApplication();
+  // A conversation's finished turn answers the agent that asked.
+  notifications.onTerminalMessage((message) => { void agentRuntime().returnAgentMessageAnswer(message); });
 
   const permissions = createPermissionsApplication({
     repository: createProkopPermissionRepositoryPort(),

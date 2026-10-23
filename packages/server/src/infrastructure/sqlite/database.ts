@@ -196,6 +196,20 @@ export function initializeSchema(db: Database): void {
   )`);
   db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_delegated_tasks_request ON delegated_tasks(parent_session_id, request_key) WHERE request_key IS NOT NULL');
 
+  // Agent messaging: one conversation per sender session and recipient agent,
+  // a session in the recipient's home. The rows go with either session.
+  db.run(`CREATE TABLE IF NOT EXISTS agent_conversations (
+    id TEXT PRIMARY KEY,
+    sender_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    sender_agent_id TEXT,
+    recipient_agent_id TEXT NOT NULL,
+    recipient_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    explicit_result_wake_id TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE (sender_session_id, recipient_agent_id)
+  )`);
+  db.run('CREATE INDEX IF NOT EXISTS idx_agent_conversations_recipient ON agent_conversations(recipient_session_id)');
+
   db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
     repository_id TEXT NOT NULL,
     config_hash TEXT NOT NULL,

@@ -34,6 +34,11 @@ export interface SessionLifecycleDeps<Origin> {
   worktreeAttachments?: WorktreeAttachmentRefreshPort;
   /** The session ended (archive, delete) or its history was rewritten (undo, edit): its background work stops. */
   stopBackgroundWork?: (sessionId: string) => void;
+  /** Conversations this session started in other agents' homes; they go when it goes. */
+  agentConversations?: {
+    listBySender(senderSessionId: string): Array<{ id: string; recipientSessionId: string }>;
+    delete(id: string): void;
+  };
   codexAvailable?: () => boolean;
   codexWorkspaceAvailable?: (workspaceId: string) => boolean;
   codexModels?: () => Promise<CodexModel[]>;
@@ -534,6 +539,16 @@ export function createSessionLifecycleApplication<Origin>(
         if (!session) {
           wire.delivery.send(origin, { type: 'error', code: 'not_found', message: 'Session not found', sessionId });
           return;
+        }
+        // A conversation another agent holds for this session makes no sense without it.
+        for (const conversation of deps.agentConversations?.listBySender(sessionId) ?? []) {
+          const recipient = deps.repository.getSession(conversation.recipientSessionId);
+          deps.agentConversations?.delete(conversation.id);
+          if (!recipient) continue;
+          void deps.execution.interruptSession(conversation.recipientSessionId, 'Sender session deleted').catch(() => undefined);
+          deps.stopBackgroundWork?.(conversation.recipientSessionId);
+          deps.repository.deleteSession(conversation.recipientSessionId);
+          wire.delivery.broadcast({ type: 'session.deleted', sessionId: conversation.recipientSessionId });
         }
         deps.repository.deleteSession(sessionId);
         deps.stopBackgroundWork?.(sessionId);

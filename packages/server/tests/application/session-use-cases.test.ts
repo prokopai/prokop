@@ -1415,6 +1415,38 @@ describe('application session use cases', () => {
       expect(spy.broadcast).toEqual([]);
     });
 
+    test('remove takes the conversations the session started in other agents\' homes with it, stopping them first', async () => {
+      const order: string[] = [];
+      const deleted: string[] = [];
+      const repository = makeRepository({
+        getSession: (id) => id === 'gone' ? null : makeSession({ id }),
+        deleteSession: (id) => { deleted.push(id); return true; },
+      });
+      const execution = makeExecution({ interruptSession: async (id) => {
+        order.push(`interrupt:${id}`);
+        return { sessionId: id, success: true, cascadedTo: [], interruptedTools: [], rejectedAsks: [] };
+      } });
+      const conversations = [
+        { id: 'c-1', recipientSessionId: 'marketing-conv' },
+        { id: 'c-2', recipientSessionId: 'gone' },
+      ];
+      const app = createSessionLifecycleApplication({ ...makeDeps({ repository, execution,
+        stopBackgroundWork: (id) => { order.push(`stop:${id}`); },
+        agentConversations: {
+          listBySender: (id) => id === 'sess-1' ? conversations : [],
+          delete: (id) => { order.push(`forget:${id}`); },
+        } }) });
+      const spy = makeSpy();
+      app.remove(makeWire(spy), origin, 'sess-1');
+      await Promise.resolve();
+      expect(deleted).toEqual(['marketing-conv', 'sess-1']);
+      expect(order).toEqual(['forget:c-1', 'interrupt:marketing-conv', 'stop:marketing-conv', 'forget:c-2', 'stop:sess-1']);
+      expect(spy.broadcast.map((entry) => entry.message)).toEqual([
+        { type: 'session.deleted', sessionId: 'marketing-conv' },
+        { type: 'session.deleted', sessionId: 'sess-1' },
+      ]);
+    });
+
     test('rename trims, marks the manual title, and broadcasts session.renamed to every client', () => {
       const updateInputs: unknown[] = [];
       const repository = makeRepository({
