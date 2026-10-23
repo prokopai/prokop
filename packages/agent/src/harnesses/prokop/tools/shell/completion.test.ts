@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { splitContextEnvelope } from '@prokopai/sdk';
+import { splitContextEnvelope, splitHostEvent } from '@prokopai/sdk';
 import { createCommandRegistry, type CommandRegistry } from './commands';
 import { completionMessage, configureShellCompletions } from './completion';
 
@@ -33,9 +33,12 @@ describe('shell completion messages', () => {
     await registry.wait(record.id, 5000);
 
     const message = completionMessage(record, registry);
-    const { body, terminals } = splitContextEnvelope(message);
-    expect(body).toContain(`Background command ${record.id} finished successfully after`);
-    expect(body).toContain('`echo built; exit 0`');
+    const { event, body: rest } = splitHostEvent(message);
+    expect(event).toMatchObject({ kind: 'shell', id: record.id, label: 'echo built; exit 0', outcome: 'ok' });
+    expect(event?.meta).toMatch(/^exit 0 · \d/);
+    expect(event?.summary).toContain(`Background command ${record.id} finished successfully after`);
+    expect(event?.summary).toContain('`echo built; exit 0`');
+    const { body, terminals } = splitContextEnvelope(rest);
     expect(body).toContain(`[echo built; exit 0](#context-${record.id})`);
     expect(body).toContain(`Full output: ${record.outputPath}`);
     const chip = terminals.get(record.id);
@@ -46,16 +49,18 @@ describe('shell completion messages', () => {
     registry = createCommandRegistry();
     const failed = start(registry, 'exit 7');
     await registry.wait(failed.id, 5000);
-    expect(completionMessage(failed, registry)).toContain('exited with code 7');
+    expect(splitHostEvent(completionMessage(failed, registry)).event).toMatchObject({ outcome: 'error', meta: expect.stringMatching(/^exit 7 · /),
+      summary: expect.stringContaining('exited with code 7') });
 
     const killed = start(registry, 'sleep 30');
     await registry.wait(killed.id, 50);
     await registry.kill(killed.id);
-    expect(completionMessage(killed, registry)).toContain('was killed');
+    expect(splitHostEvent(completionMessage(killed, registry)).event).toMatchObject({ outcome: 'stopped', meta: expect.stringMatching(/^killed · /),
+      summary: expect.stringContaining('was killed') });
 
     const broken = registry.start({ sessionId: 's', command: 'x', argv: ['/no/such/shell', '-c', 'x'], cwd: process.cwd(), env: {}, outputDir: outputDir() });
     await registry.wait(broken.id, 5000);
-    expect(completionMessage(broken, registry)).toContain('could not start');
+    expect(splitHostEvent(completionMessage(broken, registry)).event).toMatchObject({ outcome: 'error', summary: expect.stringContaining('could not start') });
   });
 });
 

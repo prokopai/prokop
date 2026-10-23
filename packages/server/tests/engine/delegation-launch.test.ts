@@ -9,6 +9,7 @@ import { describe, expect, test } from 'bun:test';
 import { createMemoryDelegatedTaskStore, type DelegationAskNotice } from '@prokopai/core/application/ports/delegation-host';
 import type { HeadlessSessionRunInput } from '@prokopai/core/application/ports/headless-execution';
 import type { MessageWithParts, PermissionAsk, Preconfig, Session, SessionHarness, TextPart } from '@prokopai/sdk/types';
+import { splitHostEvent } from '@prokopai/sdk';
 import { createTaskRegistry } from '@prokopai/agent/internal/harnesses/prokop/subagent/task-registry';
 import {
   delegationDecision,
@@ -136,7 +137,8 @@ describe('launches into worktrees', () => {
     await settle();
     expect(h.deliveries).toHaveLength(1);
     const note = h.deliveries[0]!.content;
-    expect(note).toStartWith(`[launched session ${result.task_id} "Add rate limiting" on prokop/m finished]`);
+    expect(splitHostEvent(note).event).toMatchObject({ kind: 'task', id: result.task_id, label: 'Add rate limiting', outcome: 'ok',
+      meta: 'launched session · prokop · m', summary: `[launched session ${result.task_id} "Add rate limiting" on prokop/m finished]` });
     expect(note).toContain('Branch: add-rate-limiting\nWorktree: /data/worktrees/add-rate-limiting\nUncommitted changes: 3 files\nOpen that session to review and merge.');
     expect(note).toContain('Done: middleware added, tests pass.');
   });
@@ -192,7 +194,7 @@ describe('launches into worktrees', () => {
     h.finish('Done: middleware added.');
     await settle();
     const note = h.deliveries[0]!.content;
-    expect(note).toStartWith(`[launched session ${result.task_id} "Add rate limiting" on prokop/m finished]`);
+    expect(splitHostEvent(note).event?.summary).toBe(`[launched session ${result.task_id} "Add rate limiting" on prokop/m finished]`);
     expect(note).toContain('It worked in this checkout. Open that session to review.');
     expect(note).not.toContain('Worktree:');
 

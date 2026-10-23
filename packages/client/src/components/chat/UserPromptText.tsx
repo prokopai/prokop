@@ -7,6 +7,24 @@ import { useContextFileOpener } from '@/hooks/useContextFileOpener';
 
 const TERMINAL_HREF = '#context-';
 
+/**
+ * Double single newlines for markdown line breaks in user messages,
+ * but preserve original formatting inside fenced code blocks.
+ */
+export function formatUserText(text: string): string {
+  const segments = text.split(/```/);
+  return segments
+    .map((segment, i) => {
+      if (i % 2 === 1) {
+        // Inside a fenced code block: preserve as-is, re-add fences
+        return '```' + segment + '```';
+      }
+      // Outside code blocks: double single newlines for markdown rendering
+      return segment.replace(/\n(?!\n)/g, '\n\n');
+    })
+    .join('');
+}
+
 interface UserPromptTextProps {
   text: string;
   sessionId: string;

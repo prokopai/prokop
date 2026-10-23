@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import { buildApiUrl } from '@/config/urls';
 import { AlertTriangle, ChevronRight, Download, FileIcon, RotateCcw } from 'lucide-react';
 import type { Part, TextPart, Message, CompactionPart, AssistantMessage, StructuredOutputData } from '@prokopai/sdk';
-import { isAssistantMessage } from '@prokopai/sdk';
+import { isAssistantMessage, splitHostEvent } from '@prokopai/sdk';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { MessageBubble } from './MessageBubble';
-import { UserPromptText } from './UserPromptText';
+import { HostEventRow } from './HostEventRow';
+import { formatUserText, UserPromptText } from './UserPromptText';
 import { ErrorMessageContent } from './ErrorMessageContent';
 import { ToolCall } from './ToolCall';
 import { cn } from '@/lib/utils';
@@ -25,24 +26,6 @@ function getTextContent(parts: Part[]): string {
   return parts
     .filter((part): part is TextPart => part.type === 'text')
     .map(part => part.text)
-    .join('');
-}
-
-/**
- * Double single newlines for markdown line breaks in user messages,
- * but preserve original formatting inside fenced code blocks.
- */
-function formatUserText(text: string): string {
-  const segments = text.split(/```/);
-  return segments
-    .map((segment, i) => {
-      if (i % 2 === 1) {
-        // Inside a fenced code block — preserve as-is, re-add fences
-        return '```' + segment + '```';
-      }
-      // Outside code blocks — double single newlines for markdown rendering
-      return segment.replace(/\n(?!\n)/g, '\n\n');
-    })
     .join('');
 }
 
@@ -413,6 +396,22 @@ export const MessageRow = memo(function MessageRow({
 
   if (compactionPart) {
     return <CompactionDivider part={compactionPart} />;
+  }
+
+  // A note the host delivered (a background command, a delegated task) is a
+  // user message by role, but it is not something the person typed.
+  const hostEvent = item.message.role === 'user' ? splitHostEvent(getTextContent(item.parts)) : null;
+  if (hostEvent?.event) {
+    return (
+      <HostEventRow
+        event={hostEvent.event}
+        body={hostEvent.body}
+        sessionId={sessionId}
+        queued={item.isQueued ? (item.isSteer ? 'steering' : 'pending') : undefined}
+        onRemove={item.isQueued && item.queueId && onRemoveFromQueue ? () => onRemoveFromQueue(item.queueId!) : undefined}
+        onNavigateToSubagent={onNavigateToSubagent}
+      />
+    );
   }
 
   const canRevert = !item.isQueued && item.message.role === 'user';

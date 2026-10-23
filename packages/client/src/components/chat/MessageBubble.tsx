@@ -1,7 +1,7 @@
 import { Copy, Check, X, Clock, CornerDownRight, Undo2, GitBranch, Pin, PinOff, Pencil, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { Message } from '@prokopai/sdk';
-import { contextMessagePlainText, isAssistantMessage, joinContextEnvelope, splitContextEnvelope } from '@prokopai/sdk';
+import { contextMessagePlainText, hostEventPlainText, isAssistantMessage, joinContextEnvelope, splitContextEnvelope } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
@@ -149,7 +149,7 @@ export function MessageBubble({
 
   const handleCopy = async () => {
     // User prompts copy as people would type them, with captured terminal output inline.
-    const text = isUser ? contextMessagePlainText(textContent || '', { terminals: 'fenced' }) : textContent || '';
+    const text = isUser ? contextMessagePlainText(hostEventPlainText(textContent || ''), { terminals: 'fenced' }) : textContent || '';
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

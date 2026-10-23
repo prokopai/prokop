@@ -8,7 +8,7 @@
  * it like a pasted terminal excerpt and the model reads the output inline.
  */
 
-import { joinContextEnvelope, type TerminalContextReference } from '@prokopai/sdk';
+import { formatHostEvent, joinContextEnvelope, type HostEventOutcome, type TerminalContextReference } from '@prokopai/sdk';
 import { getCommandRegistry, type CommandRecord, type CommandRegistry } from './commands';
 
 export interface ShellCompletionPort {
@@ -36,19 +36,27 @@ function label(command: string): string {
   return oneLine.length > LABEL_LENGTH ? `${oneLine.slice(0, LABEL_LENGTH - 1)}…` : oneLine;
 }
 
-/** The prompt a finished background command turns into. */
+/** What the row says about the exit: `exit 0`, `exit 7`, `killed`, `signal SIGKILL`, `could not start`. */
+function exitFacts(record: CommandRecord): { outcome: HostEventOutcome; verb: string; short: string } {
+  if (record.status === 'killed') return { outcome: 'stopped', verb: 'was killed', short: 'killed' };
+  if (record.error) return { outcome: 'error', verb: `could not start (${record.error})`, short: 'could not start' };
+  if (record.exitCode === 0) return { outcome: 'ok', verb: 'finished successfully', short: 'exit 0' };
+  if (record.exitCode === null) {
+    const signal = record.signal ?? 'unknown';
+    return { outcome: 'error', verb: `ended by signal ${signal}`, short: `signal ${signal}` };
+  }
+  return { outcome: 'error', verb: `exited with code ${record.exitCode}`, short: `exit ${record.exitCode}` };
+}
+
+/**
+ * The prompt a finished background command turns into: a host event header
+ * (clients render it as an event row), the output as a terminal chip, and
+ * where the full output lives.
+ */
 export function completionMessage(record: CommandRecord, registry: CommandRegistry): string {
   const { text, truncated } = registry.tail(record.id, COMPLETION_TAIL_BYTES);
   const duration = formatDuration((record.endedAt ?? Date.now()) - record.startedAt);
-  const outcome = record.status === 'killed'
-    ? 'was killed'
-    : record.error
-      ? `could not start (${record.error})`
-      : record.exitCode === 0
-        ? 'finished successfully'
-        : record.exitCode === null
-          ? `ended by signal ${record.signal ?? 'unknown'}`
-          : `exited with code ${record.exitCode}`;
+  const exit = exitFacts(record);
   const reference: TerminalContextReference = {
     kind: 'terminal',
     id: record.id,
@@ -57,12 +65,20 @@ export function completionMessage(record: CommandRecord, registry: CommandRegist
     text: text.trimEnd() || '(no output)',
   };
   const lines = [
-    `Background command ${record.id} ${outcome} after ${duration}: \`${label(record.command)}\` [${reference.label}](#context-${record.id})`,
+    `[${reference.label}](#context-${record.id})`,
     truncated
       ? `Showing the last ${COMPLETION_TAIL_BYTES / 1024} KiB of ${record.lines} lines; the full output is in ${record.outputPath}.`
       : `Full output: ${record.outputPath}`,
   ];
-  return joinContextEnvelope(lines.join('\n'), [reference]);
+  const header = {
+    kind: 'shell' as const,
+    id: record.id,
+    label: reference.label,
+    outcome: exit.outcome,
+    meta: `${exit.short} · ${duration}`,
+    summary: `Background command ${record.id} ${exit.verb} after ${duration}: \`${reference.label}\``,
+  };
+  return formatHostEvent(header, joinContextEnvelope(lines.join('\n'), [reference]));
 }
 
 /**

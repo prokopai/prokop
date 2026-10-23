@@ -10,6 +10,7 @@ import { createClaudeExecution } from '@prokopai/agent/internal/harnesses/claude
 import { runClaudeCompact } from '@prokopai/agent/internal/harnesses/claude-cli/compact';
 import { saveClaudeModelSelection } from '@/infrastructure/sqlite/harness-model-selection';
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import { splitHostEvent } from '@prokopai/sdk';
 import type { SessionWirePorts } from '@prokopai/core/application/ports/delivery';
 import { addMessageToQueue, deleteQueuedMessage, listQueuedMessages } from '@/infrastructure/sqlite/queued-messages';
 import { createAttachment } from '@/infrastructure/sqlite/attachments';
@@ -1449,7 +1450,7 @@ test('a background Bash command ends the host turn at the reply and reports back
   expect(entries.map(entry => `${entry.message.role}:${entry.message.role === 'assistant' ? entry.message.status : ''}`))
     .toEqual(['user:', 'assistant:completed', 'user:', 'assistant:completed']);
   const note = entries[2]!.parts.find(part => part.type === 'text')!.text;
-  expect(note).toContain('Background command finished: `bun test`');
+  expect(splitHostEvent(note).event).toMatchObject({ kind: 'shell', label: 'bun test', outcome: 'ok', summary: 'Background command finished: `bun test`' });
   expect(note).toContain('tests passed');
   expect(note).toContain(`Full output: ${outputFile}`);
   expect(note).toContain('<prokop_context>');
@@ -1493,7 +1494,7 @@ test('a message sent during a continuation runs as the next turn in the same pro
   const entries = listMessagesWithParts('session');
   expect(entries.map(entry => `${entry.message.role}:${entry.parts.filter(part => part.type === 'text').map(part => part.text)[0]?.slice(0, 20) ?? ''}`))
     .toEqual(['user:run the checks', 'assistant:checks running', 'user:also lint', 'assistant:also linted',
-      'user:Background command f', 'assistant:all green']);
+      'user:<prokop_event kind="', 'assistant:all green']);
   expect(entries.every(entry => entry.message.role !== 'assistant' || entry.message.status === 'completed')).toBe(true);
   expect(listQueuedMessages('session')).toEqual([]);
   expect(getSession('session')?.runningAt).toBeNull();

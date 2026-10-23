@@ -7,6 +7,7 @@
  */
 
 import type { MessageWithParts, Session, SessionHarness } from '@prokopai/sdk/types';
+import { formatHostEvent, type HostEventOutcome } from '@prokopai/sdk';
 import type { DelegationAskNotice, DelegationHostPort } from '@prokopai/core/application/ports/delegation-host';
 import { delegationHost } from '@prokopai/core/application/ports/delegation-host';
 import { listMessagesWithParts, getSession as runtimeGetSession } from '@prokopai/core/infrastructure/storage/runtime';
@@ -69,6 +70,18 @@ function label(handle: TaskHandle): string {
   return `${kind} ${handle.taskId} "${handle.description}" on ${handle.harness}/${handle.model ?? 'default'}`;
 }
 
+/**
+ * The note as a host event: clients render the header as an event row that
+ * opens the child session, the body stays the text the model reads.
+ */
+function taskNote(handle: TaskHandle, outcome: HostEventOutcome, summary: string, body: string[]): string {
+  const meta = [isLaunch(handle) ? 'launched session' : null, handle.harness, handle.model ?? 'default'].filter(Boolean).join(' · ');
+  return formatHostEvent(
+    { kind: 'task', id: handle.taskId, label: handle.description, outcome, meta, summary },
+    body.join('\n'),
+  );
+}
+
 /** The message the parent receives when a watched task settles. A launch adds what a reviewer needs. */
 export function finishedTaskMessage(handle: TaskHandle, output: SubagentOutput, launch?: LaunchOutcome | null): string {
   const where = launch
@@ -81,15 +94,17 @@ export function finishedTaskMessage(handle: TaskHandle, output: SubagentOutput, 
     : isLaunch(handle)
       ? ['It worked in this checkout. Open that session to review.']
       : [];
-  if (output.error && !output.result) return [`[${label(handle)} failed]`, ...where, output.error].join('\n');
-  const lines = [`[${label(handle)} finished]`, ...where, output.result];
+  if (output.error && !output.result) return taskNote(handle, 'error', `[${label(handle)} failed]`, [...where, output.error]);
+  const lines = [...where, output.result];
   if (output.error) lines.push(`Note: ${output.error}`);
-  return lines.join('\n');
+  return taskNote(handle, 'ok', `[${label(handle)} finished]`, lines);
 }
 
 export function askTaskMessage(handle: TaskHandle, ask: DelegationAskNotice): string {
-  return `[${label(handle)} needs an answer]\nIt is waiting on ${ask.toolName}; the user sees the question here. `
-    + 'Answer it if it is yours to answer, otherwise tell the user what it waits for.';
+  return taskNote(handle, 'ask', `[${label(handle)} needs an answer]`, [
+    `It is waiting on ${ask.toolName}; the user sees the question here. `
+    + 'Answer it if it is yours to answer, otherwise tell the user what it waits for.',
+  ]);
 }
 
 export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
@@ -211,7 +226,8 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
       handle.run
         .then(async (output) => deliverResult(handle, serial, finishedTaskMessage(handle, output, await launchOutcome(handle))))
         .catch((error: unknown) => deliverResult(handle, serial,
-          `[${label(handle)} failed]\n${error instanceof Error ? error.message : String(error)}`).catch(() => undefined))
+          taskNote(handle, 'error', `[${label(handle)} failed]`, [error instanceof Error ? error.message : String(error)]))
+          .catch(() => undefined))
         .finally(() => release(handle.taskId));
     },
 

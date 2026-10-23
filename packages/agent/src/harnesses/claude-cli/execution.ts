@@ -19,7 +19,7 @@ import { isDelegatedChild } from '#agent/harnesses/shared/delegated-child';
 import { describeError, logHarness, StderrTail } from '#agent/harnesses/shared/diagnostics';
 import { runClaudeTurn, type ClaudeSteerInput, type ClaudeTurnEvent } from './sdk-turn';
 import { readFile } from 'node:fs/promises';
-import { joinContextEnvelope, type TerminalContextReference } from '@prokopai/sdk';
+import { formatHostEvent, joinContextEnvelope, type HostEvent, type TerminalContextReference } from '@prokopai/sdk';
 import { commitSteer, pendingSteers, type DispatchedSteer } from '#agent/harnesses/shared/steering';
 import { readClaudeGoalVerdict } from './goal-transcript';
 import { runClaudeCompact } from './compact';
@@ -487,13 +487,19 @@ export function createClaudeExecution(deps: ClaudeExecutionDependencies = {}): Q
           const reference: TerminalContextReference = { kind: 'terminal', id, label,
             text: tail.trimEnd() || event.summary || '(no output)' };
           const lines = [
-            `Background command ${outcome}: \`${label}\` [${label}](#context-${id})`,
+            `[${label}](#context-${id})`,
             ...(event.summary ? [event.summary] : []),
             ...(event.outputFile ? [`Full output: ${event.outputFile}`] : []),
           ];
+          const header: HostEvent = {
+            kind: 'shell', id, label,
+            outcome: event.status === 'completed' ? 'ok' : event.status === 'failed' ? 'error' : 'stopped',
+            meta: outcome,
+            summary: `Background command ${outcome}: \`${label}\``,
+          };
           const note = await createMessage({ id: crypto.randomUUID(), sessionId, role: 'user', createdAt: Date.now() });
           const text = await createPart({ id: crypto.randomUUID(), messageId: note.id, type: 'text',
-            text: joinContextEnvelope(lines.join('\n'), [reference]), createdAt: nextCreatedAt() }, sessionId);
+            text: formatHostEvent(header, joinContextEnvelope(lines.join('\n'), [reference])), createdAt: nextCreatedAt() }, sessionId);
           wire.delivery.broadcastToSession(sessionId, { type: 'message.created', message: note });
           wire.delivery.broadcastToSession(sessionId, { type: 'part.created', sessionId, part: text });
         };

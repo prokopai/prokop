@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { ArchiveIcon, GitForkIcon } from 'lucide-react';
+import { formatHostEvent, joinContextEnvelope } from '@prokopai/sdk';
 import { MessageRow, TranscriptDivider } from './TranscriptRow';
 import {
   createAssistantMessage,
@@ -91,6 +92,33 @@ export const Queued: Story = {
       parts: createUserMessageWithParts('Also update the README.', SESSION).parts,
       isQueued: true,
       queueId: createQueuedMessage({ sessionId: SESSION, content: 'Also update the README.' }).id,
+    },
+  },
+};
+
+/** A note the host delivered: a background command finished. Not a prompt bubble. */
+export const HostEventShell: Story = {
+  args: {
+    item: createUserMessageWithParts(formatHostEvent(
+      { kind: 'shell', id: 'c3', label: 'bun test', outcome: 'ok', meta: 'exit 0 · 2.1 s',
+        summary: 'Background command c3 finished successfully after 2.1 s: `bun test`' },
+      joinContextEnvelope('[bun test](#context-c3)\nFull output: /tmp/prokop/shell/c3.out', [
+        { kind: 'terminal', id: 'c3', label: 'bun test', text: '✓ 42 tests passed' },
+      ]),
+    ), SESSION),
+  },
+};
+
+export const HostEventTaskQueued: Story = {
+  args: {
+    item: {
+      ...createUserMessageWithParts(formatHostEvent(
+        { kind: 'task', id: 'child-1', label: 'Review the auth change', outcome: 'ok', meta: 'codex-cli · gpt-5.5',
+          summary: '[task child-1 "Review the auth change" on codex-cli/gpt-5.5 finished]' },
+        'task_id: child-1\n<task_result>\nThe change is sound.\n</task_result>',
+      ), SESSION),
+      isQueued: true,
+      queueId: 'queued-event-1',
     },
   },
 };

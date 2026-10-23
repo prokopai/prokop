@@ -8,6 +8,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createMemoryDelegatedTaskStore, type DelegationAskNotice } from '@prokopai/core/application/ports/delegation-host';
 import type { MessageWithParts, Preconfig, Session, TextPart } from '@prokopai/sdk/types';
+import { splitHostEvent } from '@prokopai/sdk';
 import {
   askTaskMessage,
   createTaskRegistry,
@@ -124,7 +125,11 @@ describe('async delegation', () => {
     await settle();
     expect(h.deliveries).toHaveLength(1);
     expect(h.deliveries[0]).toMatchObject({ sessionId: 'root', key: `task-result:${result.task_id}:1` });
-    expect(h.deliveries[0]!.content).toStartWith(`[task ${result.task_id} "Map the repo" on prokop/m finished]\ntask_id: ${result.task_id}`);
+    expect(splitHostEvent(h.deliveries[0]!.content)).toMatchObject({
+      event: { kind: 'task', id: result.task_id, label: 'Map the repo', outcome: 'ok', meta: 'prokop · m',
+        summary: `[task ${result.task_id} "Map the repo" on prokop/m finished]` },
+      body: expect.stringMatching(new RegExp(`^task_id: ${result.task_id}`)),
+    });
     expect(h.deliveries[0]!.content).toContain('<task_result>\nthe map\n</task_result>');
     expect(h.sessions.get(result.task_id)?.subagentStatus).toBe('completed');
     expect(h.registry.isWatched(result.task_id)).toBe(false);
@@ -288,8 +293,16 @@ describe('async delegation', () => {
 
   test('messages name the task, the role run and the outcome', () => {
     const handle: TaskHandle = { taskId: 't1', parentSessionId: 'root', description: 'Review', harness: 'codex-cli', model: 'gpt-5.5', run: Promise.resolve({ task_id: 't1', result: '' }) };
-    expect(finishedTaskMessage(handle, { task_id: 't1', result: '', error: 'boom' })).toBe('[task t1 "Review" on codex-cli/gpt-5.5 failed]\nboom');
-    expect(finishedTaskMessage(handle, { task_id: 't1', result: 'R', error: 'partial' })).toBe('[task t1 "Review" on codex-cli/gpt-5.5 finished]\nR\nNote: partial');
-    expect(askTaskMessage(handle, { sessionId: 't1', requestId: 'r', toolName: 'shell' })).toContain('[task t1 "Review" on codex-cli/gpt-5.5 needs an answer]');
+    expect(splitHostEvent(finishedTaskMessage(handle, { task_id: 't1', result: '', error: 'boom' }))).toEqual({
+      event: { kind: 'task', id: 't1', label: 'Review', outcome: 'error', meta: 'codex-cli · gpt-5.5', summary: '[task t1 "Review" on codex-cli/gpt-5.5 failed]' },
+      body: 'boom',
+    });
+    expect(splitHostEvent(finishedTaskMessage(handle, { task_id: 't1', result: 'R', error: 'partial' }))).toMatchObject({
+      event: { outcome: 'ok', summary: '[task t1 "Review" on codex-cli/gpt-5.5 finished]' },
+      body: 'R\nNote: partial',
+    });
+    expect(splitHostEvent(askTaskMessage(handle, { sessionId: 't1', requestId: 'r', toolName: 'shell' })).event).toMatchObject({
+      outcome: 'ask', summary: '[task t1 "Review" on codex-cli/gpt-5.5 needs an answer]',
+    });
   });
 });
