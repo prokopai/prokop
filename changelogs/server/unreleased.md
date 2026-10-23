@@ -1,5 +1,7 @@
 ### Fixed
 
+- **Claude Code turns no longer fail with "Unknown Claude content block"**: Replies that used a server-side tool (such as the advisor or web search) ended in that error and left the conversation stuck. Prokop now skips those parts and keeps the rest of the reply.
+
 - **Stopping a parent now stops its delegated Prokop subagents**: Once a delegated task ran on after its parent stopped waiting, Stop on the parent, Stop on the child and `task_cancel` only marked the child as interrupted while it kept calling tools, with no control left to stop it. The child's run is now registered with the interrupt manager for its whole life, so all three end it; the parent gets a note that the task was interrupted instead of whatever text the child had produced so far.
 
 - **Stop a subagent from its own session**: Opening a running subagent used to show a read-only note and, for Prokop and Claude Code children, no way to stop it. While a subagent the host drives is working, that bar now says so and carries a Stop control; it reads "Stopping" until the server confirms, then turns into the read-only note. A Claude Code agent thread that lives inside its parent's process still has no Stop of its own.

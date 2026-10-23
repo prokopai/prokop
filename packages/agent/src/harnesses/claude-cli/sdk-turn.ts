@@ -270,6 +270,7 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
   const otherTasks = new Map<string, boolean>();
   const otherTaskTools = new Map<string, string>();
   const streamedText = new Map<string, string>();
+  const skippedBlockTypes = new Set<string>();
   const backgroundTasksPending = (): boolean => [...otherTasks.values()].some(Boolean);
   const releaseIfSettled = (): void => {
     if (!finished || backgroundAgents.size > 0 || pendingSteers.size > 0 || backgroundTasksPending()) return;
@@ -422,7 +423,13 @@ export async function* runClaudeTurn(input: ClaudeTurnInput): AsyncGenerator<Cla
           input.onToolOwner?.(block.id, parentToolUseId);
           yield { type: 'tool-start', id: block.id, name: block.name, input: record(block.input)!, ...owner };
         } else if (block.type !== 'thinking' && block.type !== 'redacted_thinking') {
-          throw new Error('Unknown Claude content block');
+          // Server-run blocks (advisor, web search, compaction, fallback and later
+          // API additions) are settled by the API and the CLI; the host has nothing to run.
+          const label = /^[a-z_]{1,48}$/.test(block.type) ? block.type : 'other';
+          if (!skippedBlockTypes.has(label)) {
+            skippedBlockTypes.add(label);
+            console.warn('[claude-cli] skipped content block', { type: label });
+          }
         }
       }
     } else if (message.type === 'user') {

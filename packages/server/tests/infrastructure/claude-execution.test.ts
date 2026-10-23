@@ -1192,6 +1192,32 @@ test('lost compact result blocks retry and subsequent Claude messages', async ()
   expect(events.at(-1)).toMatchObject({ type: 'error', code: 'invalid_session' });
 });
 
+test('server-run content blocks (advisor, web search) do not fail the turn', async () => {
+  const { wire } = wireFixture();
+  const warn = spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    const exec = createClaudeExecution({ version: () => '2.1.285', start: (_prompt, options) => {
+      const id = options.sessionId ?? options.resume;
+      async function* stream(): AsyncGenerator<SDKMessage> {
+        yield { type: 'system', subtype: 'init', session_id: id } as SDKMessage;
+        yield { type: 'assistant', session_id: id, parent_tool_use_id: null, message: { content: [
+          { type: 'thinking', thinking: 'private' },
+          { type: 'server_tool_use', id: 'srvtoolu_1', name: 'advisor', input: {} },
+          { type: 'advisor_tool_result', tool_use_id: 'srvtoolu_1', content: { type: 'advisor_result', text: 'advice' } },
+          { type: 'text', text: 'reply after advice' },
+        ] } } as unknown as SDKMessage;
+        yield { type: 'result', subtype: 'success', session_id: id, is_error: false, result: 'reply after advice' } as SDKMessage;
+      }
+      return stream();
+    } });
+    await exec.sendMessage(wire, 'origin', 'session', 'hello');
+    const reply = listMessagesWithParts('session').at(-1)!;
+    expect(reply.message).toMatchObject({ role: 'assistant', status: 'completed' });
+    expect(reply.parts).toMatchObject([{ type: 'text', text: 'reply after advice' }]);
+    expect(warn.mock.calls.flat().map(value => JSON.stringify(value)).join(' ')).not.toContain('advice');
+  } finally { warn.mockRestore(); }
+});
+
 test('early child events attach only to their Agent, and Stop closes the child transcript', async () => {
   const { wire } = wireFixture();
   let childStarted!: () => void;
