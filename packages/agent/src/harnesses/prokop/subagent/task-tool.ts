@@ -33,6 +33,7 @@ import {
   isSubagentSpawningDisabled,
   isValidSubagentTargetPreconfig,
 } from '#agent/harnesses/prokop/subagent/policy';
+import { interruptManager } from '#agent/harnesses/prokop/execution/interrupt';
 
 import { randomUUID } from 'crypto';
 
@@ -1012,9 +1013,13 @@ async function runSubagent(
       const current = tasks?.get(child.id);
       if (current) tasks?.upsert({ ...current, settled: true, updatedAt: new Date().toISOString() });
     };
-    // Parent aborts reach the child only while the parent waits; once the
-    // task turns async it runs to completion on its own.
-    const childAbort = new AbortController();
+    // The parent's tool-call abort reaches the child only while the parent
+    // waits. Stop on the parent (which cascades to running children), Stop
+    // on the child and task_cancel all go through the interrupt manager, so
+    // a Prokop child is registered there for its whole run, which outlives
+    // the wait. A child on another harness is stopped by that harness.
+    const childAbort = harness === 'prokop' ? interruptManager.registerSession(child.id, sessionId) : new AbortController();
+    const releaseChild = (): void => { if (harness === 'prokop') interruptManager.unregisterSession(child.id); };
     const forwardAbort = (): void => childAbort.abort(abortSignal?.reason);
     if (abortSignal?.aborted) forwardAbort();
     else abortSignal?.addEventListener('abort', forwardAbort, { once: true });
@@ -1045,8 +1050,14 @@ async function runSubagent(
       abortSignal: childAbort.signal,
     });
 
-    // Check if was aborted during execution
-    if (wasAborted) {
+    // Stopped, by the parent's wait ending in an abort or by an interrupt
+    // after the wait: the run ended early, whatever text it left is no answer.
+    if (wasAborted || childAbort.signal.aborted) {
+      if (!wasAborted) {
+        await updateSessionFn(child.id, { subagentStatus: 'interrupted' });
+        const updatedSession = await getSessionFn(child.id);
+        if (updatedSession) broadcastSessUpdated(updatedSession);
+      }
       return {
         task_id: child.id,
         result: '',
@@ -1107,6 +1118,7 @@ async function runSubagent(
       ...(taskRow.worktreeId ? { worktreeId: taskRow.worktreeId, branch: taskRow.branch } : {}),
       run: finishRun().finally(() => {
         detachAbort();
+        releaseChild();
         markSettled();
       }),
     };

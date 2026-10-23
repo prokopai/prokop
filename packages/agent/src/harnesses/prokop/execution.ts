@@ -167,6 +167,8 @@ export function createProkopHeadlessExecution(
       dependencies.executeChildSession)
     : withProkopExecutionScope(() => {
       const { harness: _harness, ...child } = input;
-      return executeChildSession(child);
+      // The caller's signal is the only way to stop the run: a delegation
+      // aborts it when the parent, the child or task_cancel is stopped.
+      return executeChildSession({ ...child, ...(options?.signal ? { abortSignal: options.signal } : {}) });
     });
 }

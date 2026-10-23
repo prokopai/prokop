@@ -1,3 +1,7 @@
+### Fixed
+
+- **Stopping a parent now stops its delegated Prokop subagents**: Once a delegated task ran on after its parent stopped waiting, Stop on the parent, Stop on the child and `task_cancel` only marked the child as interrupted while it kept calling tools, with no control left to stop it. The child's run is now registered with the interrupt manager for its whole life, so all three end it; the parent gets a note that the task was interrupted instead of whatever text the child had produced so far.
+
 ### Added
 
 - **Notes from background work look like notes, not like your messages**: When a background command finishes, or a delegated task finishes or needs an answer, the agent is woken with a message. That message used to show as one of yours, in your bubble, with edit and revert. It now shows as a single muted line under the conversation: the command or the task, how it ended (exit code and duration for a command, harness and model for a task), the output as a terminal chip, and the task's name opens its session. A long result folds behind Show. The same line appears when the note waits in the queue behind a running turn. Copying it or finding it in the prompt map gives the readable sentence, not the marker.
