@@ -63,6 +63,13 @@ console.log(markdown);
     expect(build.stderr.toString()).toBe('');
     expect(build.exitCode).toBe(0);
 
+    // macOS kills a compiled Bun binary whose signature does not verify; the
+    // packaging script ad-hoc signs its outputs for the same reason.
+    if (process.platform === 'darwin') {
+      const sign = Bun.spawnSync(['codesign', '--force', '--sign', '-', executable], { stdout: 'pipe', stderr: 'pipe' });
+      expect(sign.exitCode).toBe(0);
+    }
+
     const run = Bun.spawnSync([executable], {
       stdout: 'pipe',
       stderr: 'pipe',

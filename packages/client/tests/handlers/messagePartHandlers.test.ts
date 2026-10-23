@@ -253,8 +253,9 @@ describe('messagePartHandlers - file query invalidation', () => {
     expect(mockInvalidate).toHaveBeenCalled();
 
     mockInvalidate.mockClear();
+    // An interrupted shell command may have written files before it was stopped.
     handlePartUpdated(
-      { type: 'part.updated', sessionId: 'sess-1', part: makeToolPart('terminal', 'interrupted') },
+      { type: 'part.updated', sessionId: 'sess-1', part: makeToolPart('shell', 'interrupted') },
       ctxWithWorkspaceSession(),
     );
     vi.advanceTimersByTime(300);
