@@ -1,6 +1,6 @@
 import { EmptyState } from '@/components/shared/States';
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
-import { ChevronRight, CheckSquare, X, Archive, MoreHorizontal, Trash2, Tag, MessageSquare } from 'lucide-react';
+import { ChevronRight, CheckSquare, X, Archive, MoreHorizontal, Trash2, Tag } from 'lucide-react';
 import type { Session, ScheduledJob } from '@prokopai/sdk';
 import {
   SidebarGroup,
@@ -429,6 +429,31 @@ export function WorkspaceSessionContent({
     <>
       {renderActiveSection()}
 
+      {/* Conversations other agents started here by messaging this workspace's agent: loaded when opened. */}
+      {(categories || agentConversationSessions.length > 0) && (
+        <Collapsible open={categories?.conversations.open} onOpenChange={categories?.conversations.onOpenChange} className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger asChild>
+                <div className="group/head flex w-full items-center gap-1.5 py-0.5">
+                  <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <span>From other agents</span>
+                  {categories && !categories.counts ? <span className="text-xs">…</span> : renderCount(categories?.counts?.conversations ?? agentConversationSessions.length)}
+                </div>
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {agentConversationSessions.map(renderSessionButton)}
+                </SidebarMenu>
+                <SessionCategoryStatus category={categories?.conversations} />
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+      )}
+
       {/* Scheduled Jobs */}
       <ScheduledJobsSection
         jobs={scheduledJobs}
@@ -446,32 +471,6 @@ export function WorkspaceSessionContent({
         onDeleteJob={onDeleteScheduledJob}
         onOpenSession={onResumeSession}
       />
-
-      {/* Conversations other agents started here by messaging this workspace's agent: loaded when opened. */}
-      {(categories || agentConversationSessions.length > 0) && (
-        <Collapsible open={categories?.conversations.open} onOpenChange={categories?.conversations.onOpenChange} className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger asChild>
-                <div className="group/head flex w-full items-center gap-1.5 py-0.5">
-                  <ChevronRight className="size-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  <MessageSquare className="size-3" />
-                  <span>From other agents</span>
-                  {categories && !categories.counts ? <span className="text-xs">…</span> : renderCount(categories?.counts?.conversations ?? agentConversationSessions.length)}
-                </div>
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {agentConversationSessions.map(renderSessionButton)}
-                </SidebarMenu>
-                <SessionCategoryStatus category={categories?.conversations} />
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-      )}
 
       {/* Archived Sessions */}
       {(categories || archivedSessions.length > 0) && (
