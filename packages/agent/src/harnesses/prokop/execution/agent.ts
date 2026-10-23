@@ -158,6 +158,7 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     additionalPaths: effectiveAdditionalPaths,
     delegationAvailable: Boolean(aiTools.delegate_task),
     selfDelegationAvailable,
+    messagingAvailable: Boolean(aiTools.message_agent),
   });
   const systemMessage = options.handoffBrief
     ? `${assembledSystemMessage}\n\n${options.handoffBrief}` : assembledSystemMessage;

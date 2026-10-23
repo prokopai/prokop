@@ -553,12 +553,12 @@ describe('C3 ordered context assembler', () => {
         ...CURRENT_CONTEXT_SECTION_IDS,
       ]);
       expect(agentScope.listContextSections().map((section) => section.phase)).toEqual([
-        'identity', 'identity', 'identity', 'identity', 'identity', 'identity',
+        'identity', 'identity', 'identity', 'identity', 'identity', 'identity', 'identity',
         'instructions',
         'workspace', 'workspace', 'workspace', 'workspace', 'workspace',
       ]);
       expect(agentScope.listContextSections().map((section) => section.order)).toEqual([
-        10, 20, 30, 40, 45, 50, 10, 10, 20, 30, 40, 50,
+        10, 20, 30, 40, 45, 46, 50, 10, 10, 20, 30, 40, 50,
       ]);
       expect(agentScope.snapshot().contextSections.map((section) => section.id)).toEqual([
         ...CURRENT_CONTEXT_SECTION_IDS,

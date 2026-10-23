@@ -10,6 +10,7 @@ export const defaultCodexPreconfigId = defaultCliPreconfigId;
 
 /** How Codex calls the delegation tools: through its generic MCP bridge. */
 export const CODEX_DELEGATION_CALL = 'Call mcp_call_tool with tool "delegate_task", "delegation_capabilities", "task_status" or "task_cancel"; mcp_list_tools shows their argument schemas';
+export const CODEX_MESSAGING_CALL = 'Call mcp_call_tool with tool "message_agent"; mcp_list_tools shows its argument schema and the agents you can message';
 
 export const CODEX_GENERATED_IMAGE_GUIDANCE = 'Images you generate with the built-in image generation tool are shown to the user inline, under the tool call, as soon as they are ready. Do not try to display, link or attach them again, and do not tell the user the image could not be shown. Empty script output after generating an image is normal; a failed generation reports an error.';
 
@@ -24,5 +25,6 @@ export function codexDeveloperInstructions(
     extraGuidance: [CODEX_GENERATED_IMAGE_GUIDANCE],
     htmlToolCall: `call mcp_call_tool with tool "${HTML_RENDER_TOOL_NAME}" and arguments { html, title, height }; mcp_list_tools shows its description`,
     delegationToolCall: CODEX_DELEGATION_CALL,
+    messagingToolCall: CODEX_MESSAGING_CALL,
   });
 }

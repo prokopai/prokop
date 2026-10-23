@@ -9,6 +9,7 @@ import type {
 import type { StorageBundle } from '@prokopai/core/infrastructure/storage/contracts';
 import { selfDelegationGuidance } from '#agent/harnesses/prokop/subagent/guidance';
 import { delegationGuidance, PROKOP_DELEGATION_CALL } from '#agent/harnesses/shared/delegation-guidance';
+import { messagingGuidance, PROKOP_MESSAGING_CALL } from '#agent/harnesses/shared/messaging-guidance';
 import {
   resolveEffectiveSubagentTargets,
   type ResolveSubagentTargetsOptions,
@@ -32,6 +33,7 @@ import {
 
 export const CURRENT_SUBAGENT_DOMAIN_PLUGIN_ID = 'current.subagent-domain';
 export const DELEGATION_SECTION_ID = 'delegation';
+export const MESSAGING_SECTION_ID = 'messaging';
 export const SELF_DELEGATION_SECTION_ID = 'self-delegation';
 
 export interface SubagentDomainService {
@@ -106,6 +108,16 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
           return data.delegationAvailable ? delegationGuidance(PROKOP_DELEGATION_CALL, false) : null;
         },
       };
+      // The shared messaging paragraph, when the session's tool list has message_agent.
+      const messaging: GuidanceSectionContribution = {
+        id: MESSAGING_SECTION_ID,
+        phase: 'identity',
+        order: 46,
+        provide: (build) => {
+          const data = validateContextAssemblyData(build.data);
+          return data.messagingAvailable ? messagingGuidance(PROKOP_MESSAGING_CALL, false) : null;
+        },
+      };
       const guidance: GuidanceSectionContribution = {
         id: SELF_DELEGATION_SECTION_ID,
         phase: 'identity',
@@ -118,6 +130,7 @@ export function subagentDomainPlugin(id: string): RuntimePlugin<unknown> {
 
       context.provide(capekSubagentDomainKey, service);
       context.contributeContext(delegation);
+      context.contributeContext(messaging);
       context.contributeContext(guidance);
     },
   };

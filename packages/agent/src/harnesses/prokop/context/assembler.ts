@@ -21,6 +21,8 @@ export interface ContextAssemblyData {
   /** The delegation tools are in the session's tool list. */
   delegationAvailable?: boolean;
   selfDelegationAvailable?: boolean;
+  /** `message_agent` is in the session's tool list. */
+  messagingAvailable?: boolean;
 }
 
 /** The required runtime service contract for context assembly. */
@@ -75,7 +77,7 @@ export function validateContextAssemblyData(data: unknown): ContextAssemblyData 
       'context assembly data additionalPaths must be an array of strings when present',
     );
   }
-  for (const key of ['delegationAvailable', 'selfDelegationAvailable'] as const) {
+  for (const key of ['delegationAvailable', 'selfDelegationAvailable', 'messagingAvailable'] as const) {
     const value = candidate[key];
     if (value !== undefined && typeof value !== 'boolean') {
       throw new ContextAssemblyDataError(`context assembly data ${key} must be a boolean when present`);

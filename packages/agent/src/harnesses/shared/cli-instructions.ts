@@ -4,6 +4,7 @@ import { renderHtmlGuidance } from '@prokopai/core/infrastructure/visuals/render
 import { updateSession } from '@prokopai/core/infrastructure/storage/runtime';
 import { formatAgentSkills, listAgentSkills } from './agent-skills';
 import { delegationGuidance } from './delegation-guidance';
+import { messagingGuidance } from './messaging-guidance';
 import { cliWorkspaceMemory } from './workspace-memory';
 
 /** Where the Claude Code and Codex drivers read preconfigs and agent homes. */
@@ -24,6 +25,8 @@ export interface CliInstructionWording {
   htmlToolCall: string;
   /** How this CLI calls the delegation tools. */
   delegationToolCall: string;
+  /** How this CLI calls the messaging tool. */
+  messagingToolCall: string;
 }
 
 /** Mirror the client's workspace default selection, including agent-home workspaces. */
@@ -112,6 +115,9 @@ export async function cliDeveloperInstructions(
   sections.push('When you spawn a subagent to answer the current user request, wait for its result within this turn before reporting the result. A completed parent turn is not automatically resumed by later child activity. Do not promise a later summary after ending the turn.');
   if (availableTools.includes('delegate_task')) {
     sections.push(delegationGuidance(wording.delegationToolCall, true));
+  }
+  if (availableTools.includes('message_agent')) {
+    sections.push(messagingGuidance(wording.messagingToolCall, true));
   }
   sections.push(...(wording.extraGuidance ?? []));
   sections.push(`<workspace>\nWorking directory: ${root}\n${workspace.additionalPaths.length

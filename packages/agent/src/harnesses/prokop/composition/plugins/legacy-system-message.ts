@@ -2,6 +2,7 @@ import type { Preconfig } from '@prokopai/sdk/types';
 import { loadMemoryInstructions } from '#agent/harnesses/shared/memory/registry';
 import { selfDelegationGuidance } from '#agent/harnesses/prokop/subagent/guidance';
 import { delegationGuidance, PROKOP_DELEGATION_CALL } from '#agent/harnesses/shared/delegation-guidance';
+import { messagingGuidance, PROKOP_MESSAGING_CALL } from '#agent/harnesses/shared/messaging-guidance';
 import { buildWorkspaceSystemPrompt } from '#agent/harnesses/prokop/context/workspace';
 import {
   formatInstructions,
@@ -36,6 +37,7 @@ export interface SystemMessageOptions {
   additionalPaths?: string[];
   delegationAvailable?: boolean;
   selfDelegationAvailable?: boolean;
+  messagingAvailable?: boolean;
 }
 
 /** The fixed builder behind the ContextAssembler contract. Installed as the
@@ -95,6 +97,17 @@ export const legacyDelegationGuidanceSection: ContextSectionContribution<Context
   },
 };
 
+/** The legacy messaging guidance contribution, the C5 subagent domain plugin's twin. */
+export const legacyMessagingGuidanceSection: ContextSectionContribution<ContextAssemblyData> = {
+  id: 'messaging',
+  phase: 'identity',
+  order: 46,
+  provide: (context) => {
+    const data = validateContextAssemblyData(context.data);
+    return data.messagingAvailable ? messagingGuidance(PROKOP_MESSAGING_CALL, false) : null;
+  },
+};
+
 export const legacySelfDelegationGuidanceSection: ContextSectionContribution<ContextAssemblyData> = {
   id: 'self-delegation',
   phase: 'identity',
@@ -127,6 +140,9 @@ export async function buildSystemMessage(options: SystemMessageOptions): Promise
 
   if (options.delegationAvailable) {
     systemMessage = systemMessage + '\n\n' + delegationGuidance(PROKOP_DELEGATION_CALL, false);
+  }
+  if (options.messagingAvailable) {
+    systemMessage = systemMessage + '\n\n' + messagingGuidance(PROKOP_MESSAGING_CALL, false);
   }
   if (options.selfDelegationAvailable) {
     systemMessage = systemMessage + '\n\n' + selfDelegationGuidance(preconfig.id);

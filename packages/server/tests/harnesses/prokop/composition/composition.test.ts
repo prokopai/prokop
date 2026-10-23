@@ -538,6 +538,7 @@ describe('C3 ordered context in the Jean2 composition', () => {
       ['system-prompt', 'identity', 30],
       ['memory-skills-guidance', 'identity', 40],
       ['delegation', 'identity', 45],
+      ['messaging', 'identity', 46],
       ['self-delegation', 'identity', 50],
       ['instructions', 'instructions', 10],
       ['workspace', 'workspace', 10],
