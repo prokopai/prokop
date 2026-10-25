@@ -301,7 +301,7 @@ export function FolderPickerDialog({
                     className={cn(
                       'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-left',
                       'hover:bg-muted',
-                      index === selectedIndex && 'bg-accent text-accent-foreground'
+                      index === selectedIndex && 'bg-highlight/15 text-foreground'
                     )}
                   >
                     <Folder className={cn('size-4 flex-shrink-0', FOLDER_ICON_COLOR)} />

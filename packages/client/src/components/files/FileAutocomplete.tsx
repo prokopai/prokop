@@ -201,8 +201,8 @@ export function FileAutocomplete({
               }}
               className={cn(
                 'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm',
-                // bg-accent is nearly the popover color in dark themes; the selection must be unmistakable.
-                index === selectedIndex && 'bg-accent text-accent-foreground',
+                // bg-accent is nearly the popover color in dark themes; the selection is the highlight tint, like selected text.
+                index === selectedIndex && 'bg-highlight/15 text-foreground',
               )}
             >
               <Icon className={cn('size-4 shrink-0', isFolder ? FOLDER_ICON_COLOR : fileIconColor(file.path))} />

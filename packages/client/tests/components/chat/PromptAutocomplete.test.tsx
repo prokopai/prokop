@@ -88,7 +88,8 @@ describe('PromptAutocomplete', () => {
       />,
     );
     const fixBtn = screen.getByText('/fix').closest('button');
-    expect(fixBtn?.className).toContain('bg-accent');
+    // The highlight tint, not bg-accent: that one is nearly the popover color in dark themes.
+    expect(fixBtn?.className).toContain('bg-highlight/15');
   });
 
   it('displays prompt descriptions', () => {

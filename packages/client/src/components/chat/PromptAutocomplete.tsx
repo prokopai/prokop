@@ -36,7 +36,7 @@ export function PromptAutocomplete({
           className={cn(
             'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-left',
             'hover:bg-muted',
-            index === selectedIndex && 'bg-accent text-accent-foreground'
+            index === selectedIndex && 'bg-highlight/15 text-foreground'
           )}
         >
           <MessageSquare className="size-4 text-muted-foreground flex-shrink-0" />
