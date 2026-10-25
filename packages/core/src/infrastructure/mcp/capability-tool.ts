@@ -6,6 +6,19 @@ import type { WorkspaceMcpResult, WorkspaceMcpTool } from '../../application/por
 /** The identity of an MCP tool, without its host-side `execute`. */
 export type McpToolIdentity = Omit<WorkspaceMcpTool, 'execute'>;
 
+/** What a harness may say about a converted MCP tool without asking the server again. */
+export interface McpToolOrigin {
+  serverName: string;
+  toolName: string;
+  inputSchema: Record<string, unknown>;
+}
+
+/** The origin a converted MCP tool carries; null for any other tool. */
+export function mcpToolOrigin(tool: CapabilityTool): McpToolOrigin | null {
+  const origin = (tool as { mcp?: McpToolOrigin }).mcp;
+  return origin && typeof origin.serverName === 'string' && typeof origin.toolName === 'string' ? origin : null;
+}
+
 /**
  * A tool that knows its row (the delegation tools) or a built-in render
  * (its inline page) carries that as the transcript visualization.
@@ -36,5 +49,7 @@ export function capabilityToolFromMcp(tool: McpToolIdentity, options: {
     return withVisualization(tool, input as Record<string, unknown>, result, mcpOutputForCapek(result));
   };
   converted.toModelOutput = mcpModelOutput;
+  // The harness reads this to describe and defer the tool (tool search) without the server.
+  (converted as { mcp?: McpToolOrigin }).mcp = { serverName: tool.serverName, toolName: tool.toolName, inputSchema: tool.inputSchema };
   return converted;
 }

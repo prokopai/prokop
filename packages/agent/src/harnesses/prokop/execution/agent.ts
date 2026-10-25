@@ -24,6 +24,7 @@ import {
 import { createStreamHandlers } from '#agent/harnesses/prokop/execution/stream-handlers';
 import { convertToAiSdkMessages } from '#agent/harnesses/prokop/execution/message-utils';
 import { buildAiSdkTools, type BuildToolsOptions } from '#agent/harnesses/prokop/execution/build-tools';
+import { activeToolNames } from '#agent/harnesses/prokop/execution/tool-search';
 import { getContextAssembler } from '#agent/harnesses/prokop/context/assembler';
 import { getAgentDirectory } from '#agent/harnesses/prokop/context/sources';
 import { initializeWorkspaceDiscovery } from '@prokopai/core/infrastructure/tools/tool-source';
@@ -248,6 +249,11 @@ export async function* streamChat(options: ChatOptions): AsyncGenerator<(Message
     abortSignal: abortController.signal,
     experimental_onStepStart,
     onStepFinish,
+    // Deferred MCP tools reach the provider only once tool_search loaded them (per step, so a load applies to the next step).
+    prepareStep: () => {
+      const active = activeToolNames(_sessionId, Object.keys(aiTools));
+      return active ? { activeTools: active } : {};
+    },
     ...(streamConfig.streamOutput ? { output: streamConfig.streamOutput } : {}),
   });
 

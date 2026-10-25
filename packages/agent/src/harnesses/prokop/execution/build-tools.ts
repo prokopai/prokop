@@ -15,6 +15,7 @@ import { buildAgentTools } from '#agent/harnesses/prokop/execution/tool-builders
 import { resolveToolExecutionScopes } from '#agent/harnesses/prokop/execution/tool-capabilities';
 import type { PreconfigCapabilities } from '@prokopai/sdk/types';
 import type { ToolMap } from '#agent/harnesses/prokop/execution/tool-builders/types';
+import { buildToolSearchTool, deferrableMcpTools, MCP_TOOL_SEARCH_THRESHOLD, setDeferredTools, TOOL_SEARCH_NAME } from '#agent/harnesses/prokop/execution/tool-search';
 
 export interface BuildToolsOptions {
   toolNames: string[];
@@ -99,13 +100,24 @@ export async function buildAiSdkTools(
     });
     Object.assign(tools, workspaceTools);
 
-    // Phase 3: MCP tools
+    // Phase 3: MCP tools. Above the threshold the external ones are deferred
+    // behind tool_search (docs/plans/mcp-tool-lookup.md); they stay in the set
+    // and prepareStep keeps them from the provider until loaded.
     try {
       const mcpTools = await discoverWorkspaceTools(workspacePath, sessionId);
       Object.assign(tools, mcpTools);
+      const deferrable = deferrableMcpTools(mcpTools);
+      if (deferrable.length > MCP_TOOL_SEARCH_THRESHOLD) {
+        setDeferredTools(sessionId, deferrable.map((entry) => entry.name));
+        tools[TOOL_SEARCH_NAME] = buildToolSearchTool(sessionId, deferrable);
+      } else {
+        setDeferredTools(sessionId, []);
+      }
     } catch (err) {
       console.error('Failed to load MCP tools:', err);
     }
+  } else {
+    setDeferredTools(sessionId, []);
   }
 
   // Phase 4: Agent-specific tools (agent_memory, agent_skill_manage)
