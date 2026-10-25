@@ -210,9 +210,11 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
       dialog: actionDialog,
       openCreate,
       openRename,
+      openMove,
       openDelete,
       closeDialog,
       submitRename,
+      submitMove,
       submitDelete,
       submitCreate,
       mutating: actionMutating,
@@ -307,11 +309,12 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
         copyRelative: (path) => copyPath(path, false),
         copyAbsolute: (path) => copyPath(path, true),
         rename: (target) => openRename(target),
+        move: (target) => openMove(target),
         del: (target) => openDelete(target),
         createFile: (parentDirPath) => openCreate(parentDirPath, 'file'),
         createFolder: (parentDirPath) => openCreate(parentDirPath, 'directory'),
       }),
-      [copyPath, openCreate, openRename, openDelete, sdkClient, addingToGit, addToGit, untrackedPaths, removeStagedAddition, removingStagedAddition, stagedAdditionPaths, revertingModified, modifiedPaths],
+      [copyPath, openCreate, openRename, openMove, openDelete, sdkClient, addingToGit, addToGit, untrackedPaths, removeStagedAddition, removingStagedAddition, stagedAdditionPaths, revertingModified, modifiedPaths],
     );
 
     const renderContextMenu = useCallback(
@@ -437,8 +440,12 @@ export const GitChangesView = forwardRef<GitChangesViewHandle, GitChangesViewPro
           onClose={closeDialog}
           submitCreate={submitCreate}
           submitRename={submitRename}
+          submitMove={submitMove}
           submitDelete={submitDelete}
           setOverwrite={setOverwrite}
+          sdkClient={sdkClient}
+          workspaceId={workspaceId}
+          root={root}
         />
       </div>
     );

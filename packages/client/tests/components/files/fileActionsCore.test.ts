@@ -4,10 +4,45 @@ import {
   isUnderPath,
   joinCopyAbsolutePath,
   joinRootRelative,
+  moveDestination,
+  parentDirectory,
+  planTreeDrop,
   stripTrailingSlash,
   validateEntryName,
+  validateMoveTarget,
   validateRenameTarget,
 } from '@/components/files/fileActionsCore';
+
+describe('moving an entry into a folder', () => {
+  it('keeps the name and takes the new parent, the root included', () => {
+    expect(parentDirectory('src/auth/session.ts')).toBe('src/auth');
+    expect(parentDirectory('README.md')).toBe('');
+    expect(moveDestination('src/auth/session.ts', 'lib')).toBe('lib/session.ts');
+    expect(moveDestination('src/auth/', '')).toBe('auth');
+    expect(moveDestination('README.md', 'docs/')).toBe('docs/README.md');
+  });
+  it('refuses the same folder, a folder inside itself, and bad paths', () => {
+    expect(validateMoveTarget('src/auth/session.ts', false, 'src/auth')).toBe('Already in src/auth');
+    expect(validateMoveTarget('README.md', false, '')).toBe('Already in the workspace root');
+    expect(validateMoveTarget('src/auth', true, 'src/auth/tokens')).toBe('A folder cannot be moved into itself');
+    expect(validateMoveTarget('src/auth', true, 'src/auth')).toBe('A folder cannot be moved into itself');
+    expect(validateMoveTarget('src/auth', true, '../elsewhere')).toBe('Name must not contain ".." segments');
+    expect(validateMoveTarget('src/auth/session.ts', false, 'lib')).toBeNull();
+    expect(validateMoveTarget('src/auth', true, 'src/authentication')).toBeNull();
+  });
+  it('plans a tree drop from Pierre ids: folders end with a slash, the root target is null, one bad entry refuses all', () => {
+    expect(planTreeDrop(['src/auth/session.ts', 'src/auth/'], 'lib/')).toEqual({
+      moves: [
+        { from: 'src/auth/session.ts', to: 'lib/session.ts', isDirectory: false },
+        { from: 'src/auth', to: 'lib/auth', isDirectory: true },
+      ],
+      error: null,
+    });
+    expect(planTreeDrop(['src/auth/session.ts'], null)).toEqual({ moves: [{ from: 'src/auth/session.ts', to: 'session.ts', isDirectory: false }], error: null });
+    expect(planTreeDrop(['src/auth/session.ts', 'lib/x.ts'], 'lib/')).toEqual({ moves: [], error: 'Already in lib' });
+    expect(planTreeDrop(['src/'], 'src/auth/')).toEqual({ moves: [], error: 'A folder cannot be moved into itself' });
+  });
+});
 
 describe('stripTrailingSlash', () => {
   it('removes one trailing slash', () => {

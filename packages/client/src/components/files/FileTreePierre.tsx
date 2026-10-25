@@ -3,6 +3,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useEffect, useMem
 import type { ProkopaiClient, GitDiffSummary } from '@prokopai/sdk';
 import type {
   GitStatusEntry,
+  FileTreeDropResult,
   FileTreeSelectionChangeListener,
   ContextMenuItem,
   ContextMenuOpenContext,
@@ -15,8 +16,10 @@ import { fileTreeExpandedPaths, useFileTreeStateStore } from '@/stores/fileTreeS
 import { activatePierreFileSelection } from './pierreTreeHost';
 import { fileTreeSyncOperations } from './fileTreeSync';
 import { refreshFileTree } from '@/lib/rootFeedRefresh';
+import { toast } from 'sonner';
 import { useFileActions } from './useFileActions';
 import { FileActionsDialogs } from './FileActionsDialogs';
+import { parentDirectory, planTreeDrop } from './fileActionsCore';
 import { PierreTreeActionMenu, type PierreTreeActionMenuActions } from './PierreTreeActionMenu';
 import { useLazyTreeFolders } from './useLazyTreeFolders';
 
@@ -151,13 +154,23 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
     useEffect(() => {
       liveRef.current = { onFileSelect, root, sdkClient };
     });
+    // The drop handler is frozen at first render too; it reaches the move
+    // action and the model through this ref, set once both exist.
+    const dropRef = useRef<(event: FileTreeDropResult) => void>(() => {});
 
     const { model } = useFileTree({
       paths,
       icons: { set: 'standard', colored: true },
       search: true,
       fileTreeSearchMode: 'hide-non-matches',
-      dragAndDrop: false,
+      // Dragging onto a folder (or the empty space, the root) moves on the
+      // server; Pierre has already moved the rows when it reports the drop.
+      dragAndDrop: {
+        canDrag: (dragged) => dragged.length > 0,
+        canDrop: (event) => planTreeDrop(event.draggedPaths, event.target.kind === 'directory' ? event.target.directoryPath : null).error === null,
+        onDropComplete: (event) => dropRef.current(event),
+        onDropError: (message) => toast.error('Could not move', { description: message }),
+      },
       renaming: false,
       unsafeCSS: IGNORED_ROW_CSS,
       onSelectionChange: ((selectedPaths: readonly string[]) => {
@@ -181,10 +194,13 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
       dialog: actionDialog,
       openCreate,
       openRename,
+      openMove,
       openDelete,
       closeDialog,
       submitCreate,
       submitRename,
+      submitMove,
+      moveEntry,
       submitDelete,
       mutating: actionMutating,
       error: actionError,
@@ -218,6 +234,25 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
       onOpenFileEdit,
     });
 
+    // A drop the server refuses goes back where it was in the tree, with the reason.
+    useEffect(() => {
+      dropRef.current = async (event) => {
+        const { moves, error } = planTreeDrop(event.draggedPaths, event.target.kind === 'directory' ? event.target.directoryPath : null);
+        if (error) {
+          toast.error('Could not move', { description: error });
+          return;
+        }
+        for (const move of moves) {
+          const name = move.from.slice(move.from.lastIndexOf('/') + 1);
+          const failure = await moveEntry({ path: move.from, isDirectory: move.isDirectory, name }, parentDirectory(move.to), { updateModel: false });
+          if (!failure) continue;
+          const suffix = move.isDirectory ? '/' : '';
+          try { model.move(move.to + suffix, move.from + suffix); } catch { /* the pushed tree reconciles */ }
+          toast.error(`Could not move ${name}`, { description: failure });
+        }
+      };
+    }, [model, moveEntry]);
+
     // Stable menu surface: reads live onFileSelect/root from liveRef at open
     // time; the hook callbacks themselves are referentially stable.
     const menuActions = useMemo<PierreTreeActionMenuActions>(
@@ -239,11 +274,12 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
         copyRelative: (path) => copyPath(path, false),
         copyAbsolute: (path) => copyPath(path, true),
         rename: (target) => openRename(target),
+        move: (target) => openMove(target),
         del: (target) => openDelete(target),
         createFile: (parentDirPath) => openCreate(parentDirPath, 'file'),
         createFolder: (parentDirPath) => openCreate(parentDirPath, 'directory'),
       }),
-      [copyPath, openCreate, openRename, openDelete],
+      [copyPath, openCreate, openRename, openMove, openDelete],
     );
 
     const renderContextMenu = useCallback(
@@ -417,8 +453,12 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(
           onClose={closeDialog}
           submitCreate={submitCreate}
           submitRename={submitRename}
+          submitMove={submitMove}
           submitDelete={submitDelete}
           setOverwrite={setOverwrite}
+          sdkClient={sdkClient}
+          workspaceId={workspaceId}
+          root={root}
         />
       </div>
     );

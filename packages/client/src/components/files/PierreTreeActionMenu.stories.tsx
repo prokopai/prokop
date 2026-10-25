@@ -16,6 +16,7 @@ const actions: PierreTreeActionMenuActions = {
   copyRelative: fn(),
   copyAbsolute: fn(),
   rename: fn(),
+  move: fn(),
   del: fn(),
   createFile: fn(),
   createFolder: fn(),

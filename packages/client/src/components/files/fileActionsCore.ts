@@ -43,6 +43,58 @@ export function isUnderPath(prefix: string, path: string): boolean {
   return path === clean || path.startsWith(`${clean}/`);
 }
 
+/** The parent directory of a root-relative path ('' at the workspace root). */
+export function parentDirectory(path: string): string {
+  const clean = stripTrailingSlash(path);
+  const slash = clean.lastIndexOf('/');
+  return slash === -1 ? '' : clean.slice(0, slash);
+}
+
+/** Where `sourcePath` lands once moved into `directory` ('' = workspace root): the same name, new parent. */
+export function moveDestination(sourcePath: string, directory: string): string {
+  const clean = stripTrailingSlash(sourcePath);
+  const name = clean.slice(clean.lastIndexOf('/') + 1);
+  return joinRootRelative(directory, name);
+}
+
+/** Why `sourcePath` cannot move into `directory`, or null when it can. */
+export function validateMoveTarget(sourcePath: string, isDirectory: boolean, directory: string): string | null {
+  const dir = stripTrailingSlash(directory.trim());
+  if (dir !== '') {
+    const error = validateEntryName(dir);
+    if (error) return error;
+  }
+  const source = stripTrailingSlash(sourcePath);
+  if (parentDirectory(source) === dir) return `Already in ${dir === '' ? 'the workspace root' : dir}`;
+  if (isDirectory && isUnderPath(source, dir)) return 'A folder cannot be moved into itself';
+  return null;
+}
+
+export interface TreeDropMove {
+  from: string;
+  to: string;
+  isDirectory: boolean;
+}
+
+/**
+ * The moves a drop in the tree asks for. Tree ids end with '/' for
+ * directories; the target is a directory id, or null for the workspace root.
+ * One entry that cannot move refuses the whole drop, so nothing half-happens.
+ */
+export function planTreeDrop(draggedPaths: readonly string[], directoryPath: string | null): { moves: TreeDropMove[]; error: string | null } {
+  const directory = directoryPath ? stripTrailingSlash(directoryPath) : '';
+  const moves: TreeDropMove[] = [];
+  for (const id of draggedPaths) {
+    const isDirectory = id.endsWith('/');
+    const from = stripTrailingSlash(id);
+    if (from === '') return { moves: [], error: 'The workspace root cannot be moved' };
+    const error = validateMoveTarget(from, isDirectory, directory);
+    if (error) return { moves: [], error };
+    moves.push({ from, to: moveDestination(from, directory), isDirectory });
+  }
+  return { moves, error: null };
+}
+
 /**
  * Validate a user-supplied entry name or relative path (slashes allowed for
  * nested creation). Returns an error message, or null when valid.

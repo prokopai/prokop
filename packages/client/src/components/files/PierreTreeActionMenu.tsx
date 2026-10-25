@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Copy, Eye, FilePlus2, FolderPlus, Pencil, Plus, RotateCcw, SquarePen, Trash2 } from 'lucide-react';
+import { Copy, Eye, FilePlus2, FolderInput, FolderPlus, Pencil, Plus, RotateCcw, SquarePen, Trash2 } from 'lucide-react';
 import type { ContextMenuItem, ContextMenuOpenContext } from '@pierre/trees';
 import { stripTrailingSlash } from './fileActionsCore';
 import type { FileActionTargetInfo } from './useFileActions';
@@ -11,6 +11,8 @@ export interface PierreTreeActionMenuActions {
   copyRelative: (path: string) => void;
   copyAbsolute: (path: string) => void;
   rename: (target: FileActionTargetInfo) => void;
+  /** Opens the folder picker to move the entry; drag and drop is the other way. */
+  move: (target: FileActionTargetInfo) => void;
   del: (target: FileActionTargetInfo) => void;
   createFile: (parentDirPath: string) => void;
   createFolder: (parentDirPath: string) => void;
@@ -141,6 +143,13 @@ function buildMenuEntries(
       icon: Pencil,
       label: 'Rename…',
       onSelect: () => actions.rename(target),
+    });
+    entries.push({
+      kind: 'action',
+      key: 'move',
+      icon: FolderInput,
+      label: 'Move to…',
+      onSelect: () => actions.move(target),
     });
     entries.push({
       kind: 'action',

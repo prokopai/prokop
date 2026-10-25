@@ -54,6 +54,15 @@ export const RenameOverwriteChecked: Story = {
   args: { dialog: { type: 'rename', target }, renameConflict: true, overwrite: true },
 };
 
+/** Pick where a file goes; the folders matching what is typed are offered. */
+export const Move: Story = {
+  args: { dialog: { type: 'move', target }, submitMove: fn(), workspaceId: 'ws', sdkClient: null },
+};
+
+export const MoveFolderWithError: Story = {
+  args: { dialog: { type: 'move', target: folder }, submitMove: fn(), workspaceId: 'ws', sdkClient: null, error: 'A folder cannot be moved into itself' },
+};
+
 export const DeleteFile: Story = {
   args: { dialog: { type: 'delete', target } },
 };

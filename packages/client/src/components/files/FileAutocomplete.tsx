@@ -18,6 +18,8 @@ interface FileAutocompleteProps {
   sdkClient?: ProkopaiClient | null;
   /** The session's checkout; omitted for the workspace root. */
   root?: string;
+  /** Folders only, for picking a destination; an empty query lists nothing instead of changed files. */
+  directoriesOnly?: boolean;
 }
 
 /** Indexes of the query's characters in a file name: a substring, else an in-order match. */
@@ -78,6 +80,7 @@ export function FileAutocomplete({
   showHidden = true,
   sdkClient,
   root,
+  directoriesOnly = false,
 }: FileAutocompleteProps) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -106,7 +109,8 @@ export function FileAutocomplete({
   }, [searchQuery]);
 
   useEffect(() => {
-    if (!sdkClient) {
+    // The search needs two characters; a folder picker has no "changed files" to fall back on.
+    if (!sdkClient || (directoriesOnly && debouncedQuery.length < 2)) {
       setFiles([]);
       onFilesChange([]);
       return;
@@ -130,7 +134,7 @@ export function FileAutocomplete({
       })
       .then(data => {
         if (queryId !== queryIdRef.current) return;
-        const newFiles = data.files || [];
+        const newFiles = directoriesOnly ? (data.files || []).filter((file) => file.type === 'directory') : (data.files || []);
         setFiles(newFiles);
         onFilesChange(newFiles);
       })
@@ -152,7 +156,7 @@ export function FileAutocomplete({
       });
 
     return () => controller.abort();
-  }, [workspaceId, debouncedQuery, onFilesChange, showHidden, sdkClient, root]);
+  }, [workspaceId, debouncedQuery, onFilesChange, showHidden, sdkClient, root, directoriesOnly]);
 
   if (loading && files.length === 0) {
     return (
@@ -172,15 +176,17 @@ export function FileAutocomplete({
   if (files.length === 0) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
-        {searchQuery ? <>No files match &quot;{searchQuery}&quot;</> : 'No changed files. Type to search.'}
+        {directoriesOnly
+          ? (searchQuery.length >= 2 ? <>No folders match &quot;{searchQuery}&quot;</> : 'Type two letters of a folder name to search.')
+          : searchQuery ? <>No files match &quot;{searchQuery}&quot;</> : 'No changed files. Type to search.'}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col">
-      {!searchQuery && <SectionLabel className="px-3 pt-2 pb-1">Changed files</SectionLabel>}
-      <div ref={listRef} role="listbox" aria-label="Files" className={cn('relative overflow-y-auto p-1', LIST_MAX_HEIGHT)}>
+      {!searchQuery && !directoriesOnly && <SectionLabel className="px-3 pt-2 pb-1">Changed files</SectionLabel>}
+      <div ref={listRef} role="listbox" aria-label={directoriesOnly ? 'Folders' : 'Files'} className={cn('relative overflow-y-auto p-1', LIST_MAX_HEIGHT)}>
         {files.map((file, index) => {
           const { fileName, dirPath } = splitPath(file.path);
           const isFolder = file.type === 'directory';
@@ -221,11 +227,13 @@ export function FileAutocomplete({
           );
         })}
       </div>
-      <div className="flex items-center gap-3 border-t px-3 py-1.5 text-2xs text-muted-foreground">
-        <span><kbd className="font-sans">↵</kbd> insert</span>
-        <span><kbd className="font-sans">⇥</kbd> open folder</span>
-        <span><kbd className="font-sans">esc</kbd></span>
-      </div>
+      {!directoriesOnly && (
+        <div className="flex items-center gap-3 border-t px-3 py-1.5 text-2xs text-muted-foreground">
+          <span><kbd className="font-sans">↵</kbd> insert</span>
+          <span><kbd className="font-sans">⇥</kbd> open folder</span>
+          <span><kbd className="font-sans">esc</kbd></span>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,9 +9,10 @@ function setup(options: { untracked?: boolean; modified?: boolean; directory?: b
   const removeStagedAddition = vi.fn();
   const close = vi.fn();
   const revertModified = vi.fn();
+  const move = vi.fn();
   const actions: PierreTreeActionMenuActions = {
     openPreview: vi.fn(), openEdit: vi.fn(), copyRelative: vi.fn(), copyAbsolute: vi.fn(),
-    rename: vi.fn(), del: vi.fn(), createFile: vi.fn(), createFolder: vi.fn(),
+    rename: vi.fn(), move, del: vi.fn(), createFile: vi.fn(), createFolder: vi.fn(),
     addToGit: options.enabled === false ? undefined : addToGit,
     addingToGit: options.pending,
     removeStagedAddition: options.enabled === false ? undefined : removeStagedAddition,
@@ -30,8 +31,21 @@ function setup(options: { untracked?: boolean; modified?: boolean; directory?: b
     stagedAdditionPaths={new Set(options.stagedAddition ? ['new.txt'] : [])}
     modifiedPaths={new Set(options.modified ? ['new.txt'] : [])}
   />);
-  return { addToGit, close, removeStagedAddition, revertModified };
+  return { addToGit, close, removeStagedAddition, revertModified, move };
 }
+
+describe('Move to…', () => {
+  test.each([false, true])('offers the folder picker for files and folders (directory=%s)', (directory) => {
+    const { move, close } = setup({ directory });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move to…' }));
+    expect(move).toHaveBeenCalledExactlyOnceWith({ path: 'new.txt', isDirectory: directory, name: 'new.txt' });
+    expect(close).toHaveBeenCalledOnce();
+  });
+  test('a Git-deleted file cannot be moved', () => {
+    setup({ deleted: true });
+    expect(screen.queryByRole('menuitem', { name: 'Move to…' })).toBeNull();
+  });
+});
 
 describe('Staged addition cleanup', () => {
   test.each([[false, 'Move to untracked'], [true, 'Remove staged addition']] as const)('offers cleanup for deleted=%s', (deleted, label) => {

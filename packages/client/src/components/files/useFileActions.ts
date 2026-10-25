@@ -12,7 +12,9 @@ import {
   isUnderPath,
   joinCopyAbsolutePath,
   joinRootRelative,
+  moveDestination,
   stripTrailingSlash,
+  validateMoveTarget,
   validateEntryName,
   validateRenameTarget,
 } from './fileActionsCore';
@@ -39,6 +41,7 @@ export interface FileActionMutationInfo {
 export type FileActionDialog =
   | { type: 'create'; parentDirPath: string; kind: 'file' | 'directory' }
   | { type: 'rename'; target: FileActionTargetInfo }
+  | { type: 'move'; target: FileActionTargetInfo }
   | { type: 'delete'; target: FileActionTargetInfo }
   | null;
 
@@ -60,10 +63,19 @@ export interface UseFileActionsResult {
   renameConflict: boolean;
   openCreate: (parentDirPath: string, kind: 'file' | 'directory') => void;
   openRename: (target: FileActionTargetInfo) => void;
+  openMove: (target: FileActionTargetInfo) => void;
   openDelete: (target: FileActionTargetInfo) => void;
   closeDialog: () => void;
   submitCreate: (name: string) => void;
   submitRename: (to: string) => void;
+  /** The move dialog's submit: the destination folder, '' for the workspace root. */
+  submitMove: (directory: string) => void;
+  /**
+   * Moves an entry into a folder without a dialog (drag and drop). Resolves
+   * to the error to show, or null when moved. `updateModel: false` when the
+   * tree already shows the move.
+   */
+  moveEntry: (target: FileActionTargetInfo, directory: string, options?: { updateModel?: boolean }) => Promise<string | null>;
   submitDelete: () => void;
   setOverwrite: (checked: boolean) => void;
   copyPath: (rel: string, absolute?: boolean) => void;
@@ -202,6 +214,14 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
     [resetTransientState],
   );
 
+  const openMove = useCallback(
+    (target: FileActionTargetInfo) => {
+      resetTransientState();
+      setDialog({ type: 'move', target });
+    },
+    [resetTransientState],
+  );
+
   const openDelete = useCallback(
     (target: FileActionTargetInfo) => {
       resetTransientState();
@@ -265,11 +285,78 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
     [dialog, resetTransientState],
   );
 
+  /**
+   * Renames or moves `target` to `to` on the server, then follows up on the
+   * client: file queries, the tree model, open docs and the preview. A
+   * directory rename moves every file under it; open docs at the old prefix
+   * are stale (paths no longer exist), so they close like a delete.
+   * Repathing is not possible without losing unsaved content.
+   */
+  const applyRename = useCallback(
+    async (target: FileActionTargetInfo, to: string, options: { overwrite?: boolean; updateModel?: boolean }) => {
+      const opts = optionsRef.current;
+      if (!opts.sdkClient || !opts.workspaceId) throw new Error('File service is not available');
+      await opts.sdkClient.http.files.renameFile(opts.workspaceId, {
+        from: target.path,
+        to,
+        root: target.root ?? opts.root,
+        overwrite: options.overwrite || undefined,
+      });
+      invalidateFileQueries();
+      if (options.updateModel !== false) {
+        opts.onMutated?.('rename', {
+          path: to,
+          isDirectory: target.isDirectory,
+          from: target.path,
+          root: target.root ?? opts.root,
+        });
+      }
+      if (!target.isDirectory) reopenDocAfterRename(opts, target.path, to);
+      else closeDocsForDelete(opts, target.path, true);
+      closePreviewForTarget(opts, target.path, target.isDirectory);
+    },
+    [],
+  );
+
+  const moveEntry = useCallback(
+    async (target: FileActionTargetInfo, directory: string, options: { updateModel?: boolean } = {}) => {
+      const validationError = validateMoveTarget(target.path, target.isDirectory, directory);
+      if (validationError) return validationError;
+      try {
+        await applyRename(target, moveDestination(target.path, directory), { updateModel: options.updateModel });
+        return null;
+      } catch (err) {
+        return errorMessage(err);
+      }
+    },
+    [applyRename],
+  );
+
+  const submitMove = useCallback(
+    async (directory: string) => {
+      const current = dialog;
+      if (!current || current.type !== 'move') return;
+      setMutating(true);
+      setError(null);
+      try {
+        const failure = await moveEntry(current.target, directory);
+        if (failure) {
+          setError(failure);
+          return;
+        }
+        setDialog(null);
+        resetTransientState();
+      } finally {
+        setMutating(false);
+      }
+    },
+    [dialog, moveEntry, resetTransientState],
+  );
+
   const submitRename = useCallback(
     async (to: string) => {
       const current = dialog;
       if (!current || current.type !== 'rename') return;
-      const opts = optionsRef.current;
       const target = current.target;
       const trimmed = to.trim();
       const validationError = validateRenameTarget(trimmed, target.path);
@@ -277,36 +364,10 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
         setError(validationError);
         return;
       }
-      if (!opts.sdkClient || !opts.workspaceId) {
-        setError('File service is not available');
-        return;
-      }
       setMutating(true);
       setError(null);
       try {
-        await opts.sdkClient.http.files.renameFile(opts.workspaceId, {
-          from: target.path,
-          to: trimmed,
-          root: target.root ?? opts.root,
-          overwrite: overwrite || undefined,
-        });
-        invalidateFileQueries();
-        opts.onMutated?.('rename', {
-          path: trimmed,
-          isDirectory: target.isDirectory,
-          from: target.path,
-          root: target.root ?? opts.root,
-        });
-        if (!target.isDirectory) {
-          reopenDocAfterRename(opts, target.path, trimmed);
-        } else {
-          // A directory rename moves every file under it; open docs at the
-          // old prefix are stale (paths no longer exist), so close them like
-          // a delete does. Repathing is not possible without losing unsaved
-          // content, which is stale here anyway.
-          closeDocsForDelete(opts, target.path, true);
-        }
-        closePreviewForTarget(opts, target.path, target.isDirectory);
+        await applyRename(target, trimmed, { overwrite });
         setDialog(null);
         resetTransientState();
       } catch (err) {
@@ -324,7 +385,7 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
         setMutating(false);
       }
     },
-    [dialog, overwrite, resetTransientState],
+    [dialog, overwrite, resetTransientState, applyRename],
   );
 
   const submitDelete = useCallback(
@@ -380,10 +441,13 @@ export function useFileActions(options: UseFileActionsOptions): UseFileActionsRe
     renameConflict,
     openCreate,
     openRename,
+    openMove,
     openDelete,
     closeDialog,
     submitCreate,
     submitRename,
+    submitMove,
+    moveEntry,
     submitDelete,
     setOverwrite,
     copyPath,
