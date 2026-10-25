@@ -11,7 +11,10 @@ import { WorktreesPanel } from '@/components/worktrees/WorktreesPanel';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { isDocDirty, useFileEditorStore } from '@/stores/fileEditorStore';
-import { fileViewId, isPullRequestsViewId, parsePullRequestsViewId, settingsViewId, useWorkspaceViewStore, type WorkspaceViewId } from '@/stores/workspaceViewStore';
+import { useQueries } from '@tanstack/react-query';
+import { fileViewId, isGroupViewId, isPullRequestsViewId, parseGroupViewId, parsePullRequestsViewId, settingsViewId, useWorkspaceViewStore, type WorkspaceViewId } from '@/stores/workspaceViewStore';
+import { queryKeys } from '@/lib/queryKeys';
+import { queryClient } from '@/components/providers/QueryProvider';
 import { SessionManagerContext } from '@/contexts/SessionManagerContext';
 import { useShallow } from 'zustand/react/shallow';
 import type { WorkspaceTab } from '@/components/app/workspaceTab';
@@ -21,6 +24,9 @@ import { getWorkspaceDisplayName } from '@/lib/workspaceKind';
 // a file or pull request tab exists.
 const FileEditorSurface = lazy(() =>
   import('@/components/editor/FileEditorSurface').then((m) => ({ default: m.FileEditorSurface })),
+);
+const GroupView = lazy(() =>
+  import('@/components/groups/GroupView').then((m) => ({ default: m.GroupView })),
 );
 const PullRequestsView = lazy(() =>
   import('@/components/pullRequests/PullRequestsView').then((m) => ({ default: m.PullRequestsView })),
@@ -114,6 +120,35 @@ export function WorkspaceContentArea({
       onClose: () => useWorkspaceViewStore.getState().removeView(viewId),
     };
   }
+  // Group chats: one tab per open group; the tab is named after the group once it is known.
+  const groupViewIds = useWorkspaceViewStore(useShallow((state) => Object.values(state.layout.groups)
+    .flatMap((group) => group.viewIds).filter(isGroupViewId)));
+  const groupTargets = groupViewIds.map((viewId) => ({ viewId, target: parseGroupViewId(viewId) }));
+  // The app's query client, named outright: this area also renders where no provider is mounted.
+  const groupQueries = useQueries({
+    queries: groupTargets.map(({ target }) => ({
+      queryKey: queryKeys.groups.one(target?.groupId ?? ''),
+      queryFn: async () => (await sdkClient!.http.groups.get(target!.groupId)).group,
+      enabled: !!sdkClient && !!target && target.serverId === serverId,
+    })),
+  }, queryClient);
+  groupTargets.forEach(({ viewId, target }, index) => {
+    if (!target || target.serverId !== serverId || !serverId || !sdkClient) return;
+    const group = groupQueries[index]?.data;
+    const groupWorkspace = group ? workspaces.find((item) => item.id === group.workspaceId) : undefined;
+    const projectName = groupWorkspace ? getWorkspaceDisplayName(groupWorkspace, agents) : undefined;
+    resourceViews[viewId] = (
+      <Suspense key={viewId} fallback={null}>
+        <GroupView client={sdkClient} serverId={serverId} groupId={target.groupId} projectName={projectName} />
+      </Suspense>
+    );
+    // Named like a session tab: the project, then the group.
+    tabs[viewId] = {
+      label: group ? (projectName ? `${projectName} / ${group.name}` : group.name) : 'Group',
+      description: group ? group.members.map((member) => member.name).join(', ') : 'Group chat',
+      onClose: () => useWorkspaceViewStore.getState().removeView(viewId),
+    };
+  });
   // Settings is one tab per server, like a pull requests tab without a workspace.
   const settingsId = serverId ? settingsViewId(serverId) : null;
   const settingsOpen = useWorkspaceViewStore((state) => settingsId !== null

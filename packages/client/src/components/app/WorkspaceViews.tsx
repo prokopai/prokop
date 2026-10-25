@@ -16,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useScopedSessionFiles } from '@/stores/sessionFilesStore';
 import { useDockStore } from '@/stores/dockStore';
 import {
-  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isPullRequestsViewId, isRepositoryViewId, isSessionViewId, isSettingsViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
+  activeGroupView, findViewGroup, findViewRegion, isFileViewId, isGroupViewId, isPullRequestsViewId, isRepositoryViewId, isSessionViewId, isSettingsViewId, REPOSITORY_VIEW_IDS, resolveViewLayout, useWorkspaceViewStore,
   type ViewRegion, type WorkspaceViewId,
 } from '@/stores/workspaceViewStore';
 
@@ -34,6 +34,8 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
   const docks = useDockStore((state) => state.docks);
   const mobileSurface = useWorkspaceViewStore((state) => state.mobileSurface);
   const setMobileSurface = useWorkspaceViewStore((state) => state.setMobileSurface);
+  const mobileChatGroupId = useWorkspaceViewStore((state) => state.mobileChatGroupId);
+  const setMobileChatGroup = useWorkspaceViewStore((state) => state.setMobileChatGroup);
   const repositoryView = useScopedSessionFiles((state) => state.filesPanelTab);
   const setRepositoryView = useScopedSessionFiles((state) => state.setFilesPanelTab);
   const [centerSlot, attachCenter] = useState<HTMLDivElement | null>(null);
@@ -59,13 +61,22 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
     tabs[id]?.onActivate?.();
   };
   const repositoryIds = REPOSITORY_VIEW_IDS.filter((id) => available.includes(id));
-  const chatView = selectedSession ?? 'conversations';
+  // The phone's Chat surface is one tab strip of sessions and group chats; a picked group shows in place of the selected session.
+  const chatIds = available.filter((id) => isSessionViewId(id) || isGroupViewId(id));
+  const selectedGroup = mobileChatGroupId && available.includes(mobileChatGroupId) ? mobileChatGroupId : undefined;
+  const selectedChat = selectedGroup ?? selectedSession;
+  const chatView = selectedChat ?? 'conversations';
+  const selectChat = (id: WorkspaceViewId) => {
+    setMobileChatGroup(isGroupViewId(id) ? id : null);
+    selectFile(id);
+  };
   // Several pull requests tabs can be open (one per workspace); show the one last activated.
   const pullRequestIds = available.filter(isPullRequestsViewId);
   const pullRequestsView = pullRequestIds.find((id) => layout.groups[findViewGroup(layout, id)]?.activeId === id) ?? pullRequestIds.at(-1);
   const settingsView = available.find(isSettingsViewId);
   const requestedMobileView: WorkspaceViewId = mobileSurface === 'chat' ? chatView : mobileSurface === 'files' ? repositoryView
-    : mobileSurface === 'pull-requests' ? pullRequestsView ?? chatView : mobileSurface === 'settings' ? settingsView ?? chatView : mobileSurface;
+    : mobileSurface === 'pull-requests' ? pullRequestsView ?? chatView : mobileSurface === 'settings' ? settingsView ?? chatView
+      : mobileSurface;
   const mobileView = requestedMobileView === 'editor' && hasEditor ? 'editor' : available.includes(requestedMobileView) ? requestedMobileView
     : (requestedMobileView === 'editor' || mobileSurface === 'files') && available.includes('explorer') ? 'explorer' : chatView;
   const isRepositoryView = repositoryIds.some((id) => id === mobileView);
@@ -92,11 +103,11 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
               )}
             </div>
           )}
-          {mobileView === chatView && sessionIds.length > 0 && (
+          {mobileView === chatView && chatIds.length > 0 && (
             <div className={cn(dockHeaderClassName(), "px-1.5")}>
-              <WorkspaceTabStrip ids={sessionIds} activeId={selectedSession ?? null} tabs={tabs} label="Open sessions"
-                onSelect={selectFile} onClose={(id) => tabs[id]?.onClose?.()} />
-              <WorkspaceTabSearch ids={sessionIds} tabs={tabs} onSelect={selectFile} />
+              <WorkspaceTabStrip ids={chatIds} activeId={selectedChat ?? null} tabs={tabs} label="Open sessions"
+                onSelect={selectChat} onClose={(id) => tabs[id]?.onClose?.()} />
+              <WorkspaceTabSearch ids={chatIds} tabs={tabs} onSelect={selectChat} />
             </div>
           )}
           {isRepositoryView && (
@@ -117,7 +128,7 @@ export function WorkspaceViews({ views, tabs = {}, mobileEditorId, mobileSession
             </div>
           )}
           <div ref={attachCenter} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-            {mobileView === chatView && !selectedSession && !available.includes('conversations') && <WorkspaceEmptyState />}
+            {mobileView === chatView && !selectedChat && !available.includes('conversations') && <WorkspaceEmptyState />}
           </div>
         </div>
       ) : (

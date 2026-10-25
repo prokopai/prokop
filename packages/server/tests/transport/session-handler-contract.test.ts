@@ -276,4 +276,19 @@ describe('S3 session wire handler integration contract', () => {
     const sync = sent.find((m) => m.type === 'ask.pending_sync');
     expect(sync).toBeDefined();
   });
+
+  test('watch takes control and syncs pending asks without sending the transcript', async () => {
+    const { ctx, sent, broadcastToSession } = makeContext();
+    const connectionId = registerClient('watcher');
+
+    await handleClientMessage(ctx, connectionId, { type: 'session.watch', sessionId } as ClientMessage);
+
+    expect(sent.map((m) => m.type)).toEqual(['ask.pending_sync']);
+    expect(sent[0]).toMatchObject({ type: 'ask.pending_sync', sessionId, requests: [] });
+    // The watcher is the controller now, like after a resume.
+    expect(broadcastToSession.some((message) => message.type === 'session.control.updated')).toBe(true);
+
+    await handleClientMessage(ctx, connectionId, { type: 'session.watch', sessionId: 'missing-session' } as ClientMessage);
+    expect(sent.at(-1)).toEqual({ type: 'error', code: 'not_found', message: 'Session not found', sessionId: 'missing-session' });
+  });
 });

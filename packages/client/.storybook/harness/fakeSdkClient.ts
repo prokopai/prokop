@@ -19,7 +19,7 @@
 // 'permission.list', workspaceId, grants)` feeds components that listen to
 // WebSocket events.
 
-import type { ProkopaiClient } from '@prokopai/sdk';
+import type { AgentGroup, ProkopaiClient } from '@prokopai/sdk';
 import { action } from 'storybook/actions';
 import {
   createWorkspace,
@@ -63,6 +63,9 @@ import {
   createLearningRunDetail,
   createPromptList,
   createResponseFormatList,
+  createAgentGroup,
+  createAgentGroupMessage,
+  createGroupThread,
 } from '../mocks';
 
 type AnyFunction = (...args: never[]) => unknown;
@@ -200,6 +203,15 @@ function createDefaultHttp(workspace: ReturnType<typeof createWorkspace>): Handl
     },
     scheduler: {
       list: async () => ({ jobs: [] }),
+    },
+    groups: {
+      list: async () => ({ groups: [createAgentGroup({ id: 'group-scene', workspaceId: workspace.id })] }),
+      get: async (groupId: string) => ({ group: createAgentGroup({ id: groupId, workspaceId: workspace.id }) }),
+      update: async (groupId: string, body: Partial<AgentGroup>) => ({ group: createAgentGroup({ id: groupId, workspaceId: workspace.id, ...body }) }),
+      listMessages: async (groupId: string) => ({ messages: createGroupThread(groupId), hasMore: false }),
+      post: async (groupId: string, body: { text: string }) => ({
+        message: createAgentGroupMessage({ groupId, text: body.text, seq: 100 }), woken: ['implementer'],
+      }),
     },
     responseFormats: {
       list: async () => ({ formats: createResponseFormatList() }),

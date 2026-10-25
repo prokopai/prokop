@@ -55,6 +55,10 @@ interface WorkspaceSessionContentProps {
   pendingScheduledJobIds?: ReadonlySet<string>;
   /** Conversations other agents started here by messaging this workspace's agent. */
   agentConversationSessions?: Session[];
+  /** Only an agent's home receives conversations; elsewhere the section is not shown. */
+  isAgentHome?: boolean;
+  /** The workspace's group chats (GroupsSection), under the sessions. */
+  groupsSection?: ReactNode;
   childrenMap: ChildrenMap;
   sessionDerivedValues: SessionDerivedValuesMap;
   currentSessionId: string | null;
@@ -96,6 +100,8 @@ export function WorkspaceSessionContent({
   scheduledSessionsByJob,
   pendingScheduledJobIds,
   agentConversationSessions = [],
+  isAgentHome = false,
+  groupsSection,
   childrenMap,
   sessionDerivedValues,
   currentSessionId,
@@ -429,8 +435,10 @@ export function WorkspaceSessionContent({
     <>
       {renderActiveSection()}
 
+      {groupsSection}
+
       {/* Conversations other agents started here by messaging this workspace's agent: loaded when opened. */}
-      {(categories || agentConversationSessions.length > 0) && (
+      {(isAgentHome || agentConversationSessions.length > 0) && (
         <Collapsible open={categories?.conversations.open} onOpenChange={categories?.conversations.onOpenChange} className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>

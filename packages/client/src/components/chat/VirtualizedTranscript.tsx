@@ -27,6 +27,8 @@ export interface DisplayItem {
   collapseToolPreviews?: boolean;
   /** Set while the prompt is shown ahead of the server persisting it. */
   pendingSend?: PendingSend;
+  /** Who wrote an assistant message when several agents share a thread (group chat). */
+  author?: { name: string; className?: string };
 }
 
 /** Actions on a prompt the server has not persisted; `retry` is absent without session commands. */

@@ -8,9 +8,10 @@ import {
   SessionPaneRegistryContext,
   type SessionPaneRegistry,
 } from '@/contexts/SessionPaneRegistryContext';
-import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { createDefaultViewLayout, groupViewId, sessionViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { DOCK_POSITIONS, useDockStore } from '@/stores/dockStore';
 import { useWorkspaceFocusStore } from '@/stores/workspaceFocusStore';
+import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 
 const originalWidth = window.innerWidth;
 afterEach(() => {
@@ -19,6 +20,8 @@ afterEach(() => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
   useDockStore.setState(useDockStore.getInitialState());
   useWorkspaceViewStore.setState({ layout: createDefaultViewLayout() });
+  useSessionBoardStore.setState(useSessionBoardStore.getInitialState());
+  vi.mocked(paneRegistry.getHandle).mockReset();
 });
 
 const mocks = vi.hoisted(() => ({
@@ -55,7 +58,7 @@ const paneRegistry: SessionPaneRegistry = {
   getHandle: vi.fn(),
 };
 
-function Harness() {
+function Harness({ handleInterruptSession = vi.fn() }: { handleInterruptSession?: () => void } = {}) {
   useAppKeyboardHandlers({
     sidebarRef: createRef(),
     terminalPanelRef: createRef(),
@@ -63,7 +66,7 @@ function Harness() {
     chatInputRef: createRef(),
     activeWorkspace: null,
     primaryPreconfigs: [],
-    handleInterruptSession: vi.fn(),
+    handleInterruptSession,
     serverId: 'server-1',
     createSession: vi.fn(),
   });
@@ -239,6 +242,72 @@ describe('useAppKeyboardHandlers positional docks', () => {
     act(() => mocks.keyboardConfig?.onCloseFocusedDock());
     expect(useWorkspaceViewStore.getState().layout.hidden).not.toContain('editor');
     expect(useDockStore.getState().docks.left.open).toBe(true);
+  });
+
+  test('the focus-input shortcut reaches the group chat in front instead of revealing the last focused session', async () => {
+    const groupId = groupViewId('server-1', 'g1');
+    const groupHandle = { focusInput: vi.fn(), scrollToBottom: vi.fn(), toggleAutoFollow: vi.fn() };
+    const sessionHandle = { focusInput: vi.fn(), scrollToBottom: vi.fn(), toggleAutoFollow: vi.fn() };
+    vi.mocked(paneRegistry.getHandle).mockImplementation((id) => (id === groupId ? groupHandle : id === 'sess-other' ? sessionHandle : undefined));
+    useSessionBoardStore.getState().hydrateFromRoute('sess-other', ['sess-other']);
+    useWorkspaceViewStore.getState().openInCenter(groupId);
+    useWorkspaceFocusStore.getState().focusGroup('center');
+    renderHarness();
+
+    act(() => mocks.keyboardConfig?.onFocusChatInput());
+    await waitFor(() => expect(groupHandle.focusInput).toHaveBeenCalled());
+    expect(sessionHandle.focusInput).not.toHaveBeenCalled();
+    expect(useWorkspaceViewStore.getState().layout.groups.center.activeId).toBe(groupId);
+
+    // With a session in front again, the shortcut goes to that session as before.
+    useWorkspaceViewStore.getState().activateView(sessionViewId('server-1', 'sess-other'));
+    act(() => mocks.keyboardConfig?.onFocusChatInput());
+    await waitFor(() => expect(sessionHandle.focusInput).toHaveBeenCalled());
+  });
+
+  test('the stop shortcut stops the group chat in front instead of the last focused session', () => {
+    const groupId = groupViewId('server-1', 'g1');
+    const groupHandle = { focusInput: vi.fn(), scrollToBottom: vi.fn(), toggleAutoFollow: vi.fn(), stop: vi.fn() };
+    vi.mocked(paneRegistry.getHandle).mockImplementation((id) => (id === groupId ? groupHandle : undefined));
+    const interrupt = vi.fn();
+    useWorkspaceViewStore.getState().openInCenter(groupId);
+    useWorkspaceFocusStore.getState().focusGroup('center');
+    render(
+      <SessionPaneRegistryContext.Provider value={paneRegistry}>
+        <Harness handleInterruptSession={interrupt} />
+      </SessionPaneRegistryContext.Provider>,
+    );
+
+    act(() => mocks.keyboardConfig?.onStopStreaming());
+    expect(groupHandle.stop).toHaveBeenCalledTimes(1);
+    expect(interrupt).not.toHaveBeenCalled();
+
+    useWorkspaceViewStore.getState().activateView(sessionViewId('server-1', 'sess-other'));
+    act(() => mocks.keyboardConfig?.onStopStreaming());
+    expect(interrupt).toHaveBeenCalledTimes(1);
+  });
+
+  test('with the group composer focused inside the real view host, the stop and focus shortcuts reach the group', async () => {
+    const groupId = groupViewId('server-1', 'g1');
+    const groupHandle = { focusInput: vi.fn(), scrollToBottom: vi.fn(), toggleAutoFollow: vi.fn(), stop: vi.fn() };
+    vi.mocked(paneRegistry.getHandle).mockImplementation((id) => (id === groupId ? groupHandle : undefined));
+    const interrupt = vi.fn();
+    useSessionBoardStore.getState().hydrateFromRoute('sess-other', ['sess-other']);
+    useWorkspaceViewStore.getState().openInCenter(groupId);
+    const { getByLabelText } = render(
+      <SessionPaneRegistryContext.Provider value={paneRegistry}>
+        <Harness handleInterruptSession={interrupt} />
+        <WorkspaceViews views={{ conversations: <p>Transcript</p>, [groupId]: <textarea aria-label="Group composer" data-chat-input="true" /> }} />
+      </SessionPaneRegistryContext.Provider>,
+    );
+    const composer = getByLabelText('Group composer');
+    fireEvent.pointerDown(composer);
+    act(() => composer.focus());
+    expect(composer.closest('[data-view-group]')).toHaveAttribute('data-dock-focused', 'true');
+
+    act(() => mocks.keyboardConfig?.onStopStreaming());
+    expect(groupHandle.stop).toHaveBeenCalledTimes(1);
+    expect(interrupt).not.toHaveBeenCalled();
   });
 
   test('left and bottom shortcuts open their docks', () => {

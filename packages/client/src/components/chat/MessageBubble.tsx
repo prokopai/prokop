@@ -37,6 +37,8 @@ interface MessageBubbleProps {
   onRetrySend?: () => void;
   onEditSend?: () => void;
   onDiscardSend?: () => void;
+  /** Named above an assistant message when several agents share the thread. */
+  author?: { name: string; className?: string };
 }
 
 /**
@@ -114,6 +116,7 @@ export function MessageBubble({
   onRetrySend,
   onEditSend,
   onDiscardSend,
+  author,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
@@ -347,6 +350,9 @@ export function MessageBubble({
                 )}
               </div>
             </div>
+          )}
+          {author && !isUser && (
+            <div className={cn('mb-1 text-xs font-medium', author.className)} data-message-author>{author.name}</div>
           )}
           <div className="min-w-0">
             {children}

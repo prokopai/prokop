@@ -96,6 +96,8 @@ export type { CreateResponseFormatRequest, UpdateResponseFormatRequest } from '.
 export { SchedulerRestNamespace } from './rest/scheduler';
 export type { ListScheduledJobsResponse, GetScheduledJobResponse } from './rest/scheduler';
 export { NotificationsRestNamespace } from './rest/notifications';
+export { GroupsRestNamespace } from './rest/groups';
+export type { ListGroupsResponse, GetGroupResponse, ListGroupMessagesResponse, PostGroupMessageResponse, CreateGroupInput, UpdateGroupInput } from './rest/groups';
 export { HttpNamespace } from './rest/http-namespace';
 export type { LoadAllResult, CriticalServerData, SecondaryServerData } from './rest/http-namespace';
 

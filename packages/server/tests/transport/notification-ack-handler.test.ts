@@ -35,6 +35,7 @@ function makeNotifications(spy: AckSpy, result: boolean): NotificationsApplicati
     deleteSubscription: () => {},
     dispatch: async () => {},
     notifyTerminalMessage: () => {},
+    onTerminalMessage: () => () => {},
     acknowledgePendingNotification: (eventId, sessionId, clientId) => {
       spy.acks.push({ eventId, sessionId, clientId });
       return result;

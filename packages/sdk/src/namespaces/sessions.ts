@@ -20,6 +20,11 @@ export class SessionsNamespace {
     this.send({ type: 'session.resume', sessionId });
   }
 
+  /** Control and live events for a session without loading its transcript. */
+  watch(sessionId: string): void {
+    this.send({ type: 'session.watch', sessionId });
+  }
+
   close(sessionId: string): void {
     this.send({ type: 'session.close', sessionId });
   }

@@ -38,3 +38,4 @@ export * from './notification';
 export * from './worktree';
 export * from './model-output';
 export * from './tool-display';
+export * from './agent-group';

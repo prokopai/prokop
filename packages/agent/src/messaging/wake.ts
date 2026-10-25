@@ -9,6 +9,7 @@
 
 import { formatHostEvent, splitHostEvent } from '@prokopai/sdk';
 import type { MessageWithParts } from '@prokopai/sdk/types';
+import { latestGroupWake } from '@prokopai/core/domains/groups/wake';
 
 export const AGENT_MESSAGE_INTENTS = ['request', 'question', 'status', 'result', 'fyi'] as const;
 export type AgentMessageIntent = typeof AGENT_MESSAGE_INTENTS[number];
@@ -138,7 +139,10 @@ export function latestWake(transcript: readonly MessageWithParts[], beforeMessag
   return null;
 }
 
-/** The hop of the turn a transcript is in: the latest wake's hop, or 0 for a person's turn. */
+/**
+ * The hop of the turn a transcript is in: the latest wake's hop, whether an
+ * agent message or a group catch-up started the turn, or 0 for a person's turn.
+ */
 export function currentHop(transcript: readonly MessageWithParts[]): number {
-  return latestWake(transcript)?.wake.hop ?? 0;
+  return latestWake(transcript)?.wake.hop ?? latestGroupWake(transcript)?.wake.hop ?? 0;
 }

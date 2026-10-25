@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Bot, ChevronRight, Clock, CornerDownRight, MessageSquare, SquareTerminal, X } from 'lucide-react';
+import { Bot, ChevronRight, Clock, CornerDownRight, MessageSquare, SquareTerminal, Users, X } from 'lucide-react';
 import type { HostEvent } from '@prokopai/sdk';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,11 +36,12 @@ export const HostEventRow = memo(function HostEventRow({ event, body, sessionId,
   const trimmed = body.trim();
   const long = trimmed.length > COLLAPSE_AT;
   const [open, setOpen] = useState(!long);
-  const Icon = event.kind === 'shell' ? SquareTerminal : event.kind === 'message' ? MessageSquare : Bot;
+  const Icon = event.kind === 'shell' ? SquareTerminal : event.kind === 'message' ? MessageSquare : event.kind === 'group' ? Users : Bot;
   // A task's label opens the child session; a message's label opens the session it came from.
-  const openChild = event.kind !== 'shell' && onNavigateToSubagent ? () => onNavigateToSubagent(event.id) : undefined;
-  // A message has no outcome of its own; its meta names the intent.
-  const outcomeWord = event.kind === 'message' ? null : OUTCOME_WORD[event.outcome];
+  // A group's id is not a session, so its label stays text until the group view lands.
+  const openChild = event.kind !== 'shell' && event.kind !== 'group' && onNavigateToSubagent ? () => onNavigateToSubagent(event.id) : undefined;
+  // A message or a group catch-up has no outcome of its own; its meta names the intent or the reason.
+  const outcomeWord = event.kind === 'message' || event.kind === 'group' ? null : OUTCOME_WORD[event.outcome];
 
   return (
     <div className="flex min-w-0 flex-col gap-1 text-sm" role="status" data-host-event={event.kind}>

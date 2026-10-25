@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WorkspaceViews } from '@/components/app/WorkspaceViews';
 import { useWorkspaceViewVisible } from '@/components/app/WorkspaceViewHost';
-import { createDefaultViewLayout, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { createDefaultViewLayout, groupViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
 const viewport = vi.hoisted(() => ({ mobile: false }));
@@ -21,7 +21,7 @@ describe('workspace view hosts', () => {
     viewport.mobile = false;
     useWorkspaceViewStore.setState({ layout: createDefaultViewLayout(), mobileTerminalOpen: false });
     useDockStore.setState(useDockStore.getInitialState());
-    useWorkspaceViewStore.setState({ mobileSurface: 'chat' });
+    useWorkspaceViewStore.setState({ mobileSurface: 'chat', mobileChatGroupId: null });
   });
   afterEach(() => {
     cleanup();
@@ -136,6 +136,35 @@ describe('workspace view hosts', () => {
     expect(changes).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('Branch control')).toBe(branchControl);
     expect(screen.getByText('Changes control')).toBe(changesControl);
+  });
+
+  test('on the phone a group chat is a tab next to the sessions, not a surface of its own', () => {
+    viewport.mobile = true;
+    const groupId = groupViewId('s', 'g1');
+    const mounted = vi.fn();
+    const unmounted = vi.fn();
+    act(() => useWorkspaceViewStore.getState().openInCenter(groupId));
+    render(<WorkspaceViews
+      views={{ 'session:s:a': <div>Session A</div>, [groupId]: <Draft mounted={mounted} unmounted={unmounted} /> }}
+      tabs={{ 'session:s:a': { label: 'Alpha' }, [groupId]: { label: 'app / API work' } }}
+      mobileSessionId="session:s:a"
+    />);
+    // Opening the group picked its tab: the group shows, in the same strip as the session, without a back header.
+    expect(screen.getByRole('tab', { name: 'app / API work' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('draft')).toHaveAttribute('data-visible', 'true');
+    expect(screen.queryByRole('button', { name: 'Back to Chat' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Alpha' }));
+    expect(screen.getByTestId('draft')).toHaveAttribute('data-visible', 'false');
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
+    expect(useWorkspaceViewStore.getState().mobileChatGroupId).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'app / API work' }));
+    expect(screen.getByTestId('draft')).toHaveAttribute('data-visible', 'true');
+    // Closing the group tab returns to the session.
+    act(() => useWorkspaceViewStore.getState().removeView(groupId));
+    expect(useWorkspaceViewStore.getState().mobileChatGroupId).toBeNull();
   });
 
   test('mobile terminal visibility is independent of desktop bottom placement', () => {

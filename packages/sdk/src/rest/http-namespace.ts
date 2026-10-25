@@ -19,6 +19,7 @@ import { AgentsRestNamespace } from './agents';
 import { NotificationsRestNamespace } from './notifications';
 import { AccessRestNamespace } from './access';
 import { RemoteAccessRestNamespace } from './remote-access';
+import { GroupsRestNamespace } from './groups';
 
 /**
  * Result of loading all initial server data.
@@ -59,6 +60,7 @@ export class HttpNamespace {
   readonly notifications: NotificationsRestNamespace;
   readonly access: AccessRestNamespace;
   readonly remoteAccess: RemoteAccessRestNamespace;
+  readonly groups: GroupsRestNamespace;
 
   constructor(http: HttpClient) {
     this.sessions = new SessionsRestNamespace(http);
@@ -80,6 +82,7 @@ export class HttpNamespace {
     this.notifications = new NotificationsRestNamespace(http);
     this.access = new AccessRestNamespace(http);
     this.remoteAccess = new RemoteAccessRestNamespace(http);
+    this.groups = new GroupsRestNamespace(http);
   }
 
   /**

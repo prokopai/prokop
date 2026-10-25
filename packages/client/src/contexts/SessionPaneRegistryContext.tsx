@@ -4,6 +4,8 @@ export interface SessionPaneHandle {
   focusInput(): void;
   scrollToBottom(): void;
   toggleAutoFollow(): void;
+  /** Stops the work the pane shows; a group pane stops every working member. Session panes stop through the session commands instead. */
+  stop?(): void;
 }
 
 /**

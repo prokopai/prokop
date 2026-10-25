@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { isWorkspaceOrder, loadWorkspaceOrder, WORKSPACE_ORDER_KEY, type WorkspaceOrder } from '@/lib/workspaceOrder';
-import type { PermissionRiskLevel, ScheduledJob } from '@prokopai/sdk';
+import type { AgentGroup, PermissionRiskLevel, ScheduledJob } from '@prokopai/sdk';
 import type { UseBoundStore, StoreApi } from 'zustand';
 
 // --- Configuration Section (deep-linking) ---
@@ -69,6 +69,17 @@ interface SchedulerModalState {
 
 interface SchedulerModalActions {
   setShowSchedulerJob: (show: boolean, job?: ScheduledJob | null) => void;
+}
+
+// --- Group chat dialog ---
+interface GroupDialogState {
+  showGroupDialog: boolean;
+  /** The group being edited; null when creating one. */
+  editingGroup: AgentGroup | null;
+}
+
+interface GroupDialogActions {
+  setShowGroupDialog: (show: boolean, group?: AgentGroup | null) => void;
 }
 
 // --- Settings ---
@@ -169,7 +180,7 @@ interface RecentModelsActions {
 }
 
 // --- Combined Store ---
-type UIStore = ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & RecentModelsState & RecentModelsActions & SchedulerModalState & SchedulerModalActions;
+type UIStore = ConfigurationSectionState & ConfigurationSectionActions & SettingsState & SettingsActions & FilePreviewState & FilePreviewActions & AutoApproveState & AutoApproveActions & RecentModelsState & RecentModelsActions & SchedulerModalState & SchedulerModalActions & GroupDialogState & GroupDialogActions;
 
 export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set) => ({
   // --- Configuration Section ---
@@ -248,4 +259,10 @@ export const useUIStore: UseBoundStore<StoreApi<UIStore>> = create<UIStore>((set
   editingSchedulerJob: null,
 
   setShowSchedulerJob: (show, job = null) => set({ showSchedulerJob: show, editingSchedulerJob: show ? job : null }),
+
+  // --- Group chat dialog ---
+  showGroupDialog: false,
+  editingGroup: null,
+
+  setShowGroupDialog: (show, group = null) => set({ showGroupDialog: show, editingGroup: show ? group : null }),
 }));

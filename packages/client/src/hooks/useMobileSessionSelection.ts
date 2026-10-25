@@ -22,6 +22,11 @@ export function useMobileSessionSelection(
       sessionId,
       isMobile ? { ...options, skipNavigation: true } : options,
     );
-    if (isMobile) useWorkspaceViewStore.getState().setMobileSurface('chat');
+    if (isMobile) {
+      const store = useWorkspaceViewStore.getState();
+      store.setMobileSurface('chat');
+      // The picked session shows, not a group chat tab picked earlier.
+      store.setMobileChatGroup(null);
+    }
   }, [isMobile, resumeSession]);
 }

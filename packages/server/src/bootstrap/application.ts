@@ -136,6 +136,12 @@ import { installDelegationHost } from '@prokopai/core/application/ports/delegati
 import { installAgentMessagingHost } from '@prokopai/core/application/ports/agent-messaging';
 import { agentHomeWorkspaceId } from '@prokopai/core/domains/agents/home';
 import { createAgentConversationStore } from '@/infrastructure/sqlite/agent-conversations';
+import { createAgentGroupStore } from '@/infrastructure/sqlite/agent-groups';
+import { createAgentGroupsService, type AgentGroupsService } from '@prokopai/core/application/groups/service';
+import { installAgentGroups } from '@prokopai/core/application/ports/agent-groups';
+import { getSummaryTemplates } from '@prokopai/core/application/sessions/tool-debug';
+import { createSession as createSessionRow, deleteSession as deleteSessionRow, updateSession as updateSessionRow } from '@/infrastructure/sqlite/session-store';
+import { getMessageWithParts, listMessagesWithParts } from '@/infrastructure/sqlite/message-store';
 import { getAgentMessageMaxHops, getDelegationMaxChildren, getDelegationMaxLaunches } from '@prokopai/core/infrastructure/runtime/environment';
 import { fallbackSessionTitle } from '@prokopai/core/infrastructure/session-title';
 import { createHarnessSettingsApplication } from '@/application/harnesses/settings';
@@ -163,6 +169,8 @@ export interface WiredApplication {
   worktrees: WorktreeApplication;
   /** Server-originated messages to sessions: task results, agent messages, catch-ups. */
   sessionDelivery: SessionDeliveryApplication;
+  /** Group chats between the person and their agents. */
+  groups: AgentGroupsService;
   /** The wired tools catalog and environment use cases (S4). */
   tools: ToolsHttpApplication;
   /** The wired MCP lifecycle use cases (S5). */
@@ -353,6 +361,31 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
     maxHops: getAgentMessageMaxHops,
     conversations: agentConversations,
   });
+  // Group chats: the thread and members in SQLite, member sessions as hidden
+  // top-level sessions, every wake through the delivery primitive. The same
+  // instance serves the HTTP routes and the member tools.
+  const groups = createAgentGroupsService({
+    store: createAgentGroupStore(getDatabase),
+    sessions: {
+      getSession: (id) => repository.getSession(id),
+      createSession: (input) => createSessionRow(input),
+      deleteSession: (id) => { deleteSessionRow(id); },
+      setPermissionMode: (id, permissionMode) => { updateSessionRow(id, { permissionMode }); },
+      getMessageWithParts: async (_sessionId, messageId) => getMessageWithParts(messageId),
+      listTranscript: async (sessionId) => listMessagesWithParts(sessionId),
+    },
+    getPreconfigOrAgent: (id) => repository.getPreconfigOrAgent(id),
+    toolSummaryTemplates: () => getSummaryTemplates(toolCatalog),
+    deliver: async ({ sessionId, content, key }) => {
+      await sessionDelivery.deliver({ sessionId, content, key, origin: 'group' });
+    },
+    pinModel: ({ sessionId, harness, model, variant }) => pinCliSessionModel(sessionId, harness, model, variant),
+    maxHops: getAgentMessageMaxHops,
+    interrupt: async (sessionId, reason) => { await execution.interruptSession(sessionId, reason); },
+    stopBackgroundWork: shellCommands.stopBackgroundWork,
+    broadcast: broadcastEvent,
+  });
+  installAgentGroups(groups);
 
   installDelegationHost({
     harnessEnabled: harness => harness === 'prokop' || !harnessSettings.isDisabled(harness),
@@ -594,6 +627,12 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
   const notifications = getProkopNotificationsApplication();
   // A conversation's finished turn answers the agent that asked.
   notifications.onTerminalMessage((message) => { void agentRuntime().returnAgentMessageAnswer(message); });
+  // A group member's finished turn is posted to its group as that member.
+  notifications.onTerminalMessage((message) => {
+    groups.mirrorFinishedTurn(message).catch((error: unknown) => {
+      console.error('[agent-groups] mirroring a finished turn failed', { sessionId: message.sessionId, error: error instanceof Error ? error.message : String(error) });
+    });
+  });
 
   const permissions = createPermissionsApplication({
     repository: createProkopPermissionRepositoryPort(),
@@ -655,7 +694,7 @@ export function createWiredApplication(existingAgents?: AgentsApplication): Wire
       if (harness === 'codex-cli') saveCodexModelSelection(sessionId, { model, effort });
       else saveClaudeModelSelection(sessionId, { model, effort });
     },
-  }), session, control, http, scheduling, schedulerTicker, agents, workspaces, worktrees, sessionDelivery, tools, mcp, providers, notifications, permissions, files, pullRequests, configuration, maintenance, responseFormats, deviceAccess, attention };
+  }), session, control, http, scheduling, schedulerTicker, agents, workspaces, worktrees, sessionDelivery, groups, tools, mcp, providers, notifications, permissions, files, pullRequests, configuration, maintenance, responseFormats, deviceAccess, attention };
 }
 
 /**

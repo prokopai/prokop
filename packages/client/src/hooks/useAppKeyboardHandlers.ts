@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useLayoutEffect, useRef} from 'react';
 import {useRouter} from '@tanstack/react-router';
-import { isWorkspaceViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { isGroupViewId, isWorkspaceViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore, type DockPosition } from '@/stores/dockStore';
 import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
 import {useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
@@ -89,6 +89,14 @@ export function useAppKeyboardHandlers({
   });
 
   const focusChatInput = useCallback(() => {
+    // A group chat in front gets its own composer; the last focused session
+    // is not what the person is looking at, and revealing it would switch tabs.
+    const region = useWorkspaceFocusStore.getState().groupId;
+    const activeViewId = useWorkspaceViewStore.getState().layout.groups[region]?.activeId;
+    if (activeViewId && isGroupViewId(activeViewId)) {
+      requestAnimationFrame(() => paneRegistry.getHandle(activeViewId)?.focusInput());
+      return;
+    }
     // The phone returns to Chat; on desktop the surface is unused.
     useWorkspaceViewStore.getState().setMobileSurface('chat');
     const focusedSessionId = useSessionBoardStore.getState().focusedSessionId;
@@ -153,8 +161,15 @@ export function useAppKeyboardHandlers({
   }, []);
 
   const handleStopStreaming = useCallback(() => {
+    // A group chat in front stops its working members, not the last focused session.
+    const region = useWorkspaceFocusStore.getState().groupId;
+    const activeViewId = useWorkspaceViewStore.getState().layout.groups[region]?.activeId;
+    if (activeViewId && isGroupViewId(activeViewId)) {
+      paneRegistry.getHandle(activeViewId)?.stop?.();
+      return;
+    }
     handleInterruptSession();
-  }, [handleInterruptSession]);
+  }, [handleInterruptSession, paneRegistry]);
 
   const getFocusedTabs = useCallback(() => {
     // Read the rendered strip so hidden views and unavailable resources never

@@ -5,13 +5,16 @@ import type { ProkopaiClient } from '@prokopai/sdk';
 import { useUIStore } from '@/stores/uiStore';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useFileEditorStore } from '@/stores/fileEditorStore';
-import { useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { groupViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 
 const SchedulerJobModal = lazy(() =>
   import('@/components/modals/SchedulerJobModal').then((m) => ({ default: m.SchedulerJobModal })),
 );
 const FilePreviewOverlay = lazy(() =>
   import('@/components/files/FilePreviewOverlay'),
+);
+const GroupDialog = lazy(() =>
+  import('@/components/groups/GroupDialog').then((m) => ({ default: m.GroupDialog })),
 );
 
 interface ServerDialogsProps {
@@ -50,11 +53,31 @@ export function ServerDialogs({
       closeFilePreview: s.closeFilePreview,
     })),
   );
+  const { showGroupDialog, editingGroup, setShowGroupDialog } = useUIStore(
+    useShallow((s) => ({
+      showGroupDialog: s.showGroupDialog,
+      editingGroup: s.editingGroup,
+      setShowGroupDialog: s.setShowGroupDialog,
+    })),
+  );
 
   return (
     <>
-      {(showSchedulerJob || filePreviewTarget !== null) && (
+      {(showSchedulerJob || filePreviewTarget !== null || showGroupDialog) && (
         <Suspense fallback={<DialogLoadingFallback />}>
+          {showGroupDialog && (
+            <GroupDialog
+              open={showGroupDialog}
+              onOpenChange={(open) => setShowGroupDialog(open)}
+              sdkClient={sdkClient}
+              workspaceId={activeWorkspace?.id ?? null}
+              editingGroup={editingGroup}
+              onCreated={(group) => {
+                // A new group opens at once, like a new session.
+                if (serverId) useWorkspaceViewStore.getState().openInCenter(groupViewId(serverId, group.id));
+              }}
+            />
+          )}
           {showSchedulerJob && (
             <SchedulerJobModal
               open={showSchedulerJob}

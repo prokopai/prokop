@@ -36,9 +36,11 @@ function categoryPredicate(category: SessionCategory): string {
   const scheduled = truthy('scheduledJobId');
   // json_type is NULL without the key; COALESCE keeps NOT (...) true for ordinary sessions.
   const conversation = `COALESCE(json_type(${metadata}, '$.agentConversation'), '') = 'object'`;
+  // A group member session is opened only from its group, never from a list.
+  const member = `COALESCE(json_type(${metadata}, '$.groupMember'), '') = 'object'`;
   switch (category) {
-    case 'active': return `${root} AND NOT (${scheduled}) AND NOT (${conversation}) AND status = 'active'`;
-    case 'archived': return `${root} AND status = 'closed'`;
+    case 'active': return `${root} AND NOT (${scheduled}) AND NOT (${conversation}) AND NOT (${member}) AND status = 'active'`;
+    case 'archived': return `${root} AND NOT (${member}) AND status = 'closed'`;
     case 'scheduled': return `${root} AND (${scheduled})`;
     case 'conversations': return `${root} AND (${conversation}) AND status = 'active'`;
   }

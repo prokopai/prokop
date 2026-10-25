@@ -32,6 +32,20 @@ export function isMessagingToolName(name: unknown): name is MessagingToolName {
   return name === 'message_agent';
 }
 
+/** The group chat tools, listed only in member sessions. */
+export const GROUP_TOOL_NAMES = ['group_history', 'handoff_to_agent'] as const;
+export type GroupToolName = typeof GROUP_TOOL_NAMES[number];
+const GROUP_TOOLS: ReadonlySet<string> = new Set(GROUP_TOOL_NAMES);
+
+export function isGroupToolName(name: unknown): name is GroupToolName {
+  return typeof name === 'string' && GROUP_TOOLS.has(name);
+}
+
+/** A built-in served through the workspace MCP list: its bare name is the canonical one on every harness. */
+function isBuiltinWorkspaceToolName(name: string): boolean {
+  return isDelegationToolName(name) || isMessagingToolName(name) || isGroupToolName(name);
+}
+
 /** Canonical names for native tools that have a prokop-builtin equivalent. */
 const CLAUDE_CANONICAL_NAMES: Record<string, string> = {
   Bash: 'shell',
@@ -53,7 +67,7 @@ export function claudeToolName(native: string): string {
   if (canonical) return canonical;
   // Built-in visuals and the delegation tools read the same in every harness.
   if (native === `mcp__workspace__${HTML_RENDER_TOOL_NAME}`) return HTML_RENDER_TOOL_NAME;
-  if (native.startsWith('mcp__workspace__') && isDelegationToolName(native.slice('mcp__workspace__'.length))) {
+  if (native.startsWith('mcp__workspace__') && isBuiltinWorkspaceToolName(native.slice('mcp__workspace__'.length))) {
     return native.slice('mcp__workspace__'.length);
   }
   if (native.startsWith(`mcp__${PROKOP_MCP_SERVER}__`)) {
@@ -131,6 +145,7 @@ export function claudeToolSummary(name: string, input: Record<string, unknown>):
       case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
         return delegationToolSummary(name, input);
       case 'message_agent': return messagingToolSummary(input);
+      case 'group_history': case 'handoff_to_agent': return groupToolSummary(name, input);
       case 'memory': case 'agent_memory':
         return [input.action, input.target].filter(value => typeof value === 'string').join(' ');
       case 'session_search': return [input.action, input.query].filter(value => typeof value === 'string').join(' ');
@@ -318,6 +333,34 @@ export function messagingResultVisualization(
   return { type: 'none', badge: 'not sent', message: preview(typeof result.error === 'string' ? result.error : `To ${agent}: ${message}`) };
 }
 
+/** The row summary of a group tool call: the handoff's recipient and message, or the history range. */
+export function groupToolSummary(name: GroupToolName, input: Record<string, unknown>): string | null {
+  if (name === 'handoff_to_agent') {
+    const agent = firstString(input, ['agent_id']);
+    const message = firstString(input, ['message'])?.replace(/\s+/g, ' ').trim() ?? null;
+    if (!agent) return message;
+    return message ? `${agent}: ${message}` : agent;
+  }
+  const before = typeof input.before_seq === 'number' ? `before ${input.before_seq}` : null;
+  const after = typeof input.after_seq === 'number' ? `after ${input.after_seq}` : null;
+  return before ?? after ?? 'newest';
+}
+
+/** A completed group tool row: who now owns the stage, or how many messages were read. */
+export function groupResultVisualization(
+  name: GroupToolName, input: Record<string, unknown>, result: Record<string, unknown> | null,
+): AnyVisualization {
+  if (!result) return { type: 'none', message: 'Result unavailable' };
+  if (typeof result.error === 'string' && result.ok !== true) return { type: 'none', badge: 'refused', message: preview(result.error) };
+  if (name === 'handoff_to_agent') {
+    const agent = firstString(input, ['agent_id']) ?? 'agent';
+    const message = firstString(input, ['message'])?.replace(/\s+/g, ' ').trim() ?? '';
+    return { type: 'none', badge: typeof result.hop === 'number' ? `hop ${result.hop}` : 'handed off', message: preview(`To ${agent}: ${message}`) };
+  }
+  const messages = Array.isArray(result.messages) ? result.messages.length : 0;
+  return { type: 'none', badge: `${messages} message${messages === 1 ? '' : 's'}`, message: result.has_more === true ? 'More history before these' : 'Group history' };
+}
+
 /** A completed delegation row: the task and where it stands, from the result fields. */
 export function delegationResultVisualization(
   tool: DelegationToolName, input: Record<string, unknown>, result: Record<string, unknown> | null,
@@ -414,6 +457,7 @@ export function claudeToolVisualization(
     case 'delegate_task': case 'delegation_capabilities': case 'task_status': case 'task_cancel':
       return delegationResultVisualization(name, input, delegationResultFrom(output));
     case 'message_agent': return messagingResultVisualization(input, delegationResultFrom(output));
+    case 'group_history': case 'handoff_to_agent': return groupResultVisualization(name, input, delegationResultFrom(output));
     case 'memory': case 'agent_memory': case 'session_search': case 'agent_skill_manage': {
       const result = parseJsonOutput(output);
       if (!result) return { type: 'none', message: preview(output || 'Tool completed') };

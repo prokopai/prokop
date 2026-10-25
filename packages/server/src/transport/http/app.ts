@@ -46,6 +46,7 @@ import { registerSchedulerRoutes } from '@/transport/http/routes/scheduler';
 import { registerAgentRoutes } from '@/transport/http/routes/agents';
 import { registerMaintenanceRoutes } from '@/transport/http/routes/maintenance';
 import { registerNotificationRoutes } from '@/transport/http/routes/notifications';
+import { registerGroupRoutes } from '@/transport/http/routes/groups';
 
 export interface CreateAppOptions {
   clientAssetsRoot?: string | null;
@@ -166,6 +167,7 @@ export function createApp(application?: WiredApplication, options?: CreateAppOpt
   registerAgentRoutes(app, wired.agents);
   registerMaintenanceRoutes(app, wired.maintenance);
   registerNotificationRoutes(app, wired.notifications);
+  registerGroupRoutes(app, wired.groups);
   registerDeviceAccessRoutes(app, wired.deviceAccess, {
     pairingLinks: options?.pairingLinks,
     addresses: options?.remoteAccess ? () => options.remoteAccess!.pairingBaseUrls() : undefined,

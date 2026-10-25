@@ -14,6 +14,7 @@ import { handleGitChanged, handleGitStatus } from '@/handlers/serverMessage/gitH
 import { handleFileTree, handleFilesChanged } from '@/handlers/serverMessage/fileHandlers';
 import { handleSchedulerChanged } from '@/handlers/serverMessage/schedulerHandlers';
 import { handlePullRequestChanged } from '@/handlers/serverMessage/pullRequestHandlers';
+import { handleGroupDeleted, handleGroupMessageCreated, handleGroupUpdated } from '@/handlers/serverMessage/groupHandlers';
 import { useChatRetryStore } from '@/stores/chatRetryStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { markConnectionAcksPrompts, usePendingSendStore } from '@/stores/pendingSendStore';
@@ -111,6 +112,15 @@ export function subscribeToServerEvents(
   });
   add('scheduler.changed', (workspaceId: unknown) => {
     if (typeof workspaceId === 'string') handleSchedulerChanged(workspaceId);
+  });
+  add('group.updated', (group: unknown) => {
+    handleGroupUpdated(group as import('@prokopai/sdk').AgentGroup);
+  });
+  add('group.deleted', (groupId: unknown, workspaceId: unknown) => {
+    handleGroupDeleted(groupId as string, workspaceId as string);
+  });
+  add('group.message.created', (message: unknown) => {
+    handleGroupMessageCreated(message as import('@prokopai/sdk').AgentGroupMessage);
   });
   add('files.tree', (workspaceId: unknown, root: unknown, update: unknown) => {
     if (typeof workspaceId === 'string' && typeof root === 'string') {

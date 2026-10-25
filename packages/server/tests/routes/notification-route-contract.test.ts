@@ -27,6 +27,7 @@ function makeFakeApplication(overrides: Partial<NotificationsApplication> = {}):
     deleteSubscription: () => {},
     dispatch: async () => {},
     notifyTerminalMessage: () => {},
+    onTerminalMessage: () => () => {},
     acknowledgePendingNotification: () => false,
     dispatchPendingAnswerNotification: async () => {},
     notifyAnswerRequired: () => {},

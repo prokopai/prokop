@@ -40,6 +40,16 @@ export interface SessionResumeMessage {
   sessionId: string;
 }
 
+/**
+ * Follow a session without opening it: the client becomes its controller and
+ * a participant (live events, pending asks synced), but no transcript is
+ * sent. A group chat watches its hidden member sessions this way.
+ */
+export interface SessionWatchMessage {
+  type: 'session.watch';
+  sessionId: string;
+}
+
 import type { AttachmentKind } from '../shared-types/model';
 import type { AskResponse } from '../shared-types/tool';
 
@@ -381,6 +391,7 @@ export type ClientMessage =
   | ClientRegisterMessage
   | SessionCreateMessage 
   | SessionResumeMessage
+  | SessionWatchMessage
   | ChatMessage
   | SessionCloseMessage
   | SessionUpdateMessage

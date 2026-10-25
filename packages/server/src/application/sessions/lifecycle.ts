@@ -74,6 +74,8 @@ export interface SessionCreateInput {
 export interface SessionLifecycleApplication<Origin> {
   create(wire: SessionWirePorts<Origin>, origin: Origin, input: SessionCreateInput): Promise<void>;
   resume(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): Promise<void>;
+  /** Like resume without the transcript: the origin becomes controller and participant, pending asks are synced. */
+  watch(wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): void;
   update(
     wire: SessionWirePorts<Origin>,
     origin: Origin,
@@ -143,6 +145,28 @@ export function createSessionLifecycleApplication<Origin>(
 ): SessionLifecycleApplication<Origin> {
   const refreshAttachments = (workspaceRootId?: string | null): void => {
     if (workspaceRootId) deps.worktreeAttachments?.changed(workspaceRootId);
+  };
+
+  /** The authoritative pending asks for an origin that now follows a session: its own tree first, then every other pending ask. */
+  const syncPendingAsks = (wire: SessionWirePorts<Origin>, origin: Origin, sessionId: string): void => {
+    deps.pendingAsks.cleanupAllPendingAsks(deps.askAuthority.timeoutMs);
+
+    const activePendingAsks = deps.pendingAsks.listPendingRequestsByRootSession(sessionId);
+    const syncRequests = buildSyncRequests(activePendingAsks, deps.askAuthority);
+
+    const otherPendingAsks = deps.pendingAsks.listAllPendingAsks().filter(
+      (ask) =>
+        ask.status === 'pending' &&
+        ask.sessionId !== sessionId &&
+        !activePendingAsks.some((pa) => pa.requestId === ask.requestId),
+    );
+    syncRequests.push(...buildSyncRequests(otherPendingAsks, deps.askAuthority));
+
+    wire.delivery.send(origin, {
+      type: 'ask.pending_sync',
+      sessionId,
+      requests: syncRequests,
+    });
   };
 
   return {
@@ -334,24 +358,25 @@ export function createSessionLifecycleApplication<Origin>(
         });
       }
 
-      deps.pendingAsks.cleanupAllPendingAsks(deps.askAuthority.timeoutMs);
+      syncPendingAsks(wire, origin, sessionId);
+    },
 
-      const activePendingAsks = deps.pendingAsks.listPendingRequestsByRootSession(sessionId);
-      const syncRequests = buildSyncRequests(activePendingAsks, deps.askAuthority);
-
-      const otherPendingAsks = deps.pendingAsks.listAllPendingAsks().filter(
-        (ask) =>
-          ask.status === 'pending' &&
-          ask.sessionId !== sessionId &&
-          !activePendingAsks.some((pa) => pa.requestId === ask.requestId),
-      );
-      syncRequests.push(...buildSyncRequests(otherPendingAsks, deps.askAuthority));
-
-      wire.delivery.send(origin, {
-        type: 'ask.pending_sync',
-        sessionId,
-        requests: syncRequests,
-      });
+    watch(wire, origin, sessionId): void {
+      const session = deps.repository.getSession(sessionId);
+      if (!session) {
+        wire.delivery.send(origin, { type: 'error', code: 'not_found', message: 'Session not found', sessionId });
+        return;
+      }
+      wire.actor.attachOriginToSession(origin, session.id);
+      const controlResult = deps.control.resumeControl(session.id, origin);
+      if (controlResult.transitionReason) {
+        wire.delivery.broadcastToSession(
+          session.id,
+          deps.control.buildControlUpdatedMessage(session.id, controlResult.transitionReason),
+          origin,
+        );
+      }
+      syncPendingAsks(wire, origin, sessionId);
     },
 
     async update(wire, origin, input): Promise<void> {

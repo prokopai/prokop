@@ -92,7 +92,8 @@ const summaryTemplateCache = new WeakMap<
   { expiresAt: number; value: Promise<Map<string, string>> }
 >();
 
-async function getSummaryTemplates(
+/** Tool summary templates by tool name from the catalog, cached for five minutes per catalog. */
+export async function getSummaryTemplates(
   catalog?: Pick<ToolCatalogPort, 'listTools'>,
 ): Promise<Map<string, string>> {
   if (!catalog) return new Map();

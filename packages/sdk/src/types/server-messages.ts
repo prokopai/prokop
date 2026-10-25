@@ -51,6 +51,9 @@ import type {
   FilesChangedMessage,
   GitStatusMessage,
   FileTreeMessage,
+  GroupUpdatedMessage,
+  GroupDeletedMessage,
+  GroupMessageCreatedMessage,
 } from '../shared';
 import type { TypedEventEmitter } from '../emitter';
 import type { SdkEvent } from './sdk-types';
@@ -107,6 +110,9 @@ export interface SdkEventMap {
   'files.tree': [workspaceId: FileTreeMessage['workspaceId'], root: FileTreeMessage['root'], update: FileTreeMessage['update']];
   'scheduler.changed': [workspaceId: string];
   'access.changed': [];
+  'group.updated': [group: GroupUpdatedMessage['group']];
+  'group.deleted': [groupId: GroupDeletedMessage['groupId'], workspaceId: GroupDeletedMessage['workspaceId']];
+  'group.message.created': [message: GroupMessageCreatedMessage['message']];
   'worktree.updated': [worktree: WorktreeUpdatedMessage['worktree']];
   'worktree.deleted': [worktree: WorktreeDeletedMessage['worktree']];
   'session.interrupted': [
@@ -308,6 +314,15 @@ export function routeServerMessage(
       break;
     case 'access.changed':
       emitter.emit('access.changed');
+      break;
+    case 'group.updated':
+      emitter.emit('group.updated', msg.group);
+      break;
+    case 'group.deleted':
+      emitter.emit('group.deleted', msg.groupId, msg.workspaceId);
+      break;
+    case 'group.message.created':
+      emitter.emit('group.message.created', msg.message);
       break;
     case 'worktree.updated':
       emitter.emit('worktree.updated', msg.worktree);

@@ -210,6 +210,44 @@ export function initializeSchema(db: Database): void {
   )`);
   db.run('CREATE INDEX IF NOT EXISTS idx_agent_conversations_recipient ON agent_conversations(recipient_session_id)');
 
+  // Group chats: one shared thread per group, one hidden member session per
+  // member with a cursor into the thread. Members and messages go with the
+  // group; a member row goes with its session.
+  db.run(`CREATE TABLE IF NOT EXISTS agent_groups (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    default_agent_id TEXT NOT NULL,
+    permission_mode TEXT NOT NULL DEFAULT 'standard',
+    membership_version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS agent_group_members (
+    group_id TEXT NOT NULL REFERENCES agent_groups(id) ON DELETE CASCADE,
+    agent_id TEXT NOT NULL,
+    member_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    cursor_seq INTEGER NOT NULL DEFAULT 0,
+    roster_version INTEGER NOT NULL DEFAULT 0,
+    joined_at TEXT NOT NULL,
+    PRIMARY KEY (group_id, agent_id)
+  )`);
+  db.run('CREATE INDEX IF NOT EXISTS idx_agent_group_members_session ON agent_group_members(member_session_id)');
+  db.run(`CREATE TABLE IF NOT EXISTS agent_group_messages (
+    id TEXT PRIMARY KEY,
+    group_id TEXT NOT NULL REFERENCES agent_groups(id) ON DELETE CASCADE,
+    seq INTEGER NOT NULL,
+    author_kind TEXT NOT NULL,
+    author_agent_id TEXT,
+    target_agent_id TEXT,
+    source_message_id TEXT,
+    parts TEXT NOT NULL,
+    hop INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE (group_id, seq)
+  )`);
+  db.run('CREATE INDEX IF NOT EXISTS idx_agent_group_messages_source ON agent_group_messages(group_id, source_message_id)');
+
   db.run(`CREATE TABLE IF NOT EXISTS worktree_setup_approvals (
     repository_id TEXT NOT NULL,
     config_hash TEXT NOT NULL,
@@ -414,6 +452,7 @@ export function initializeSchema(db: Database): void {
     "ALTER TABLE delegated_tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'child'",
     'ALTER TABLE delegated_tasks ADD COLUMN worktree_id TEXT',
     'ALTER TABLE delegated_tasks ADD COLUMN branch TEXT',
+    "ALTER TABLE agent_groups ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'standard'",
   ]) {
     try { db.run(sql); } catch { /* existing column */ }
   }

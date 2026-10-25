@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { GitPullRequest, SquarePen } from 'lucide-react';
-import { pullRequestsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { groupViewId, isGroupViewId, parseGroupViewId, pullRequestsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
+import { GroupsSection } from '@/components/layout/GroupsSection';
+import { useDeleteGroup, useGroupsQuery } from '@/hooks/queries/useGroupQueries';
 import { toast } from 'sonner';
 import { useViewRefs } from '@/contexts/ViewRefsContext';
 import { useSessionManager } from '@/contexts/SessionManagerContext';
@@ -26,6 +28,7 @@ import { WorkspaceContentArea } from '@/components/app/WorkspaceContentArea';
 import { Button } from '@/components/ui/button';
 import { useMobileSessionSelection } from '@/hooks/useMobileSessionSelection';
 import { getWorkspaceDefaultPreconfigId } from '@/lib/workspacePreconfigs';
+import { isAgentHomeWorkspace } from '@/lib/workspaceKind';
 import { getCreateSessionOptions } from '@/lib/sessionCreate';
 import { dockHeaderClassName } from '@/components/ui/dock-header';
 import { useServerContext } from '@/contexts/ServerContext';
@@ -170,6 +173,30 @@ function WorkspaceSidebar() {
 
   const setShowSchedulerJob = useUIStore(s => s.setShowSchedulerJob);
 
+  // Group chats: listed under the sessions; a group opens as a center tab.
+  const setShowGroupDialog = useUIStore(s => s.setShowGroupDialog);
+  const groupsQuery = useGroupsQuery(sdkClient, sidebarData.activeWorkspace?.id ?? null);
+  const deleteGroup = useDeleteGroup(sdkClient);
+  const activeGroupIds = useWorkspaceViewStore(useShallow(s => Object.values(s.layout.groups).flatMap(group => {
+    const id = group.activeId;
+    if (!id || !isGroupViewId(id)) return [];
+    const target = parseGroupViewId(id);
+    return target && target.serverId === serverId ? [target.groupId] : [];
+  })));
+  const groupsSection = (
+    <GroupsSection
+      groups={groupsQuery.data ?? []}
+      loaded={groupsQuery.data !== undefined}
+      activeGroupIds={new Set(activeGroupIds)}
+      onOpenGroup={group => useWorkspaceViewStore.getState().openInCenter(groupViewId(serverId, group.id))}
+      onCreateGroup={() => setShowGroupDialog(true)}
+      onEditGroup={group => setShowGroupDialog(true, group)}
+      onDeleteGroup={group => deleteGroup.mutate(group, {
+        onError: error => toast.error('Could not delete the group', { description: error.message }),
+      })}
+    />
+  );
+
   const updateSession = useSessionStore(s => s.updateSession);
 
   const handleAddTag = useCallback(async (sessionId: string, tag: string) => {
@@ -266,6 +293,8 @@ function WorkspaceSidebar() {
       scheduledJobsLoaded={scheduledJobs !== undefined}
       scheduledSessionsByJob={sidebarData.scheduledSessionsByJob}
       agentConversationSessions={sidebarData.agentConversationSessions}
+      isAgentHome={isAgentHomeWorkspace(activeWorkspace)}
+      groupsSection={groupsSection}
       pendingScheduledJobIds={pendingScheduledJobIds}
       childrenMap={sidebarData.childrenMap}
       sessionDerivedValues={sidebarData.sessionDerivedValues}

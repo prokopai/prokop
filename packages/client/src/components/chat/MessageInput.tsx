@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { FileEntry, PromptInfo, AttachmentKind } from '@prokopai/sdk';
 import { FileAutocomplete } from '@/components/files/FileAutocomplete';
 import { PromptAutocomplete } from '@/components/chat/PromptAutocomplete';
+import { expandPromptContent, extractPromptCommand } from '@/components/chat/promptCommands';
 import { PendingAttachment } from './PendingAttachment';
 import { ComposerEditor, type ComposerEditorHandle, type ComposerTrigger } from './ComposerEditor';
 import { AutoApproveSelector } from './AutoApproveSelector';
@@ -53,26 +54,6 @@ export interface MessageInputHandle {
   focus: () => void;
   /** Puts an unsent prompt back into the input for editing. */
   restoreText: (text: string) => void;
-}
-
-function expandPromptContent(prompt: PromptInfo, userText: string): string {
-  if (userText) {
-    if (prompt.content.includes('ARG')) {
-      return prompt.content.replace('ARG', userText);
-    }
-    return `${prompt.content}\n${userText}`;
-  }
-  return prompt.content;
-}
-
-function extractPromptCommand(input: string): { command: string; rest: string } | null {
-  const trimmed = input.trimStart();
-  if (!trimmed.startsWith('/')) return null;
-  const spaceIndex = trimmed.indexOf(' ');
-  if (spaceIndex === -1) {
-    return { command: trimmed.slice(1), rest: '' };
-  }
-  return { command: trimmed.slice(1, spaceIndex), rest: trimmed.slice(spaceIndex + 1).trim() };
 }
 
 export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({

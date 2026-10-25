@@ -17,6 +17,18 @@ export {
   useWorktreeSetupLogQuery,
 } from './useWorktreeQueries';
 export {
+  useGroupsQuery,
+  useGroupQuery,
+  useGroupMessagesQuery,
+  flattenGroupMessages,
+  useCreateGroup,
+  useUpdateGroup,
+  useDeleteGroup,
+  useAddGroupMember,
+  useRemoveGroupMember,
+  usePostGroupMessage,
+} from './useGroupQueries';
+export {
   useScheduledJobs,
   useCreateScheduledJob,
   useUpdateScheduledJob,

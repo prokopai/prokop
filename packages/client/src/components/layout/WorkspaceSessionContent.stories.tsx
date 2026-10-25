@@ -80,6 +80,7 @@ export const Default: Story = {};
 /** An agent's home: conversations other agents started here sit in their own folded section. */
 export const WithAgentConversations: Story = {
   args: {
+    isAgentHome: true,
     agentConversationSessions: [
       createSession({ workspaceId: workspace.id, title: 'From Coding: Refactor auth', updatedAt: mockIsoHoursAgo(1),
         metadata: { agentConversation: { senderSessionId: 'coding-session', senderAgentId: 'coding' } } }),

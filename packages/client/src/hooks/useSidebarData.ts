@@ -146,7 +146,8 @@ export const useSidebarData = (): UseSidebarDataReturn => {
 
   // Separate active, archived, scheduled and conversation sessions (only root sessions, no parent)
   const { activeSessions, archivedSessions, scheduledSessionsByJob, agentConversationSessions } = useMemo(() => {
-    const rootSessions = sessions.filter((s) => !s.parentId && !s.metadata?.learningRunId);
+    // Group member sessions are opened from their group, never listed.
+    const rootSessions = sessions.filter((s) => !s.parentId && !s.metadata?.learningRunId && !s.metadata?.groupMember);
     const scheduled = rootSessions.filter((s) => s.metadata?.scheduledJobId);
     // Conversations other agents started here: their own folded section, like scheduled runs.
     const isConversation = (s: Session) => !!s.metadata?.agentConversation;

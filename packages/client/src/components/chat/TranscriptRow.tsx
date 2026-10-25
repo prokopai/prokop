@@ -450,6 +450,7 @@ export const MessageRow = memo(function MessageRow({
         canPin={canPin}
         onTogglePin={onTogglePinMessage ? () => onTogglePinMessage(item.message) : undefined}
         isPinningMessage={isPinningMessage}
+        author={item.author}
       >
         {item.parts.length === 0 ? (
           <span className="opacity-50">...</span>
@@ -490,6 +491,7 @@ function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowProps): 
     prev.item.isSteer === next.item.isSteer &&
     prev.item.collapseToolPreviews === next.item.collapseToolPreviews &&
     prev.item.pendingSend === next.item.pendingSend &&
+    prev.item.author === next.item.author &&
     prev.pendingSendActions === next.pendingSendActions &&
     prev.revertMessageId === next.revertMessageId &&
     prev.sessionId === next.sessionId &&

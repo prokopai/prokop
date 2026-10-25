@@ -109,3 +109,15 @@ describe('session panel ordering', () => {
     expect(onOpenPullRequests).toHaveBeenCalledWith('repo');
   });
 });
+
+describe('conversations from other agents', () => {
+  const category = { open: false, onOpenChange: vi.fn(), isLoading: false, error: null, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), loadedCount: 0, retry: vi.fn() };
+  const categories = { counts: { active: 2, archived: 0, scheduled: 0, conversations: 0 }, countsError: undefined, retryCounts: vi.fn(), archived: category, scheduled: category, conversations: category };
+
+  test('the section shows only in an agent home, where conversations can land', () => {
+    const { rerender } = render(<WorkspaceSessionContent {...panelProps} categories={categories} />);
+    expect(screen.queryByText('From other agents')).toBeNull();
+    rerender(<WorkspaceSessionContent {...panelProps} categories={categories} isAgentHome />);
+    expect(screen.getByText('From other agents')).toBeVisible();
+  });
+});

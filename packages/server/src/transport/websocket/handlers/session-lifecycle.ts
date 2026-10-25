@@ -4,6 +4,7 @@ import { createWirePorts, requireWireApplication } from '@/transport/websocket/a
 import type {
   SessionCreateMessage,
   SessionResumeMessage,
+  SessionWatchMessage,
   SessionUpdateMessage,
   SessionUpdateModelMessage,
   SessionSelectHarnessModelMessage,
@@ -44,6 +45,15 @@ export async function handleResumeSession(
 ): Promise<void> {
   const wire = createWirePorts(ctx);
   await requireWireApplication().session.lifecycle.resume(wire, ws, msg.sessionId);
+}
+
+export function handleWatchSession(
+  ctx: RouterContext<ConnectionId>,
+  ws: ConnectionId,
+  msg: SessionWatchMessage,
+): void {
+  const wire = createWirePorts(ctx);
+  requireWireApplication().session.lifecycle.watch(wire, ws, msg.sessionId);
 }
 
 export async function handleUpdateSession(

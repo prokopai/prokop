@@ -6,6 +6,7 @@ import type { Ask } from '../shared-types/tool';
 import type { SessionControlState, AskAuthority } from '../shared-types/control';
 import type { ManagedWorktree } from '../shared-types/worktree';
 import type { FileTreeUpdate } from '../shared-types/file';
+import type { AgentGroup, AgentGroupMessage } from '../shared-types/agent-group';
 import type { GitStatusResponse } from '../types/rest-responses';
 
 export interface ClientDescriptor {
@@ -520,7 +521,26 @@ export type ServerMessage =
   | AskTimedOutMessage
   | AskResponseRejectedMessage
   | AskPendingSyncMessage
-  | PingMessage | ServerPongMessage | WorktreeUpdatedMessage | WorktreeDeletedMessage | GitChangedMessage | PullRequestChangedMessage | LearningChangedMessage | McpChangedMessage | WorkspaceConversationActivityMessage | FilesChangedMessage | GitStatusMessage | FileTreeMessage | SchedulerChangedMessage | AccessChangedMessage;
+  | PingMessage | ServerPongMessage | WorktreeUpdatedMessage | WorktreeDeletedMessage | GitChangedMessage | PullRequestChangedMessage | LearningChangedMessage | McpChangedMessage | WorkspaceConversationActivityMessage | FilesChangedMessage | GitStatusMessage | FileTreeMessage | SchedulerChangedMessage | AccessChangedMessage
+  | GroupUpdatedMessage | GroupDeletedMessage | GroupMessageCreatedMessage;
+
+/** A group was created, renamed, or its members or default member changed. */
+export interface GroupUpdatedMessage {
+  type: 'group.updated';
+  group: AgentGroup;
+}
+
+export interface GroupDeletedMessage {
+  type: 'group.deleted';
+  groupId: string;
+  workspaceId: string;
+}
+
+/** A message landed in a group: the person's, a member's finished reply, a handoff, a join or leave. */
+export interface GroupMessageCreatedMessage {
+  type: 'group.message.created';
+  message: AgentGroupMessage;
+}
 
 export interface WorktreeUpdatedMessage {
   type: 'worktree.updated';

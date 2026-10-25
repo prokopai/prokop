@@ -371,3 +371,29 @@ export const updateSubscriptionPreferencesSchema = z.object({
     permission: z.boolean(),
   }),
 }).loose();
+
+// ── Group chat schemas ─────────────────────────────────────────
+
+export const createGroupSchema = z.strictObject({
+  workspaceId: z.string().min(1),
+  name: z.string().min(1).max(80),
+  memberAgentIds: z.array(z.string().min(1)).min(1).max(20),
+  defaultAgentId: z.string().min(1).optional(),
+  permissionMode: z.enum(['standard', 'extended', 'full']).optional(),
+});
+
+export const updateGroupSchema = z.strictObject({
+  name: z.string().min(1).max(80).optional(),
+  defaultAgentId: z.string().min(1).optional(),
+  permissionMode: z.enum(['standard', 'extended', 'full']).optional(),
+});
+
+export const addGroupMemberSchema = z.strictObject({
+  agentId: z.string().min(1),
+});
+
+export const postGroupMessageSchema = z.strictObject({
+  text: z.string().min(1).max(20_000),
+  /** Member ids chosen as mention chips in the composer. */
+  mentions: z.array(z.string().min(1)).max(10).optional(),
+});

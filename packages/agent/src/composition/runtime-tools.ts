@@ -18,6 +18,7 @@ import { delegationHost } from '@prokopai/core/application/ports/delegation-host
 import { harnessProbes } from '@prokopai/core/application/ports/harness-probes';
 import { delegationResultFrom, delegationResultVisualization, messagingResultVisualization } from '#agent/harnesses/shared/tool-viz';
 import { canMessageAnyone, executeMessagingTool, isMessagingTool, messagingToolDefinitions } from '#agent/messaging/tools';
+import { groupRuntimeTools } from '#agent/groups/tools';
 
 export const DELEGATION_TOOLS_NAME = 'Prokop Delegation';
 
@@ -104,5 +105,5 @@ export const messagingRuntimeTools: AgentRuntimeTools = {
 
 /** Makes the agent's runtime tools available to the host's MCP manager. */
 export function installRuntimeTools(): void {
-  installAgentRuntimeTools([delegationRuntimeTools, messagingRuntimeTools]);
+  installAgentRuntimeTools([delegationRuntimeTools, messagingRuntimeTools, groupRuntimeTools]);
 }

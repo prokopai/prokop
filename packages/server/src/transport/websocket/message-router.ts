@@ -8,6 +8,7 @@ import { handleClaimMessage, handleReleaseMessage } from '@/transport/websocket/
 import {
   handleCreateSession,
   handleResumeSession,
+  handleWatchSession,
   handleUpdateSession,
   handleUpdateModelSession,
   handleSelectHarnessModelSession,
@@ -76,6 +77,7 @@ const handlers: Record<string, Handler> = {
   'session.control.release': cast(handleReleaseMessage),
   'session.create': cast(handleCreateSession),
   'session.resume': cast(handleResumeSession),
+  'session.watch': cast(handleWatchSession),
   'session.update': cast(handleUpdateSession),
   'session.update_model': cast(handleUpdateModelSession),
   'session.select_harness_model': cast(handleSelectHarnessModelSession),

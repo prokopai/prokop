@@ -22,6 +22,15 @@ export {
   workspacePresets,
 } from './mockWorkspace';
 
+// --- Group chat ---
+export {
+  createAgentGroup,
+  createAgentGroupMessage,
+  createGroupToolPart,
+  createGroupThread,
+  GROUP_MEMBERS,
+} from './mockGroup';
+
 // --- Session ---
 export {
   createSession,

@@ -13,16 +13,16 @@
  * harness rewrites it. A header the parser does not accept is ordinary text.
  */
 
-/** `shell`: a background command. `task`: a delegated task. `message`: a message from another agent. */
-export type HostEventKind = 'shell' | 'task' | 'message';
+/** `shell`: a background command. `task`: a delegated task. `message`: a message from another agent. `group`: a group chat catch-up. */
+export type HostEventKind = 'shell' | 'task' | 'message' | 'group';
 
 export type HostEventOutcome = 'ok' | 'error' | 'ask' | 'stopped';
 
 export interface HostEvent {
   kind: HostEventKind;
-  /** Shell: the command id. Task: the child session id. Message: the sender's session id. */
+  /** Shell: the command id. Task: the child session id. Message: the sender's session id. Group: the group id. */
   id: string;
-  /** Shell: the command. Task: its description. Message: the sender's name. */
+  /** Shell: the command. Task: its description. Message: the sender's name. Group: the group name. */
   label: string;
   outcome: HostEventOutcome;
   /** Short facts for the row: `exit 0 · 2.1 s`, `codex-cli · gpt-5.5`. */
@@ -32,7 +32,7 @@ export interface HostEvent {
 }
 
 const TAG = 'prokop_event';
-const KINDS: ReadonlySet<string> = new Set<HostEventKind>(['shell', 'task', 'message']);
+const KINDS: ReadonlySet<string> = new Set<HostEventKind>(['shell', 'task', 'message', 'group']);
 const OUTCOMES: ReadonlySet<string> = new Set<HostEventOutcome>(['ok', 'error', 'ask', 'stopped']);
 const HEADER = new RegExp(String.raw`^<${TAG}((?:\s+[a-z]+="[^"]*")+)>([^\n]*)</${TAG}>(?:\n|$)`);
 const ATTRIBUTE = /([a-z]+)="([^"]*)"/g;

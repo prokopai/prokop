@@ -18,7 +18,9 @@ export type SessionViewId = `session:${string}:${string}`;
 export type PullRequestsViewId = `prs:${string}:${string}`;
 /** The settings of one server: a tab in the center, a surface on the phone. */
 export type SettingsViewId = `settings:${string}`;
-export type ResourceViewId = FileViewId | SessionViewId | PullRequestsViewId | SettingsViewId;
+/** One group chat; several can be open side by side, like sessions. */
+export type GroupViewId = `group:${string}:${string}`;
+export type ResourceViewId = FileViewId | SessionViewId | PullRequestsViewId | SettingsViewId | GroupViewId;
 export type WorkspaceViewId = WorkspaceToolViewId | ResourceViewId;
 
 /** The single pull requests tab of earlier layouts; dropped when a layout loads. */
@@ -39,6 +41,23 @@ export function parsePullRequestsViewId(id: string): { serverId: string; workspa
 
 export function isPullRequestsViewId(id: string): id is PullRequestsViewId {
   return parsePullRequestsViewId(id) !== null;
+}
+
+export function groupViewId(serverId: string, groupId: string): GroupViewId {
+  return `group:${encodeURIComponent(serverId)}:${encodeURIComponent(groupId)}`;
+}
+
+export function parseGroupViewId(id: string): { serverId: string; groupId: string } | null {
+  if (!id.startsWith('group:')) return null;
+  const parts = id.slice('group:'.length).split(':');
+  try {
+    if (parts.length !== 2 || !parts.every((part) => !!part && encodeURIComponent(decodeURIComponent(part)) === part)) return null;
+    return { serverId: decodeURIComponent(parts[0]), groupId: decodeURIComponent(parts[1]) };
+  } catch { return null; }
+}
+
+export function isGroupViewId(id: string): id is GroupViewId {
+  return parseGroupViewId(id) !== null;
 }
 
 export function settingsViewId(serverId: string): SettingsViewId {
@@ -70,7 +89,7 @@ export function isSessionViewId(id: string): id is SessionViewId {
 }
 
 function isResourceViewId(id: string): id is ResourceViewId {
-  return isFileViewId(id) || isSessionViewId(id) || isPullRequestsViewId(id) || isSettingsViewId(id);
+  return isFileViewId(id) || isSessionViewId(id) || isPullRequestsViewId(id) || isSettingsViewId(id) || isGroupViewId(id);
 }
 
 export function fileViewId(docId: string): FileViewId {
@@ -303,16 +322,19 @@ function mobileSurfaceFor(id: WorkspaceViewId): MobileSurface | 'terminal' {
   if (isRepositoryViewId(id)) return 'files';
   if (isPullRequestsViewId(id)) return 'pull-requests';
   if (isSettingsViewId(id)) return 'settings';
+  // A group chat is a tab on the Chat surface, next to the sessions.
   return 'chat';
 }
 
 interface MobileLayoutState {
   mobileSurface: MobileSurface;
   mobileTerminalOpen: boolean;
+  /** The group chat the phone's Chat surface shows instead of the selected session, while one is picked. */
+  mobileChatGroupId: GroupViewId | null;
 }
 
 /** Whether a dock position's content is showing: a dock on desktop, a surface on the phone. */
-export function isRegionOpen(view: MobileLayoutState, docks: Record<DockPosition, DockState>, position: DockPosition, mobile: boolean): boolean {
+export function isRegionOpen(view: Pick<MobileLayoutState, 'mobileSurface' | 'mobileTerminalOpen'>, docks: Record<DockPosition, DockState>, position: DockPosition, mobile: boolean): boolean {
   if (!mobile) return docks[position].open;
   if (position === 'bottom') return view.mobileTerminalOpen;
   if (position === 'left') return view.mobileSurface === 'sessions';
@@ -323,6 +345,8 @@ interface WorkspaceViewStore extends MobileLayoutState {
   layout: WorkspaceViewLayout;
   setMobileSurface: (surface: MobileSurface) => void;
   setMobileTerminalOpen: (open: boolean) => void;
+  /** Picks a group chat tab on the phone's Chat surface; null returns to the selected session. */
+  setMobileChatGroup: (id: GroupViewId | null) => void;
   /**
    * Bring a view in front of the user on either layout: select its tab and
    * open its dock on desktop, switch to its surface on the phone.
@@ -339,7 +363,7 @@ interface WorkspaceViewStore extends MobileLayoutState {
   resizeSplit: (id: string, ratio: number) => void;
   hideView: (id: WorkspaceViewId) => void;
   /** Open a pull requests or settings tab in the center (its surface on the phone), moving it back there if it was docked elsewhere. */
-  openInCenter: (id: PullRequestsViewId | SettingsViewId) => void;
+  openInCenter: (id: PullRequestsViewId | SettingsViewId | GroupViewId) => void;
   removeView: (id: ResourceViewId) => void;
   replaceView: (id: SessionViewId, replacement: SessionViewId) => void;
   resetLayout: () => void;
@@ -354,15 +378,17 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
     layout: loadLayout(),
     mobileSurface: 'chat',
     mobileTerminalOpen: false,
+    mobileChatGroupId: null,
     setMobileSurface: (mobileSurface) => set({ mobileSurface }),
     setMobileTerminalOpen: (mobileTerminalOpen) => set({ mobileTerminalOpen }),
+    setMobileChatGroup: (mobileChatGroupId) => set({ mobileChatGroupId }),
     showView: (id) => {
       // The phone Files surface shows one repository view; remember which.
       if (isRepositoryViewId(id)) useSessionFilesStore.getState().setFilesPanelTab(id);
       if (!isMobileViewport()) { get().activateView(id); return; }
       const surface = mobileSurfaceFor(id);
       if (surface === 'terminal') set({ mobileTerminalOpen: true });
-      else set({ mobileSurface: surface });
+      else set({ mobileSurface: surface, ...(isGroupViewId(id) ? { mobileChatGroupId: id } : isSessionViewId(id) ? { mobileChatGroupId: null } : {}) });
     },
     closeView: (id) => {
       if (!isMobileViewport()) { get().hideView(id); return; }
@@ -470,7 +496,9 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
         activeId: id,
       };
       update(pruneEmptyGroups({ ...layout, groups, hidden: layout.hidden.filter((viewId) => viewId !== id) }));
-      set({ mobileSurface: isSettingsViewId(id) ? 'settings' : 'pull-requests' });
+      set(isGroupViewId(id)
+        ? { mobileSurface: 'chat', mobileChatGroupId: id }
+        : { mobileSurface: isSettingsViewId(id) ? 'settings' : 'pull-requests' });
     },
     removeView: (id) => {
       const layout = get().layout;
@@ -487,6 +515,7 @@ export const useWorkspaceViewStore = create<WorkspaceViewStore>((set, get) => {
         } },
         hidden: layout.hidden.filter((viewId) => viewId !== id),
       }));
+      if (get().mobileChatGroupId === id) set({ mobileChatGroupId: null });
     },
     replaceView: (id, replacement) => {
       const layout = get().layout;
