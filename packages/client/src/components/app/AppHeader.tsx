@@ -13,6 +13,7 @@ import {
 import { ServerSwitcher } from '@/components/layout/ServerSwitcher';
 import { HeaderPanelToggles } from '@/components/app/HeaderPanelToggles';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
+import { overviewReturnTarget, returnWorkspaceId, workspaceReturnTarget } from '@/lib/workspaceReturn';
 import { isRegionOpen, settingsViewId, useWorkspaceViewStore } from '@/stores/workspaceViewStore';
 import { useDockStore } from '@/stores/dockStore';
 
@@ -38,10 +39,16 @@ export function AppHeader() {
   const toggleRegion = useWorkspaceViewStore((s) => s.toggleRegion);
   const regionOpen = (position: 'left' | 'right' | 'bottom') => isRegionOpen({ mobileSurface, mobileTerminalOpen }, docks, position, isMobile);
 
-  const goWorkspace = () =>
-    router.navigate({ to: '/server/$serverId/workspace', params: { serverId: params.serverId } });
-  const goOverview = () =>
-    router.navigate({ to: '/server/$serverId/overview', params: { serverId: params.serverId } });
+  // Back from Overview into the focused session's workspace (else the active one), with its tabs kept.
+  const goWorkspace = () => {
+    const workspaceId = returnWorkspaceId();
+    if (workspaceId) useServerDataStore.getState().setActiveWorkspaceId(workspaceId);
+    router.navigate(workspaceId
+      ? workspaceReturnTarget(params.serverId, workspaceId)
+      : { to: '/server/$serverId/workspace', params: { serverId: params.serverId } });
+  };
+  // Into Overview with this workspace's tabs when the active group holds it.
+  const goOverview = () => router.navigate(overviewReturnTarget(params.serverId));
   // Settings is a tab in the center of whichever view is open, overview included.
   const openSettings = () => useWorkspaceViewStore.getState().openInCenter(settingsViewId(params.serverId));
 

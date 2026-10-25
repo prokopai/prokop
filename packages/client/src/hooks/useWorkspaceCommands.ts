@@ -8,8 +8,10 @@ import { randomUUID } from '@/lib/randomId';
 import { useServerDataStore } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
-import { useSessionBoardStore } from '@/stores/sessionBoardStore';
+import { serializeOpenSessionIds, useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useOverviewGroupsStore } from '@/stores/overviewGroupsStore';
+import { findOverviewGroup, overviewGroupName, uniqueOverviewGroupName } from '@/lib/overviewGroupMatch';
+import { workspaceReturnTarget } from '@/lib/workspaceReturn';
 
 type Navigate = (opts: { to: string; params?: Record<string, string>; search?: Record<string, unknown> }) => void;
 
@@ -84,10 +86,51 @@ export function useWorkspaceCommands({
     false,
   );
 
+  // The workspace's own open tabs stay open (coming back from an Overview group, say); the rest close.
   const selectWorkspace = useCallback((workspace: Workspace) => {
     useServerDataStore.getState().setActiveWorkspaceId(workspace.id);
-    useSessionBoardStore.getState().clearBoard();
-    navigate({ to: '/server/$serverId/workspace', params: { serverId } });
+    navigate(workspaceReturnTarget(serverId, workspace.id));
+  }, [navigate, serverId]);
+
+  /**
+   * "Add a repo": the active workspace plus the picked ones become the
+   * Overview group with exactly that set (found or created, named after the
+   * workspaces), and the board's open tabs and focus travel in the URL, so
+   * Overview opens with everything this workspace had open.
+   */
+  const openWithWorkspaces = useCallback((workspaceIds: string[]) => {
+    const data = useServerDataStore.getState();
+    const activeId = data.activeWorkspaceId;
+    if (!activeId) return;
+    const set = [...new Set([activeId, ...workspaceIds])];
+    if (set.length < 2) return;
+    const groups = useOverviewGroupsStore.getState();
+    if (groups.hydrationStatus !== 'ready') {
+      toast.error('Overview groups are not loaded yet');
+      return;
+    }
+    const existing = findOverviewGroup(groups.document.groups, serverId, set);
+    if (existing) {
+      groups.selectGroup(serverId, existing.id);
+    } else {
+      const taken = groups.document.groups.filter((group) => group.serverId === serverId).map((group) => group.name);
+      const name = uniqueOverviewGroupName(overviewGroupName(set, data.workspaces, data.agents), taken);
+      if (!groups.createGroup(serverId, name, set)) {
+        toast.error('Could not create the overview group');
+        return;
+      }
+    }
+    const board = useSessionBoardStore.getState();
+    if (!board.focusedSessionId) {
+      navigate({ to: '/server/$serverId/overview', params: { serverId } });
+      return;
+    }
+    const open = serializeOpenSessionIds(board.openSessionIds.length > 1 ? board.openSessionIds : []);
+    navigate({
+      to: '/server/$serverId/overview/session/$sessionId',
+      params: { serverId, sessionId: board.focusedSessionId },
+      search: open ? { open } : {},
+    });
   }, [navigate, serverId]);
 
   const deleteWorkspace = async (id: string) => {
@@ -167,6 +210,7 @@ export function useWorkspaceCommands({
 
   return {
     selectWorkspace,
+    openWithWorkspaces,
     renameWorkspace,
     updateWorkspacePath,
     updateWorkspacePaths,

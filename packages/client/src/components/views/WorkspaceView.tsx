@@ -21,6 +21,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useUIStore } from '@/stores/uiStore';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher';
+import { AddRepoControl } from '@/components/layout/AddRepoControl';
 import { WorkspaceSessionContent } from '@/components/layout/WorkspaceSessionContent';
 import { PinnedMessagesPanel } from '@/components/layout/PinnedMessagesPanel';
 import { AppPanels } from '@/components/app/AppPanels';
@@ -113,6 +114,7 @@ function WorkspaceSidebar() {
     handleRenameSession,
     regenerateSessionTitle,
     selectWorkspace,
+    openWithWorkspaces,
     handleCreateVirtualWorkspace,
     handleCreatePhysicalWorkspace,
     deleteWorkspace,
@@ -250,6 +252,7 @@ function WorkspaceSidebar() {
           deletingWorkspaceId={deletingWorkspaceId}
           isUpdatingWorkspace={isUpdatingWorkspace}
         />
+        <AddRepoControl workspaces={sidebarData.workspaces} agents={agents} activeWorkspace={sidebarData.activeWorkspace} onConfirm={openWithWorkspaces} disabled={!sidebarData.connected} />
         <Button variant="ghost" size="icon-xs" aria-label="Pull requests" title="Pull requests" disabled={!sidebarData.connected || !activeWorkspace} onClick={openPullRequests}><GitPullRequest /></Button>
         <Button
           variant="ghost"

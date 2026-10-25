@@ -56,6 +56,8 @@ export interface SessionCommandsValue {
   handleNavigateBack: () => void;
 
   selectWorkspace: (workspace: Workspace) => void;
+  /** "Add a repo": Overview with the active workspace plus these, the board carried over. */
+  openWithWorkspaces: (workspaceIds: string[]) => void;
   renameWorkspace: (id: string, name: string) => void;
   updateWorkspacePath: (id: string, path: string) => void;
   updateWorkspacePaths: (id: string, additionalPaths: string[]) => void;

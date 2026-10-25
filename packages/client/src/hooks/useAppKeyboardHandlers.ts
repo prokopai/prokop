@@ -14,6 +14,7 @@ import { useSessionBoardStore } from '@/stores/sessionBoardStore';
 import { useWorkspaceFocusStore } from '@/stores/workspaceFocusStore';
 import type { TerminalPanelHandle } from '@/components/layout/TerminalPanel';
 import { isMobileViewport } from '@/lib/viewport';
+import { overviewReturnTarget, returnWorkspaceId, workspaceReturnTarget } from '@/lib/workspaceReturn';
 
 function focusedWorkspaceGroup(): HTMLElement | undefined {
   const groupId = useWorkspaceFocusStore.getState().groupId;
@@ -120,9 +121,12 @@ export function useAppKeyboardHandlers({
   const handleToggleViewMode = useCallback(() => {
     const currentPath = router.state.location.pathname;
     if (currentPath.includes('/overview')) {
-      router.navigate({ to: '/server/$serverId/workspace', params: { serverId } });
+      // Into the focused session's workspace (else the active one), with its tabs kept.
+      const workspaceId = returnWorkspaceId();
+      if (workspaceId) useServerDataStore.getState().setActiveWorkspaceId(workspaceId);
+      router.navigate(workspaceId ? workspaceReturnTarget(serverId, workspaceId) : { to: '/server/$serverId/workspace', params: { serverId } });
     } else {
-      router.navigate({ to: '/server/$serverId/overview', params: { serverId } });
+      router.navigate(overviewReturnTarget(serverId));
     }
   }, [router, serverId]);
 

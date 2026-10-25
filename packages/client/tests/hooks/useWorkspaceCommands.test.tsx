@@ -5,6 +5,8 @@ import { useWorkspaceCommands } from '@/hooks/useWorkspaceCommands';
 import { useServerDataStore, selectActiveWorkspace } from '@/stores/serverDataStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSessionContentStore } from '@/stores/sessionContentStore';
+import { useSessionBoardStore } from '@/stores/sessionBoardStore';
+import { useOverviewGroupsStore } from '@/stores/overviewGroupsStore';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
@@ -35,6 +37,40 @@ describe('useWorkspaceCommands', () => {
     toast.success.mockReset();
     toast.error.mockReset();
     localStorage.clear();
+  });
+
+  test('opening together finds or creates the Overview group with that set and carries the board over in the URL', () => {
+    useOverviewGroupsStore.setState({ hydrationStatus: 'ready', document: { version: 1, groups: [], activeGroupIdByServer: {} } });
+    useSessionBoardStore.setState({ focusedSessionId: 's1', openSessionIds: ['s1', 's2'] });
+    const { result, navigate } = setup({});
+
+    act(() => result.current.openWithWorkspaces(['alpha']));
+    const groups = useOverviewGroupsStore.getState().document;
+    expect(groups.groups).toEqual([{ id: expect.any(String), serverId: 'server', name: 'Beta + Alpha', workspaceIds: ['beta', 'alpha'] }]);
+    expect(groups.activeGroupIdByServer.server).toBe(groups.groups[0]!.id);
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/server/$serverId/overview/session/$sessionId', params: { serverId: 'server', sessionId: 's1' }, search: { open: 's1,s2' } });
+
+    // The same set in another order reuses the group; nothing new is created.
+    act(() => useOverviewGroupsStore.getState().createGroup('server', 'Other', ['alpha']));
+    act(() => result.current.openWithWorkspaces(['alpha', 'beta']));
+    expect(useOverviewGroupsStore.getState().document.groups.map((group) => group.name)).toEqual(['Beta + Alpha', 'Other']);
+    expect(useOverviewGroupsStore.getState().document.activeGroupIdByServer.server).toBe(groups.groups[0]!.id);
+
+    // Nothing focused: Overview opens plain.
+    useSessionBoardStore.setState({ focusedSessionId: null, openSessionIds: [] });
+    act(() => result.current.openWithWorkspaces(['alpha']));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/server/$serverId/overview', params: { serverId: 'server' } });
+  });
+
+  test('selecting a workspace keeps the tabs that belong to it and drops the others', () => {
+    useSessionBoardStore.setState({ focusedSessionId: 's1', openSessionIds: ['s1', 's2'] });
+    const { result, navigate } = setup({});
+    act(() => result.current.selectWorkspace(alpha));
+    expect(useServerDataStore.getState().activeWorkspaceId).toBe('alpha');
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/server/$serverId/workspace/session/$sessionId', params: { serverId: 'server', sessionId: 's2' }, search: {} });
+    useSessionBoardStore.setState({ focusedSessionId: null, openSessionIds: [] });
+    act(() => result.current.selectWorkspace(beta));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/server/$serverId/workspace', params: { serverId: 'server' }, search: {} });
   });
 
   test('a rename updates the list, so the active workspace shows the new name', async () => {

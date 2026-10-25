@@ -38,7 +38,7 @@ const SESSION_COMMANDS = {
   sendChatMessage: true, sendChatMessageForSession: true, handleAskResponse: true, handleInterruptSession: true,
   handleInterruptSessionById: true, updateSessionPreconfig: true, updateSessionPreconfigForSession: true,
   updateSessionModel: true, updateSessionModelForSession: true, updateSessionVariant: true,
-  updateSessionVariantForSession: true, handleNavigateBack: true, selectWorkspace: true, renameWorkspace: true,
+  updateSessionVariantForSession: true, handleNavigateBack: true, selectWorkspace: true, openWithWorkspaces: true, renameWorkspace: true,
   updateWorkspacePath: true, updateWorkspacePaths: true, updateWorkspaceSettings: true,
   handleCreateVirtualWorkspace: true, handleCreatePhysicalWorkspace: true, deleteWorkspace: true,
   createSessionInWorkspace: true, claimControl: true, handleLogout: true, handleRetry: true,
