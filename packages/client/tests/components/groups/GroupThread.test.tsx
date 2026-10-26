@@ -104,6 +104,44 @@ test('a reply being written shows under the thread as that member, with its part
   expect(screen.getByText(/Reading the bucket code/)).toBeInTheDocument();
 });
 
+test('a reply reads ahead of the handoff its turn posted, with its handoff row, though the server stored it after', () => {
+  const ask = message('user', '@Reviewer review it, then hand it on');
+  const handoff = message('handoff', 'Fix the TTL in middleware.ts', { authorAgentId: 'reviewer', targetAgentId: 'implementer', sourceMessageId: 'a1', hop: 1 });
+  const fix = message('agent', 'Fixing the TTL now.', { authorAgentId: 'implementer', hop: 1 });
+  const verdict = message('agent', 'One fix needed, Implementer has it.', { authorAgentId: 'reviewer', sourceMessageId: 'a1' });
+  verdict.parts.unshift(toolPart(verdict.id, 'handoff_to_agent', 'handed the TTL fix on'));
+  const items = groupDisplayItems('g1', [ask, handoff, fix, verdict], members, []);
+  expect(items.map((item) => item.message.id)).toEqual([ask.id, verdict.id, handoff.id, fix.id]);
+
+  render(<GroupThread groupId="g1" members={members} messages={[ask, handoff, fix, verdict]} />);
+  const reply = screen.getByText('One fix needed, Implementer has it.');
+  const handoffRow = screen.getByRole('status');
+  const handoffTool = screen.getByText('handed the TTL fix on');
+  // DOCUMENT_POSITION_FOLLOWING: the second node comes after the first.
+  expect(handoffTool.compareDocumentPosition(handoffRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(reply.compareDocumentPosition(handoffRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(handoffRow.compareDocumentPosition(screen.getByText('Fixing the TTL now.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('a reply being written sits where it will land: ahead of its turn\'s handoff, else at the end', () => {
+  const ask = message('user', '@Reviewer review it, then hand it on');
+  const handoff = message('handoff', 'Fix the TTL in middleware.ts', { authorAgentId: 'reviewer', targetAgentId: 'implementer', sourceMessageId: 'a1', hop: 1 });
+  const fix = message('agent', 'Fixing the TTL now.', { authorAgentId: 'implementer', hop: 1 });
+  const streaming = (id: string, member: AgentGroupMember) => ({
+    member,
+    message: { id, sessionId: member.sessionId, role: 'assistant' as const, status: 'streaming' as const, modelId: 'm', providerId: 'p', tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: 1 },
+    parts: [{ id: `${id}-t`, messageId: id, createdAt: 1, type: 'text' as const, text: 'Still writing' }],
+  });
+  const live = groupDisplayItems('g1', [ask, handoff, fix], members, [streaming('a1', members[1]!), streaming('a2', members[0]!)]);
+  expect(live.map((item) => item.message.id)).toEqual([ask.id, 'a1', handoff.id, fix.id, 'a2']);
+  expect(live[1]!.author).toMatchObject({ name: 'Reviewer' });
+
+  // The finished reply takes the preview's place, so nothing moves.
+  const verdict = message('agent', 'One fix needed.', { authorAgentId: 'reviewer', sourceMessageId: 'a1' });
+  const finished = groupDisplayItems('g1', [ask, handoff, fix, verdict], members, []);
+  expect(finished.findIndex((item) => item.message.id === verdict.id)).toBe(1);
+});
+
 test("a member's approval sits under the thread, labeled with the member, and is answered from here", () => {
   const onAskResponse = vi.fn();
   render(

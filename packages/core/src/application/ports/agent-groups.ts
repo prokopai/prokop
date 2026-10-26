@@ -66,7 +66,7 @@ export interface AgentGroupStore {
   listMessages(groupId: string, query: AgentGroupMessageQuery): AgentGroupMessage[];
   countMessages(groupId: string, range: AgentGroupMessageRange): number;
   latestSeq(groupId: string): number;
-  /** Whether a member session message was already copied into the group. */
+  /** Whether a member session message was already copied into the group as a reply (a handoff naming it as its source does not count). */
   hasSourceMessage(groupId: string, sourceMessageId: string): boolean;
 }
 
@@ -117,7 +117,7 @@ export function createMemoryAgentGroupStore(): AgentGroupStore {
     },
     countMessages: (groupId, range) => (messages.get(groupId) ?? []).filter(inRange(range)).length,
     latestSeq: (groupId) => (messages.get(groupId) ?? []).at(-1)?.seq ?? 0,
-    hasSourceMessage: (groupId, sourceMessageId) => (messages.get(groupId) ?? []).some((message) => message.sourceMessageId === sourceMessageId),
+    hasSourceMessage: (groupId, sourceMessageId) => (messages.get(groupId) ?? []).some((message) => message.authorKind === 'agent' && message.sourceMessageId === sourceMessageId),
   };
 }
 

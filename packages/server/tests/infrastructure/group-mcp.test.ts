@@ -11,7 +11,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ServerMessage, Session, SessionHarness } from '@prokopai/sdk';
+import type { AssistantMessage, ServerMessage, Session, SessionHarness } from '@prokopai/sdk';
 import { createAgentGroupsService, type AgentGroupsService } from '@prokopai/core/application/groups/service';
 import { installAgentGroups } from '@prokopai/core/application/ports/agent-groups';
 import { installAgentRuntimeTools } from '@prokopai/core/application/ports/runtime-tools';
@@ -124,6 +124,9 @@ test('a handoff through the tool posts to the group and wakes the target with th
   expect(read.ok).toBe(true);
   expect(read.messages).toEqual([expect.objectContaining({ author: '[User]', text: '@Implementer add rate limiting' })]);
 
+  // The reply the turn is writing when it hands off.
+  const reply = createMessage({ id: 'a1', sessionId: implementer.sessionId, role: 'assistant', status: 'streaming', modelId: 'm', providerId: 'p',
+    tokens: { prompt: 0, completion: 0 }, cost: 0, createdAt: Date.now() + 1 }) as AssistantMessage;
   const handed = await handoff!.execute({ agent_id: 'reviewer', message: 'Token bucket is in middleware.ts; review it.' });
   expect(handed.isError).toBe(false);
   expect(JSON.parse(String(handed.content[0]!.text))).toMatchObject({ ok: true, target: 'reviewer', hop: 1, seq: 2 });
@@ -132,6 +135,13 @@ test('a handoff through the tool posts to the group and wakes the target with th
   expect(deliveries[1]!.content).toContain('[Implementer → Reviewer, handoff] Token bucket is in middleware.ts; review it.');
   expect(deliveries[1]!.content).toContain('hop="1"');
   expect(broadcasts.filter(message => message.type === 'group.message.created')).toHaveLength(2);
+
+  // The finished reply is still mirrored (the handoff naming it as its source is no copy) and reads ahead of the handoff.
+  createPart({ id: 'a1-t', messageId: reply.id, createdAt: Date.now(), type: 'text', text: 'Handed the review to Reviewer.' }, implementer.sessionId);
+  expect(await service.mirrorFinishedTurn({ ...reply, status: 'completed' })).toBe('mirrored');
+  expect(await service.mirrorFinishedTurn({ ...reply, status: 'completed' })).toBe('skipped');
+  const thread = JSON.parse(String((await history!.execute({ limit: 10 })).content[0]!.text)) as { messages: Array<{ seq: number; author: string }> };
+  expect(thread.messages.map(message => [message.seq, message.author])).toEqual([[1, '[User]'], [3, '[Implementer]'], [2, '[Implementer → Reviewer, handoff]']]);
 
   const refused = await handoff!.execute({ agent_id: 'outsider', message: 'x' });
   expect(refused.isError).toBe(true);

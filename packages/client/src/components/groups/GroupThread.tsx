@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { formatHostEvent, type AgentGroupMember, type AgentGroupMessage, type AskResponse, type Message, type MessageWithParts } from '@prokopai/sdk';
+import { formatHostEvent, groupTurnAnchor, orderGroupThread, type AgentGroupMember, type AgentGroupMessage, type AskResponse, type Message, type MessageWithParts } from '@prokopai/sdk';
 import { AskQuestion } from '@/components/chat/AskQuestion';
 import { VirtualizedTranscript, type DisplayItem } from '@/components/chat/VirtualizedTranscript';
 import { EmptyState } from '@/components/shared/States';
@@ -20,7 +20,7 @@ export interface GroupThreadProps {
   hasOlder?: boolean;
   loadingOlder?: boolean;
   onLoadOlder?: () => void;
-  /** Replies members are writing right now, shown under the thread until the finished reply lands. */
+  /** Replies members are writing right now, shown where the finished reply will land (ahead of their turn's handoffs, else under the thread). */
   live?: readonly GroupLiveReply[];
   /** Approvals and questions of members, answered here since member sessions stay hidden. */
   asks?: readonly GroupMemberAsk[];
@@ -34,11 +34,27 @@ const NO_TOKENS = { prompt: 0, completion: 0 };
 /**
  * The group thread as transcript rows, so it reads like a chat: the person's
  * posts as prompt bubbles, members' replies as assistant turns named after
- * the member, a handoff or a join as an event row.
+ * the member, a handoff or a join as an event row. A member's reply reads
+ * where its turn began, ahead of the handoffs that turn posted; a reply still
+ * being written takes the same spot (the end, when its turn posted nothing),
+ * so nothing moves when it finishes.
  */
 export function groupDisplayItems(groupId: string, messages: readonly AgentGroupMessage[], members: readonly AgentGroupMember[], live: readonly GroupLiveReply[]): DisplayItem[] {
   const items: DisplayItem[] = [];
-  for (const message of messages) {
+  const liveItem = (reply: GroupLiveReply): DisplayItem => ({
+    message: { ...reply.message, sessionId: reply.member.sessionId },
+    parts: reply.parts,
+    author: { name: reply.member.name, className: authorColorClass(reply.member.agentId, members) },
+  });
+  const anchored = new Map<number, GroupLiveReply[]>();
+  const trailing: GroupLiveReply[] = [];
+  for (const reply of live) {
+    const anchor = groupTurnAnchor(messages, reply.message.id);
+    if (anchor === null) trailing.push(reply);
+    else anchored.set(anchor, [...(anchored.get(anchor) ?? []), reply]);
+  }
+  for (const message of orderGroupThread(messages)) {
+    for (const reply of anchored.get(message.seq) ?? []) items.push(liveItem(reply));
     const createdAt = new Date(message.createdAt).getTime() || 0;
     switch (message.authorKind) {
       case 'user':
@@ -71,13 +87,7 @@ export function groupDisplayItems(groupId: string, messages: readonly AgentGroup
       }
     }
   }
-  for (const reply of live) {
-    items.push({
-      message: { ...reply.message, sessionId: reply.member.sessionId },
-      parts: reply.parts,
-      author: { name: reply.member.name, className: authorColorClass(reply.member.agentId, members) },
-    });
-  }
+  for (const reply of trailing) items.push(liveItem(reply));
   return items;
 }
 

@@ -63,10 +63,18 @@ export function createGroupToolPart(messageId: string, name: string, summary: st
   };
 }
 
-/** The thread from the plan: a request, an implementation with tool lines, a review, a handoff, a join. */
+/** The Implementer turn that hands the fix to Reviewer: the handoff and the finished reply both name it as their source. */
+export const GROUP_HANDOFF_TURN_ID = 'msg-implementer-fix';
+
+/**
+ * The thread from the plan: a request, an implementation with tool lines, a
+ * review, a handoff, a join. As the server stores them, the handoff comes
+ * before the reply of the turn that posted it; the thread reads the reply first.
+ */
 export function createGroupThread(groupId = 'group-scene'): AgentGroupMessage[] {
   seq = 0;
   const implementation = mockId('gmsg');
+  const fix = mockId('gmsg');
   return [
     createAgentGroupMessage({ groupId, text: '@Implementer add rate limiting to the API' }),
     createAgentGroupMessage({
@@ -80,7 +88,16 @@ export function createGroupThread(groupId = 'group-scene'): AgentGroupMessage[] 
     createAgentGroupMessage({ groupId, text: '@Reviewer check it' }),
     createAgentGroupMessage({ groupId, authorKind: 'agent', authorAgentId: 'reviewer', text: 'The bucket resets on restart. It should persist, otherwise a deploy clears every limit at once.' }),
     createAgentGroupMessage({ groupId, text: '@Implementer fix that, then hand it to Reviewer' }),
-    createAgentGroupMessage({ groupId, authorKind: 'handoff', authorAgentId: 'implementer', targetAgentId: 'reviewer', hop: 1, text: 'Persisted in Redis with a 60 s TTL; please re-check middleware.ts and the new redis-bucket.test.ts.' }),
+    createAgentGroupMessage({ groupId, authorKind: 'handoff', authorAgentId: 'implementer', targetAgentId: 'reviewer', sourceMessageId: GROUP_HANDOFF_TURN_ID, hop: 1, text: 'Persisted in Redis with a 60 s TTL; please re-check middleware.ts and the new redis-bucket.test.ts.' }),
+    createAgentGroupMessage({
+      groupId, id: fix, authorKind: 'agent', authorAgentId: 'implementer', sourceMessageId: GROUP_HANDOFF_TURN_ID,
+      parts: [
+        createGroupToolPart(fix, 'edit', 'edited middleware.ts'),
+        createGroupToolPart(fix, 'shell', 'bun test redis-bucket.test.ts'),
+        createGroupToolPart(fix, 'handoff_to_agent', 'Reviewer'),
+        textPart(fix, 'The bucket now lives in Redis, so a deploy keeps every limit. Reviewer has it for a second look.'),
+      ],
+    }),
     createAgentGroupMessage({ groupId, authorKind: 'system', text: 'Idea Architect joined the group.' }),
   ];
 }
