@@ -8,7 +8,7 @@
  * `handoff_to_agent` read it back from the transcript.
  */
 
-import { formatHostEvent, splitHostEvent, type AgentGroupMessage, type MessageWithParts } from '@prokopai/sdk';
+import { formatHostEvent, orderGroupThread, splitHostEvent, type AgentGroupMessage, type MessageWithParts } from '@prokopai/sdk';
 
 /** A catch-up carries at most this many messages. */
 export const GROUP_CATCH_UP_MAX_MESSAGES = 50;
@@ -67,15 +67,17 @@ export interface CappedCatchUp {
 }
 
 /**
- * Applies the cap from the newest message backwards. A single message over
- * the character limit is cut with a marker rather than dropped, so the
- * newest message always arrives.
+ * Puts the messages in reading order (a reply ahead of the handoffs its turn
+ * posted) and applies the cap from the newest backwards. A single message
+ * over the character limit is cut with a marker rather than dropped, so the
+ * newest message always arrives. The range is the lowest and highest seq kept.
  */
 export function capCatchUp(messages: readonly AgentGroupMessage[], names: ReadonlyMap<string, string>): CappedCatchUp {
+  const ordered = orderGroupThread(messages);
   const kept: { seq: number; line: string }[] = [];
   let chars = 0;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]!;
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const message = ordered[index]!;
     if (kept.length >= GROUP_CATCH_UP_MAX_MESSAGES) break;
     let line = `${groupMessageLabel(message, names)} ${groupMessageText(message).replace(CLOSING_TAG, '&lt;')}`;
     if (chars + line.length > GROUP_CATCH_UP_MAX_CHARS) {
@@ -86,11 +88,12 @@ export function capCatchUp(messages: readonly AgentGroupMessage[], names: Readon
     chars += line.length;
     kept.unshift({ seq: message.seq, line });
   }
+  const seqs = kept.map((entry) => entry.seq);
   return {
     lines: kept.map((entry) => entry.line),
     omitted: messages.length - kept.length,
-    fromSeq: kept[0]?.seq ?? null,
-    toSeq: kept.at(-1)?.seq ?? null,
+    fromSeq: seqs.length > 0 ? Math.min(...seqs) : null,
+    toSeq: seqs.length > 0 ? Math.max(...seqs) : null,
   };
 }
 
@@ -176,6 +179,18 @@ export function parseGroupWake(text: string): GroupWake | null {
 
 function textOf(entry: MessageWithParts): string {
   return entry.parts.filter((part) => part.type === 'text').map((part) => part.text ?? '').join('');
+}
+
+/**
+ * The reply a member session is writing right now: its streaming assistant
+ * message, which the turn's finished reply is copied from. Null outside a turn.
+ */
+export function currentTurnReplyId(transcript: readonly MessageWithParts[]): string | null {
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const message = transcript[index]!.message;
+    if (message.role === 'assistant' && message.status === 'streaming') return message.id;
+  }
+  return null;
 }
 
 /**

@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { AgentGroupMessage, AssistantMessage, MessageWithParts, Preconfig, ServerMessage, Session, TextPart, ToolPart } from '@prokopai/sdk';
-import { splitHostEvent } from '@prokopai/sdk';
+import { orderGroupThread, splitHostEvent } from '@prokopai/sdk';
 import { createMemoryAgentGroupStore } from '@prokopai/core/application/ports/agent-groups';
 import { createAgentGroupsService, type AgentGroupsService } from '@prokopai/core/application/groups/service';
 import { resolveGroupTargets } from '@prokopai/core/domains/groups/routing';
@@ -290,6 +290,55 @@ describe('group service', () => {
     h.transcripts.set(reviewer.id, [...h.transcripts.get(reviewer.id)!, reply]);
     await h.service.mirrorFinishedTurn(reply.message as AssistantMessage);
     expect(h.store.listMessages(g.id, { limit: 1 })[0]).toMatchObject({ authorKind: 'agent', authorAgentId: 'reviewer', hop: 1 });
+  });
+
+  test("a reply reads ahead of the handoff its turn posted, in the thread, group_history and later catch-ups, while the target is woken at once", async () => {
+    const h = harness();
+    const g = await group(h, ['implementer', 'reviewer', 'idea-architect']);
+    unwrap(await h.service.postUserMessage(g.id, { text: '@Reviewer review it, then hand the fix to Implementer' }));
+    const reviewer = memberSession(h, 'reviewer');
+    // Mid-turn: the wake, then the reply still streaming when the handoff tool runs.
+    const wake = user(reviewer.id, 'u1', h.deliveries[0]!.content);
+    h.transcripts.set(reviewer.id, [wake, assistant(reviewer.id, 'a1', ['Reading middleware.ts'], 'streaming')]);
+    expect(unwrap(await h.service.handoff(reviewer.id, { agent_id: 'implementer', message: 'Fix the TTL in middleware.ts' }))).toMatchObject({ seq: 2, hop: 1 });
+    expect(h.store.listMessages(g.id, { limit: 1 })[0]).toMatchObject({ authorKind: 'handoff', sourceMessageId: 'a1' });
+    // The target does not wait for the reply.
+    expect(h.wakes()[1]).toMatchObject({ sessionId: memberSession(h, 'implementer').id, wake: { hop: 1, fromSeq: 1, toSeq: 2 } });
+    expect(h.wakes()[1]!.body).toContain('[Reviewer → Implementer, handoff] Fix the TTL in middleware.ts');
+
+    // The turn ends: its reply is mirrored (the handoff naming it is not a copy of it) and stored after the handoff.
+    const reply = assistant(reviewer.id, 'a1', ['Reading middleware.ts', tool('c1', 'handoff_to_agent', { agent_id: 'implementer' }, 'Implementer'), 'One fix needed, Implementer has it.']);
+    h.transcripts.set(reviewer.id, [wake, reply]);
+    expect(await h.service.mirrorFinishedTurn(reply.message as AssistantMessage)).toBe('mirrored');
+    expect(await h.service.mirrorFinishedTurn(reply.message as AssistantMessage)).toBe('skipped');
+    const stored = h.store.listMessages(g.id, { limit: 10 });
+    expect(stored.map((message) => [message.seq, message.authorKind])).toEqual([[1, 'user'], [2, 'handoff'], [3, 'agent']]);
+    expect(stored[2]).toMatchObject({ sourceMessageId: 'a1', hop: 0 });
+    const listed = unwrap(h.service.listMessages(g.id, {}));
+    expect(orderGroupThread(listed.messages).map((message) => message.seq)).toEqual([1, 3, 2]);
+
+    // group_history and a later catch-up read the reply, its handoff line, then what came after.
+    const architect = memberSession(h, 'idea-architect');
+    const history = unwrap(await h.service.history(architect.id, {}));
+    expect(history.messages.map((message) => [message.seq, message.author])).toEqual([
+      [1, '[User]'], [3, '[Reviewer]'], [2, '[Reviewer → Implementer, handoff]'],
+    ]);
+    expect(history.has_more).toBe(false);
+    expect(unwrap(await h.service.history(architect.id, { after_seq: 1, limit: 1 })).messages.map((message) => message.seq)).toEqual([2]);
+    unwrap(await h.service.postUserMessage(g.id, { text: '@Idea Architect thoughts?' }));
+    const architectWake = h.wakes().at(-1)!;
+    expect(architectWake.wake).toMatchObject({ fromSeq: 1, toSeq: 4 });
+    const at = (text: string) => architectWake.body.indexOf(text);
+    expect(at('[Reviewer] Reading middleware.ts\n(handoff_to_agent: Implementer)')).toBeGreaterThan(at('[User] @Reviewer review it'));
+    expect(at('[Reviewer → Implementer, handoff]')).toBeGreaterThan(at('[Reviewer] Reading'));
+    expect(at('[User] @Idea Architect thoughts?')).toBeGreaterThan(at('[Reviewer → Implementer, handoff]'));
+    expect(h.store.listMembers(g.id).find((member) => member.agentId === 'idea-architect')!.cursorSeq).toBe(4);
+
+    // A handoff made outside a running turn (no streaming reply) keeps post order.
+    const implementer = memberSession(h, 'implementer');
+    h.transcripts.set(implementer.id, [user(implementer.id, 'u1', h.deliveries[1]!.content)]);
+    unwrap(await h.service.handoff(implementer.id, { agent_id: 'reviewer', message: 'Fixed' }));
+    expect(h.store.listMessages(g.id, { limit: 1 })[0]).toMatchObject({ authorKind: 'handoff', sourceMessageId: null, hop: 2 });
   });
 
   test('a long-idle member gets the newest 50 with the omitted count and can read the rest with group_history, which never moves the cursor', async () => {

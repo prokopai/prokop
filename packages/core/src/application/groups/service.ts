@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'node:crypto';
 import {
+  orderGroupThread,
   resolveToolSummary,
   type AgentGroup,
   type AgentGroupMessage,
@@ -27,6 +28,7 @@ import type { AgentGroupMemberRecord, AgentGroupRecord, AgentGroupStore } from '
 import { explicitGroupTargets, resolveGroupTargets } from '../../domains/groups/routing';
 import {
   capCatchUp,
+  currentTurnReplyId,
   formatGroupWake,
   GROUP_CATCH_UP_MAX_MESSAGES,
   groupMessageLabel,
@@ -477,6 +479,7 @@ export function createAgentGroupsService(deps: AgentGroupsServiceDeps): AgentGro
       const query = afterSeq >= 0
         ? { afterSeq, limit, take: 'oldest' as const }
         : { beforeSeq: beforeSeq >= 0 ? beforeSeq : store.latestSeq(group.id) + 1, limit };
+      // The window is by seq; within it the messages read as the thread does.
       const messages = store.listMessages(group.id, query);
       const labels = await names(group, messages.flatMap((message) => [message.authorAgentId, message.targetAgentId]));
       const hasMore = messages.length > 0 && (afterSeq >= 0
@@ -484,7 +487,7 @@ export function createAgentGroupsService(deps: AgentGroupsServiceDeps): AgentGro
         : store.countMessages(group.id, { beforeSeq: messages[0]!.seq }) > 0);
       return { ok: true, value: {
         group: group.name,
-        messages: messages.map((message) => ({
+        messages: orderGroupThread(messages).map((message) => ({
           seq: message.seq, author: groupMessageLabel(message, labels), kind: message.authorKind, text: groupMessageText(message), created_at: message.createdAt,
         })),
         has_more: hasMore,
@@ -503,11 +506,14 @@ export function createAgentGroupsService(deps: AgentGroupsServiceDeps): AgentGro
       if (target === member.agentId) return fail('self_handoff', 'You cannot hand a stage to yourself');
       const recipient = store.listMembers(group.id).find((candidate) => candidate.agentId === target);
       if (!recipient) return fail('not_member', `${target} is not in this group; the members are ${found.others.map((other) => other.agentId).join(', ')}`);
-      const hop = hopOf(await deps.sessions.listTranscript(sessionId)) + 1;
+      const transcript = await deps.sessions.listTranscript(sessionId);
+      // The reply this turn is writing; the thread shows it ahead of the handoff, where the turn began.
+      const replyId = currentTurnReplyId(transcript);
+      const hop = hopOf(transcript, replyId ?? undefined) + 1;
       const maxHops = deps.maxHops();
       if (hop > maxHops) return fail('hop_limit', `This handoff would be hop ${hop}; handoffs stop at ${maxHops} hops from the user's message. Report to the user in the group instead.`);
       const labels = await names(group);
-      const message = post(group, { authorKind: 'handoff', authorAgentId: member.agentId, targetAgentId: target, hop }, text);
+      const message = post(group, { authorKind: 'handoff', authorAgentId: member.agentId, targetAgentId: target, hop }, text, replyId);
       await wake(group, recipient, hop, `handoff from ${labels.get(member.agentId) ?? member.agentId}`);
       return { ok: true, value: { target, hop, seq: message.seq,
         note: `${labels.get(target) ?? target} now owns this stage and was woken with your message. Do not continue the stage yourself; your turn's final text still posts to the group.` } };

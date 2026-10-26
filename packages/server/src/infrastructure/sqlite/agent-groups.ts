@@ -191,7 +191,7 @@ export function createAgentGroupStore(getDatabase: () => Database): AgentGroupSt
       return (getDatabase().query('SELECT COALESCE(MAX(seq), 0) AS seq FROM agent_group_messages WHERE group_id = ?').get(groupId) as { seq: number }).seq;
     },
     hasSourceMessage(groupId, sourceMessageId) {
-      return getDatabase().query('SELECT 1 FROM agent_group_messages WHERE group_id = ? AND source_message_id = ? LIMIT 1').get(groupId, sourceMessageId) !== null;
+      return getDatabase().query("SELECT 1 FROM agent_group_messages WHERE group_id = ? AND source_message_id = ? AND author_kind = 'agent' LIMIT 1").get(groupId, sourceMessageId) !== null;
     },
   };
 }
