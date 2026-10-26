@@ -18,6 +18,7 @@ import { chromium } from 'playwright-core';
 import { encode, type Clip, type ClipContext } from './clip';
 import { commandApprovalClip } from './clips/command-approval';
 import { gitWorkbenchClip } from './clips/git-workbench';
+import { groupChatClip } from './clips/group-chat';
 import { guideAddProject } from './clips/guide-add-project';
 import { guideAgentLearning } from './clips/guide-agent-learning';
 import { guideClaudeCodex } from './clips/guide-claude-codex';
@@ -37,7 +38,7 @@ import { lastPage, THEMES, themeName } from './scene';
 import { Demo } from './script';
 import { buildClipWorld } from './world';
 
-const CLIPS: Clip[] = [memoryClip, runtimesClip, harnessSwitchClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider, guideClaudeCodex, guideReviewCommit, guidePhone, guideWorktree];
+const CLIPS: Clip[] = [memoryClip, runtimesClip, harnessSwitchClip, commandApprovalClip, multiSessionClip, mobileClip, gitWorkbenchClip, groupChatClip, guideMultipleSessions, guideOverview, guideAddProject, guideAgentLearning, guideConnectProvider, guideClaudeCodex, guideReviewCommit, guidePhone, guideWorktree];
 
 const { values } = parseArgs({
   options: {

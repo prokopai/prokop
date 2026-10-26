@@ -34,10 +34,26 @@ export class Demo {
     await this.client.disconnect();
   }
 
-  private async hasPendingCall(sessionId: string): Promise<boolean> {
+  private async pendingCalls(): Promise<Array<{ callId: string; sessionId: string }>> {
     const response = await fetch(`${this.url}/api/sandbox/pending`);
-    const pending = (await response.json()) as Array<{ sessionId: string }>;
-    return pending.some((call) => call.sessionId === sessionId);
+    return (await response.json()) as Array<{ callId: string; sessionId: string }>;
+  }
+
+  /** True while the session waits at a model call no rule answered. */
+  async hasPendingCall(sessionId: string): Promise<boolean> {
+    return (await this.pendingCalls()).some((call) => call.sessionId === sessionId);
+  }
+
+  /** Answers the session's waiting model call with one step, like a rule would have. */
+  async answerPendingCall(sessionId: string, step: Step): Promise<void> {
+    const call = (await this.pendingCalls()).find((candidate) => candidate.sessionId === sessionId);
+    if (!call) throw new Error(`Session ${sessionId} has no pending model call to answer`);
+    const response = await fetch(`${this.url}/api/sandbox/pending/${call.callId}/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(step),
+    });
+    if (!response.ok) throw new Error(`Answering the pending call failed: ${response.status}`);
   }
 
   private async rules(): Promise<Rule[]> {
@@ -77,6 +93,37 @@ export class Demo {
     const existing = await this.rules();
     // Session-scoped rules go first so the catch-all generate rule cannot shadow them.
     await this.setRules([...queued, ...existing]);
+  }
+
+  /**
+   * Queues answers for turns of sessions that do not exist yet (a delegated
+   * child, an agent's conversation in another agent's home). They go after
+   * every existing rule, so session-scoped steps always win; use them only
+   * while nothing else unscripted runs.
+   */
+  async queueCatchAll(label: string, steps: Step[]): Promise<void> {
+    const queued: Rule[] = steps.map((response, index) => ({
+      label: `${label} step ${index + 1}`,
+      match: { mode: 'stream' },
+      response,
+      maxUses: 1,
+    }));
+    await this.setRules([...(await this.rules()), ...queued]);
+  }
+
+  async isRunning(sessionId: string): Promise<boolean> {
+    const { session } = await this.rest.sessions.get(sessionId);
+    return Boolean(session.runningAt);
+  }
+
+  /** Polls `check` every 250 ms until it is true. */
+  async waitFor(what: string, check: () => Promise<boolean>, timeoutMs = 60_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await check()) return;
+      await Bun.sleep(250);
+    }
+    throw new Error(`${what} did not happen within ${timeoutMs}ms`);
   }
 
   /**

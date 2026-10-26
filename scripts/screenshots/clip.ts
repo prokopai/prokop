@@ -69,7 +69,7 @@ export class ScreenRecorder {
     return this.pausedAt !== null;
   }
 
-  /** Starts recording once fonts are ready; the clip begins with this frame. */
+  /** Starts recording once fonts are ready; the clip begins with the settled page. */
   static async start(page: Page, dir: string): Promise<ScreenRecorder> {
     await page.evaluate(() => document.fonts.ready);
     rmSync(dir, { recursive: true, force: true });
@@ -83,7 +83,13 @@ export class ScreenRecorder {
       void session.send('Page.screencastFrameAck', { sessionId }).catch(() => undefined);
     });
     const viewport = page.viewportSize()!;
+    // Starting the screencast makes the page repaint, and its first frame can
+    // catch a transcript mid-layout, empty. Hold until that settled and open
+    // with the newest frame instead.
+    recorder.pause();
     await session.send('Page.startScreencast', { format: 'png', maxWidth: viewport.width, maxHeight: viewport.height });
+    await page.waitForTimeout(500);
+    recorder.resume();
     return recorder;
   }
 

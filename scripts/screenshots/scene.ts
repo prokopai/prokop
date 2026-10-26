@@ -86,6 +86,9 @@ export async function openClient(ctx: ClientContext, theme: Theme, viewport = DE
     // workspace by name, which is invoicer.
     localStorage.setItem('activeWorkspaceId', workspaceId);
   }, { settings: JSON.stringify(theme), clientId: JSON.stringify(SCREENSHOT_CLIENT_ID), workspaceId: ctx.world.workspaceId });
+  // The client asks GitHub for the latest release; a demo server built from
+  // source would show an update toast and a dot on the settings button.
+  await context.route(/https:\/\/(api\.github\.com|raw\.githubusercontent\.com)\//, (route) => route.abort());
   const page = await context.newPage();
   lastOpenedPage = page;
   await page.goto(ctx.instance.url);

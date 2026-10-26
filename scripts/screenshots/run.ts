@@ -20,11 +20,15 @@ import { REPO_ROOT, startInstance } from './instance';
 import { capture, lastPage, THEMES, themeName, type Scene, type SceneContext } from './scene';
 import { board } from './scenes/board';
 import { branches } from './scenes/branches';
+import { agentMessage } from './scenes/agent-message';
+import { ARTICLE_SCENES } from './scenes/articles';
 import { commandApproval } from './scenes/command-approval';
+import { delegation, delegationThread } from './scenes/delegation';
 import { explorer } from './scenes/explorer';
 import { fullWorkspace } from './scenes/full-workspace';
 import { GALLERY_SCENES } from './scenes/gallery';
 import { gitWorkbench } from './scenes/git-workbench';
+import { galleryGroup, groupChat, mobileGroup } from './scenes/group-chat';
 import { hero } from './scenes/hero';
 import { mobile } from './scenes/mobile';
 import { multiSession } from './scenes/multi-session';
@@ -36,7 +40,9 @@ import { buildWorld } from './world';
 
 const SCENES: Scene[] = [
   hero, mobile, multiSession, gitWorkbench, commandApproval, explorer, branches, worktrees, terminal, fullWorkspace, board, settingsLearning,
+  groupChat, mobileGroup, galleryGroup, agentMessage, delegation, delegationThread,
   ...GALLERY_SCENES,
+  ...ARTICLE_SCENES,
 ];
 
 const { values } = parseArgs({

@@ -6,7 +6,11 @@
 import type { CreateScheduledJobInput } from '../../../packages/sdk/src';
 import { createDemoRepo, createInvoicerRepo } from '../seed';
 import type { Demo } from '../script';
+import { playAgentMessage } from './agent-message';
+import { createDemoAgents, type DemoAgents } from './agents';
 import { buildScript } from './build-script';
+import { playDelegation, type DelegationSessions } from './delegation';
+import { createDemoGroup, playGroup, type DemoGroup } from './group';
 import { datePreference } from './date-preference';
 import { explainSlugs } from './explain-slugs';
 import { fixExpiredLinks } from './fix-expired-links';
@@ -65,14 +69,28 @@ export interface World {
   worktrees: Record<WorktreeName, string>;
   sessions: Record<StoryName, string>;
   gallery: Record<GalleryStoryName, string>;
+  /** Reviewer and Tester beside the default agent. */
+  agents: DemoAgents;
+  /** The group of the three, its conversation played. */
+  group: DemoGroup;
+  /** The session that asked Reviewer a question through message_agent. */
+  agentMessage: string;
+  /** The session that delegated to Claude Code and into a worktree, with its children. */
+  delegation: DelegationSessions;
 }
 
 /** The world for clips: stories they play live are missing until recorded. */
-export interface ClipWorld extends Omit<World, 'sessions' | 'invoicerWorkspaceId' | 'gallery'> {
+export interface ClipWorld extends Omit<World, 'sessions' | 'invoicerWorkspaceId' | 'gallery' | 'agents' | 'group' | 'agentMessage' | 'delegation'> {
   /** Null when the clip adds the invoicer folder itself. */
   invoicerWorkspaceId: string | null;
   sessions: Partial<World['sessions']>;
   gallery: Partial<World['gallery']>;
+  /** Present with the `agents` option. */
+  agents: DemoAgents | null;
+  /** Present with the `agents` option; its conversation is played only with `group`. */
+  group: DemoGroup | null;
+  agentMessage: string | null;
+  delegation: DelegationSessions | null;
 }
 
 export interface ClipWorldOptions {
@@ -80,6 +98,10 @@ export interface ClipWorldOptions {
   invoicerWorkspace?: boolean;
   /** Play the gallery stories first and add the scheduled job. Stills only. */
   gallery?: boolean;
+  /** Create Reviewer and Tester and the group of the three (its conversation not played). */
+  agents?: boolean;
+  /** Also play the group conversation, the agent-to-agent question and the delegation. Needs `agents`. */
+  conversations?: boolean;
 }
 
 /** Creates the story's titled session, bound to its worktree. */
@@ -102,7 +124,7 @@ export async function buildClipWorld(
   demo: Demo,
   home: string,
   live: readonly StoryName[] = [],
-  { invoicerWorkspace = true, gallery = false }: ClipWorldOptions = {},
+  { invoicerWorkspace = true, gallery = false, agents = false, conversations = false }: ClipWorldOptions = {},
 ): Promise<ClipWorld> {
   const repo = createDemoRepo(home);
   const { workspace } = await demo.rest.workspaces.create({ name: 'linkshelf', path: repo });
@@ -114,7 +136,14 @@ export async function buildClipWorld(
   }
   const agent = (await demo.rest.agents.list()).agents.find((candidate) => candidate.isDefault);
   if (!agent) throw new Error('No default agent; the instance was initialized without preconfigs');
-  const world: ClipWorld = { repo, workspaceId: workspace.id, invoicerWorkspaceId: invoicer?.id ?? null, agentId: agent.id, worktrees, sessions: {}, gallery: {} };
+  const world: ClipWorld = {
+    repo, workspaceId: workspace.id, invoicerWorkspaceId: invoicer?.id ?? null, agentId: agent.id, worktrees, sessions: {}, gallery: {},
+    agents: null, group: null, agentMessage: null, delegation: null,
+  };
+  if (agents) {
+    world.agents = await createDemoAgents(demo, agent.id);
+    world.group = await createDemoGroup(demo, workspace.id, agent.id, world.agents);
+  }
 
   if (gallery) {
     await demo.rest.scheduler.create(workspace.id, { ...DEPENDENCY_CHECK, preconfigId: agent.id });
@@ -131,16 +160,29 @@ export async function buildClipWorld(
     await demo.runTurn(sessionId, story.prompt, story.steps, { until: story.until });
     world.sessions[name] = sessionId;
   }
+
+  // After the stories: the group reviews the expiry fix they made, and the
+  // catch-all rules the other two use need nothing else unscripted running.
+  if (conversations) {
+    if (!world.agents || !world.group) throw new Error('conversations need the agents option');
+    await playGroup(demo, world.group, world.agents);
+    world.agentMessage = await playAgentMessage(demo, workspace.id, agent.id, world.agents);
+    world.delegation = await playDelegation(demo, workspace.id, agent.id, world.agents);
+  }
   return world;
 }
 
 export async function buildWorld(demo: Demo, home: string): Promise<World> {
-  const world = await buildClipWorld(demo, home, [], { gallery: true });
+  const world = await buildClipWorld(demo, home, [], { gallery: true, agents: true, conversations: true });
   // Nothing was left out, so every story has its session and invoicer is registered.
   return {
     ...world,
     invoicerWorkspaceId: world.invoicerWorkspaceId!,
     sessions: world.sessions as World['sessions'],
     gallery: world.gallery as World['gallery'],
+    agents: world.agents!,
+    group: world.group!,
+    agentMessage: world.agentMessage!,
+    delegation: world.delegation!,
   };
 }
