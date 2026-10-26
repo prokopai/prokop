@@ -54,6 +54,7 @@ Around that, a complete workspace:
 
 - **Use the agent you already have.** Run Claude Code or Codex CLI on their own logins, or Prokop's built-in runtime on your own provider, in the same workspace.
 - **Parallel work without a terminal farm.** Several sessions side by side, each in its own Git worktree if you like, with files, diffs, Git, pull requests, and terminals around them.
+- **Several agents on one job.** Put up to ten of your agents in a group chat and address them by name; one hands a stage to the next. An agent can message another agent with a question and get the answer back, or delegate a task to a role on Claude Code, Codex, or Prokop, including sessions that start in their own worktrees.
 - **Talk to it mid-turn.** A message you send while the agent works reaches the running turn, and agents can answer with a chart, table, or page right in the reply.
 - **Approvals that explain themselves.** Asks name the concrete concern, such as a recursive delete or a path outside the project, and highlight the exact part of the command.
 - **The same workspace everywhere.** The full interface on your phone, and sessions from several of your machines in one place.
@@ -63,13 +64,34 @@ Start plain with one project and one agent, and turn on the rest as you need it.
 
 ## See it work
 
-These clips, and the one at the top, are recorded from a real Prokop instance. Only the model's replies are scripted; every memory write, search, edit, test run, build, and commit actually happens.
+These clips and stills, and the clip at the top, are recorded from a real Prokop instance. Only the model's replies are scripted; every memory write, search, edit, test run, build, and commit actually happens.
 
 **Several sessions at once.** Start a task in one pane and ask a question in another while the first keeps working, each in its own worktree if you like.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/multi-session-dark.webp">
   <img src="docs/readme/multi-session-light.webp" alt="Two Prokop sessions working side by side: one writes a rate limiter in its own worktree while the other answers a question about the codebase" width="900">
+</picture>
+
+**A group chat with your agents.** Reviewer is asked to look over the fix, hands the untested case to Tester, and Tester adds the test and runs the suite. Each member answers from its own session on its own runtime, and the thread shows who said what.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/group-chat-dark.webp">
+  <img src="docs/readme/group-chat-light.webp" alt="A group chat named Release check with three agents. The user mentions Reviewer, Reviewer reads the fix and hands the missing boundary test to Tester, and Tester adds the test and runs the suite, which passes" width="900">
+</picture>
+
+**Delegate across runtimes.** One conversation sends a review to Reviewer on Claude Code and starts the cleanup in a new session on its own worktree. Both results come back as notes, and the child sessions open beside it.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/delegation-dark.webp">
+  <img src="docs/readme/delegation-light.webp" alt="A session that delegated twice: a review to Reviewer running on Claude Code, shown as a read-only subagent pane, and an expired-link cleanup running in its own worktree session. The parent shows both finished notes" width="900">
+</picture>
+
+**Agents ask each other.** The agent puts a question to Reviewer, which answers from its own home with its own memory, and the answer comes back into the conversation.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/agent-message-dark.webp">
+  <img src="docs/readme/agent-message-light.webp" alt="A session where the agent sends Reviewer a question with message_agent, Reviewer's answer arrives as a result line, and the agent relays it with its own recommendation" width="900">
 </picture>
 
 **Approvals show what needs review.** Only `rm -rf dist` is highlighted, with the reason beside it. Allow it once and the real build runs.
