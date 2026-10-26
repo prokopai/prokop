@@ -59,7 +59,7 @@
     },
     "packages/client": {
       "name": "@prokopai/client",
-      "version": "1.27.0",
+      "version": "1.27.1",
       "dependencies": {
         "@fontsource-variable/geist": "^5.2.8",
         "@legendapp/list": "^3.0.0",
@@ -165,7 +165,7 @@
     },
     "packages/server": {
       "name": "@prokopai/server",
-      "version": "1.27.0",
+      "version": "1.27.1",
       "bin": {
         "prokop": "./dist/bin/prokop",
       },
