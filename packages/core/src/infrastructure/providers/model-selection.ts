@@ -23,6 +23,11 @@ export function openAiModelOmitsTemperature(modelId: string): boolean {
   return modelId === 'gpt-5-mini' || modelId.startsWith('gpt-6');
 }
 
+/** The AI SDK only knows GPT-5 and o-series reason; for others it silently drops the requested effort. */
+export function openAiModelReasoningOptions(modelId: string): { forceReasoning?: true } {
+  return modelId.startsWith('gpt-6') ? { forceReasoning: true } : {};
+}
+
 export interface ParsedModelSpecifier {
   modelId: string;
   providerId?: string;

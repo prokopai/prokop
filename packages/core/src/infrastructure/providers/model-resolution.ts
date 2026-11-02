@@ -3,6 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import {
   findProviderFromModel,
   openAiModelOmitsTemperature,
+  openAiModelReasoningOptions,
   parseModelSpecifier,
 } from './model-selection';
 import {
@@ -133,6 +134,7 @@ export async function getModelWithMetadata(
           openai: {
             promptCacheKey: options.sessionId,
             store: false,
+            ...openAiModelReasoningOptions(model),
           },
         },
       };

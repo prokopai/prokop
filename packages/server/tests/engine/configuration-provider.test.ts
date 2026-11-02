@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import type { LanguageModel } from 'ai';
+import { streamText, type LanguageModel } from 'ai';
+import models from '@/config/models.json';
+import { createOpenAiResponsesModel } from '@prokopai/core/infrastructure/providers/ai-sdk';
 import { createDefaultRuntimeConfiguration } from '@prokopai/core/infrastructure/providers/configuration/defaults';
 import {
   configureRuntimeConfiguration,
@@ -97,6 +99,33 @@ describe('runtime configuration', () => {
     }
     const older = await getModelWithMetadata({ modelId: 'gpt-4o', providerId: 'openai' });
     expect(older.omitTemperature).toBe(false);
+  });
+
+  test('every Codex model sends the effort its variant asks for', async () => {
+    const codex = models.providers.find(provider => provider.id === 'codex')!;
+    expect(codex.models.map(model => model.id)).toContain('gpt-6.1-terra');
+
+    for (const entry of codex.models) {
+      let body: { model?: string; reasoning?: { effort?: string } } = {};
+      const fetch = async (_input: string | URL | Request, init?: RequestInit) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(`data: ${JSON.stringify({ type: 'response.completed', response: { usage: { input_tokens: 1, output_tokens: 1 } } })}\n\n`, {
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      };
+      const { model, providerOptions } = createOpenAiResponsesModel({
+        modelId: entry.id, apiKey: 'fake-token',
+        fetch: Object.assign(fetch, { preconnect: globalThis.fetch.preconnect }),
+      });
+      for (const [variant, config] of Object.entries(entry.variants ?? {})) {
+        await streamText({
+          model, prompt: 'hi',
+          providerOptions: { openai: { ...providerOptions?.openai, ...config.providerOptions } } as Parameters<typeof streamText>[0]['providerOptions'],
+        }).consumeStream();
+        expect(body.model).toBe(entry.id);
+        expect(body.reasoning?.effort).toBe(variant);
+      }
+    }
   });
 
   test('normalizes explicit provider and model specifiers', async () => {
