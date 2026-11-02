@@ -1,2 +1,0 @@
-- **GPT-6.1 Terra**: Added GPT-6.1 Terra to the Codex (ChatGPT) model list.
-- **GPT-6 reasoning effort**: The effort you pick for a GPT-6 model is now sent with the request. It was silently dropped before, so every effort ran at the model's default.
