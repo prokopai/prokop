@@ -1,0 +1,1 @@
+- **GPT-6.1 Terra**: Added GPT-6.1 Terra to the Codex (ChatGPT) model list.
