@@ -8,7 +8,7 @@ import {
   type Tool,
 } from 'ai';
 import { getModelWithMetadata } from './model-resolution';
-import { openAiModelOmitsTemperature } from './model-selection';
+import { openAiModelOmitsTemperature, openAiModelReasoningOptions } from './model-selection';
 import type { ModelFactoryResult } from './types';
 import { codexNetworkRetryMiddleware } from './codex-network-retry';
 
@@ -68,6 +68,7 @@ export function createOpenAiResponsesModel(request: OpenAiResponsesModelRequest)
         instructions: request.systemPrompt || 'You are a helpful assistant.',
         promptCacheKey: request.sessionId,
         store: false,
+        ...openAiModelReasoningOptions(request.modelId),
       },
     },
   };
