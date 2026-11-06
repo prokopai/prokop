@@ -178,6 +178,11 @@ function lifecycleStatus(session: Session): TaskLifecycleStatus {
   }
 }
 
+/** A Prokop child's run is registered with the interrupt manager for its whole length. */
+function hasLiveRun(sessionId: string): boolean {
+  return interruptManager.isSessionActive(sessionId) || interruptManager.isSessionInterrupted(sessionId);
+}
+
 /** The child when it belongs to the caller's subtree or was launched by the caller, else a typed refusal. */
 async function ownedChild(
   taskId: string,
@@ -848,6 +853,23 @@ async function runSubagent(
           };
         }
 
+        // A child still on its run (often waiting on an approval) takes no
+        // second prompt: starting one would fail and mark the live run failed.
+        if (lifecycleStatus(childSession) === 'running' || hasLiveRun(childSession.id)) {
+          const pendingAsk = deps.host?.hasPendingAsk?.(childSession.id) ?? false;
+          return {
+            task_id: childSession.id,
+            status: 'running',
+            harness: childSession.harness ?? 'prokop',
+            model: childSession.selectedModel ?? null,
+            waitTimedOut: false,
+            pendingAsk,
+            result: `task_id: ${childSession.id} is still running and cannot take a new prompt until it finishes. `
+              + 'Its result arrives as a new message; do not start it again.'
+              + (pendingAsk ? ' It is waiting for the user to answer a question or approval shown on this session.' : ''),
+          };
+        }
+
         resumeFromHistory = true;
         await updateSessionFn(childSession.id, { subagentStatus: 'running' });
       }
@@ -1153,7 +1175,8 @@ async function runSubagent(
       rawError: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err,
     });
 
-    if (childSession) {
+    // A run that is still live is not this call's to mark.
+    if (childSession && !hasLiveRun(childSession.id)) {
       await updateSessionFn(childSession.id, { subagentStatus: abortSignal?.aborted ? 'interrupted' : 'error' });
       const updatedSession = await getSessionFn(childSession.id);
       if (updatedSession) {

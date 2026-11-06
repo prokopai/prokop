@@ -98,7 +98,7 @@ function harness() {
   };
   const emitAsk = (ask: DelegationAskNotice) => { for (const listener of askListeners) listener(ask); };
   return {
-    deps, sessions, deliveries, registry, emitAsk, tasks, transcripts,
+    deps, host, sessions, deliveries, registry, emitAsk, tasks, transcripts,
     finishChild: (text: string) => finishChild(text),
     setPendingAsk: (value: boolean) => { pendingAsk = value; },
     listeners: askListeners,
@@ -174,6 +174,50 @@ describe('async delegation', () => {
     await settle();
     expect(h.deliveries).toHaveLength(2);
     expect(h.listeners.size).toBe(0);
+  });
+
+  test('the ask that ended a wait is not delivered again while another task is watched', async () => {
+    const h = harness();
+    // Session lookups take a moment, as they do against the database.
+    const registry = createTaskRegistry({
+      host: h.host,
+      getSession: async (id) => { await settle(); return h.sessions.get(id) ?? null; },
+    });
+    const deps = { ...h.deps, registry };
+    // Another task already running async keeps the registry subscribed.
+    await executeSubagentWithDeps(ask({ mode: 'async', description: 'Earlier task' }), deps);
+
+    const pending = executeSubagentWithDeps(ask({ description: 'Waiting task' }), deps);
+    await settle();
+    const childId = [...h.sessions.values()].filter((s) => s.parentId === 'root').at(-1)!.id;
+    h.emitAsk({ sessionId: childId, requestId: 'req-wait', toolName: 'shell' });
+    const result = await pending;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    // The parent already read the ask in the tool result; no second wake-up.
+    expect(result).toMatchObject({ task_id: childId, status: 'running', pendingAsk: true });
+    expect(h.deliveries.map((entry) => entry.key)).toEqual([]);
+  });
+
+  test('a task_id of a child still waiting on an approval returns it running instead of failing it', async () => {
+    const h = harness();
+    const started = await executeSubagentWithDeps(ask({ mode: 'async' }), h.deps);
+    h.setPendingAsk(true);
+
+    const again = await executeSubagentWithDeps(ask({ task_id: started.task_id, prompt: 'continue' }), h.deps);
+
+    expect(again).toMatchObject({ task_id: started.task_id, status: 'running', pendingAsk: true });
+    expect(again.error).toBeUndefined();
+    expect(again.result).toContain('still running');
+    expect(await executeTaskStatus({ task_id: started.task_id, sessionId: 'root' }, h.deps))
+      .toMatchObject({ status: 'running', pendingAsk: true });
+
+    // Once answered, the original run finishes and reports once.
+    h.setPendingAsk(false);
+    h.finishChild('listed /etc');
+    await settle();
+    expect(h.sessions.get(started.task_id)?.subagentStatus).toBe('completed');
+    expect(h.deliveries.map((entry) => entry.key)).toEqual([`task-result:${started.task_id}:1`]);
   });
 
   test('a child already blocked on an ask ends the wait immediately', async () => {

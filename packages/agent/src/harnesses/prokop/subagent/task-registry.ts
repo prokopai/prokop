@@ -162,8 +162,12 @@ export function createTaskRegistry(deps: TaskRegistryDeps): TaskRegistry {
   function ensureSubscribed(): void {
     if (unsubscribe) return;
     unsubscribe = deps.host.onAskCreated((ask) => {
+      // Only the tasks watched when the ask opened: a wait that this ask
+      // ended starts watching during the awaits below and already reported
+      // the ask inline, so a live iterator would wake the parent twice.
+      const handles = [...watched.values()];
       void (async () => {
-        for (const handle of watched.values()) {
+        for (const handle of handles) {
           if (!(await within(ask.sessionId, handle.taskId))) continue;
           await deps.host.deliver({
             sessionId: handle.parentSessionId,
